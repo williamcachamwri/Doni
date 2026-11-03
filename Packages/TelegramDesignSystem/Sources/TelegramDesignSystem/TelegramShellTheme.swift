@@ -1,24 +1,56 @@
 import SwiftUI
 
-/// The parts of the shell Telegram does not draw: Doni's own mini player and channel chips, and
-/// the motion everything borrowed from `ChatListBadgeNode.swift`.
+/// The shell around the list: a tab bar, a strip of player above it, and the chips Doni uses to
+/// pick a channel. Everything the reference draws is quoted from it; the few numbers it does not
+/// have are marked Doni's own. `Docs/design-tokens.md`, "Tab bar and the mini player".
 ///
-/// Two of the three numbers below are Doni's, measured off the design lab rather than off the
-/// reference, and are marked as such. The motion is not: it is the badge's own timing, which is
-/// the closest thing in the reference to a state bubble appearing and going away.
+/// The motion is the one exception that is not Doni's: it is `ChatListBadgeNode.swift`'s own
+/// timing, the closest thing in the reference to a state bubble appearing and going away.
 public enum TelegramShellMetrics {
-    /// Doni's own — Telegram has no mini player outside a chat. A row is 68 and a cover tile is
-    /// 54, so the strip clears one row's worth of artwork without competing with the list.
+    /// Doni's own height: 46 pt of measured artwork with 9 pt of padding above and below.
+    /// Telegram's own music panel is 190 (`OverlayAudioPlayerControlsNode.swift:806`) because it
+    /// carries the scrubber and the button row as well.
     public static let miniPlayerHeight: CGFloat = 64
-    /// The 54 pt tile inside it, the same side the list's icon column uses.
-    public static let miniPlayerArt: CGFloat = 40
+    /// `albumArtSize = CGSize(width: 46.0, height: 46.0)` (`:855`).
+    public static let miniPlayerArt: CGFloat = 46
+    /// `ImageCorners(radius: 10.0)` on that art (`:857`) — a tenth of the side, not the chat
+    /// list's quarter, because the tile is smaller.
+    public static let miniPlayerArtRadius: CGFloat = 10
+    /// `sideInset = 16.0` in the same layout (`:846`).
+    public static let miniPlayerSideInset: CGFloat = 16
+    /// Doni's own: the strip is a way back to the player rather than the player, so the progress
+    /// keeps the hairline weight the rest of the shell uses.
     public static let progressBarHeight: CGFloat = 2
+
+    /// `tabBarHeight = 49.0 + bottomInset` (`TabBarController.swift:206`), the band the list
+    /// scrolls under.
+    public static let tabBarHeight: CGFloat = 49
+    /// The item block inside that band, icon over label (`TabBarNode.swift:45`).
+    public static let tabItemHeight: CGFloat = 45
+    /// `horizontalSpacing = 4.0` — the only gap in the item (`:35`).
+    public static let tabIconToLabel: CGFloat = 4
+    /// Doni's own: the reference tints bundled PNGs whose box never appears in source, and an SF
+    /// Symbol has to be given one. 24 keeps the glyph clear of the 45 pt block's label.
+    public static let tabGlyphSide: CGFloat = 24
 
     /// Doni's own — the channel strip above the search pill, wearing the search bar's own fill.
     public static let chipHeight: CGFloat = 30
     public static let chipHorizontalPadding: CGFloat = 12
     public static let chipGap: CGFloat = 8
     public static let chipFont = Font.system(size: 14, weight: .semibold)
+}
+
+/// The music bar's fonts, taken from the calls that set them in
+/// `OverlayAudioPlayerControlsNode.swift`.
+public enum TelegramShellTypography {
+    /// `titleFont = Font.semibold(17.0)` (`:111`).
+    public static let title = Font.system(size: 17, weight: .semibold)
+    /// `descriptionFont = Font.regular(15.0)` (`:112`).
+    public static let artist = Font.system(size: 15, weight: .regular)
+    /// `Font.medium(12.0)` on both timestamp labels (`:267`, `:270`).
+    public static let timestamp = Font.system(size: 12, weight: .medium)
+    /// `Font.medium(10.0)` under an icon (`TabBarNode.swift:20`).
+    public static let tabLabel = Font.system(size: 10, weight: .medium)
 }
 
 /// Motion lifted from `ChatListBadgeNode.swift` — the bubble Telegram animates into the
