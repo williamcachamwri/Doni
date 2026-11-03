@@ -34,10 +34,19 @@ public final class TdClient: @unchecked Sendable {
     private var isClosed = false
     private let stream: AsyncStream<TdJSON>
     private let yield: AsyncStream<TdJSON>.Continuation
+    private let fileStream: AsyncStream<TdJSON>
+    private let fileYield: AsyncStream<TdJSON>.Continuation
 
     /// Updates and unsolicited responses, in arrival order. `AsyncStream` has
     /// one consumer; the session layer fans out from here.
     public var updates: AsyncStream<TdJSON> { stream }
+
+    /// The `file` inside every `updateFile` (`td_api.tl:11596`), on a stream of its own.
+    ///
+    /// A second consumer of `updates` would steal states from the login loop, and file progress
+    /// is exactly the kind of update a download has to be watched for without disturbing
+    /// anything else, so the receive loop copies it out here instead.
+    public var files: AsyncStream<TdJSON> { fileStream }
 
     public init(transport: any TdTransporting, clientId: Int32) {
         self.transport = transport
@@ -47,6 +56,11 @@ public final class TdClient: @unchecked Sendable {
         )
         self.stream = stream
         self.yield = continuation
+        let (fileStream, fileContinuation) = AsyncStream<TdJSON>.makeStream(
+            bufferingPolicy: .unbounded
+        )
+        self.fileStream = fileStream
+        self.fileYield = fileContinuation
     }
 
     /// Starts the receive loop, once per instance: TDLib forbids two
@@ -115,6 +129,7 @@ public final class TdClient: @unchecked Sendable {
             continuation.resume(throwing: Failure.closed)
         }
         yield.finish()
+        fileYield.finish()
     }
 
     private func nextExtra() -> String {
@@ -131,6 +146,7 @@ public final class TdClient: @unchecked Sendable {
     }
 
     private func route(_ json: TdJSON) {
+        if json.type == "updateFile", let file = json["file"] { fileYield.yield(file) }
         if let extra = json["@extra"]?.string {
             lock.lock()
             let continuation = pending.removeValue(forKey: extra)

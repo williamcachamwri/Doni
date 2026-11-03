@@ -18,6 +18,10 @@ public actor TdLoginFlow {
     /// Every state change, in arrival order. One consumer; the app fans out.
     nonisolated public var steps: AsyncStream<TdAuthorizationStep> { stepStream }
 
+    /// File progress, on the client's own second stream: watching a download must not drink the
+    /// authorisation states out of `updates`, which has exactly one consumer.
+    nonisolated public var files: AsyncStream<TdJSON> { client.files }
+
     public init(
         client: TdClient,
         parameters: TdParameters,

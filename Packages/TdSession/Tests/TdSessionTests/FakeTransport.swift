@@ -8,7 +8,16 @@ final class FakeTransport: TdTransporting, @unchecked Sendable {
     private var scripted: [String]
     private var sent: [String] = []
     private var executed: [String] = []
+    private var consumed = 0
     var syncReply: String?
+
+    /// How many scripted replies the receive loop has taken, so a test can tell a
+    /// delivered message from one still sitting in the queue.
+    var consumedCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return consumed
+    }
 
     init(replies: [String] = []) {
         scripted = replies
@@ -30,6 +39,7 @@ final class FakeTransport: TdTransporting, @unchecked Sendable {
         lock.lock()
         if !scripted.isEmpty {
             let next = scripted.removeFirst()
+            consumed += 1
             lock.unlock()
             return next
         }
