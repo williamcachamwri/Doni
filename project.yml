@@ -28,6 +28,10 @@ packages:
   TdBridge:
     path: Packages/TdBridge
 
+configFiles:
+  Debug: Config/Tdlib.xcconfig
+  Release: Config/Tdlib.xcconfig
+
 targets:
   Doni:
     type: application
@@ -43,6 +47,11 @@ targets:
         UIBackgroundModes: [audio]
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # MTProto identifies the application, not the user, so these have to be
+        # in the bundle. They come from the gitignored Config/Tdlib.xcconfig;
+        # the user's session is separate and goes to the Keychain.
+        TDLibApiId: $(TDLIB_API_ID)
+        TDLibApiHash: $(TDLIB_API_HASH)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.doni.app

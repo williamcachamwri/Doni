@@ -12,8 +12,15 @@ vendor: ## Build tdlib + OpenSSL xcframework from pinned tags (first run: ~20 mi
 reference: ## Sparse-fetch Telegram-iOS as a design-token spec (GPL: read-only, never linked)
 	./Scripts/fetch-design-reference.sh
 
-project: ## Generate Doni.xcodeproj from project.yml
+project: Config/Tdlib.xcconfig ## Generate Doni.xcodeproj from project.yml
 	xcodegen --spec project.yml
+
+# project.yml points configFiles at this path, so it has to exist even on a
+# fresh clone. cp -n: never clobber values that are already there.
+Config/Tdlib.xcconfig:
+	@cp -n Config/Tdlib.example.xcconfig $@ \
+		&& echo ">> created $@ from the example — put your api_id/api_hash in it (it is gitignored)" \
+		|| echo ">> $@ present"
 
 build: project ## Compile for iOS; the build is a warning-free gate
 	xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Debug \
