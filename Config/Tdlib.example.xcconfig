@@ -1,0 +1,9 @@
+// Copy to Config/Tdlib.xcconfig (gitignored) and fill in from my.telegram.org.
+//
+// MTProto with a user account requires an api_id/api_hash baked into the binary:
+// the handshake identifies the *application*, not the user, and TDLib refuses
+// to run without them. They are not the user's secret — the session is, and
+// that goes to the Keychain. Keep this file out of version control so the
+// values stay personal to whoever builds this app.
+TDLIB_API_ID=0
+TDLIB_API_HASH=
