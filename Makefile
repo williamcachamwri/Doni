@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 XCODEPROJ = Doni.xcodeproj
 SCHEME = Doni
-PACKAGES = Support TelegramDesignSystem
+PACKAGES = Support TelegramDesignSystem TdSession
 
 help: ## List targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
