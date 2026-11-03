@@ -22,6 +22,14 @@ public enum TelegramShellMetrics {
     /// keeps the hairline weight the rest of the shell uses.
     public static let progressBarHeight: CGFloat = 2
 
+    /// `scrubberThickness = 7.0` in the expanded panel's own scrubber (`:266`), drawn with round
+    /// caps and no handle (`:716`).
+    public static let scrubberHeight: CGFloat = 7
+    /// `buttonSize = CGSize(width: 64.0, height: 64.0)` for the transport row (`:887`); the glyph
+    /// inside it is a 76 pt asset box (`:899`), which an SF Symbol cannot be sized from, so the
+    /// point sizes live with the screen that draws them.
+    public static let transportButton: CGFloat = 64
+
     /// `tabBarHeight = 49.0 + bottomInset` (`TabBarController.swift:206`), the band the list
     /// scrolls under.
     public static let tabBarHeight: CGFloat = 49

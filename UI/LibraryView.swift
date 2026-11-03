@@ -26,6 +26,8 @@ struct LibraryView: View {
 
     @State private var query = ""
     @State private var showsAccountMenu = false
+    /// The strip of player is the closed state of this; opening it is the strip's only job.
+    @State private var showsPlayer = false
     @FocusState private var fieldFocused: Bool
 
     private let palette = TelegramPalette.dark
@@ -36,6 +38,15 @@ struct LibraryView: View {
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            MiniPlayerBar(player: player, artwork: artwork) { showsPlayer = true }
+                .transition(.offset(y: TelegramShellMetrics.miniPlayerHeight)
+                    .combined(with: .opacity))
+        }
+        .fullScreenCover(isPresented: $showsPlayer) {
+            NowPlayingView(player: player, artwork: artwork)
+        }
+        .animation(TelegramShellMotion.appear, value: player.current?.uniqueId)
         .task {
             player.bind(session.covers())
             indexer.run(session, library: library)

@@ -480,6 +480,23 @@ it, so every element inside the strip takes this file's number.
 | **64 pt** strip | Doni's own height: 46 of measured artwork plus 9 of padding above and below | |
 | **2 pt** progress line | Doni's own — the strip is a way back to the player, not the player, so it takes the hairline weight the rest of the shell uses | |
 
+### Now Playing (`UI/NowPlayingView.swift`)
+
+The reference has no such screen: Telegram slides the 190 pt panel up over the chat instead. Doni
+opens it full-screen, because the list is a scroll view of its own and a 190 pt sheet over a chat
+list would cover three rows for no reason. The layout is therefore Doni's, and every element inside
+it keeps the number above.
+
+| Value | What | Source |
+|---|---|---|
+| 7 pt round-capped line, **no handle** | the scrubber, exactly as `:716` draws it | measured |
+| 22 pt band around that line | Doni's own — a 7 pt line is not a thing a finger can hit | |
+| side − 2 × 16, capped at **360** | the cover, 16 being the bar's own `sideInset` (`:846`); the cap is Doni's so a Max does not get a blurry square | measured inset, Doni's cap |
+| corner **10** on that cover | the same corner the 46 pt strip art is drawn with (`:857`) | measured |
+| `semibold(17)` / `regular(15)` / `medium(12)` | title / artist / both timestamps (`:111`, `:112`, `:267`, `:270`) | measured |
+| **64 × 64** per transport button (`:887`), glyphs at 26 and 40 | the reference's glyphs are bundled PNGs in a 76 pt box (`:899`), which yields no point size for an SF Symbol, so the sizes are Doni's | box measured, sizes own |
+| 44 pt bar, centred `semibold(17)` title, hairline under it | the nav bar every other screen in the app already wears | `ChatTitleView.swift:26`; the rule is `1.0 / scale`, as measured at `ChatListItem.swift:928` and `TabBarNode.swift:18` |
+
 ### Motion (`ChatListBadgeNode.swift`)
 
 Already recorded with the library row; `TelegramShellMotion` is that file's timing — 0.15 s alpha
