@@ -157,6 +157,154 @@ func nonAudioDocumentRejected() throws {
     ])
     let value = try #require(TdTrack(message: zip))
     #expect(value.isAudio == false)
+    #expect(value.miniArtwork == nil, "a document's minithumbnail is a drawn file icon")
+}
+
+/// `td_api.tl:361` — `minithumbnail width height data:bytes`, and TDLib's JSON
+/// writes `bytes` as base64. A real channel carries this on two thirds of its
+/// audios, which is why the list can show cover art without downloading a file.
+private func audioWithArtwork(_ data: String?) -> TdJSON {
+    var audio: [String: TdJSON] = [
+        "@type": .string("audio"), "duration": .int(200),
+        "title": .string("Lạc Trôi"), "performer": .string("Sơn Tùng M-TP"),
+        "file_name": .string("lac-troi.mp3"), "mime_type": .string("audio/mpeg"),
+        "audio": .object([
+            "@type": .string("file"), "id": .int(90), "size": .int(5_000_000),
+            "local": .object(["@type": .string("localFile"), "path": .string("")]),
+            "remote": .object([
+                "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUZ")
+            ])
+        ])
+    ]
+    if let data {
+        audio["album_cover_minithumbnail"] = .object([
+            "@type": .string("minithumbnail"), "width": .int(40), "height": .int(30),
+            "data": .string(data)
+        ])
+    }
+    return .object([
+        "@type": .string("message"), "id": .int(600), "chat_id": .int(-1001234567890),
+        "date": .int(1_730_000_200),
+        "content": .object([
+            "@type": .string("messageAudio"), "audio": .object(audio),
+            "caption": .object(["@type": .string("formattedText"), "text": .string("")])
+        ])
+    ])
+}
+
+@Test("cover art comes with the message and needs no download")
+func miniArtworkDecodes() throws {
+    let jpegBase64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA=="
+    let value = try #require(TdTrack(message: audioWithArtwork(jpegBase64)))
+    #expect(value.miniArtwork == Data(base64Encoded: jpegBase64))
+
+    let bare = try #require(TdTrack(message: audioWithArtwork(nil)))
+    #expect(bare.miniArtwork == nil)
+}
+
+@Test("base64 that is not base64 is no artwork, not a crash")
+func unreadableArtworkIsIgnored() throws {
+    let value = try #require(TdTrack(message: audioWithArtwork("not base64 at all !!")))
+    #expect(value.miniArtwork == nil)
+    #expect(value.displayTitle == "Lạc Trôi", "the track is still listable")
+}
+
+/// The shape a posting bot sends: the tag cut at about 64 characters and the whole name
+/// repeated in the caption. Titles here are invented — a real channel's message content
+/// stays out of the repo, as the brief requires.
+private func botPosted(title: String, caption: String) -> TdJSON {
+    .object([
+        "@type": .string("message"), "id": .int(601), "chat_id": .int(-1001234567890),
+        "date": .int(1_730_000_300),
+        "content": .object([
+            "@type": .string("messageAudio"),
+            "audio": .object([
+                "@type": .string("audio"), "duration": .int(3600),
+                "title": .string(title), "performer": .string("DJ Không Tên"),
+                "file_name": .string("nonstop.mp3"), "mime_type": .string("audio/mpeg"),
+                "audio": .object([
+                    "@type": .string("file"), "id": .int(91), "size": .int(9_000_000),
+                    "local": .object(["@type": .string("localFile"), "path": .string("")]),
+                    "remote": .object([
+                        "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUa")
+                    ])
+                ])
+            ]),
+            "caption": .object([
+                "@type": .string("formattedText"), "text": .string(caption), "entities": .array([])
+            ])
+        ])
+    ])
+}
+
+private let cutTag = "MỘT BÀI NONSTOP REMIX (BẢN HOT TIKTOK) - MỘT BÀI NONSTOP…"
+private let wholeName = "MỘT BÀI NONSTOP REMIX (BẢN HOT TIKTOK) - MỘT BÀI NONSTOP CỰC MẠNH 2025"
+
+@Test("a title the posting bot cut is repaired from the caption's own name line")
+func cutTitleRepairedFromCaption() throws {
+    let value = try #require(TdTrack(
+        message: botPosted(title: cutTag, caption: """
+        Tiêu đề: \(wholeName)
+        Kênh: Mix Team
+        Nguồn: @NhacBot
+        """)
+    ))
+    #expect(value.displayTitle == wholeName)
+    #expect(value.title == wholeName, "repaired at the message boundary, so search and the store see it too")
+}
+
+@Test("the name line is found under Bài hát as well as under Tiêu đề")
+func songKeyRepairsToo() throws {
+    let value = try #require(TdTrack(
+        message: botPosted(title: "Tương Tư…", caption: """
+        Bài hát: Tương Tư Một Người Ra Đi
+        Thể hiện: Minh Như
+        """)
+    ))
+    #expect(value.displayTitle == "Tương Tư Một Người Ra Đi")
+    #expect(value.displayPerformer == "DJ Không Tên", "the tag performer is not the caption's, and stays the tag's")
+}
+
+@Test("the bot's case and its spacing do not hide a match")
+func foldedMatchRepairs() throws {
+    let lower = try #require(TdTrack(
+        message: botPosted(title: "tương tư…", caption: "Bài hát: Tương Tư Một Người Ra Đi")
+    ))
+    #expect(lower.displayTitle == "Tương Tư Một Người Ra Đi")
+
+    let spaced = try #require(TdTrack(
+        message: botPosted(title: "Tương  tư…", caption: "Bài hát: Tương tư hai người ở lại")
+    ))
+    #expect(spaced.displayTitle == "Tương tư hai người ở lại")
+}
+
+@Test("a caption that is not the same name leaves the bot's cut in place")
+func unrelatedCaptionKeepsTheCut() throws {
+    let value = try #require(TdTrack(
+        message: botPosted(title: cutTag, caption: "Tiêu đề: MỘT BÀI KHÁC HOÀN TOÀN DÀI RA ĐÂY NÈ")
+    ))
+    #expect(value.displayTitle == cutTag)
+
+    let shorter = try #require(TdTrack(message: botPosted(title: cutTag, caption: "Tiêu đề: MỘT")))
+    #expect(shorter.displayTitle == cutTag, "a caption shorter than the cut is not the same name")
+}
+
+@Test("a duration line is never read as a name")
+func durationLineIsNotAName() throws {
+    // The real layout puts `Loại:` inside the duration line, so a parser that split on any
+    // colon would find a name that is not one.
+    let value = try #require(TdTrack(
+        message: botPosted(title: cutTag, caption: "Thời lượng: 1:11:37  Loại: Youtube")
+    ))
+    #expect(value.displayTitle == cutTag)
+}
+
+@Test("an untouched title is left exactly as the tag wrote it")
+func wholeTagTitleIsUntouched() throws {
+    let value = try #require(TdTrack(
+        message: botPosted(title: "Lạc Trôi", caption: "Tiêu đề: Lạc Trôi — Đức Phúc Và Bạn Bè")
+    ))
+    #expect(value.displayTitle == "Lạc Trôi", "only a cut tag is ever replaced")
 }
 
 @Test("a page finds the oldest id it holds and only an empty one ends the walk")

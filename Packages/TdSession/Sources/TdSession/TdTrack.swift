@@ -37,6 +37,10 @@ public struct TdTrack: Equatable, Sendable {
     /// Set once TDLib has the file on the device.
     public let localPath: String?
     public let isDownloaded: Bool
+    /// TDLib's `minithumbnail` for the cover tag: a few hundred bytes of JPEG the
+    /// message itself carries, so the list can show real artwork without asking for
+    /// a file. `nil` when the post has no cover, which is a third of a real channel.
+    public let miniArtwork: Data?
 
     /// `message` is a `message` object; nil for anything that is not a file the
     /// app can play.
@@ -53,6 +57,7 @@ public struct TdTrack: Equatable, Sendable {
         let mimeType: String
         let caption: String
         let duration: Int?
+        let miniArtwork: Data?
 
         switch content.type {
         case "messageAudio":
@@ -65,6 +70,12 @@ public struct TdTrack: Equatable, Sendable {
             mimeType = audio?["mime_type"]?.string ?? ""
             caption = content["caption"]?["text"]?.string ?? ""
             duration = Int(audio?["duration"]?.int ?? 0)
+            // TDLib serialises `bytes` as base64; this is the only artwork that comes
+            // with the message rather than as a file that has to be fetched
+            // (`td_api.tl:583`, `audio.album_cover_minithumbnail`). A document's own
+            // minithumbnail is a drawn file icon, so it is not artwork and stays unread.
+            let encodedArtwork = audio?["album_cover_minithumbnail"]?["data"]?.string
+            miniArtwork = encodedArtwork.flatMap { Data(base64Encoded: $0) }
         case "messageDocument":
             origin = .document
             let document = content["document"]
@@ -75,6 +86,7 @@ public struct TdTrack: Equatable, Sendable {
             mimeType = document?["mime_type"]?.string ?? ""
             caption = content["caption"]?["text"]?.string ?? ""
             duration = nil
+            miniArtwork = nil
         case "messageVoiceNote":
             origin = .voiceNote
             let voice = content["voice_note"]
@@ -85,6 +97,7 @@ public struct TdTrack: Equatable, Sendable {
             mimeType = voice?["mime_type"]?.string ?? "audio/ogg"
             caption = content["caption"]?["text"]?.string ?? ""
             duration = Int(voice?["duration"]?.int ?? 0)
+            miniArtwork = nil
         default:
             return nil
         }
@@ -102,7 +115,7 @@ public struct TdTrack: Equatable, Sendable {
         self.origin = origin
         self.fileId = Int(fileId)
         self.uniqueId = uniqueId
-        self.title = title
+        self.title = Self.fullTitle(title, from: caption)
         self.performer = performer
         self.fileName = fileName
         self.mimeType = mimeType
@@ -112,6 +125,49 @@ public struct TdTrack: Equatable, Sendable {
         self.duration = (duration ?? 0) > 0 ? duration : nil
         self.localPath = path.isEmpty ? nil : path
         self.isDownloaded = local?["is_downloading_completed"]?.bool ?? false
+        self.miniArtwork = miniArtwork
+    }
+
+    /// The bots that post these files write the name twice — into the audio tag and into the
+    /// caption — and cut the tag at about 64 characters: 93 of the 168 audios in the real
+    /// channel arrive with a title ending in "…" while the same message's caption still holds
+    /// the whole name. Telegram would show the cut tag; a library should not, so the cut is
+    /// replaced only where the caption is that same name with its ending put back. A caption
+    /// that is cut as well keeps its own "…" — the list never claims a name it does not have.
+    private static func fullTitle(_ title: String, from caption: String) -> String {
+        guard title.hasSuffix(ellipsis) else { return title }
+        let cut = String(title.dropLast())
+        guard let whole = captionName(caption), whole.count > cut.count,
+              folded(whole).hasPrefix(folded(cut))
+        else { return title }
+        return whole
+    }
+
+    private static let ellipsis = "…"
+
+    /// The caption's own name line: `Tiêu đề:` over a mix, `Bài hát:` over a song. Only those
+    /// keys count, so `Thời lượng: 1:11:37` — a value that carries a second colon — is never
+    /// read as a title.
+    private static func captionName(_ caption: String) -> String? {
+        for line in caption.split(separator: "\n") {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let key = String(line[line.startIndex..<colon])
+            let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            guard !value.isEmpty, nameKeys.contains(where: { folded($0) == folded(key) }) else { continue }
+            return value
+        }
+        return nil
+    }
+
+    private static let nameKeys = ["Tiêu đề", "Bài hát"]
+
+    /// A bot writes names in caps and another in sentence case, and a caption's spacing is not
+    /// the tag's, so the two are compared with case, diacritics, width and runs of space
+    /// folded away. What is *shown* stays exactly as the caption wrote it.
+    private static func folded(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
     }
 
     /// The name the list shows. Tags first, then the caption the channel wrote,
