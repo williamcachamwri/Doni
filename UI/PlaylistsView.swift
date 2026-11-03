@@ -52,7 +52,6 @@ struct PlaylistsView: View {
                                    artwork: artwork, library: library)
             }
         }
-        .playerStrip(player: player, artwork: artwork, library: library)
         .alert(titleForAlert, isPresented: nameBeingEntered, presenting: naming) { kind in
             TextField("Tên danh sách", text: $name)
             Button(kind.verb) { commit(kind) }

@@ -14,8 +14,8 @@ struct DoniApp: App {
     var body: some Scene {
         WindowGroup {
             if session.isAuthorized {
-                LibraryView(session: session, indexer: indexer, player: player,
-                            artwork: artwork, library: library)
+                RootView(session: session, indexer: indexer, player: player,
+                         artwork: artwork, library: library)
             } else {
                 LoginView(session: session)
             }

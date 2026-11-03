@@ -15,8 +15,6 @@ import TelegramDesignSystem
 /// the library goes with the session rather than being left behind to fail.
 struct SettingsView: View {
     @ObservedObject var session: TelegramSession
-    @ObservedObject var player: Player
-    @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
@@ -31,7 +29,6 @@ struct SettingsView: View {
             list
         }
         .background(palette.chatListBackground.ignoresSafeArea())
-        .playerStrip(player: player, artwork: artwork, library: library)
         .confirmationDialog("Đăng xuất khỏi Telegram?", isPresented: $confirmingLogout,
                             titleVisibility: .visible) {
             Button("Đăng xuất", role: .destructive) { signOut() }
@@ -190,6 +187,5 @@ private struct SettingsRow: View {
 }
 
 #Preview {
-    SettingsView(session: TelegramSession(), player: Player(), artwork: CoverArtwork.shared,
-                 library: Library.shared)
+    SettingsView(session: TelegramSession(), library: Library.shared)
 }

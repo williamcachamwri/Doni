@@ -28,7 +28,6 @@ struct LikesView: View {
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
-        .playerStrip(player: player, artwork: artwork, library: library)
     }
 
     // MARK: Chrome
