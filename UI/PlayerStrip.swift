@@ -10,6 +10,7 @@ import TelegramDesignSystem
 struct PlayerStripHost: ViewModifier {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
+    @ObservedObject var library: Library
 
     /// The strip is the closed state of the player; opening it is the strip's only job.
     @State private var showsPlayer = false
@@ -22,14 +23,14 @@ struct PlayerStripHost: ViewModifier {
                         .combined(with: .opacity))
             }
             .fullScreenCover(isPresented: $showsPlayer) {
-                NowPlayingView(player: player, artwork: artwork)
+                NowPlayingView(player: player, artwork: artwork, library: library)
             }
             .animation(TelegramShellMotion.appear, value: player.current?.uniqueId)
     }
 }
 
 extension View {
-    func playerStrip(player: Player, artwork: CoverArtwork) -> some View {
-        modifier(PlayerStripHost(player: player, artwork: artwork))
+    func playerStrip(player: Player, artwork: CoverArtwork, library: Library) -> some View {
+        modifier(PlayerStripHost(player: player, artwork: artwork, library: library))
     }
 }

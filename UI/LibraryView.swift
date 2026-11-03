@@ -35,7 +35,7 @@ struct LibraryView: View {
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
-        .playerStrip(player: player, artwork: artwork)
+        .playerStrip(player: player, artwork: artwork, library: library)
         .task {
             player.bind(session.covers())
             indexer.run(session, library: library)

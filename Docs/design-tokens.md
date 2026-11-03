@@ -493,11 +493,13 @@ it keeps the number above.
 | Value | What | Source |
 |---|---|---|
 | 7 pt round-capped line, **no handle** | the scrubber, exactly as `:716` draws it | measured |
-| 22 pt band around that line | Doni's own — a 7 pt line is not a thing a finger can hit | |
+| **26** pt band around that line | `height: 10.0 + 8.0 * 2.0` is the frame the reference gives the scrubber, so the hit area is the frame it measured rather than one Doni picked | `:867` |
 | side − 2 × 16, capped at **360** | the cover, 16 being the bar's own `sideInset` (`:846`); the cap is Doni's so a Max does not get a blurry square | measured inset, Doni's cap |
 | corner **10** on that cover | the same corner the 46 pt strip art is drawn with (`:857`) | measured |
 | `semibold(17)` / `regular(15)` / `medium(12)` | title / artist / both timestamps (`:111`, `:112`, `:267`, `:270`) | measured |
 | **64 × 64** per transport button (`:887`), glyphs at 26 and 40 | the reference's glyphs are bundled PNGs in a 76 pt box (`:899`), which yields no point size for an SF Symbol, so the sizes are Doni's | box measured, sizes own |
+| centre three spread over **320**, side buttons starting 12 pt outside the 16 pt inset | `buttonsWidth = min(width − insets − 2 × (sideInset + 60.0), 320.0)` (`:888`) and `x = leftInset + sideInset − 12.0` / its mirror (`:891`, `:892`). The reference's flanks are an order button and a looping one; Doni keeps the loop — as a cut, which is Doni's own behaviour — and spends the other slot on a heart at 24 pt | bands measured, glyph own |
+| 20 pt caption line under the transport | Doni's own height, holding one `medium(12)` row (`:267`) whether or not a cut exists so marking one never moves the transport under the finger | |
 | 44 pt bar, centred `semibold(17)` title, hairline under it | the nav bar every other screen in the app already wears | `ChatTitleView.swift:26`; the rule is `1.0 / scale`, as measured at `ChatListItem.swift:928` and `TabBarNode.swift:18` |
 
 ### Motion (`ChatListBadgeNode.swift`)
