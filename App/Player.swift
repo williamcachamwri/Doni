@@ -29,6 +29,9 @@ final class Player: ObservableObject {
     private var loading: Task<Void, Never>?
     /// Set once the session is authorized: a song is a `file_id` until TDLib puts it on the phone.
     private var downloader: TdFileDownloader?
+    /// Where a file that has just landed is written down, so the row reads as downloaded next
+    /// launch and the offline count in Settings is the truth.
+    private let library: Library
 
     var hasNext: Bool { index + 1 < queue.count }
     var hasPrevious: Bool { index > 0 }
@@ -37,7 +40,8 @@ final class Player: ObservableObject {
         self.downloader = downloader
     }
 
-    init() {
+    init(library: Library = .shared) {
+        self.library = library
         // Background audio only survives if the category is `.playback` before the first file is
         // opened; `UIBackgroundModes` lists `audio` for the same reason.
         try? AVAudioSession.sharedInstance().setCategory(.playback)
@@ -173,6 +177,9 @@ final class Player: ObservableObject {
                 isFetchingFile = false
                 return
             }
+            // The path that played is the one written back: a stored path that turned out to be
+            // stale is corrected here rather than left to fail again next time.
+            library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
             open(path: onDisk, track: track)
         }
     }

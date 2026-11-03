@@ -6,11 +6,12 @@ import TdSession
 /// Walks one channel's history, 100 messages at a time, and collects everything
 /// playable in it.
 ///
-/// Index-first: the app reads the whole channel before it shows a list, because
-/// a music library that only knows the first screenful of posts is not a library.
-/// The loop keeps the oldest message id it has seen and asks for messages older
-/// than that, which is the only direction `getChatHistory` walks; a page shorter
-/// than the limit ends the channel.
+/// Index-first: the app reads the whole channel before it decides what the library is, because a
+/// music library that only knows the first screenful of posts is not a library. The loop keeps the
+/// oldest message id it has seen and asks for messages older than that, which is the only direction
+/// `getChatHistory` walks; a page shorter than the limit ends the channel. Each page is written to
+/// `Library` as it lands, and the stored rows go on screen before the walk starts, so the list is
+/// full the moment it is opened and the walk only has to improve it.
 @MainActor
 final class LibraryIndexer: ObservableObject {
     struct Snapshot: Equatable {
@@ -28,7 +29,7 @@ final class LibraryIndexer: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
-    @Published private(set) var tracks: [TdTrack] = []
+    @Published private(set) var tracks: [any Playable] = []
     @Published private(set) var channel: TdChannel?
 
     private var task: Task<Void, Never>?
@@ -71,7 +72,7 @@ final class LibraryIndexer: ObservableObject {
 
     /// Vietnamese search without tone marks: both sides go through
     /// `SearchTextFold.normalized`, so "tinh yeu" finds "Tình yêu".
-    func matches(of rawQuery: String) -> [TdTrack] {
+    func matches(of rawQuery: String) -> [any Playable] {
         let query = SearchTextFold.normalized(rawQuery)
         guard !query.isEmpty else { return tracks }
         for track in tracks where haystacks[track.uniqueId] == nil {
@@ -82,22 +83,25 @@ final class LibraryIndexer: ObservableObject {
         return tracks.filter { haystacks[$0.uniqueId]?.contains(query) ?? false }
     }
 
-    /// Starts the walk if nothing is walking. `.task` on first appearance uses this.
-    func run(_ session: TelegramSession) {
-        startWalk(session, replacing: false)
+    /// Puts the stored library on screen first, then starts the walk if nothing is walking.
+    /// `.task` on first appearance uses this.
+    func run(_ session: TelegramSession, library: Library) {
+        if tracks.isEmpty { tracks = library.storedTracks }
+        startWalk(session, library: library, replacing: false)
     }
 
     /// Pull-to-refresh: the walk starts again from the newest message and the spinner is held
     /// until it ends. The rows already on screen stay — see `index`.
-    func reload(_ session: TelegramSession) async {
-        guard let walk = startWalk(session, replacing: true) else { return }
+    func reload(_ session: TelegramSession, library: Library) async {
+        guard let walk = startWalk(session, library: library, replacing: true) else { return }
         await walk.value
     }
 
     /// The handle is set before anything can suspend, so a second call while a walk is running
     /// either does nothing (a tap) or replaces it (a refresh) rather than racing it.
     @discardableResult
-    private func startWalk(_ session: TelegramSession, replacing: Bool) -> Task<Void, Never>? {
+    private func startWalk(_ session: TelegramSession, library: Library,
+                           replacing: Bool) -> Task<Void, Never>? {
         if replacing {
             stop()
         } else if task != nil {
@@ -106,7 +110,7 @@ final class LibraryIndexer: ObservableObject {
         guard let reader = session.reader() else { return nil }
         generation += 1
         let mine = generation
-        let walk = Task { await self.index(reader) }
+        let walk = Task { await self.index(reader, library: library) }
         task = walk
         // Letting the handle go when the walk ends is what allows a second walk at all; the
         // generation check keeps a replaced walk from clearing the one that replaced it.
@@ -125,7 +129,7 @@ final class LibraryIndexer: ObservableObject {
         if case let .reading(snapshot) = phase { phase = .finished(snapshot) }
     }
 
-    private func index(_ reader: TdChannelReader) async {
+    private func index(_ reader: TdChannelReader, library: Library) async {
         phase = .resolving
         let channel: TdChannel
         do {
@@ -135,6 +139,7 @@ final class LibraryIndexer: ObservableObject {
             return
         }
         self.channel = channel
+        library.remember(channel)
 
         var seen: Set<String> = []
         var collected: [TdTrack] = []
@@ -161,6 +166,7 @@ final class LibraryIndexer: ObservableObject {
                 seen.insert(track.uniqueId)
                 collected.append(track)
             }
+            library.remember(page: page.tracks, chatId: channel.chatId)
             if publishAsItGoes { tracks = Self.newestFirst(collected) }
             phase = .reading(.init(trackCount: collected.count, messageCount: messages, pageCount: pages))
 
@@ -170,6 +176,7 @@ final class LibraryIndexer: ObservableObject {
 
         guard !Task.isCancelled else { return }
         if !publishAsItGoes { tracks = Self.newestFirst(collected) }
+        library.refresh()
         phase = .finished(.init(trackCount: collected.count, messageCount: messages, pageCount: pages))
     }
 

@@ -13,6 +13,8 @@ protocol Playable {
     var uniqueId: String { get }
     /// The message it came from, which is also the seed the coverless gradient is picked by.
     var messageId: Int64 { get }
+    /// When it was posted — the order the list and the store both read in.
+    var date: Int64 { get }
     var fileId: Int { get }
     var localPath: String? { get }
     var isDownloaded: Bool { get }
@@ -20,6 +22,8 @@ protocol Playable {
     var size: Int64 { get }
     var displayTitle: String { get }
     var displayPerformer: String { get }
+    /// What the file is called, which is the name a search has to reach for a captionless post.
+    var fileName: String { get }
     var fileExtension: String { get }
     var miniArtwork: Data? { get }
     var coverFileId: Int? { get }

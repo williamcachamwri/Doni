@@ -20,6 +20,7 @@ struct LibraryView: View {
     @ObservedObject var indexer: LibraryIndexer
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
+    @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
 
@@ -37,7 +38,7 @@ struct LibraryView: View {
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
             player.bind(session.covers())
-            indexer.run(session)
+            indexer.run(session, library: library)
         }
         .confirmationDialog(
             "Tài khoản",
@@ -47,7 +48,7 @@ struct LibraryView: View {
             if indexer.isReading {
                 Button("Dừng đọc kênh", role: .destructive) { indexer.stop() }
             } else {
-                Button("Tải lại thư viện") { indexer.run(session) }
+                Button("Tải lại thư viện") { indexer.run(session, library: library) }
             }
             Button("Đăng xuất", role: .destructive) { session.logOut() }
             Button("Huỷ", role: .cancel) {}
@@ -219,7 +220,7 @@ struct LibraryView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
-            .refreshable { await indexer.reload(session) }
+            .refreshable { await indexer.reload(session, library: library) }
             .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
             .onChange(of: query) { _, next in
                 guard !next.isEmpty else { return }
@@ -233,7 +234,7 @@ struct LibraryView: View {
     /// Telegram's list ends in blank white, so what the end of this list says is Doni's own —
     /// but it says it in the list's own fonts and greys.
     @ViewBuilder
-    private func footer(_ visible: [TdTrack]) -> some View {
+    private func footer(_ visible: [any Playable]) -> some View {
         if indexer.tracks.isEmpty {
             if indexer.isReading {
                 VStack(spacing: 12) {
@@ -250,7 +251,7 @@ struct LibraryView: View {
                         .font(TelegramLibraryTypography.preview)
                         .foregroundStyle(palette.chatListMessageText)
                         .multilineTextAlignment(.center)
-                    Button("Thử lại") { indexer.run(session) }
+                    Button("Thử lại") { indexer.run(session, library: library) }
                         .font(TelegramLibraryTypography.barTitle)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)
@@ -515,6 +516,7 @@ private struct Spinner: View {
         session: TelegramSession(),
         indexer: LibraryIndexer(),
         player: Player(),
-        artwork: CoverArtwork.shared
+        artwork: CoverArtwork.shared,
+        library: Library.shared
     )
 }
