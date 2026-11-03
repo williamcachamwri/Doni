@@ -11,7 +11,7 @@ struct LoginHairline: View {
 
     var body: some View {
         color
-            .frame(height: TelegramLoginMetrics.hairline(displayScale: displayScale))
+            .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
             .frame(maxWidth: .infinity)
     }
 }
@@ -209,7 +209,7 @@ struct CodeBoxes: View {
         RoundedRectangle(cornerRadius: TelegramLoginMetrics.codeBoxCornerRadius, style: .continuous)
             .strokeBorder(
                 border(for: index),
-                lineWidth: 1.0 + TelegramLoginMetrics.hairline(displayScale: displayScale)
+                lineWidth: 1.0 + TelegramGeometry.hairline(displayScale: displayScale)
             )
             .overlay(digit(at: index))
             .frame(width: boxWidth, height: boxHeight)

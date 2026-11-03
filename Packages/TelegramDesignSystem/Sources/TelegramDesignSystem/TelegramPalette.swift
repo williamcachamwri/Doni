@@ -27,6 +27,14 @@ public struct TelegramPalette: Sendable {
     public let tabBarIcon: Color
     public let searchInputFill: Color
     public let searchPlaceholder: Color
+    /// `DefaultDayPresentationTheme.swift:452`.
+    public let searchClearButton: Color
+    /// `rootNav.opaqueBackground`, `#f7f7f7` mixed with white at 0.14 → `#f8f8f8` (`:420`).
+    public let navOpaqueBackground: Color
+    /// `messages.mediaActiveControlColor` (`:632`) and `mediaInactiveControlColor` (`:633`) —
+    /// the audio row's played and idle states.
+    public let mediaActiveControl: Color
+    public let mediaInactiveControl: Color
 
     public init(
         accent: Color,
@@ -47,7 +55,11 @@ public struct TelegramPalette: Sendable {
         tabBarSeparator: Color,
         tabBarIcon: Color,
         searchInputFill: Color,
-        searchPlaceholder: Color
+        searchPlaceholder: Color,
+        searchClearButton: Color,
+        navOpaqueBackground: Color,
+        mediaActiveControl: Color,
+        mediaInactiveControl: Color
     ) {
         self.accent = accent
         self.chatListBackground = chatListBackground
@@ -68,6 +80,10 @@ public struct TelegramPalette: Sendable {
         self.tabBarIcon = tabBarIcon
         self.searchInputFill = searchInputFill
         self.searchPlaceholder = searchPlaceholder
+        self.searchClearButton = searchClearButton
+        self.navOpaqueBackground = navOpaqueBackground
+        self.mediaActiveControl = mediaActiveControl
+        self.mediaInactiveControl = mediaInactiveControl
     }
 
     /// `DefaultDayPresentationTheme.swift` in the reference checkout.
@@ -90,7 +106,11 @@ public struct TelegramPalette: Sendable {
         tabBarSeparator: Color(rgb: 0xb2b2b2),
         tabBarIcon: Color(rgb: 0x959595),
         searchInputFill: Color(rgb: 0x000000, alpha: 0.06),
-        searchPlaceholder: Color(rgb: 0x8e8e93)
+        searchPlaceholder: Color(rgb: 0x8e8e93),
+        searchClearButton: Color(rgb: 0x7b7b81),
+        navOpaqueBackground: Color(rgb: 0xf8f8f8),
+        mediaActiveControl: Color(rgb: 0x0088ff),
+        mediaInactiveControl: Color(rgb: 0xcacaca)
     )
 
     /// `DefaultDarkPresentationTheme.swift:7`.

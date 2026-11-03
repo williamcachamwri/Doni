@@ -119,10 +119,6 @@ public enum TelegramLoginMetrics {
     public static let codeBoxSpacing: CGFloat = 15
     public static let codeBoxCornerRadius: CGFloat = 15
 
-    /// Telegram draws its rules and box borders one *physical* pixel wide, so the point
-    /// width depends on the display: 1 pt would read visibly heavier at @3x.
-    public static func hairline(displayScale: CGFloat) -> CGFloat { 1.0 / max(1.0, displayScale) }
-
     /// The authorization screens run under a transparent navigation bar (`separatorColor`
     /// and `opaqueBackgroundColor` are both `.clear`, `AuthorizationSequenceController.swift:84`).
     /// The compact code layout pushes its content below the bar — `insets.top = navigationBarHeight`

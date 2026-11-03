@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Support
 import TdSession
 
 /// Walks one channel's history, 100 messages at a time, and collects everything
@@ -30,7 +31,14 @@ final class LibraryIndexer: ObservableObject {
     @Published private(set) var tracks: [TdTrack] = []
     @Published private(set) var channel: TdChannel?
 
+    /// The row the list is holding. M3 makes this what the player is showing; until then it is
+    /// the chat list's own `itemSelectedBackgroundColor` on one row.
+    @Published private(set) var selectedId: String?
+
     private var task: Task<Void, Never>?
+
+    /// Folded haystacks, so a keystroke re-folds only what the last page brought in.
+    private var haystacks: [String: String] = [:]
 
     #if DEBUG
     /// Raw pages, kept only to compare the parser against a real channel.
@@ -43,6 +51,49 @@ final class LibraryIndexer: ObservableObject {
     /// Pages kept in the raw dump; see `writeDump`.
     private static let dumpPageCap = 3
 
+    var isReading: Bool {
+        switch phase {
+        case .resolving, .reading:
+            return true
+        case .idle, .finished, .failed:
+            return false
+        }
+    }
+
+    /// The bar's second line, in the chat list's `secondaryTextColor`.
+    var statusLine: String {
+        switch phase {
+        case .resolving:
+            return "Đang mở @" + Self.username
+        case let .reading(snapshot), let .finished(snapshot):
+            return "\(snapshot.trackCount.formatted()) bài · đã đọc \(snapshot.messageCount.formatted()) tin"
+        case .idle, .failed:
+            return ""
+        }
+    }
+
+    var failureLine: String? {
+        guard case let .failed(text) = phase else { return nil }
+        return text
+    }
+
+    /// Vietnamese search without tone marks: both sides go through
+    /// `SearchTextFold.normalized`, so "tinh yeu" finds "Tình yêu".
+    func matches(of rawQuery: String) -> [TdTrack] {
+        let query = SearchTextFold.normalized(rawQuery)
+        guard !query.isEmpty else { return tracks }
+        for track in tracks where haystacks[track.uniqueId] == nil {
+            haystacks[track.uniqueId] = SearchTextFold.normalized(
+                "\(track.displayTitle) \(track.displayPerformer) \(track.fileName)"
+            )
+        }
+        return tracks.filter { haystacks[$0.uniqueId]?.contains(query) ?? false }
+    }
+
+    func select(_ track: TdTrack) {
+        selectedId = track.uniqueId
+    }
+
     func run(_ session: TelegramSession) {
         guard task == nil else { return }
         guard let reader = session.reader() else { return }
@@ -52,6 +103,9 @@ final class LibraryIndexer: ObservableObject {
     func stop() {
         task?.cancel()
         task = nil
+        // The loop breaks on cancellation without announcing a phase, so the walk is closed
+        // here: what has been read is what there is.
+        if case let .reading(snapshot) = phase { phase = .finished(snapshot) }
     }
 
     private func index(_ reader: TdChannelReader) async {
