@@ -1,5 +1,19 @@
 import SwiftUI
 
+/// How far a list has to run before its last row clears the floating chrome, handed down from the
+/// shell — which owns the strip and therefore knows whether it is showing — to the screens that
+/// only own a list.
+private struct FloatingClearanceKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    public var telegramFloatingClearance: CGFloat {
+        get { self[FloatingClearanceKey.self] }
+        set { self[FloatingClearanceKey.self] = newValue }
+    }
+}
+
 /// The shell around the list: a tab bar, a strip of player above it, and the chips Doni uses to
 /// pick a channel. Everything the reference draws is quoted from it; the few numbers it does not
 /// have are marked Doni's own. `Docs/design-tokens.md`, "Tab bar and the mini player".
@@ -18,6 +32,9 @@ public enum TelegramShellMetrics {
     public static let miniPlayerArtRadius: CGFloat = 10
     /// `sideInset = 16.0` in the same layout (`:846`).
     public static let miniPlayerSideInset: CGFloat = 16
+    /// Doni's own: the strip floats as a capsule in this build, so its content keeps 12 pt of glass
+    /// on each side rather than the full-bleed panel's 16.
+    public static let miniPlayerFloatInset: CGFloat = 12
     /// Doni's own: the strip is a way back to the player rather than the player, so the progress
     /// keeps the hairline weight the rest of the shell uses.
     public static let progressBarHeight: CGFloat = 2
@@ -104,10 +121,26 @@ public enum TelegramFloatingBarMetrics {
     /// Three items in the photo's 278 pt capsule (`hedges 2380`: 60 → 894 px). Doni puts four in the
     /// same width, which is its own decision rather than a measurement.
     public static let itemPitch: CGFloat = 92.7
+    /// The capsule itself: 278 pt, which is what is left between the two margins once the search
+    /// circle and its gap have taken theirs (390 − 40 − 64 − 8).
+    public static let capsuleWidth: CGFloat = 278
+    /// Doni's own: four tabs in the photo's three-item capsule, so each item is a quarter of it.
+    public static let itemWidth: CGFloat = capsuleWidth / 4
+    /// Doni's own box for the glyph — the reference's tab icons are bundled PNGs — sized so the
+    /// ink lands on the measured 19.3 pt.
+    public static let iconBox: CGFloat = 24
+    /// The box's top, so the glyph's centre is the measured 25.1 pt below the band's.
+    public static let iconTop: CGFloat = iconCentre - iconBox / 2
+    /// One line of `medium(10)`, which is what the label is drawn with.
+    public static let labelBox: CGFloat = 12
+    public static let labelTop: CGFloat = labelCentre - labelBox / 2
     /// Search is not a field in the bar: it is a 64 pt glass circle 8 pt after the capsule
     /// (`hedges 2380`: 918 → 1110 px; `vedges 1014`: 2280 → 2472 px).
     public static let searchCircle: CGFloat = 64
     public static let searchCircleGap: CGFloat = 8
+    /// Doni's own: the point size that puts the loupe's ink on the 21.0 pt the circle measures
+    /// (`bands 918 1110 2280 2472`: 2344 → 2406 px, centred in the circle).
+    public static let searchGlyph: CGFloat = 24
     /// The item's two rows, measured from the band's top: icon ink centre 25.1 pt
     /// (`bands 300 480 2270 2472`: 2320 → 2371 px) and label ink centre 50.3 pt (2410 → 2435 px).
     public static let iconCentre: CGFloat = 25.1
@@ -115,6 +148,17 @@ public enum TelegramFloatingBarMetrics {
     /// Selection is tinted glass, not a filled disc: behind the chosen item the glass reads
     /// `#304562` where the others read `#1c1c1d` (`hedges 2320`).
     public static let selectionTint: Double = 0.6
+
+    /// Doni's own: the gap between the strip and the bar, both of which float, so the two
+    /// capsules read as one stack rather than as two unrelated pills.
+    public static let stripGap: CGFloat = 8
+
+    /// How far a list has to run before its last row clears the floating chrome. The reference
+    /// scrolls its list *under* the bar (`ChatListUI` insets the collection, it does not shrink
+    /// it), so this is content margin rather than a layout row.
+    public static func clearance(stripVisible: Bool) -> CGFloat {
+        margin + height + (stripVisible ? TelegramShellMetrics.miniPlayerHeight + stripGap : 0)
+    }
 }
 
 /// The music bar's fonts, taken from the calls that set them in

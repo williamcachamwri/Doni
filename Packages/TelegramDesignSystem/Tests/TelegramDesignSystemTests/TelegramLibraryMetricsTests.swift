@@ -77,6 +77,31 @@ struct TelegramBarMetricsTests {
         // Icon ink centred 25.1 pt below the band's top, label ink 50.3.
         #expect(TelegramFloatingBarMetrics.iconCentre < TelegramFloatingBarMetrics.labelCentre)
         #expect(TelegramFloatingBarMetrics.labelCentre < TelegramFloatingBarMetrics.height)
+        // The capsule is 278 because the margins and the circle take the rest of the phone.
+        #expect(TelegramFloatingBarMetrics.capsuleWidth
+            + TelegramFloatingBarMetrics.searchCircleGap
+            + TelegramFloatingBarMetrics.searchCircle
+            + 2 * TelegramFloatingBarMetrics.margin == 390)
+        // Doni's four tabs share the photo's three-item capsule.
+        #expect(TelegramFloatingBarMetrics.itemWidth * 4
+            == TelegramFloatingBarMetrics.capsuleWidth)
+        // The two rows sit on their measured ink centres: the box is centred on each, so the
+        // distance from the band's top is the centre minus half the box.
+        #expect(abs(TelegramFloatingBarMetrics.iconTop
+            - (TelegramFloatingBarMetrics.iconCentre
+                - TelegramFloatingBarMetrics.iconBox / 2)) < 0.001)
+        #expect(abs(TelegramFloatingBarMetrics.labelTop
+            - (TelegramFloatingBarMetrics.labelCentre
+                - TelegramFloatingBarMetrics.labelBox / 2)) < 0.001)
+        #expect(TelegramFloatingBarMetrics.iconTop
+            < TelegramFloatingBarMetrics.labelTop)
+    }
+
+    @Test("a list ends above the glass it scrolls under")
+    func clearance() {
+        // 20 of margin plus 67.3 of band, and 64 + 8 more once the strip is up.
+        #expect(abs(TelegramFloatingBarMetrics.clearance(stripVisible: false) - 87.3) < 0.001)
+        #expect(abs(TelegramFloatingBarMetrics.clearance(stripVisible: true) - 159.3) < 0.001)
     }
 }
 

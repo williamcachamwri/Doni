@@ -645,12 +645,25 @@ surfaces from HIG + Liquid Glass: real glass where the OS has it (`#available(iO
 | icon ink 19.3 pt tall, centre **25.1 pt** below the band's top; label centre **50.3 pt** | the item's two rows: a 24 pt glyph over a `medium(10)` label, both on centres rather than in a stack with a fixed gap | `bands 300 480 2270 2472`: 2320→2371, 2410→2435 px |
 | selected item: glyph and label in the accent, and the glass behind it reads blue (`#304562` family) | selection is *tinted glass*, not a filled circle | `hedges 2320` |
 | the list scrolls **under** the glass — a row is cut mid-height by the bar in the photo | the bar is an overlay, and the scroll content is inset instead of clipped | the last row of `IMG_2544` |
+| loupe ink **21.0 pt** tall, centred in the circle | the glyph inside the 64 pt search circle — Doni sizes an SF Symbol to land on it, which wants `pointSize` 24 | `bands 918 1110 2280 2472`: 2344 → 2406 px |
+| the capsule is **278 pt** because the margins and the circle take the rest | 390 − 2 × 20 − 64 − 8. Doni's four tabs share that same 278 pt, so its item is 69.5 rather than the measured 92.7 | `hedges 2380`: 60 → 894, 918 → 1110 px |
 
-**Doni's own, in this section.** Four tabs instead of three plus a search circle; the search circle
-opens the library's field instead of a search screen; `play/pause` and the account menu in the trailing
-group instead of Telegram's camera / add-contact / compose; a 49 pt *cover* in the column the reference
-uses for an avatar, circular because the photo's column is circular; and the download bubble, which
-occupies the unread pill's slot with the pill's own metrics.
+**Doni's own, in this section.** Four tabs in the photo's three-item capsule, so the pitch is
+`278 / 4` and not the measured 92.7; the search circle opens its **own screen** (`UI/SearchView.swift`),
+because a field under the bar would be a row the photo does not have — the library's list starts
+12.7 pt below the band exactly as the reference's does; `play/pause` and the account menu in the
+trailing group instead of Telegram's camera / add-contact / compose; a 49 pt *cover* in the column
+the reference uses for an avatar, circular because the photo's column is circular; the download
+bubble, which occupies the unread pill's slot with the pill's own metrics; a badge over the library
+tab only while the channel is being read; and the mini player as a third floating capsule above the
+bar with 8 pt between them, since the reference's music panel is full-bleed and this build's chrome
+is not.
+
+**The clearance the floating chrome needs.** A list that scrolls under the glass still has to end
+above it, so the scroll content is inset by `TelegramFloatingBarMetrics.clearance(stripVisible:)` =
+`20 + 67.3 (+ 64 + 8 when the strip is showing)` — 87.3 pt, or 159.3 with a song loaded. The shell
+owns that number and hands it down through `\.telegramFloatingClearance`, because only the shell
+knows whether the strip is up.
 
 ## Known traps found while extracting
 

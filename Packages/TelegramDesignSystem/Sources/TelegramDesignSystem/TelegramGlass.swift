@@ -16,6 +16,9 @@ public enum TelegramGlassStyle: Sendable {
     case circle
     /// A circle lit by a colour: the tab that is chosen, whose glass reads blue (`#304562`).
     case tintedCircle(Color)
+    /// The full-bleed band a nav bar is: glass with hard edges, because it runs to both sides of
+    /// the phone and a corner would show.
+    case band
     /// The pill a search field sits in.
     case field
 }
@@ -33,6 +36,8 @@ extension View {
             glassed(in: Circle(), tint: nil, fallback: fallback)
         case let .tintedCircle(tint):
             glassed(in: Circle(), tint: tint, fallback: fallback)
+        case .band:
+            glassed(in: Rectangle(), tint: nil, fallback: fallback)
         case .field:
             glassed(
                 in: RoundedRectangle(cornerRadius: TelegramLibraryMetrics.searchCornerRadius,
