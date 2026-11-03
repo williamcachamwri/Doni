@@ -17,6 +17,11 @@ PATHS=(
   submodules/TelegramUI/Components/AudioWaveformComponent
   submodules/TelegramUI/Components/MediaScrubberComponent
   submodules/TelegramUI/Components/MediaPlaybackHeaderPanelComponent
+  submodules/AuthorizationUI/Sources
+  submodules/AuthorizationUtils
+  submodules/CodeInputView/Sources
+  submodules/SolidRoundedButtonNode/Sources
+  submodules/PresentationDataUtils/Sources
   submodules/Display/Source
 )
 
