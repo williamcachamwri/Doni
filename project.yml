@@ -60,6 +60,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.doni.app
     dependencies:
+      - package: Support
       - package: TelegramDesignSystem
       - package: TdSession
       - package: TdBridge
