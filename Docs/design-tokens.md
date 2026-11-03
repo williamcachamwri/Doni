@@ -443,6 +443,49 @@ Telegram's `.modern` field, the one the chat list uses:
 | `Font.with(size: 17, weight: .semibold, traits: [.monospacedNumbers])` / `Font.regular(13)` | title / subtitle | `ChatTitleView.swift:26-27` |
 | `#000000` / `#787878` | day colours | `DefaultDayPresentationTheme.swift:415-416` |
 
+## Tab bar and the mini player
+
+Doni's shell is four tabs with a strip of player above them, so both are measured against the
+files that draw the real thing rather than invented. What Telegram does not have is marked as
+Doni's own.
+
+### Tab bar (`TabBarController.swift`, `TabBarNode.swift`)
+
+| Value | What | Source |
+|---|---|---|
+| **49 pt** + the safe-area bottom inset; **34 pt** once there is a left inset | the band the bar occupies, which is what the list scrolls under | `TabBarController.swift:204-206` |
+| **45 pt** tall per item, icon on top, label under it | the vertical layout every iPhone uses | `TabBarNode.swift:45` |
+| `Font.medium(10.0)` | the label under an icon | `:20` |
+| **4.0** between icon and label | the only gap in the item | `:35` |
+| `Font.regular(13.0)`, item 34 tall, icon at `0.8` | the horizontal layout, for the wide classes only | `:20`, `:26-27`, `:41` |
+| `1.0 / UIScreen.main.scale` | the separator, one physical pixel like every other rule in the app | `:18` |
+| `Font.regular(13.0)` | the count badge that rides the icon | `:90` |
+| icon, selected icon, text all `#ffffff` | dark carries selection by weight and by the glass capsule, never by colour | `DefaultDarkPresentationTheme.swift:362-365` |
+| 24 pt glyph | Doni's own — the reference draws bundled PNGs whose box is not in the source, and SF Symbols have to be given one | |
+
+### The music bar (`OverlayAudioPlayerControlsNode.swift`)
+
+This is the panel Telegram slides up while audio plays. Doni's strip is a compressed version of
+it, so every element inside the strip takes this file's number.
+
+| Value | What | Source |
+|---|---|---|
+| **46 × 46**, corner radius **10** | the album art, 16 pt in from the edge and 18 pt down | `:855-857`, `:846`, `:849`, `:859` |
+| `Font.semibold(17.0)` / `Font.regular(15.0)` | title / artist | `:111`, `:112` |
+| `Font.medium(12.0)` | both timestamp labels | `:267`, `:270` |
+| line **7.0**, `.round` cap, no handle | the scrubber: track `controlSecondaryColor` @ 0.5, filled `itemPrimaryTextColor`, buffered the same at 0.4 | `:266`, `:716` |
+| 58 below the text origin | where the scrubber sits under the two lines | `:862` |
+| **64 × 64** per button, play/pause glyph **76 × 76** | the control row | `:887`, `:899` |
+| **190.0**, plus 8 when it is not the Saved-Music variant | the panel's own height, because it carries the scrubber and the buttons too | `:806`, `:820` |
+| **64 pt** strip | Doni's own height: 46 of measured artwork plus 9 of padding above and below | |
+| **2 pt** progress line | Doni's own — the strip is a way back to the player, not the player, so it takes the hairline weight the rest of the shell uses | |
+
+### Motion (`ChatListBadgeNode.swift`)
+
+Already recorded with the library row; `TelegramShellMotion` is that file's timing — 0.15 s alpha
+in (`:205`), 0.15 s alpha out (`:161`), 0.12 s collapse (`:170`), 0.2 s entrance overshoot
+(`:128`, `:134`) and the 8 pt slide (`:206`).
+
 ## Known traps found while extracting
 
 - An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so
