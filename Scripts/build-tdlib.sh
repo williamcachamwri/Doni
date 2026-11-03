@@ -14,7 +14,11 @@
 #   ./Scripts/build-tdlib.sh all
 set -euo pipefail
 
-TD_TAG="${TD_TAG:-v1.8.0}"
+# Pinned to a commit, not a tag: tdlib/td stopped tagging after v1.8.0 and
+# releases only move master. The pin is a hard requirement, not currency —
+# v1.8.0 sends MTPROTO_LAYER 135 and Telegram answers login attempts with
+# 406 UPDATE_APP_TO_LOGIN, so an older TDLib cannot authenticate at all.
+TD_TAG="${TD_TAG:-4c6377aa7386c39217878a9a56d581922ad37ca4}"
 SSL_TAG="${SSL_TAG:-openssl-3.5.9}"
 IOS_MIN="${IOS_MIN:-17.0}"
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -36,12 +40,27 @@ COMMON_ARGS=(
 
 fetch_source() {
   if [[ -d "$SRC/.git" ]]; then
-    [[ "$(git -C "$SRC" describe --tags --always)" == "$TD_TAG" ]] && {
-      echo "td source: $TD_TAG (cached)"; return; }
+    local here cached
+    here="$(git -C "$SRC" rev-parse HEAD)"
+    cached="$(git -C "$SRC" describe --tags --always)"
+    # A pinned commit is compared by sha, a tag by name; describe abbreviates a
+    # sha, so it cannot be the only test.
+    if [[ "$here" == "$TD_TAG" || "$cached" == "$TD_TAG" ]]; then
+      echo "td source: $TD_TAG (cached)"; return
+    fi
     rm -rf "$SRC"
   fi
+  # Objects from a different TDLib commit are never reusable: the generated API
+  # sources live inside the tree and every archive would be stale.
+  rm -rf "$VENDOR/build" "$VENDOR/td"
   echo "cloning tdlib $TD_TAG"
-  git clone --quiet --depth 1 --branch "$TD_TAG" https://github.com/tdlib/td.git "$SRC"
+  # --branch accepts a tag or a branch name, never a raw commit, so a pinned
+  # commit is fetched into a shallow clone instead.
+  if ! git clone --quiet --depth 1 --branch "$TD_TAG" https://github.com/tdlib/td.git "$SRC" 2>/dev/null; then
+    git clone --quiet --depth 1 https://github.com/tdlib/td.git "$SRC"
+    git -C "$SRC" fetch --quiet --depth 1 origin "$TD_TAG"
+    git -C "$SRC" checkout --quiet FETCH_HEAD
+  fi
   echo "tdlib commit: $(git -C "$SRC" rev-parse HEAD)"
 }
 
