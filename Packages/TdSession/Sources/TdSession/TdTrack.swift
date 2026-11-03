@@ -41,6 +41,10 @@ public struct TdTrack: Equatable, Sendable {
     /// message itself carries, so the list can show real artwork without asking for
     /// a file. `nil` when the post has no cover, which is a third of a real channel.
     public let miniArtwork: Data?
+    /// The largest of TDLib's `external_album_covers` (`td_api.tl:583`) — a square cover
+    /// Telegram already holds on the server, so it is a `downloadFile` away rather than a
+    /// scrape. A real channel carries one for every track, which is why the list can be sharp.
+    public let coverFileId: Int?
 
     /// `message` is a `message` object; nil for anything that is not a file the
     /// app can play.
@@ -58,6 +62,7 @@ public struct TdTrack: Equatable, Sendable {
         let caption: String
         let duration: Int?
         let miniArtwork: Data?
+        let coverFileId: Int?
 
         switch content.type {
         case "messageAudio":
@@ -76,6 +81,9 @@ public struct TdTrack: Equatable, Sendable {
             // minithumbnail is a drawn file icon, so it is not artwork and stays unread.
             let encodedArtwork = audio?["album_cover_minithumbnail"]?["data"]?.string
             miniArtwork = encodedArtwork.flatMap { Data(base64Encoded: $0) }
+            // Every track in a real channel carries two of these — 100×100 and 600×600, in that
+            // order — so the biggest is picked by width rather than by position.
+            coverFileId = Self.largestCover(audio?["external_album_covers"]?.array ?? [])
         case "messageDocument":
             origin = .document
             let document = content["document"]
@@ -87,6 +95,7 @@ public struct TdTrack: Equatable, Sendable {
             caption = content["caption"]?["text"]?.string ?? ""
             duration = nil
             miniArtwork = nil
+            coverFileId = nil
         case "messageVoiceNote":
             origin = .voiceNote
             let voice = content["voice_note"]
@@ -98,6 +107,7 @@ public struct TdTrack: Equatable, Sendable {
             caption = content["caption"]?["text"]?.string ?? ""
             duration = Int(voice?["duration"]?.int ?? 0)
             miniArtwork = nil
+            coverFileId = nil
         default:
             return nil
         }
@@ -126,6 +136,17 @@ public struct TdTrack: Equatable, Sendable {
         self.localPath = path.isEmpty ? nil : path
         self.isDownloaded = local?["is_downloading_completed"]?.bool ?? false
         self.miniArtwork = miniArtwork
+        self.coverFileId = coverFileId
+    }
+
+    /// The widest of TDLib's `thumbnail` objects (`td_api.tl:393`), which is the one worth a
+    /// download: a 54 pt tile at @3x wants 162 pixels, and 100×100 is not enough.
+    private static func largestCover(_ entries: [TdJSON]) -> Int? {
+        let sized = entries.compactMap { entry -> (width: Int, id: Int)? in
+            guard let width = entry["width"]?.int, let id = entry["file"]?["id"]?.int else { return nil }
+            return (Int(width), Int(id))
+        }
+        return sized.max { $0.width < $1.width }?.id
     }
 
     /// The bots that post these files write the name twice — into the audio tag and into the

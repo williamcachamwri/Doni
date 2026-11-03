@@ -209,6 +209,95 @@ func unreadableArtworkIsIgnored() throws {
     #expect(value.displayTitle == "Lạc Trôi", "the track is still listable")
 }
 
+/// A real channel's every audio carries `external_album_covers` (`td_api.tl:583`) with two
+/// `thumbnail` objects (`td_api.tl:393`) — measured as 100×100 then 600×600 on 168 of 168
+/// messages. Sizes here are invented; the shape is the measured one.
+private func audioWithCovers(_ covers: [(width: Int, fileId: Int)]) -> TdJSON {
+    .object([
+        "@type": .string("message"), "id": .int(602), "chat_id": .int(-1001234567890),
+        "date": .int(1_730_000_400),
+        "content": .object([
+            "@type": .string("messageAudio"),
+            "audio": .object([
+                "@type": .string("audio"), "duration": .int(210),
+                "title": .string("Lạc Trôi"), "performer": .string("Sơn Tùng M-TP"),
+                "file_name": .string("lac-troi.mp3"), "mime_type": .string("audio/mpeg"),
+                "audio": .object([
+                    "@type": .string("file"), "id": .int(92), "size": .int(5_000_000),
+                    "local": .object(["@type": .string("localFile"), "path": .string("")]),
+                    "remote": .object([
+                        "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUb")
+                    ])
+                ]),
+                "external_album_covers": .array(covers.map { cover in
+                    .object([
+                        "@type": .string("thumbnail"), "width": .int(Int64(cover.width)),
+                        "height": .int(Int64(cover.width)),
+                        "file": .object([
+                            "@type": .string("file"), "id": .int(Int64(cover.fileId)),
+                            "expected_size": .int(0)
+                        ])
+                    ])
+                })
+            ]),
+            "caption": .object(["@type": .string("formattedText"), "text": .string("")])
+        ])
+    ])
+}
+
+@Test("the sharp cover is the widest of the pair the channel sends")
+func widestCoverWins() throws {
+    let measured = try #require(TdTrack(message: audioWithCovers([(100, 401), (600, 402)])))
+    #expect(measured.coverFileId == 402)
+
+    let reversed = try #require(TdTrack(message: audioWithCovers([(600, 402), (100, 401)])))
+    #expect(reversed.coverFileId == 402, "the largest is chosen by width, not by position")
+
+    let alone = try #require(TdTrack(message: audioWithCovers([(100, 401)])))
+    #expect(alone.coverFileId == 401)
+
+    let none = try #require(TdTrack(message: audioWithCovers([])))
+    #expect(none.coverFileId == nil, "a track with no cover announced falls back to the gradient")
+}
+
+@Test("a document announces no album cover")
+func documentHasNoCover() throws {
+    let document = try #require(TdTrack(message: json(looseDocument)))
+    #expect(document.coverFileId == nil, "only audio posts carry `external_album_covers`")
+}
+
+@Test("a thumbnail with no file behind it is not a cover")
+func coverWithoutFileIdIsIgnored() throws {
+    let unreadable: TdJSON = .object([
+        "@type": .string("message"), "id": .int(603), "chat_id": .int(-1001234567890),
+        "date": .int(1_730_000_500),
+        "content": .object([
+            "@type": .string("messageAudio"),
+            "audio": .object([
+                "@type": .string("audio"), "duration": .int(210),
+                "title": .string("Lạc Trôi"), "performer": .string("Sơn Tùng M-TP"),
+                "file_name": .string("lac-troi.mp3"), "mime_type": .string("audio/mpeg"),
+                "audio": .object([
+                    "@type": .string("file"), "id": .int(93), "size": .int(5_000_000),
+                    "local": .object(["@type": .string("localFile"), "path": .string("")]),
+                    "remote": .object([
+                        "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUc")
+                    ])
+                ]),
+                // A width with nothing to download: `expected_size` 0 is normal in this channel,
+                // so the file id is the only thing that makes a cover usable.
+                "external_album_covers": .array([
+                    .object(["@type": .string("thumbnail"), "width": .int(600), "height": .int(600)])
+                ])
+            ]),
+            "caption": .object(["@type": .string("formattedText"), "text": .string("")])
+        ])
+    ])
+    let value = try #require(TdTrack(message: unreadable))
+    #expect(value.coverFileId == nil)
+    #expect(value.displayTitle == "Lạc Trôi", "and the row still shows the song")
+}
+
 /// The shape a posting bot sends: the tag cut at about 64 characters and the whole name
 /// repeated in the caption. Titles here are invented — a real channel's message content
 /// stays out of the repo, as the brief requires.
