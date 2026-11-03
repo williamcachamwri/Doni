@@ -117,8 +117,10 @@ final class Library: ObservableObject {
         verified(store.playlistTracks(playlistId: playlistId))
     }
 
-    func add(_ track: StoreTrack, to playlistId: Int64) {
-        store.add(track: track, to: playlistId)
+    /// Putting a song in a list writes the song too — `LibraryStore.add` upserts it first, because a
+    /// playlist outlives the walk that found the song inside it.
+    func add(_ track: any Playable, to playlistId: Int64) {
+        store.add(track: StoreTrack(track), to: playlistId)
         refresh()
     }
 

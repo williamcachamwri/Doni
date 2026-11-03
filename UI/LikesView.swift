@@ -86,7 +86,7 @@ struct LikesView: View {
                     ) {
                         player.play(favorite.track, in: kept.map { $0.track as any Playable })
                     }
-                    .contextMenu {
+                    .trackActions(favorite.track, library: library) {
                         if let segment = favorite.segment {
                             Button("Chỉ phát đoạn đã lưu") {
                                 player.play(
@@ -94,11 +94,6 @@ struct LikesView: View {
                                     of: favorite.track
                                 )
                             }
-                        }
-                        Button(role: .destructive) {
-                            library.toggleFavorite(favorite.track)
-                        } label: {
-                            Label("Bỏ yêu thích", systemImage: "heart.slash")
                         }
                     }
                     .task(id: favorite.track.uniqueId) {

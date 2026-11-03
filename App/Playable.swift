@@ -11,6 +11,8 @@ import TdSession
 /// `file_unique_id`). This is the overlap, and nothing else.
 protocol Playable {
     var uniqueId: String { get }
+    /// The channel it came from, which is the row the store keys its tracks by.
+    var chatId: Int64 { get }
     /// The message it came from, which is also the seed the coverless gradient is picked by.
     var messageId: Int64 { get }
     /// When it was posted — the order the list and the store both read in.
@@ -42,6 +44,24 @@ extension StoreTrack: Playable {
     var displayPerformer: String { performer }
 
     var fileExtension: String { (fileName as NSString).pathExtension.lowercased() }
+}
+
+extension StoreTrack {
+    /// Any song the app is holding, written down the way the store keeps it, so a track the walk
+    /// only just brought back can be put in a list without the list knowing which of the two
+    /// sources it came from.
+    ///
+    /// `displayTitle` and `displayPerformer` rather than the raw fields: what the row showed live is
+    /// what the same row has to show after a relaunch.
+    init(_ track: any Playable) {
+        self.init(uniqueId: track.uniqueId, chatId: track.chatId, messageId: track.messageId,
+                  fileId: track.fileId, coverFileId: track.coverFileId,
+                  title: track.displayTitle, performer: track.displayPerformer,
+                  fileName: track.fileName, duration: track.duration, size: track.size,
+                  date: track.date,
+                  localPath: track.isDownloaded ? track.localPath : nil,
+                  miniArtwork: track.miniArtwork)
+    }
 }
 
 /// The line under a title. A file with no duration is a document — the pinned schema has no

@@ -148,15 +148,7 @@ struct LibraryView: View {
                         ) {
                             player.play(track, in: Array(visible))
                         }
-                        .contextMenu {
-                            Button {
-                                library.toggleFavorite(track)
-                            } label: {
-                                Label(kept.contains(track.uniqueId) ? "Bỏ yêu thích" : "Yêu thích",
-                                      systemImage: kept.contains(track.uniqueId)
-                                          ? "heart.slash" : "heart")
-                            }
-                        }
+                        .trackActions(track, library: library)
                         .transition(.offset(y: 6).combined(with: .opacity))
                         .task(id: track.uniqueId) {
                             await artwork.load(track: track, via: session.covers())

@@ -502,6 +502,25 @@ it keeps the number above.
 | 20 pt caption line under the transport | Doni's own height, holding one `medium(12)` row (`:267`) whether or not a cut exists so marking one never moves the transport under the finger | |
 | 44 pt bar, centred `semibold(17)` title, hairline under it | the nav bar every other screen in the app already wears | `ChatTitleView.swift:26`; the rule is `1.0 / scale`, as measured at `ChatListItem.swift:928` and `TabBarNode.swift:18` |
 
+### Playlists (`UI/PlaylistsView.swift`)
+
+The reference has nothing like this screen. Its music player only has saved music on the server
+(`TelegramCore/Sources/TelegramEngine/Peers/SavedMusic.swift`, `Peer Info/SavedMusic.imageset`), and
+the tree carries no user-named playlist for audio — `git ls-tree` over the whole repository returns
+`PeerMessagesMediaPlaylist` (a media browser section) and nothing else. So the *layout* is Doni's,
+and it is built entirely out of numbers this file already measured:
+
+| Value | What | Source |
+|---|---|---|
+| 68 / 16 / 84 / 54 / 13 / 7 / 10 / −2 / 1 px rule | the playlist row is the chat list's row with the icon column holding a gradient and a note glyph instead of a cover | `ChatListItem.swift:4042-4051`, `:2560`, `:2567`, `:4212`, `PeerAvatar.swift:209`, `:4208`, `:4054`, `:4766`, `:928` |
+| `abs(id) % 7` gradient on the tile | the same seed and palette a coverless peer's avatar gets, seeded by the playlist's own id | `AvatarNode.swift:322-330`, `PeerAvatar.swift:407-414` |
+| `music.note.list` at the tile's 18 pt | the glyph is Doni's (Telegram's is a bundled PDF, `Chat List/AudioIcon`), the size is the one already on a coverless tile | `TelegramLibraryMetrics.artGlyph` |
+| 44 pt bar, `semibold(17)` title, `regular(13)` count, hairline | the bar every screen wears | `ChatTitleView.swift:26`, `:27` |
+| 48 pt of title padding each side | not invented: the two flanking buttons are the 44 pt touch targets plus the 4 pt the library's bar already gives them | `Docs` above |
+| a playlist's rows open through the stack, and each level hides the system bar to draw its own | Telegram's controller stack does exactly this — a pushed list replaces the bar rather than adding to it | behaviour, not numbers |
+| flat verbs in the row menu, no submenu | Doni's own, and deliberate: a submenu is the one SwiftUI shape this project cannot verify without a simulator | |
+| "N bài", "Chưa có danh sách nào", the `+` in the bar, `music.note.list` | Doni's own — no counterpart exists in the reference | |
+
 ### Motion (`ChatListBadgeNode.swift`)
 
 Already recorded with the library row; `TelegramShellMotion` is that file's timing — 0.15 s alpha
