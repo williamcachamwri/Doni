@@ -26,6 +26,7 @@ PATHS=(
   submodules/PresentationDataUtils/Sources
   submodules/Display/Source
   submodules/ChatListUI/Sources
+  submodules/ItemListUI/Sources
   submodules/TabBarUI/Sources
   submodules/SearchBarNode/Sources
   submodules/AvatarNode/Sources
