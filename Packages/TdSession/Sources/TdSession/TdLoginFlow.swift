@@ -92,4 +92,74 @@ public actor TdLoginFlow {
     public func logOut() async throws {
         _ = try await client.request("logOut")
     }
+
+    /// Everything after `authorizationStateReady` — the reads that build the
+    /// library. They go through the flow because it owns the client, and the
+    /// client is the only thing in the app allowed to talk to TDLib.
+    public func request(_ type: String, _ fields: [String: TdJSON] = [:]) async throws -> TdJSON {
+        try await client.request(type, fields)
+    }
+}
+
+/// Reads the music channels once the session is ready.
+///
+/// Both requests here are pinned-schema names: `searchPublicChat` (`td_api.tl:12511`)
+/// resolves `t.me/<username>` to a `chat` without joining it, and `getChatHistory`
+/// (`td_api.tl:12758`) walks backwards from a message id, `from_message_id: 0`
+/// meaning "from the newest post".
+public struct TdChannelReader: Sendable {
+    public static let pageSize = 100
+
+    private let flow: TdLoginFlow
+
+    public init(flow: TdLoginFlow) {
+        self.flow = flow
+    }
+
+    public enum Failure: Error, Equatable {
+        case channelNotFound(String)
+        case unexpectedResponse(String)
+    }
+
+    public func channel(username: String) async throws -> TdChannel {
+        let handle = Self.handle(from: username)
+        guard !handle.isEmpty, handle != "t.me" else {
+            throw Failure.channelNotFound(username)
+        }
+        let answer = try await flow.request("searchPublicChat", ["username": .string(handle)])
+        guard answer.type == "chat", let chatId = answer["id"]?.int else {
+            throw Failure.channelNotFound(handle)
+        }
+        return TdChannel(
+            chatId: chatId,
+            username: handle,
+            title: answer["title"]?.string ?? handle
+        )
+    }
+
+    /// Accepts `VNMusicRemix`, `@VNMusicRemix` and `https://t.me/VNMusicRemix`,
+    /// because all three are pasted out of a browser.
+    private static func handle(from username: String) -> String {
+        let last = username.split(separator: "/").last.map(String.init) ?? username
+        return last.trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+    }
+
+    /// One page of at most `pageSize` messages older than `cursor`; `cursor: 0`
+    /// starts at the newest post.
+    public func page(chatId: Int64, cursor: Int64 = 0) async throws -> TdHistoryPage {
+        let answer = try await flow.request(
+            "getChatHistory",
+            [
+                "chat_id": .int(chatId),
+                "from_message_id": .int(cursor),
+                "offset": .int(0),
+                "limit": .int(Int64(Self.pageSize)),
+                "only_local": .bool(false)
+            ]
+        )
+        guard answer.type == "messages", let items = answer["messages"]?.array else {
+            throw Failure.unexpectedResponse(answer.type ?? "no @type")
+        }
+        return TdHistoryPage(messages: items, totalCount: answer["total_count"]?.int.map { Int($0) })
+    }
 }

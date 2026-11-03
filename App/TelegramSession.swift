@@ -80,6 +80,12 @@ final class TelegramSession: ObservableObject {
     /// `then` runs only when the server accepted the number. TDLib does not always announce the
     /// code screen again afterwards — a number it is already waiting for a code on keeps the state
     /// — so the screen that asked for the number needs to know the request landed.
+    /// The channel reads belong to the client the login already ran on, so they
+    /// borrow the flow instead of opening a second TDLib instance.
+    func reader() -> TdChannelReader? {
+        flow.map(TdChannelReader.init(flow:))
+    }
+
     func submitPhoneNumber(_ number: String, then: (() -> Void)? = nil) {
         run({ try await $0.submitPhoneNumber(number) }, onSucceed: then)
     }
