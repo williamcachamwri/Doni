@@ -69,7 +69,8 @@ public actor TdFileDownloader {
         // end this wait.
         let timer = Task {
             try? await Task.sleep(for: Self.patience)
-            await self.fail(listener)
+            // A Task born inside an actor method keeps that isolation, so this needs no hop.
+            self.fail(listener)
         }
         // `AsyncStream` does not end on its own when the caller goes away, so cancellation is
         // answered by the same door the timer uses: an explicit `nil` into the listener's stream.
