@@ -39,8 +39,8 @@ public actor TdLoginFlow {
     public func snapshot() -> TdAuthorizationStep? { latest }
 
     /// Sends `setTdlibParameters` and then answers state updates until the
-    /// client closes. Throws when TDLib rejects one of the automatic steps —
-    /// a wrong database key, for instance — because there is no screen that
+    /// client closes. Throws when an automatic step fails — TDLib rejecting a
+    /// wrong key, or the key store refusing — because there is no screen that
     /// could retry it.
     public func begin() async throws {
         _ = try await client.request("setTdlibParameters", ["parameters": parameters.json])
@@ -54,7 +54,7 @@ public actor TdLoginFlow {
             if case .waitEncryptionKey = step {
                 _ = try await client.request(
                     "checkDatabaseEncryptionKey",
-                    ["encryption_key": .string(keyProvider.databaseEncryptionKey())]
+                    ["encryption_key": .string(try keyProvider.databaseEncryptionKey())]
                 )
             }
         }

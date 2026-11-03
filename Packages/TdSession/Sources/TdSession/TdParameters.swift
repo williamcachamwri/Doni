@@ -71,5 +71,8 @@ public struct TdParameters: Sendable {
 public protocol TdDatabaseKeyProviding: Sendable {
     /// Base64: the JSON interface encodes TDLib's `bytes` fields that way
     /// (`checkDatabaseEncryptionKey encryption_key:bytes`, `td_api.tl:4032`).
-    func databaseEncryptionKey() -> String
+    ///
+    /// Throws, because the real implementation reads the Keychain and a
+    /// hardware keystore can genuinely refuse.
+    func databaseEncryptionKey() throws -> String
 }

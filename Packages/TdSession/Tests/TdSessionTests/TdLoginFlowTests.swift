@@ -52,17 +52,18 @@ private func stateUpdate(_ state: String) -> String {
     #"{"@type":"updateAuthorizationState","authorization_state":{"@type":"\#(state)"}}"#
 }
 
-private func makeFlow() -> (FakeTransport, TdLoginFlow, RecordingKeyProvider) {
+private func makeFlow(
+    keyProvider: any TdDatabaseKeyProviding = RecordingKeyProvider()
+) -> (FakeTransport, TdLoginFlow) {
     let transport = FakeTransport()
     let client = TdClient(transport: transport, clientId: 1)
     client.start()
-    let keys = RecordingKeyProvider()
-    return (transport, TdLoginFlow(client: client, parameters: testParameters, keyProvider: keys), keys)
+    return (transport, TdLoginFlow(client: client, parameters: testParameters, keyProvider: keyProvider))
 }
 
 @Test("TDLib parameters go first, with api_id as a number")
 func parametersAreSentBeforeAnythingElse() async throws {
-    let (transport, flow, _) = makeFlow()
+    let (transport, flow) = makeFlow()
     let responder = startResponder(transport)
     defer { responder.cancel() }
 
@@ -84,7 +85,8 @@ func parametersAreSentBeforeAnythingElse() async throws {
 
 @Test("The encryption key is asked for only when TDLib asks for it")
 func encryptionKeyAnswersTheStateWithoutTheUI() async throws {
-    let (transport, flow, keys) = makeFlow()
+    let keys = RecordingKeyProvider()
+    let (transport, flow) = makeFlow(keyProvider: keys)
     let responder = startResponder(transport)
     defer { responder.cancel() }
 
@@ -103,7 +105,7 @@ func encryptionKeyAnswersTheStateWithoutTheUI() async throws {
 
 @Test("States reach the screen in the order TDLib announced them")
 func publishesStepsInOrder() async throws {
-    let (transport, flow, _) = makeFlow()
+    let (transport, flow) = makeFlow()
     let responder = startResponder(transport)
     defer { responder.cancel() }
 
@@ -126,7 +128,7 @@ func publishesStepsInOrder() async throws {
 
 @Test("A view that arrives late still gets the state the loop already saw")
 func snapshotKeepsTheLatestState() async throws {
-    let (transport, flow, _) = makeFlow()
+    let (transport, flow) = makeFlow()
     let responder = startResponder(transport)
     defer { responder.cancel() }
 
@@ -146,7 +148,7 @@ func snapshotKeepsTheLatestState() async throws {
 
 @Test("Each user answer becomes the documented request")
 func mapsUserAnswersToRequests() async throws {
-    let (transport, flow, _) = makeFlow()
+    let (transport, flow) = makeFlow()
     let responder = startResponder(transport)
     defer { responder.cancel() }
 
@@ -175,7 +177,7 @@ func mapsUserAnswersToRequests() async throws {
 
 @Test("A rejected code surfaces as an error on the call that sent it")
 func rejectedCodeThrowsToTheCaller() async throws {
-    let (transport, flow, _) = makeFlow()
+    let (transport, flow) = makeFlow()
 
     async let pending = flow.submitCode("00000")
     #expect(await polled { transport.sentRequests.count >= 1 })
@@ -192,7 +194,7 @@ func rejectedCodeThrowsToTheCaller() async throws {
 
 @Test("A wrong database key stops begin with the TDLib error")
 func wrongEncryptionKeyStopsTheLoop() async throws {
-    let (transport, flow, _) = makeFlow()
+    let (transport, flow) = makeFlow()
     let begin = Task { try await flow.begin() }
     #expect(await polled { transport.sentRequests.count >= 1 })
     let configureExtra = transport.decodedRequests[0]["@extra"]?.string ?? ""
@@ -211,4 +213,30 @@ func wrongEncryptionKeyStopsTheLoop() async throws {
     } catch let failure as TdClient.Failure {
         #expect(failure == .response(code: 400, message: "ENCRYPTION_KEY_INVALID"))
     }
+}
+
+private struct RefusingKeyProvider: TdDatabaseKeyProviding {
+    struct Denied: Error {}
+    func databaseEncryptionKey() throws -> String { throw Denied() }
+}
+
+@Test("A key store that refuses reaches the caller instead of stalling the loop")
+func refusingKeyProviderThrowsOutOfBegin() async throws {
+    let (transport, flow) = makeFlow(keyProvider: RefusingKeyProvider())
+    let begin = Task { try await flow.begin() }
+    #expect(await polled { transport.sentRequests.count >= 1 })
+    let configureExtra = transport.decodedRequests[0]["@extra"]?.string ?? ""
+    transport.queue(#"{"@type":"ok","@extra":"\#(configureExtra)"}"#)
+    transport.queue(stateUpdate("authorizationStateWaitEncryptionKey"))
+
+    do {
+        try await begin.value
+        Issue.record("a refused key store should not leave the flow running")
+    } catch is TdClient.Failure {
+        Issue.record("the key store error should not be swallowed by TDLib")
+    } catch {
+        #expect(error is RefusingKeyProvider.Denied)
+    }
+    // Nothing was sent after the state, because the key never arrived.
+    #expect(transport.decodedRequests.count == 1)
 }
