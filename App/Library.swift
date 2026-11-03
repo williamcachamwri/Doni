@@ -29,6 +29,7 @@ final class Library: ObservableObject {
     @Published private(set) var channels: [StoreChannel] = []
     @Published private(set) var downloadedCount = 0
     @Published private(set) var trackCount = 0
+    @Published private(set) var downloadedBytes: Int64 = 0
 
     init(filename: String = "library.db") {
         store = LibraryStore(path: Self.directory.appendingPathComponent(filename).path)
@@ -42,6 +43,7 @@ final class Library: ObservableObject {
         playlists = store.playlists()
         channels = store.channels()
         downloadedCount = store.downloadedCount()
+        downloadedBytes = store.downloadedBytes()
         trackCount = store.trackCount()
         storedTracks = verified(store.tracks())
     }
@@ -71,6 +73,7 @@ final class Library: ObservableObject {
     func recordDownload(path: String, uniqueId: String) {
         store.setLocalPath(path, uniqueId: uniqueId)
         downloadedCount = store.downloadedCount()
+        downloadedBytes = store.downloadedBytes()
     }
 
     // MARK: Hearts

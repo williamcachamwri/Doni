@@ -29,6 +29,7 @@ struct LibraryStoreTests {
         #expect(store.favorites().isEmpty)
         #expect(store.playlists().isEmpty)
         #expect(store.trackCount() == 0)
+        #expect(store.downloadedBytes() == 0)
     }
 
     @Test("a second open of the same file finds what the first wrote")
@@ -108,6 +109,19 @@ struct LibraryStoreTests {
         #expect(store.downloadedCount() == 1)
         store.setLocalPath(nil, uniqueId: "a")
         #expect(store.track(uniqueId: "a")?.localPath == nil)
+    }
+
+    @Test("the offline total counts the files on the phone, not the library")
+    func downloadedBytesFollowsLocalPaths() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a"), track("b"), track("c")])
+        #expect(store.downloadedBytes() == 0)
+        store.setLocalPath("/tmp/a.mp3", uniqueId: "a")
+        store.setLocalPath("/tmp/b.mp3", uniqueId: "b")
+        #expect(store.downloadedBytes() == 10_000_000)
+        store.setLocalPath(nil, uniqueId: "a")
+        #expect(store.downloadedBytes() == 5_000_000)
     }
 
     @Test("a page that repeats a song keeps the file already on the phone")

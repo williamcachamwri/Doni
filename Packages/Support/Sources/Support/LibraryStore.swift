@@ -707,6 +707,18 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
     }
 
+    /// Bytes of audio the phone is holding. `size` is TDLib's `document.size`, written down per
+    /// track, so this is the file the app asked for rather than the file's current state on disk —
+    /// a row TDLib has since evicted has already had its `local_path` cleared by `verified`.
+    public func downloadedBytes() -> Int64 {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("SELECT COALESCE(SUM(size), 0) FROM track WHERE local_path IS NOT NULL")
+        else { return 0 }
+        defer { sqlite3_finalize(statement) }
+        return sqlite3_step(statement) == SQLITE_ROW ? sqlite3_column_int64(statement, 0) : 0
+    }
+
     /// Everything on the phone that this app put there: the library rows, the hearts, the lists.
     /// A logout wipes the cache, and the brief says the session is the only thing Keychain keeps.
     public func wipeLibrary() {
