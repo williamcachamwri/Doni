@@ -2,14 +2,17 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 import TdSession
+import UIKit
 
 /// M2: the library, wearing Telegram's chat-list clothing.
 ///
-/// The chrome is `ChatListItem.swift`'s — a 68 pt row, a 16 pt icon column, the title pinned
-/// 8 pt below the top of the row rather than centred, one physical pixel for the rule, and
-/// `#e5e5ea` under a finger. What sits in the icon column is `ChatMessageInteractiveFileNode`'s
-/// 44 pt play control, because a track is a file, not a peer. Numbers and their lines are in
-/// `Docs/design-tokens.md`, "Chat list — the clothing the library wears".
+/// The chrome is `ChatListItem.swift`'s — a 68 pt row, the icon column 16 pt from the edge and
+/// the text pinned at 84 whatever stands in that column, the title 8 pt below the top of the row
+/// rather than centred, one physical pixel for the rule, and `#e5e5ea` under a finger. What
+/// stands in the icon column is the track's own cover, which TDLib sends inline with the message
+/// (`audio.album_cover_minithumbnail`), and the unread-bubble slot on the right carries whether
+/// the file is already on the phone. Numbers and their lines are in `Docs/design-tokens.md`,
+/// "Chat list — the clothing the library wears".
 struct LibraryView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -95,6 +98,7 @@ struct LibraryView: View {
         Group {
             if indexer.isReading {
                 Text(indexer.statusLine)
+                    .contentTransition(.numericText())
             } else if let failure = indexer.failureLine {
                 Text(failure)
             } else if let channel = indexer.channel {
@@ -106,6 +110,7 @@ struct LibraryView: View {
         .font(TelegramLibraryTypography.barSubtitle)
         .foregroundStyle(palette.navSecondaryText)
         .lineLimit(1)
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: indexer.statusLine)
     }
 
     private var searchRow: some View {
@@ -135,19 +140,7 @@ struct LibraryView: View {
                         ? TelegramLibraryMetrics.searchPadding
                         : TelegramLibraryMetrics.clearWidth)
                     .submitLabel(.done)
-                if !query.isEmpty {
-                    Button {
-                        query = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 17, weight: .regular))
-                            .foregroundStyle(palette.searchClearButton)
-                            .frame(width: TelegramLibraryMetrics.clearWidth, height: TelegramLibraryMetrics.searchFieldHeight)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
+                clearButton
             }
             .frame(height: TelegramLibraryMetrics.searchFieldHeight)
 
@@ -159,97 +152,182 @@ struct LibraryView: View {
                 .font(TelegramLibraryTypography.searchField)   // Cancel without a custom title is `regular(17)`
                 .foregroundStyle(palette.accent)
                 .padding(.leading, 11)
+                .transition(.opacity)
             }
         }
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: fieldFocused)
         .padding(.horizontal, TelegramLibraryMetrics.searchPadding)
         .padding(.top, TelegramLibraryMetrics.searchPadding)
         .padding(.bottom, TelegramLibraryMetrics.searchBelow)
     }
 
+    /// The clear button does not fade, it scales: 0.2 hidden, 1.0 shown (`:1647`).
+    private var clearButton: some View {
+        Button {
+            query = ""
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(palette.searchClearButton)
+                .frame(width: TelegramLibraryMetrics.clearWidth,
+                       height: TelegramLibraryMetrics.searchFieldHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .scaleEffect(query.isEmpty ? TelegramLibraryMetrics.clearHiddenScale : 1.0)
+        .opacity(query.isEmpty ? 0 : 1)
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: query.isEmpty)
+        .allowsHitTesting(!query.isEmpty)
+    }
+
     // MARK: List
 
     private var rows: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(indexer.matches(of: query), id: \.uniqueId) { track in
-                    TrackRow(
-                        track: track,
-                        hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                        palette: palette,
-                        isSelected: indexer.selectedId == track.uniqueId
-                    ) {
-                        indexer.select(track)
+        let visible = indexer.matches(of: query)
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: 0)
+                        .id(Self.topId)
+                    ForEach(visible, id: \.uniqueId) { track in
+                        TrackRow(
+                            track: track,
+                            query: query,
+                            hairline: TelegramGeometry.hairline(displayScale: displayScale),
+                            palette: palette,
+                            isSelected: indexer.selectedId == track.uniqueId,
+                            artwork: ArtworkCache.image(for: track)
+                        ) {
+                            indexer.select(track)
+                        }
+                        .transition(.offset(y: 6).combined(with: .opacity))
                     }
+                    footer(visible)
                 }
-                footer
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .refreshable { await indexer.reload(session) }
+            .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
+            .onChange(of: query) { _, next in
+                guard !next.isEmpty else { return }
+                proxy.scrollTo(Self.topId, anchor: .top)
             }
         }
-        .scrollDismissesKeyboard(.interactively)
     }
 
-    /// Telegram's list ends in blank white; the count line is Doni's own, and it only exists
-    /// while the index is still walking the channel.
+    private static let topId = "library-top"
+
+    /// Telegram's list ends in blank white, so what the end of this list says is Doni's own —
+    /// but it says it in the list's own fonts and greys.
     @ViewBuilder
-    private var footer: some View {
+    private func footer(_ visible: [TdTrack]) -> some View {
         if indexer.tracks.isEmpty {
-            VStack(spacing: 8) {
-                if let failure = indexer.failureLine {
-                    Text(failure)
-                } else {
-                    Text(indexer.isReading ? "Đang đọc kênh…" : "Chưa có bài nào")
+            if indexer.isReading {
+                VStack(spacing: 12) {
+                    Spinner(color: palette.navControl, side: 24)
+                    Text(indexer.statusLine.isEmpty ? "Đang đọc kênh…" : indexer.statusLine)
+                        .font(TelegramLibraryTypography.preview)
+                        .foregroundStyle(palette.chatListMessageText)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 72)
+            } else if let failure = indexer.failureLine {
+                VStack(spacing: 14) {
+                    Text(failure)
+                        .font(TelegramLibraryTypography.preview)
+                        .foregroundStyle(palette.chatListMessageText)
+                        .multilineTextAlignment(.center)
+                    Button("Thử lại") { indexer.run(session) }
+                        .font(TelegramLibraryTypography.barTitle)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .frame(height: 40)
+                        .background(Capsule().fill(palette.accent))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 72)
+                .padding(.horizontal, 40)
+            } else {
+                Text("Chưa có bài nào trong kênh")
+                    .font(TelegramLibraryTypography.preview)
+                    .foregroundStyle(palette.chatListMessageText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 72)
+            }
+        } else if visible.isEmpty {
+            Text("Không tìm thấy “\(query)”")
+                .font(TelegramLibraryTypography.preview)
+                .foregroundStyle(palette.chatListMessageText)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 40)
+        } else if indexer.isReading {
+            HStack(spacing: 8) {
+                Spinner(color: palette.navControl)
+                Text(indexer.statusLine)
             }
             .font(TelegramLibraryTypography.preview)
             .foregroundStyle(palette.chatListMessageText)
             .frame(maxWidth: .infinity)
-            .padding(.top, 60)
-        } else if indexer.isReading {
-            Text(indexer.statusLine)
-                .font(TelegramLibraryTypography.preview)
-                .foregroundStyle(palette.chatListMessageText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+            .padding(.vertical, 20)
         }
     }
 }
 
 /// One row. The geometry is the chat list's, down to the title sitting 8 pt from the top
 /// instead of centred: `rawContentRect.origin.y = 8`, the preview at `minY + lineHeight − 2`,
-/// the timestamp at `minY + 2`.
+/// the timestamp at `minY + 2`, and the rule inset to where the text column begins.
 private struct TrackRow: View {
     let track: TdTrack
+    let query: String
     let hairline: CGFloat
     let palette: TelegramPalette
     let isSelected: Bool
+    let artwork: UIImage?
     let select: () -> Void
 
     var body: some View {
         Button(action: select) {
-            HStack(alignment: .top, spacing: TelegramLibraryMetrics.iconToText) {
-                PlayBadge(ready: track.isDownloaded, palette: palette)
-                    .frame(
-                        width: TelegramLibraryMetrics.playDiameter,
-                        height: TelegramLibraryMetrics.playDiameter
-                    )
-                    .padding(.top, TelegramLibraryMetrics.playTop)
+            HStack(alignment: .top, spacing: TelegramLibraryMetrics.artToText) {
+                ArtworkTile(
+                    track: track,
+                    artwork: artwork,
+                    hairline: hairline,
+                    palette: palette
+                )
+                    .padding(.top, TelegramLibraryMetrics.artTop)
                 VStack(alignment: .leading, spacing: TelegramLibraryMetrics.titleToPreview) {
-                    Text(track.displayTitle)
-                        .font(TelegramLibraryTypography.title)
-                        .foregroundStyle(palette.chatListTitle)
-                        .lineLimit(1)
-                    Text(preview)
-                        .font(TelegramLibraryTypography.preview)
-                        .foregroundStyle(palette.chatListMessageText)
-                        .lineLimit(1)
+                    HighlightedText(
+                        text: track.displayTitle,
+                        query: query,
+                        font: TelegramLibraryTypography.title,
+                        color: palette.chatListTitle,
+                        accent: palette.accent
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.middle)   // a song's name matters at both ends (`ChatMessageInteractiveFileNode.swift:751`)
+                    HighlightedText(
+                        text: preview,
+                        query: query,
+                        font: TelegramLibraryTypography.preview,
+                        color: palette.chatListMessageText,
+                        accent: palette.accent
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 }
                 .padding(.top, TelegramLibraryMetrics.titleTop)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Text(duration)
-                    .font(TelegramLibraryTypography.date)
-                    .foregroundStyle(palette.chatListDateText)
-                    .layoutPriority(1)
-                    .padding(.top, TelegramLibraryMetrics.dateTop)
-                    .padding(.leading, TelegramLibraryMetrics.minGapToTimestamp)
+                VStack(alignment: .trailing, spacing: 7) {
+                    Text(headline)
+                        .font(TelegramLibraryTypography.duration)
+                        .foregroundStyle(palette.chatListDateText)
+                    StateBubble(ready: track.isDownloaded, palette: palette)
+                }
+                .layoutPriority(1)
+                .padding(.top, TelegramLibraryMetrics.dateTop)
+                .padding(.leading, TelegramLibraryMetrics.minGapToTimestamp)
             }
             .padding(.leading, TelegramLibraryMetrics.leading)
             .padding(.trailing, TelegramLibraryMetrics.trailing)
@@ -261,8 +339,8 @@ private struct TrackRow: View {
                     .fill(palette.chatListSeparator)
                     .frame(height: hairline)
                     .padding(.leading, TelegramLibraryMetrics.leading
-                        + TelegramLibraryMetrics.playDiameter
-                        + TelegramLibraryMetrics.iconToText)
+                        + TelegramLibraryMetrics.artSide
+                        + TelegramLibraryMetrics.artToText)
                     .padding(.trailing, TelegramLibraryMetrics.trailing)
             }
             .contentShape(Rectangle())
@@ -281,8 +359,51 @@ private struct TrackRow: View {
         return performer + " · " + size
     }
 
-    private var duration: String {
-        MediaClock.duration(track.duration) ?? "—"
+    /// A document has no duration in the schema, and its extension is the useful number there.
+    private var headline: String {
+        if let seconds = MediaClock.duration(track.duration) { return seconds }
+        let ext = track.fileExtension.uppercased()
+        return ext.isEmpty ? "—" : ext
+    }
+}
+
+/// The icon column: real cover art when the message carried it, Telegram's avatar gradient when
+/// it did not, always clipped as a `.roundedRect` so the column reads as one shape.
+private struct ArtworkTile: View {
+    let track: TdTrack
+    let artwork: UIImage?
+    let hairline: CGFloat
+    let palette: TelegramPalette
+
+    var body: some View {
+        Group {
+            if let artwork {
+                Image(uiImage: artwork)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .overlay(Color.black.opacity(TelegramLibraryMetrics.artScrim))
+            } else {
+                TelegramTrackGradient.linear(track.messageId)
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: TelegramLibraryMetrics.artGlyph, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+            }
+        }
+        .frame(
+            width: TelegramLibraryMetrics.artSide,
+            height: TelegramLibraryMetrics.artSide
+        )
+        .clipShape(
+            RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius, style: .continuous)
+        )
+        .overlay {
+            // A pale cover on a white list needs an edge; the list already draws its rules one
+            // physical pixel wide.
+            RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius, style: .continuous)
+                .strokeBorder(palette.chatListSeparator, lineWidth: hairline)
+        }
     }
 }
 
@@ -301,27 +422,95 @@ private struct ChatListHighlight: ButtonStyle {
     }
 }
 
-/// `progressDiameter`, 44 pt: `mediaActiveControlColor` for what can be played now,
-/// `mediaInactiveControlColor` for what still has to come down.
-private struct PlayBadge: View {
+/// The unread-bubble slot, telling the user whether tapping plays now or waits.
+/// `mediaActiveControlColor` for what is on the phone, `mediaInactiveControlColor` for what
+/// still has to come down (`DefaultDayPresentationTheme.swift:632-633`).
+private struct StateBubble: View {
     let ready: Bool
     let palette: TelegramPalette
 
     var body: some View {
         ZStack {
-            if ready {
-                Circle().fill(palette.mediaActiveControl)
-                Image(systemName: "play.fill")
-                    .font(.system(size: TelegramLibraryMetrics.playGlyph, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .offset(x: 1)
-            } else {
-                Circle().stroke(palette.mediaInactiveControl, lineWidth: 2)
-                Image(systemName: "arrow.down")
-                    .font(.system(size: TelegramLibraryMetrics.downloadGlyph, weight: .semibold))
-                    .foregroundStyle(palette.mediaInactiveControl)
-            }
+            Circle().fill(ready ? palette.mediaActiveControl : palette.mediaInactiveControl)
+            Image(systemName: ready ? "play.fill" : "arrow.down")
+                .font(.system(size: TelegramLibraryMetrics.stateGlyph, weight: .bold))
+                .foregroundStyle(.white)
+                .offset(x: ready ? 0.5 : 0)
         }
+        .frame(
+            width: TelegramLibraryMetrics.stateSide,
+            height: TelegramLibraryMetrics.stateSide
+        )
+    }
+}
+
+/// The query, coloured where it matches. Telegram paints the matched text of a search in its
+/// accent colour; the hit is found through `SearchHighlight`, which folds each character the
+/// same way the matcher does, so a toneless query still lights up the accented title.
+private struct HighlightedText: View {
+    let text: String
+    let query: String
+    let font: Font
+    let color: Color
+    let accent: Color
+
+    var body: some View {
+        runs.font(font)
+    }
+
+    private var runs: Text {
+        let segments = SearchHighlight.segments(of: query, in: text)
+        guard segments.count > 1 else {
+            return Text(text).foregroundColor(color)
+        }
+        var result = Text(verbatim: "")
+        for segment in segments {
+            result = result + Text(verbatim: segment.text)
+                .foregroundColor(segment.isMatch ? accent : color)
+        }
+        return result
+    }
+}
+
+/// Telegram's `ActivityIndicator`, in SwiftUI: a trimmed ring that turns for 0.8 s.
+private struct Spinner: View {
+    let color: Color
+    var side: CGFloat = 18
+
+    @State private var turned = false
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: 0.28)
+            .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            .frame(width: side, height: side)
+            .rotationEffect(.degrees(turned ? 360 : 0))
+            .onAppear {
+                withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
+                    turned = true
+                }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// Decoded cover art, kept for the session. A `minithumbnail` is a few hundred bytes, so the
+/// whole library costs well under a megabyte of RAM and a row never re-decodes on scroll.
+@MainActor
+private enum ArtworkCache {
+    private static let cache: NSCache<NSString, UIImage> = {
+        let box = NSCache<NSString, UIImage>()
+        box.countLimit = 600
+        return box
+    }()
+
+    static func image(for track: TdTrack) -> UIImage? {
+        guard let data = track.miniArtwork else { return nil }
+        let key = track.uniqueId as NSString
+        if let held = cache.object(forKey: key) { return held }
+        guard let image = UIImage(data: data) else { return nil }
+        cache.setObject(image, forKey: key)
+        return image
     }
 }
 
