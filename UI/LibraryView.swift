@@ -7,10 +7,12 @@ import UIKit
 /// M2: the library, wearing Telegram's chat-list clothing, in the mode the whole shell is
 /// measured in — dark, true black, one hairline colour from the bar to the rules.
 ///
-/// The chrome is `ChatListUI`'s — a 68 pt row, the icon column 16 pt from the edge and the text
-/// pinned at 84 whatever stands in that column, the title 8 pt below the top of the row rather
-/// than centred, one physical pixel for the rule, and `#121212` under a finger
-/// (`DefaultDarkPresentationTheme.swift:484`). What stands in the icon column is the track's own
+/// The chrome is `ChatListUI`'s at the scale the phone draws it — a 56 pt row, the icon column
+/// 16 pt from the edge and the text pinned at 75 whatever stands in that column, the title 6 pt
+/// below the top of the row rather than centred, one physical pixel for the rule, and `#121212`
+/// under a finger (`DefaultDarkPresentationTheme.swift:484`). Above it sits `GlassBar`, the bar the
+/// photo shows rather than the flattened band the source describes. What stands in the icon column
+/// is the track's own
 /// cover: the sharp 600×600 file Telegram already holds on the server when it has one
 /// (`external_album_covers`), the 40×30 `minithumbnail` the message carried when it does not, and
 /// the avatar gradient when there is no artwork at all. A tap hands the track to `Player`.
@@ -23,15 +25,27 @@ struct LibraryView: View {
     @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.telegramFloatingClearance) private var floatingClearance
 
-    @State private var query = ""
     @State private var showsAccountMenu = false
 
     private let palette = TelegramPalette.dark
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            GlassBar(
+                title: "Thư viện",
+                leading: "Kênh",
+                onLeading: { showsAccountMenu = true },
+                actions: [
+                    GlassBarAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
+                        shuffleAll()
+                    },
+                    GlassBarAction(symbol: "arrow.clockwise", label: "Đọc lại kênh") {
+                        indexer.run(session, library: library)
+                    },
+                ]
+            )
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
@@ -56,122 +70,59 @@ struct LibraryView: View {
 
     // MARK: Chrome
 
-    /// The bar is Telegram's blurred material flattened to `opaqueBackgroundColor`; the
-    /// search pill is `.modern`, 36 tall with 10 pt of padding, and the rule closing the band
-    /// is the bar's own `separatorNode`.
-    private var header: some View {
-        VStack(spacing: 0) {
-            titleRow
-                .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-            SearchField(query: $query, placeholder: "Tìm kiếm bài hát")
-        }
-        .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.navSeparator)
-                .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
-        }
-    }
-
-    private var titleRow: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                Text("Thư viện")
-                    .font(TelegramLibraryTypography.barTitle)
-                    .foregroundStyle(palette.navPrimaryText)
-                subtitle
-            }
-            HStack {
-                Spacer()
-                Button {
-                    showsAccountMenu = true
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 19, weight: .regular))
-                        .foregroundStyle(palette.navControl)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, 4)
-            }
-        }
-    }
-
-    /// `ChatTitleView`'s second line, `regular(13)` in `secondaryTextColor` — here it is the
-    /// channel's name and the indexing count rather than "online", because that is the
-    /// information the list needs while it fills.
-    private var subtitle: some View {
-        Group {
-            if indexer.isReading {
-                Text(indexer.statusLine)
-                    .contentTransition(.numericText())
-            } else if let failure = indexer.failureLine {
-                Text(failure)
-            } else if let channel = indexer.channel {
-                Text("@\(channel.username)")
-            } else {
-                EmptyView()
-            }
-        }
-        .font(TelegramLibraryTypography.barSubtitle)
-        .foregroundStyle(palette.navSecondaryText)
-        .lineLimit(1)
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: indexer.statusLine)
+    /// The shuffle the trailing group's first item runs: the whole library, in an order that is
+    /// not the channel's. Telegram's own bar actions are one tap each, so this starts immediately
+    /// rather than asking.
+    private func shuffleAll() {
+        var list = indexer.tracks
+        guard !list.isEmpty else { return }
+        list.shuffle()
+        player.play(list[0], in: list)
     }
 
     // MARK: List
 
     private var rows: some View {
-        let visible = indexer.matches(of: query)
-        // The hearts are read off the published list rather than queried per row: a keystroke
-        // redraws every visible row, and a thousand lookups for it is a lot of SQL for a screen.
+        let visible = indexer.tracks
+        // The hearts are read off the published list rather than queried per row: a redraw
+        // touches every visible row, and a thousand lookups for it is a lot of SQL for a screen.
         let kept = Set(library.favorites.map { $0.track.uniqueId })
-        return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    Color.clear
-                        .frame(height: 0)
-                        .id(Self.topId)
-                    ForEach(visible, id: \.uniqueId) { track in
-                        TrackRow(
-                            track: track,
-                            query: query,
-                            hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                            palette: palette,
-                            isCurrent: player.current?.uniqueId == track.uniqueId,
-                            isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
-                            headline: track.headline,
-                            isFavorite: kept.contains(track.uniqueId),
-                            artwork: artwork
-                        ) {
-                            player.play(track, in: Array(visible))
-                        }
-                        .trackActions(track, library: library)
-                        .transition(.offset(y: 6).combined(with: .opacity))
-                        .task(id: track.uniqueId) {
-                            await artwork.load(track: track, via: session.covers())
-                        }
+        return ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(visible, id: \.uniqueId) { track in
+                    TrackRow(
+                        track: track,
+                        query: "",
+                        hairline: TelegramGeometry.hairline(displayScale: displayScale),
+                        palette: palette,
+                        isCurrent: player.current?.uniqueId == track.uniqueId,
+                        isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
+                        headline: track.headline,
+                        isFavorite: kept.contains(track.uniqueId),
+                        artwork: artwork
+                    ) {
+                        player.play(track, in: Array(visible))
                     }
-                    footer(visible)
+                    .trackActions(track, library: library)
+                    .transition(.offset(y: 6).combined(with: .opacity))
+                    .task(id: track.uniqueId) {
+                        await artwork.load(track: track, via: session.covers())
+                    }
                 }
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .refreshable { await indexer.reload(session, library: library) }
-            .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
-            .onChange(of: query) { _, next in
-                guard !next.isEmpty else { return }
-                proxy.scrollTo(Self.topId, anchor: .top)
+                footer()
             }
         }
+        // The list runs under the floating bar, the way the reference's collection does; the
+        // clearance is only what the last row needs to finish above the glass.
+        .contentMargins(.bottom, floatingClearance, for: .scrollContent)
+        .refreshable { await indexer.reload(session, library: library) }
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
     }
-
-    private static let topId = "library-top"
 
     /// Telegram's list ends in blank white, so what the end of this list says is Doni's own —
     /// but it says it in the list's own fonts and greys.
     @ViewBuilder
-    private func footer(_ visible: [any Playable]) -> some View {
+    private func footer() -> some View {
         if indexer.tracks.isEmpty {
             if indexer.isReading {
                 VStack(spacing: 12) {
@@ -205,12 +156,19 @@ struct LibraryView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 72)
             }
-        } else if visible.isEmpty {
-            Text("Không tìm thấy “\(query)”")
-                .font(TelegramLibraryTypography.preview)
-                .foregroundStyle(palette.chatListMessageText)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 40)
+        } else if let failure = indexer.failureLine {
+            // Reading can fail into a half-filled library, and the bar no longer has room to say
+            // so, so the end of the list does.
+            HStack(spacing: 8) {
+                Text(failure)
+                    .font(TelegramLibraryTypography.preview)
+                    .foregroundStyle(palette.chatListDraftText)
+                Button("Thử lại") { indexer.run(session, library: library) }
+                    .font(TelegramLibraryTypography.preview)
+                    .foregroundStyle(palette.highlight)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
         } else if indexer.isReading {
             HStack(spacing: 8) {
                 Spinner(color: palette.navControl)

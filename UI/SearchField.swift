@@ -9,6 +9,9 @@ import TelegramDesignSystem
 struct SearchField: View {
     @Binding var query: String
     let placeholder: String
+    /// The search screen wants the keyboard before anything is typed; the pill under a bar does
+    /// not.
+    var autoFocus = false
 
     @FocusState private var focused: Bool
 
@@ -60,6 +63,9 @@ struct SearchField: View {
         .padding(.horizontal, TelegramLibraryMetrics.searchPadding)
         .padding(.top, TelegramLibraryMetrics.searchPadding)
         .padding(.bottom, TelegramLibraryMetrics.searchBelow)
+        .onAppear {
+            if autoFocus { focused = true }
+        }
     }
 
     /// The clear button does not fade, it scales: 0.2 hidden, 1.0 shown (`:1647`).

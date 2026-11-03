@@ -2,21 +2,21 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The strip of player that sits above the shell's bottom edge — Telegram's own
+/// The strip of player that floats above the tab bar — Telegram's own
 /// `OverlayAudioPlayerControlsNode` collapsed to the one thing a list needs: what is playing, how
 /// far through it you are, and a finger-stop.
 ///
-/// Everything about its size is measured (`Docs/design-tokens.md`, "Tab bar and the mini player"):
-/// 46 pt artwork with a 10 pt corner, `semibold(17)` over `regular(15)`, 16 pt of side inset, and
-/// the 2 pt progress line, which is Doni's own because the reference keeps its scrubber in the
-/// 190 pt expanded panel. Tapping the strip is the way back to that panel.
+/// What is measured is the panel's (`Docs/design-tokens.md`, "Tab bar and the mini player"): 46 pt
+/// artwork with a 10 pt corner, `semibold(17)` over `regular(15)`, and the 2 pt progress line,
+/// which is Doni's own because the reference keeps its scrubber in the 190 pt expanded panel. That
+/// it is a *capsule* rather than a full-bleed band is Doni's own too, because the shell's chrome
+/// floats in this build; the inset it uses is therefore the capsule's 12 pt, not the panel's 16.
+/// Tapping the strip is the way back to that panel.
 struct MiniPlayerBar: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     /// Opening the strip is the only gesture it has; the button inside it is the second.
     let open: () -> Void
-
-    @Environment(\.displayScale) private var displayScale
 
     private let palette = TelegramPalette.dark
 
@@ -44,21 +44,17 @@ struct MiniPlayerBar: View {
                     Spacer(minLength: 8)
                     control
                 }
-                .padding(.horizontal, TelegramShellMetrics.miniPlayerSideInset)
+                .padding(.horizontal, TelegramShellMetrics.miniPlayerFloatInset)
                 .frame(height: TelegramShellMetrics.miniPlayerHeight)
-                .contentShape(Rectangle())
+                .contentShape(Capsule())
                 .onTapGesture(perform: open)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint("Mở toàn màn hình")
 
                 progress
             }
-            .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .bottom))
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(palette.navSeparator)
-                    .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
-            }
+            .clipShape(Capsule())
+            .telegramGlass(.capsule, fallback: palette.barBlurredBackground)
         }
     }
 

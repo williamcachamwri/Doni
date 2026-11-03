@@ -4,7 +4,8 @@ import TelegramDesignSystem
 
 /// What is on the phone, and the one button that takes it away.
 ///
-/// The row is `ItemListUI`'s: a 17 pt regular title 16 pt in, a 15 pt value 20 pt from the right
+/// The row is `ItemListUI`'s: a `scaled(17)` regular title — 14 pt at the phone's font preset —
+/// 16 pt in, a 12 pt value 20 pt from the right
 /// edge, 15 pt of padding above and below (`Docs/design-tokens.md`, "Settings — the clothing the
 /// item list wears"). Telegram sets these screens in rounded cards whose side margin comes from the
 /// caller rather than from the module, so there is no number to read off it; Doni keeps the
@@ -17,15 +18,14 @@ struct SettingsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var library: Library
 
-    @Environment(\.displayScale) private var displayScale
-
     @State private var confirmingLogout = false
+    @Environment(\.telegramFloatingClearance) private var floatingClearance
 
     private let palette = TelegramPalette.dark
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            GlassBar(title: "Cài đặt")
             list
         }
         .background(palette.chatListBackground.ignoresSafeArea())
@@ -35,29 +35,6 @@ struct SettingsView: View {
             Button("Huỷ", role: .cancel) {}
         } message: {
             Text("Thư viện, các bài đã yêu thích và danh sách phát trên máy sẽ bị xoá. Phiên đăng nhập sẽ bị đóng.")
-        }
-    }
-
-    // MARK: Chrome
-
-    private var header: some View {
-        ZStack {
-            Text("Cài đặt")
-                .font(TelegramLibraryTypography.barTitle)
-                .foregroundStyle(palette.navPrimaryText)
-            HStack {
-                Spacer()
-                // The bar's symmetry: the title is centred because both slots exist, and this
-                // screen has nothing to put in either.
-                Color.clear.frame(width: 44, height: 44)
-            }
-        }
-        .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-        .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.navSeparator)
-                .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
         }
     }
 
@@ -93,6 +70,7 @@ struct SettingsView: View {
             // A plain list closes its last section with 22 (`ItemListItem.swift:90`).
             .padding(.bottom, TelegramSettingsMetrics.plainSectionEnd)
         }
+        .contentMargins(.bottom, floatingClearance, for: .scrollContent)
     }
 
     /// 13 pt in `regular(13)`, 15 in from the edge, 7 down inside a band of its own text height plus

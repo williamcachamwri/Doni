@@ -17,6 +17,7 @@ struct PlaylistsView: View {
     @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.telegramFloatingClearance) private var floatingClearance
 
     /// Playlist ids, so the detail level is a value rather than a view: the tab has to be able to
     /// open whatever list the store last said exists.
@@ -42,7 +43,12 @@ struct PlaylistsView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                header
+                GlassBar(title: "Danh sách", actions: [
+                    GlassBarAction(symbol: "plus", label: "Danh sách mới") {
+                        name = ""
+                        naming = .create
+                    },
+                ])
                 rows
             }
             .background(palette.chatListBackground.ignoresSafeArea())
@@ -75,46 +81,6 @@ struct PlaylistsView: View {
             library.renamePlaylist(id: id, name: name)
         }
         naming = nil
-    }
-
-    // MARK: Chrome
-
-    private var header: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                VStack(spacing: 0) {
-                    Text("Danh sách")
-                        .font(TelegramLibraryTypography.barTitle)
-                        .foregroundStyle(palette.navPrimaryText)
-                    Text("\(library.playlists.count.formatted()) danh sách")
-                        .font(TelegramLibraryTypography.barSubtitle)
-                        .foregroundStyle(palette.navSecondaryText)
-                }
-                HStack {
-                    Spacer()
-                    Button {
-                        name = ""
-                        naming = .create
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 19, weight: .regular))
-                            .foregroundStyle(palette.navControl)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, 4)
-                    .accessibilityLabel("Danh sách mới")
-                }
-            }
-            .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-        }
-        .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.navSeparator)
-                .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
-        }
     }
 
     // MARK: List
@@ -157,9 +123,17 @@ struct PlaylistsView: View {
                         .padding(.horizontal, 32)
                         .padding(.top, 72)
                         .frame(maxWidth: .infinity)
+                } else {
+                    // The count the bar no longer has room to carry.
+                    Text("\(lists.count.formatted()) danh sách")
+                        .font(TelegramLibraryTypography.preview)
+                        .foregroundStyle(palette.chatListMessageText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
                 }
             }
         }
+        .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .animation(TelegramLoginMotion.easeInOut(0.2), value: lists.map(\.name))
     }
 }
@@ -239,7 +213,12 @@ private struct PlaylistDetailView: View {
     @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.telegramFloatingClearance) private var floatingClearance
     @Environment(\.dismiss) private var dismiss
+
+    /// Deleting a list is the one thing on this screen that costs the user work, so the bar's
+    /// trash asks first.
+    @State private var confirmsDelete = false
 
     private let palette = TelegramPalette.dark
 
@@ -247,7 +226,15 @@ private struct PlaylistDetailView: View {
         let tracks = library.tracks(in: playlistId)
         let kept = Set(library.favorites.map { $0.track.uniqueId })
         return VStack(spacing: 0) {
-            header
+            GlassBar(
+                title: library.playlists.first { $0.id == playlistId }?.name ?? "",
+                onBack: { dismiss() },
+                actions: [
+                    GlassBarAction(symbol: "trash", label: "Xoá danh sách") {
+                        confirmsDelete = true
+                    },
+                ]
+            )
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(tracks) { track in
@@ -288,54 +275,21 @@ private struct PlaylistDetailView: View {
                     }
                 }
             }
+            .contentMargins(.bottom, floatingClearance, for: .scrollContent)
             .animation(TelegramLoginMotion.easeInOut(0.2), value: tracks.map(\.uniqueId))
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
-    }
-
-    private var header: some View {
-        ZStack {
-            Text(library.playlists.first { $0.id == playlistId }?.name ?? "")
-                .font(TelegramLibraryTypography.barTitle)
-                .foregroundStyle(palette.navPrimaryText)
-                .lineLimit(1)
-                .padding(.horizontal, 48)
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(palette.navControl)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Quay lại")
-                Spacer()
-                Menu {
-                    Button(role: .destructive) {
-                        library.deletePlaylist(id: playlistId)
-                        dismiss()
-                    } label: {
-                        Label("Xoá danh sách", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 19, weight: .regular))
-                        .foregroundStyle(palette.navControl)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
+        .confirmationDialog(
+            "Xoá danh sách này?",
+            isPresented: $confirmsDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Xoá", role: .destructive) {
+                library.deletePlaylist(id: playlistId)
+                dismiss()
             }
-        }
-        .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-        .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.navSeparator)
-                .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
+            Button("Huỷ", role: .cancel) {}
         }
     }
 }

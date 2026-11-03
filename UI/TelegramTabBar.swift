@@ -1,48 +1,40 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// The four tabs, drawn to the band `TabBarNode` measures.
+/// The bar the photo shows: a glass capsule floating 20 pt clear of the phone's left, right and
+/// bottom edges, with the list scrolling under it, and a separate 64 pt glass circle for search.
 ///
-/// Selection is not a colour change: in dark the icon, the selected icon and the label are all
-/// `#ffffff` (`DefaultDarkPresentationTheme.swift:362-365`), so the reference marks the current tab
-/// by the glyph it draws and nothing else. Doni adds the glass capsule the design lab picked —
-/// a filled symbol over a 36 × 24 pill, which is the shape Apple's own tab bar lights, and the one
-/// thing in this bar that is not a number from the reference.
+/// Nothing here is full-bleed, which is the difference between this and the band `TabBarNode`
+/// measures: the reference on the phone draws iOS 26's floating bar, so the bar is glass, the
+/// items sit on a measured pitch, and the icon and label take the two centres the photo gives
+/// them (`Docs/design-tokens.md`, "The floating tab bar, as photographed").
 ///
-/// The band is 49 pt whatever the phone is, with the safe area painted under it rather than eaten
-/// into it (`TabBarController.swift:204-206`), so the list can travel behind the material.
+/// Selection is not a colour change alone: the chosen item's glass reads blue where the rest reads
+/// `#1c1c1d`, and its label takes the accent, which is what the photo shows on the tab that is
+/// open.
 struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where Tab.AllCases == [Tab] {
     @Binding var selection: Tab
     let title: (Tab) -> String
     let symbol: (Tab, Bool) -> String
-
-    @Environment(\.displayScale) private var displayScale
+    /// Doni's own: the one transient count the bar carries, over the tab whose work is still
+    /// running. The photo's bar has a badge in exactly this place.
+    var badge: (Tab) -> String? = { _ in nil }
+    var onSearch: () -> Void = {}
 
     private let palette = TelegramPalette.dark
 
-    /// Doni's own: the glyph's glass pill is a fifth wider than the reference's 24 pt box, which is
-    /// the proportion Apple gives a lit tab item.
-    private let capsuleWidth: CGFloat = 36
-
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases) { tab in
-                item(tab)
+        HStack(spacing: TelegramFloatingBarMetrics.searchCircleGap) {
+            HStack(spacing: 0) {
+                ForEach(Tab.allCases) { tab in
+                    item(tab)
+                }
             }
-        }
-        .frame(height: TelegramShellMetrics.tabBarHeight)
-        .frame(maxWidth: .infinity)
-        .background {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                palette.barBlurredBackground
-            }
-            .ignoresSafeArea(edges: .bottom)
-        }
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(palette.tabBarSeparator)
-                .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
+            .frame(width: TelegramFloatingBarMetrics.capsuleWidth,
+                   height: TelegramFloatingBarMetrics.height)
+            .telegramGlass(.capsule, fallback: palette.glassFallback)
+
+            searchCircle
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Điều hướng")
@@ -53,19 +45,36 @@ struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where T
         return Button {
             selection = tab
         } label: {
-            VStack(spacing: TelegramShellMetrics.tabIconToLabel) {
+            ZStack(alignment: .top) {
+                Color.clear
+                    .frame(height: TelegramFloatingBarMetrics.height)
                 glyph(tab, isSelected: isSelected)
-                    .frame(width: capsuleWidth, height: TelegramShellMetrics.tabGlyphSide)
-                    .modifier(OptionalGlass(isSelected: isSelected,
-                                            tint: palette.tabBarIcon.opacity(0.25),
-                                            fallback: palette.tabBarIcon.opacity(0.16)))
+                    .frame(width: TelegramFloatingBarMetrics.itemWidth,
+                           height: TelegramFloatingBarMetrics.iconBox)
+                    .padding(.top, TelegramFloatingBarMetrics.iconTop)
+                    .overlay(alignment: .topTrailing) {
+                        badgeView(tab)
+                    }
                 Text(title(tab))
                     .font(TelegramShellTypography.tabLabel)
-                    .foregroundStyle(palette.tabBarText)
+                    .foregroundStyle(isSelected ? palette.highlight : palette.tabBarText)
                     .lineLimit(1)
+                    .frame(width: TelegramFloatingBarMetrics.itemWidth,
+                           height: TelegramFloatingBarMetrics.labelBox)
+                    .padding(.top, TelegramFloatingBarMetrics.labelTop)
             }
-            .frame(height: TelegramShellMetrics.tabItemHeight)
-            .frame(maxWidth: .infinity)
+            .frame(width: TelegramFloatingBarMetrics.itemWidth)
+            .overlay {
+                if isSelected {
+                    Capsule()
+                        .fill(palette.highlight.opacity(0.001))
+                        .telegramGlass(.tintedCapsule(palette.highlight),
+                                       fallback: palette.highlight.opacity(0.22))
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 5)
+                        .allowsHitTesting(false)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -75,23 +84,39 @@ struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where T
 
     private func glyph(_ tab: Tab, isSelected: Bool) -> some View {
         Image(systemName: symbol(tab, isSelected))
-            .font(.system(size: TelegramShellMetrics.tabGlyphSide,
+            .font(.system(size: TelegramFloatingBarMetrics.iconBox,
                           weight: isSelected ? .semibold : .regular))
             .foregroundStyle(palette.tabBarIcon)
     }
-}
 
-/// Glass only under the tab that is lit; an unlit item wears nothing.
-private struct OptionalGlass: ViewModifier {
-    let isSelected: Bool
-    let tint: Color
-    let fallback: Color
-
-    func body(content: Content) -> some View {
-        if isSelected {
-            content.telegramGlass(.tintedCapsule(tint), fallback: fallback)
-        } else {
-            content
+    /// The unread pill's own clothing, in the corner of the icon: `semibold(9)` digits in the
+    /// badge's colours, on a pill that never goes under 16 pt.
+    @ViewBuilder
+    private func badgeView(_ tab: Tab) -> some View {
+        if let text = badge(tab) {
+            Text(text)
+                .font(.system(size: TelegramLibraryMetrics.stateGlyph, weight: .semibold))
+                .foregroundStyle(palette.unreadBadgeText)
+                .padding(.horizontal, 4)
+                .frame(minWidth: TelegramLibraryMetrics.stateSide,
+                       minHeight: TelegramLibraryMetrics.stateSide)
+                .background(Capsule().fill(palette.unreadBadgeFill))
+                .offset(x: 12, y: -6)
+                .accessibilityLabel(text)
         }
+    }
+
+    private var searchCircle: some View {
+        Button(action: onSearch) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: TelegramFloatingBarMetrics.searchGlyph, weight: .regular))
+                .foregroundStyle(palette.navPrimaryText)
+                .frame(width: TelegramFloatingBarMetrics.searchCircle,
+                       height: TelegramFloatingBarMetrics.searchCircle)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .telegramGlass(.circle, fallback: palette.glassFallback)
+        .accessibilityLabel("Tìm kiếm")
     }
 }

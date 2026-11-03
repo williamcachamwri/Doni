@@ -17,63 +17,43 @@ struct LikesView: View {
     @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
-
-    @State private var query = ""
+    @Environment(\.telegramFloatingClearance) private var floatingClearance
 
     private let palette = TelegramPalette.dark
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            GlassBar(
+                title: "Yêu thích",
+                actions: [
+                    GlassBarAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
+                        shuffleAll()
+                    },
+                ]
+            )
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
     }
 
-    // MARK: Chrome
-
-    private var header: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                Text("Yêu thích")
-                    .font(TelegramLibraryTypography.barTitle)
-                    .foregroundStyle(palette.navPrimaryText)
-                Text(subtitle)
-                    .font(TelegramLibraryTypography.barSubtitle)
-                    .foregroundStyle(palette.navSecondaryText)
-                    .lineLimit(1)
-            }
-            .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-            SearchField(query: $query, placeholder: "Tìm trong bài đã thích")
-        }
-        .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.navSeparator)
-                .frame(height: TelegramGeometry.hairline(displayScale: displayScale))
-        }
-    }
-
-    /// A count, in the same place the library shows the channel's name — the bar's second line is
-    /// `regular(13)` wherever it says anything (`ChatTitleView.swift:27`).
-    private var subtitle: String {
-        let count = library.favorites.count
-        let slices = library.favorites.filter { $0.segment != nil }.count
-        guard count > 0 else { return "Chưa có bài nào" }
-        guard slices > 0 else { return "\(count.formatted()) bài" }
-        return "\(count.formatted()) bài · \(slices.formatted()) đoạn"
+    /// The shuffle the bar's trailing group runs, over the whole kept list.
+    private func shuffleAll() {
+        var list = library.favorites.map { $0.track as any Playable }
+        guard !list.isEmpty else { return }
+        list.shuffle()
+        player.play(list[0], in: list)
     }
 
     // MARK: List
 
     private var rows: some View {
-        let kept = visible
+        let kept = library.favorites
         return ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(kept) { favorite in
                     TrackRow(
                         track: favorite.track,
-                        query: query,
+                        query: "",
                         hairline: TelegramGeometry.hairline(displayScale: displayScale),
                         palette: palette,
                         isCurrent: player.current?.uniqueId == favorite.track.uniqueId,
@@ -102,21 +82,8 @@ struct LikesView: View {
                 footer(kept)
             }
         }
-        .scrollDismissesKeyboard(.interactively)
+        .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .animation(TelegramLoginMotion.easeInOut(0.2), value: kept.map(\.id))
-    }
-
-    /// The same fold the library searches with, so a toneless query finds "Tình yêu" here too.
-    private var visible: [StoredFavorite] {
-        let needle = SearchTextFold.normalized(query)
-        guard !needle.isEmpty else { return library.favorites }
-        return library.favorites.filter { kept in
-            let track = kept.track
-            let haystack = SearchTextFold.normalized(
-                "\(track.displayTitle) \(track.displayPerformer) \(track.fileName)"
-            )
-            return haystack.contains(needle)
-        }
     }
 
     /// A marked slice is the more useful number on this screen: the whole song's length is already
@@ -146,13 +113,21 @@ struct LikesView: View {
             .padding(.horizontal, 32)
             .frame(maxWidth: .infinity)
             .padding(.top, 72)
-        } else if kept.isEmpty {
-            Text("Không tìm thấy “\(query)”")
+        } else {
+            // The count the bar no longer has room to carry: what is kept, and how much of it is
+            // a slice rather than a whole song.
+            Text(countLine(kept))
                 .font(TelegramLibraryTypography.preview)
                 .foregroundStyle(palette.chatListMessageText)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 40)
+                .padding(.vertical, 20)
         }
+    }
+
+    private func countLine(_ kept: [StoredFavorite]) -> String {
+        let slices = kept.filter { $0.segment != nil }.count
+        guard slices > 0 else { return "\(kept.count.formatted()) bài" }
+        return "\(kept.count.formatted()) bài · \(slices.formatted()) đoạn"
     }
 }
 
