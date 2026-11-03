@@ -310,6 +310,64 @@ centred at `floor((size − iconSize) / 2)` and scaled by `size / 60`.
 | `locations = [1.0, 0.0]`, start `(0,0)` → end `(0,h)` | vertical, **first colour at the bottom**: the lighter stop is on top | `AvatarNode.swift:1007-1017`, `PeerAvatar.swift:513-527` |
 | radius `= side / 2` (`.round`); `.roundedRect` is `floor(width × 0.25)` | chat-list avatars are circles | `ChatListItem.swift:2039-2045`, `AvatarNode.swift:980-985` |
 
+### What the channel actually sends
+
+Every choice the row makes is a choice about data, so the data is measured first. These numbers come
+from one full walk of the real channel — 172 messages, 168 of them `messageAudio`. The dump itself is
+kept outside the repo: it is message content, and the brief says the app never writes message content
+to a file anyone else can read.
+
+| Fact | What it decides | Source |
+|---|---|---|
+| `audio.album_cover_minithumbnail` on **112/168** — 40×30 (57 of them) or 40×22 (55), 716–850 JPEG bytes, inline | the list shows real cover art without asking for a file, because TDLib serialises `bytes` as base64 inside the message | `td_api.tl:583`, `:361` |
+| `album_cover_thumbnail` on the same 112 — 320×240 (57) or 320×180 (55) JPEG, as a `File`; `external_album_covers` on **168/168**, two entries each: 100×100 *and* 600×600 | hi-res art exists for every track and is a *fetch*, so it belongs to playback (M3) and Now Playing, not to a list that has to scroll at 120 Hz | `td_api.tl:583`, `:286` |
+| a document's `minithumbnail` is the file icon Telegram draws for it | documents get the gradient tile; their minithumbnail is never read as artwork | `td_api.tl:594` |
+| the covers come in two shapes — 40×30 over 4:3 (320×240) and 40×22 over 16:9 (320×180) | the square tile fills and crops the sides of a 16:9 cover; letterboxing it would leave white bars in an icon column that Telegram never shows | measured |
+| `performer` on 168/168, tag `title` on 168/168 | the preview line is the artist's name; nobody has to parse a caption to say who sang | `td_api.tl:583` |
+| tag titles are 14–71 characters, mean 51, and **93 of 168 end in "…"** | the cut is the posting bot's, not the row's — see the repair rule | measured |
+| 166 of 168 captions are four lines, mean 142 characters: `Tiêu đề:` (108) *or* `Bài hát:` (59) with `Thể hiện:` (59), then `Kênh:` (108), then `Thể loại:` (156) or `Thời lượng: 1:11:37  Loại: Youtube` (11), then `Nguồn: @…bot` (167) | the whole name does exist, in the same message; and `Thời lượng` equals the tag `duration` in all 11 that carry it, so duration still comes from the tag alone | measured, `td_api.tl:583` |
+| no `waveform` key anywhere in the audio objects | the row cannot draw Telegram's waveform, so it does not pretend to | measured, `td_api.tl:583` |
+| mime `audio/mpeg` 117 + `audio/mp4` 51; `file_name` `.mp3` 107 + `.m4a` 51 + absent 10 | the extension column has to fall back to mime, and a bare file name is not proof of anything | measured |
+
+**The repair rule.** A tag title ending in "…" is replaced by the caption's `Tiêu đề:` / `Bài hát:`
+value only when that value *starts with* the cut title, compared with case, diacritics, width and runs
+of space folded away (`TdTrack.fullTitle`). 89 of the 93 cuts repair; the four that do not — two where
+the tag has an emoji the caption does not, one reworded, one with no name line — keep the bot's "…"
+rather than show a name the channel never sent. The repair happens in the decoder, so search, the
+store and Now Playing all read one whole name, and the longest repaired name is 100 characters: the
+row's own middle truncation is what cuts it, not the data. A caption that is cut as well keeps its own
+ellipsis — the list never claims a name it does not have.
+
+### The library row Doni wears
+
+Chrome from `### The cell`, content column from `### The row Telegram actually uses for audio`. The
+icon column holds art rather than the 44 pt play control because 44 pt is too small a square for a
+cover, and Telegram itself puts a 54 pt picture there.
+
+| Value | What | Source |
+|---|---|---|
+| `floor(base × 54/17)` → **54** | the icon column's side — Telegram's own scaled target, so the tile is neither invented nor borrowed | `ChatListItem.swift:4212` |
+| `floor((68 − 54) / 2)` → **7** | the tile is centred in the cell exactly as the avatar is | `:4208` |
+| `floor(54 × 0.25)` → **13** | clipping is `.roundedRect`, not a circle: a square cover keeps its corners | `PeerAvatar.swift:209` |
+| black at `0.3 / 4` over the art | Telegram's scrim over album art is 0.3, drawn under the controls (`ChatMessageInteractiveFileNode.swift:1815`); nothing sits on this tile, so a quarter of it evens a bright cover without muddying it | ratio is Doni's |
+| `84 − 16 − 54` → **14** | the gap after the tile, chosen so the text column still starts at `textLeftInset` 84 and the rule still begins where the text does | `ChatListItem.swift:2567`, `:5378` |
+| seven gradient pairs, `abs(messageId) % 7`, lighter stop on top | a coverless track gets colour the way a photoless peer does, and it is stable because a message id is | `AvatarNode.swift:322-330`, `PeerAvatar.swift:407-414`, `:426` |
+| **20**, and a bubble holding no count is a square of that side | the unread-bubble slot carries download state instead of a number | `ChatListItem.swift:2578`, `ChatListBadgeNode.swift:89`, `:94` |
+| `mediaActiveControl #0088ff` played / `mediaInactiveControl #cacaca` not | the bubble's two colours — the same pair Telegram puts on a media button | `DefaultDayPresentationTheme.swift:632-633` |
+| title one line `.middle`, preview one line `.end` | a song's name matters at both ends, the way the audio row cuts it (`ChatMessageInteractiveFileNode.swift:751`), while a preview line is cut the way the chat list cuts its own (`ChatListItem.swift:3824`) | both cited |
+| tabular digits in the duration column | `m:ss` and `h:mm:ss` line up down the column, as Telegram's bar title and its file sizes do | `ChatTitleView.swift:26`, `ChatMessageInteractiveFileNode.swift:579` |
+| clear button scaled `0.2 → 1.0`, not faded | Telegram scales the pill's clear button when it appears and goes | `SearchBarNode.swift:1647` |
+
+**Doni's own, not copied from a line.** Colouring the matched run inside a title: Telegram's chat list
+*filters* rows for a query and never tints runs (`ChatListUI` has no such call), so the accent half of
+`HighlightedText` is Doni's — but the colour it uses is Telegram's `accent #0088ff`
+(`DefaultDayPresentationTheme.swift:56`). Also Doni's own: the "Thử lại" capsule, the spinner ring, `—`
+where a duration is missing, and `performer · size` as the preview line. The two glyphs inside the
+tiles (18 pt note, 9 pt play / download arrow) are measured off renders, because Telegram's equivalents
+are native assets (`Media/Message Audio Play`), not point sizes in a file.
+
+
+
 ### Search bar (`SearchBarNode.swift`)
 
 Telegram's `.modern` field, the one the chat list uses:
@@ -331,6 +389,13 @@ Telegram's `.modern` field, the one the chat list uses:
 
 ## Known traps found while extracting
 
+- An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so
+  `content.audio.album_cover_minithumbnail` and `content.caption.text` are different depths. Reading
+  the content object for either reports "absent" for all 168 — which is exactly how a first pass of the
+  real dump came to claim the captions were empty. They are not: all 168 carry four lines of bot text,
+  and the minithumbnails are on 112.
+- `Docs/design-tokens.md` numbers come from counting the dump, not from reasoning about what a music
+  channel *would* send. Both thumbnail families, the 93 cut titles and the 89 repairs were surprises.
 - `UIColor(rgb:)` takes a `UInt32` literal, alpha-less; `UIColor(rgb: 0xf2f2f2, alpha: 0.9)` is a
   *blurred* background, so it must be composited over the blurred material, not flattened to an
   opaque colour, or the nav bar will read one shade too light.
