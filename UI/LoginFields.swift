@@ -50,10 +50,12 @@ struct DialCountry: Identifiable, Hashable {
 /// The two-rule phone block: country row, then dial code and number on one row.
 struct PhoneNumberField: View {
     @Environment(\.displayScale) private var displayScale
+    @FocusState private var isEditing: Bool
 
     let palette: TelegramListPalette
     @Binding var country: DialCountry
     @Binding var nationalNumber: String
+    var isGhost = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -95,23 +97,30 @@ struct PhoneNumberField: View {
                     .keyboardType(.phonePad)
                     .textContentType(.telephoneNumber)
                     .autocorrectionDisabled()
+                    .focused($isEditing)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(.leading, TelegramLoginMetrics.dialCodeLeading - TelegramLoginMetrics.horizontalInset)
             .frame(height: TelegramLoginMetrics.numberRowHeight)
+            .contentShape(Rectangle())
+            .onTapGesture { isEditing = true }
 
             LoginHairline(color: palette.separator, displayScale: displayScale)
         }
+        .onAppear { if !isGhost { isEditing = true } }
     }
 }
 
 /// A single ruled field, used for an SMS word or phrase and for the account password.
 struct UnderlineField: View {
     @Environment(\.displayScale) private var displayScale
+    @FocusState private var isEditing: Bool
 
     let palette: TelegramListPalette
     let placeholder: String
     @Binding var text: String
     var isSecure = false
+    var isGhost = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -125,12 +134,17 @@ struct UnderlineField: View {
             .font(TelegramLoginTypography.field)
             .foregroundStyle(palette.primaryText)
             .autocorrectionDisabled()
+            .focused($isEditing)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             // The rule is 16 pt wider on each side than the text it underlines.
             .padding(.horizontal, 16)
             .frame(height: TelegramLoginMetrics.plainFieldHeight)
+            .contentShape(Rectangle())
+            .onTapGesture { isEditing = true }
 
             LoginHairline(color: palette.separator, displayScale: displayScale)
         }
+        .onAppear { if !isGhost { isEditing = true } }
     }
 }
 
@@ -138,11 +152,18 @@ struct UnderlineField: View {
 /// Telegram draws the caret by highlighting the box being filled, not by letting the field
 /// show its own.
 struct CodeBoxes: View {
+    /// `isFailed` and `isSucceeded` recolour *every* border at once, which is how the view
+    /// reports a rejected or accepted code before it resets.
+    enum Entry: Equatable { case normal, failed, succeeded }
+
     @Environment(\.displayScale) private var displayScale
+    @FocusState private var isEditing: Bool
 
     let palette: TelegramListPalette
     let length: Int
     var isCompact = false
+    var entry: Entry = .normal
+    var isGhost = false
     @Binding var text: String
 
     private var boxWidth: CGFloat {
@@ -160,13 +181,22 @@ struct CodeBoxes: View {
                     box(at: index)
                 }
             }
+            .animation(TelegramLoginMotion.digitEnter, value: text)
+            .animation(TelegramLoginMotion.borderColour, value: entry)
             TextField("", text: $text)
                 .font(TelegramLoginTypography.digit)
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
+                .focused($isEditing)
+                // Filling the row is what makes a tap anywhere in the boxes land on the field;
+                // at its intrinsic height it would only cover a band through their middle.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(0.01)
         }
         .frame(height: boxHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { isEditing = true }
+        .onAppear { if !isGhost { isEditing = true } }
         .onChange(of: text) { _, value in
             let digits = String(value.filter { $0.isNumber })
             if digits.count != value.count || digits.count > length {
@@ -176,20 +206,56 @@ struct CodeBoxes: View {
     }
 
     @ViewBuilder private func box(at index: Int) -> some View {
-        let characters = Array(text)
-        let digit = index < characters.count ? String(characters[index]) : ""
-        let isActive = index == characters.count
         RoundedRectangle(cornerRadius: TelegramLoginMetrics.codeBoxCornerRadius, style: .continuous)
             .strokeBorder(
-                isActive ? palette.accent : palette.separator,
+                border(for: index),
                 lineWidth: 1.0 + TelegramLoginMetrics.hairline(displayScale: displayScale)
             )
-            .overlay(
-                Text(digit)
-                    .font(isCompact ? TelegramLoginTypography.digitCompact : TelegramLoginTypography.digit)
-                    .foregroundStyle(palette.primaryText)
-            )
+            .overlay(digit(at: index))
             .frame(width: boxWidth, height: boxHeight)
+    }
+
+    @ViewBuilder private func digit(at index: Int) -> some View {
+        let characters = Array(text)
+        if index < characters.count {
+            Text(String(characters[index]))
+                .font(isCompact ? TelegramLoginTypography.digitCompact : TelegramLoginTypography.digit)
+                .foregroundStyle(palette.primaryText)
+                .transition(digitTransition)
+        }
+    }
+
+    private var digitTransition: AnyTransition {
+        let settled = DigitMotion(alpha: 1, scaleY: 1, offset: 0)
+        return .asymmetric(
+            insertion: .modifier(
+                active: DigitMotion(
+                    alpha: 0,
+                    scaleY: 0.01,
+                    offset: boxHeight * TelegramLoginMotion.digitRiseFraction
+                ),
+                identity: settled
+            ),
+            removal: .modifier(
+                active: DigitMotion(
+                    alpha: 0,
+                    scaleY: 1,
+                    offset: boxHeight * TelegramLoginMotion.digitFallFraction
+                ),
+                identity: settled
+            )
+        )
+    }
+
+    /// The whole row goes red or green together; in the normal state only the box being
+    /// filled carries the accent, which is how the caret is drawn.
+    private func border(for index: Int) -> Color {
+        switch entry {
+        case .failed: return palette.destructive
+        case .succeeded: return palette.constructive
+        case .normal:
+            return index == Array(text).count ? palette.accent : palette.separator
+        }
     }
 }
 
@@ -223,5 +289,40 @@ struct TelegramPrimaryButton: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled || isBusy)
+    }
+}
+
+/// The wrong-code shake. `addShakeAnimation` is a keyframe animation on `position.x` with the
+/// keyframes evenly spaced, so the track is sampled from a progress value that the caller
+/// animates linearly from 0 to 1 rather than replayed as a SwiftUI keyframe track.
+struct LoginShake: GeometryEffect {
+    var progress: Double
+    let offsets: [CGFloat]
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let x = TelegramLoginMotion.shakeOffset(at: progress, offsets: offsets)
+        return ProjectionTransform(CGAffineTransform(translationX: x, y: 0))
+    }
+}
+
+/// A digit rides in from below its own baseline, growing out of the box's bottom edge
+/// (`CodeInputView.swift:82-86`), and the one being deleted fades out while it falls half a
+/// box (`:90-95`). One modifier because `AnyTransition.modifier` needs both ends of the same
+/// type; the ends differ only in their numbers.
+private struct DigitMotion: ViewModifier {
+    let alpha: Double
+    let scaleY: CGFloat
+    let offset: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(alpha)
+            .scaleEffect(x: 1.0, y: scaleY, anchor: .bottom)
+            .offset(y: offset)
     }
 }
