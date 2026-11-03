@@ -32,6 +32,7 @@ final class TelegramSession: ObservableObject {
 
     private var client: TdClient?
     private var flow: TdLoginFlow?
+    private var downloader: TdFileDownloader?
 
     /// Idempotent: SwiftUI can call this from several `.task` bodies.
     func start() {
@@ -72,6 +73,7 @@ final class TelegramSession: ObservableObject {
         client?.close()
         client = nil
         flow = nil
+        downloader = nil
         step = nil
         isWaiting = false
         start()
@@ -84,6 +86,16 @@ final class TelegramSession: ObservableObject {
     /// borrow the flow instead of opening a second TDLib instance.
     func reader() -> TdChannelReader? {
         flow.map(TdChannelReader.init(flow:))
+    }
+
+    /// One downloader per client, because the waiters it holds are per-instance: a logout closes
+    /// the client and every file that was in flight with it.
+    func covers() -> TdFileDownloader? {
+        if let downloader { return downloader }
+        guard let flow else { return nil }
+        let downloader = TdFileDownloader(flow: flow)
+        self.downloader = downloader
+        return downloader
     }
 
     func submitPhoneNumber(_ number: String, then: (() -> Void)? = nil) {
