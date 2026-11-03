@@ -1,10 +1,18 @@
 import SwiftUI
 import TelegramDesignSystem
+import TdBridge
 
-/// M0 harness screen: proves the design-system package is linked and that the
-/// extracted tokens survive into SwiftUI. Replaced by the channel list in M2.
+/// M0 harness screen: proves the design-system package is linked and that
+/// TDLib compiles, links and answers at runtime. Replaced by the channel list
+/// in M2.
+///
+/// `getTextEntities` is one of the requests documented as callable
+/// synchronously, so it exercises the real library without a session, an
+/// api_id or any network — if this renders TDLib's version, the xcframework is
+/// wired correctly end to end.
 struct DoniRootView: View {
     private let palette = TelegramPalette.day
+    @State private var transport: String = "checking tdlib…"
 
     var body: some View {
         NavigationStack {
@@ -16,7 +24,7 @@ struct DoniRootView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Doni")
                             .foregroundStyle(palette.chatListTitle)
-                        Text("design tokens wired")
+                        Text(transport)
                             .font(.footnote)
                             .foregroundStyle(palette.chatListMessageText)
                     }
@@ -26,6 +34,7 @@ struct DoniRootView: View {
             .scrollContentBackground(.hidden)
             .background(palette.chatListBackground)
             .navigationTitle("Doni")
+            .task { transport = TdTransport.probe() }
         }
     }
 }

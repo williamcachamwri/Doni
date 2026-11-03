@@ -25,6 +25,8 @@ packages:
     path: Packages/Support
   TelegramDesignSystem:
     path: Packages/TelegramDesignSystem
+  TdBridge:
+    path: Packages/TdBridge
 
 targets:
   Doni:
@@ -46,6 +48,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: local.doni.app
     dependencies:
       - package: TelegramDesignSystem
+      - package: TdBridge
 
 schemes:
   Doni:

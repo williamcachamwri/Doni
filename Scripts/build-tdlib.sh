@@ -103,7 +103,7 @@ phase_native() {
 phase_sdk() {
   local sdk="$1" arch="$2"
   local bdir="$VENDOR/build/$sdk-$arch" ssl="$VENDOR/ssl/$sdk-$arch"
-  [[ -f "$bdir/td/libtdjson_static.a" ]] && { echo "$sdk/$arch cached"; return; }
+  [[ -f "$bdir/libtdjson_static.a" ]] && { echo "$sdk/$arch cached"; return; }
   [[ -f "$ssl/lib/libcrypto.a" ]] || { echo "run the ssl phase first ($sdk)"; exit 1; }
   rm -rf "$bdir"
   cmake -S "$SRC" -B "$bdir" "${COMMON_ARGS[@]}" \
@@ -120,21 +120,29 @@ phase_sdk() {
   echo "built tdlib for $sdk/$arch"
 }
 
-# Headers Swift binds against: the JSON C client, plus a modulemap so the
-# xcframework is importable without a bridging header.
+# Headers Swift binds against. td_json_client.h includes
+# "td/telegram/tdjson_export.h", which GenerateExportHeader writes into the
+# build tree rather than the source tree, so the headers are staged mirroring
+# that path and the export header is copied from a finished build.
 phase_headers() {
   local inc="$VENDOR/td/include"
-  rm -rf "$inc"; mkdir -p "$inc"
-  find "$SRC/td" -name 'td_json_client.h' -o -name 'td_json_client_option.h' -o -name 'td_json_client_result.h' |
-    while read -r h; do cp "$h" "$inc/"; done
+  local staged="$inc/td/telegram"
+  rm -rf "$inc"; mkdir -p "$staged"
+  cp "$SRC/td/telegram/td_json_client.h" "$staged/"
+  local export_header
+  export_header="$(find "$VENDOR/build" -name tdjson_export.h | head -1)"
+  [[ -n "$export_header" ]] || { echo "tdjson_export.h not found; run a build phase"; exit 1; }
+  cp "$export_header" "$staged/"
+  cat > "$inc/tdlib.h" <<'UMBRELLA'
+#include "td/telegram/td_json_client.h"
+UMBRELLA
   cat > "$inc/module.modulemap" <<'MODULEMAP'
 module TdLibC [system] {
-  header "td_json_client.h"
-  header "td_json_client_option.h"
+  header "tdlib.h"
   export *
 }
 MODULEMAP
-  echo "headers: $(/bin/ls "$inc" | tr '\n' ' ')"
+  echo "headers: $(find "$inc" -type f | sed "s|$inc/||" | tr '\n' ' ')"
 }
 
 phase_framework() {
@@ -146,6 +154,9 @@ phase_framework() {
     local name merged
     name="$(basename "$bdir")"
     [[ -d "$bdir" ]] || continue
+    # A build dir mid-compile has partial archives; only package finished ones.
+    [[ -f "$bdir/libtdjson_static.a" ]] || {
+      echo "skipping $name: tdjson_static not built yet"; continue; }
     local libs=("${(@f)$(find "$bdir" -name 'lib*.a' -not -path '*CMakeFiles*' | sort)}")
     # OpenSSL is merged in so the xcframework links standalone: tdlib's crypto
     # lives in libcrypto and libssl, which are not rebuilt by the tdlib target.
