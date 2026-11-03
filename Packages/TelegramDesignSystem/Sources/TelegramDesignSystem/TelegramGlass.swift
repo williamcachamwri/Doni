@@ -11,6 +11,11 @@ public enum TelegramGlassStyle: Sendable {
     case capsule
     /// A capsule lit by a colour, i.e. the row that is playing or the chip that is on.
     case tintedCapsule(Color)
+    /// A plain circle — the photo's search control, which is a glass item of 64 pt rather than a
+    /// slot inside the bar.
+    case circle
+    /// A circle lit by a colour: the tab that is chosen, whose glass reads blue (`#304562`).
+    case tintedCircle(Color)
     /// The pill a search field sits in.
     case field
 }
@@ -24,6 +29,10 @@ extension View {
             glassed(in: Capsule(), tint: nil, fallback: fallback)
         case let .tintedCapsule(tint):
             glassed(in: Capsule(), tint: tint, fallback: fallback)
+        case .circle:
+            glassed(in: Circle(), tint: nil, fallback: fallback)
+        case let .tintedCircle(tint):
+            glassed(in: Circle(), tint: tint, fallback: fallback)
         case .field:
             glassed(
                 in: RoundedRectangle(cornerRadius: TelegramLibraryMetrics.searchCornerRadius,

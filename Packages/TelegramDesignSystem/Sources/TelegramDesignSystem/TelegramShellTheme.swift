@@ -44,7 +44,8 @@ public enum TelegramShellMetrics {
     public static let sliceCaptionHeight: CGFloat = 20
 
     /// `tabBarHeight = 49.0 + bottomInset` (`TabBarController.swift:206`), the band the list
-    /// scrolls under.
+    /// scrolls under. Doni's bar floats instead — see `TelegramFloatingBarMetrics` — so this is the
+    /// height the *content* is inset by, not the height of anything drawn.
     public static let tabBarHeight: CGFloat = 49
     /// The item block inside that band, icon over label (`TabBarNode.swift:45`).
     public static let tabItemHeight: CGFloat = 45
@@ -61,6 +62,61 @@ public enum TelegramShellMetrics {
     public static let chipFont = Font.system(size: 14, weight: .semibold)
 }
 
+/// The bar on top of a screen, measured off the phone's own photo rather than off the source:
+/// the reference app draws iOS 26's glass bar, and the photo is the oracle. `Docs/design-tokens.md`,
+/// "The bar, as photographed".
+///
+/// What the photo says that the source does not: the band has **no rule under it** (`hedges` across
+/// y 336…344 px finds nothing) and reads `#1c1c1d`, which is what `glassEffect` composites to over
+/// black — so the bar is drawn as glass, not as a filled strip with a hairline.
+public enum TelegramBarMetrics {
+    /// The row of controls is 44 pt tall (`vedges 100`: 172 → 302 px), and its top sits 10 pt below
+    /// the safe area, leaving 12.7 pt before the first row. The photo's own arithmetic: the band's
+    /// edges are at 47 and 113.7 pt, and the capsule spans 57.3 → 100.7.
+    public static let capsuleHeight: CGFloat = 44
+    public static let capsuleTop: CGFloat = 10
+    /// The band's total height under the safe area.
+    public static let height: CGFloat = capsuleTop + capsuleHeight + 12.7
+
+    /// Both capsules end 16 pt from an edge (`hedges 225`: the group runs to 1122 px = 374 pt).
+    public static let sideInset: CGFloat = 16
+    /// The leading capsule is a *text* action, and the word has 12 pt of glass on each side
+    /// (`hedges 225`: ink 47 → 211 px inside a capsule starting at 16 pt).
+    public static let textPadding: CGFloat = 12
+    /// The trailing group is one capsule holding three items (`hedges 225`: 773 → 1123 px = 116.7 pt
+    /// on a 38.9 pt pitch), and it ends 16 pt from the right edge like the leading one.
+    public static let actionPitch: CGFloat = 38.9
+    public static let actionGroupWidth: CGFloat = 3 * actionPitch
+    /// Doni's own: the reference's bar icons are PNG assets whose boxes never appear in source, so
+    /// the glyph is sized to land on the photo's 19.3 pt of icon ink (`bands 780 1120 150 320`).
+    public static let actionGlyph: CGFloat = 22
+}
+
+/// The tab bar the photo shows: nothing is full-bleed — the capsule and a separate search circle
+/// float 20 pt clear of the screen's edges and the list scrolls under them.
+/// `Docs/design-tokens.md`, "The floating tab bar, as photographed".
+public enum TelegramFloatingBarMetrics {
+    /// The gap from the left edge, the right edge and the *physical* bottom of the screen
+    /// (`hedges 2380`: 60 px; `vedges 600`: the capsule ends at 2472 px = 824 pt of 844).
+    public static let margin: CGFloat = 20
+    /// Capsule top 2262 px, bottom 2472 px → 67.3 pt (`vedges 400`).
+    public static let height: CGFloat = 67.3
+    /// Three items in the photo's 278 pt capsule (`hedges 2380`: 60 → 894 px). Doni puts four in the
+    /// same width, which is its own decision rather than a measurement.
+    public static let itemPitch: CGFloat = 92.7
+    /// Search is not a field in the bar: it is a 64 pt glass circle 8 pt after the capsule
+    /// (`hedges 2380`: 918 → 1110 px; `vedges 1014`: 2280 → 2472 px).
+    public static let searchCircle: CGFloat = 64
+    public static let searchCircleGap: CGFloat = 8
+    /// The item's two rows, measured from the band's top: icon ink centre 25.1 pt
+    /// (`bands 300 480 2270 2472`: 2320 → 2371 px) and label ink centre 50.3 pt (2410 → 2435 px).
+    public static let iconCentre: CGFloat = 25.1
+    public static let labelCentre: CGFloat = 50.3
+    /// Selection is tinted glass, not a filled disc: behind the chosen item the glass reads
+    /// `#304562` where the others read `#1c1c1d` (`hedges 2320`).
+    public static let selectionTint: Double = 0.6
+}
+
 /// The music bar's fonts, taken from the calls that set them in
 /// `OverlayAudioPlayerControlsNode.swift`.
 public enum TelegramShellTypography {
@@ -72,6 +128,13 @@ public enum TelegramShellTypography {
     public static let timestamp = Font.system(size: 12, weight: .medium)
     /// `Font.medium(10.0)` under an icon (`TabBarNode.swift:20`).
     public static let tabLabel = Font.system(size: 10, weight: .medium)
+    /// The photo's bar title is a *large* centred title, not the source's literal `semibold(17)`
+    /// (`DocumentPreviewController.swift:202`): its ink spans 16.0 pt (`bands 380 800 150 341`) and
+    /// its stems measure 7 px where the row's `semibold(13)` measures 4, i.e. 13 × 7 ÷ 4 ≈ 22 pt at
+    /// the same weight.
+    public static let barLargeTitle = Font.system(size: 22, weight: .semibold)
+    /// The leading text action, inside a capsule carrying 12 pt of padding around the word.
+    public static let barAction = Font.system(size: 14, weight: .semibold)
 }
 
 /// Motion lifted from `ChatListBadgeNode.swift` — the bubble Telegram animates into the

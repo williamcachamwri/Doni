@@ -5,9 +5,10 @@ import UIKit
 
 /// The chat-list row, worn by every list this app shows.
 ///
-/// The geometry is the chat list's, down to the title sitting 8 pt from the top instead of
-/// centred: `rawContentRect.origin.y = 8`, the preview at `minY + lineHeight − 2`, the timestamp
-/// at `minY + 2`, and the rule inset to where the text column begins. The library, the hearts and
+/// The geometry is the chat list's, down to the title sitting 6 pt from the top instead of
+/// centred: `rawContentRect.origin.y = floor(base × 8 / 17)` at the phone's `base` of 14, the
+/// preview at `minY + lineHeight − 2`, the timestamp at `minY + 2`, and the rule inset to where the
+/// text column begins. The library, the hearts and
 /// the lists all draw it, so a song looks the same wherever it is found.
 struct TrackRow: View {
     let track: any Playable
@@ -21,7 +22,7 @@ struct TrackRow: View {
     /// favourited slice has a range to show where the library has a duration.
     let headline: String
     /// Doni's own mark — the chat list has no heart in a row. It takes the accent the design lab
-    /// picked (`#3e88f7`) at 12 pt, small enough to sit beside the 14 pt number without widening
+    /// picked (`#3e88f7`) at 10 pt, small enough to sit beside the 11 pt number without widening
     /// the column.
     let isFavorite: Bool
     let artwork: CoverArtwork
@@ -59,7 +60,10 @@ struct TrackRow: View {
                 }
                 .padding(.top, TelegramLibraryMetrics.titleTop)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .trailing, spacing: 7) {
+                // Two absolute positions rather than a stack with a gap: the reference pins the
+                // timestamp to the top of the content rect and the bubble to its *bottom*, so the
+                // distance between them is a consequence, not a number (`:4556`, `:4625`).
+                ZStack(alignment: .topTrailing) {
                     HStack(spacing: 4) {
                         if isFavorite {
                             Image(systemName: "heart.fill")
@@ -70,10 +74,12 @@ struct TrackRow: View {
                             .font(TelegramLibraryTypography.duration)
                             .foregroundStyle(palette.chatListDateText)
                     }
+                    .padding(.top, TelegramLibraryMetrics.dateTop)
                     StateBubble(ready: track.isDownloaded, playing: isPlaying, palette: palette)
+                        .padding(.top, TelegramLibraryMetrics.stateTop)
                 }
+                .frame(height: TelegramLibraryMetrics.rowHeight, alignment: .top)
                 .layoutPriority(1)
-                .padding(.top, TelegramLibraryMetrics.dateTop)
                 .padding(.leading, TelegramLibraryMetrics.minGapToTimestamp)
             }
             .padding(.leading, TelegramLibraryMetrics.leading)
@@ -131,13 +137,11 @@ struct ArtworkTile: View {
             width: TelegramLibraryMetrics.artSide,
             height: TelegramLibraryMetrics.artSide
         )
-        .clipShape(
-            RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius, style: .continuous)
-        )
+        .clipShape(Circle())
         .overlay {
             // A pale cover on a black list needs an edge; the list already draws its rules one
             // physical pixel wide.
-            RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius, style: .continuous)
+            Circle()
                 .strokeBorder(palette.chatListSeparator, lineWidth: hairline)
         }
     }

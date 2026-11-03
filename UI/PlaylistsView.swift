@@ -8,8 +8,8 @@ import TdSession
 /// Telegram has no counterpart — its music player only has saved music on the server
 /// (`TelegramCore/Sources/TelegramEngine/Peers/SavedMusic.swift`), not a list you name yourself —
 /// so the screen is Doni's own, and it spends what it has on chrome the reference *does* measure:
-/// the same 68 pt row, the same 54 pt icon column, the same 84 pt text inset, the same one-pixel
-/// rule inset to where the text begins.
+/// the same 56 pt row, the same 49 pt circular icon column, the same 75 pt text inset, the same
+/// one-pixel rule inset to where the text begins.
 struct PlaylistsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
@@ -180,8 +180,7 @@ private struct PlaylistRow: View {
                     .foregroundStyle(.white.opacity(0.9))
             }
             .frame(width: TelegramLibraryMetrics.artSide, height: TelegramLibraryMetrics.artSide)
-            .clipShape(RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius,
-                                        style: .continuous))
+            .clipShape(Circle())
             .padding(.top, TelegramLibraryMetrics.artTop)
 
             VStack(alignment: .leading, spacing: TelegramLibraryMetrics.titleToPreview) {
@@ -200,12 +199,15 @@ private struct PlaylistRow: View {
             .padding(.top, TelegramLibraryMetrics.titleTop)
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // The column every other row in the app has; a list has nothing to say in it, and the
-            // text column still has to stop where the timestamp rows do.
-            Color.clear
-                .frame(width: TelegramLibraryMetrics.stateSide,
-                       height: TelegramLibraryMetrics.stateSide)
-                .padding(.top, TelegramLibraryMetrics.dateTop)
+            // The slot every other row in the app has. A list has no duration to print there, so
+            // the chevron that says it opens takes the place the unread bubble would, at the same
+            // absolute y; the 18 pt gutter before it is the one the rows share.
+            Image(systemName: "chevron.right")
+                .font(.system(size: TelegramLibraryMetrics.stateGlyph, weight: .semibold))
+                .foregroundStyle(palette.navSeparator)
+                .padding(.leading, TelegramLibraryMetrics.minGapToTimestamp)
+                .padding(.top, TelegramLibraryMetrics.stateTop)
+                .frame(width: TelegramLibraryMetrics.stateSide + 4, alignment: .trailing)
         }
         .padding(.leading, TelegramLibraryMetrics.leading)
         .padding(.trailing, TelegramLibraryMetrics.trailing)

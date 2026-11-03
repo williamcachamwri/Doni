@@ -39,12 +39,14 @@ public enum TelegramSettingsMetrics {
 
 public enum TelegramSettingsTypography {
     /// `Font.regular(item.presentationData.fontSize.itemListBaseFontSize)`
-    /// (`ItemListActionItem.swift:159`), the base being 17 as the ratios in the module show.
-    public static let rowTitle = Font.system(size: 17, weight: .regular)
+    /// (`ItemListActionItem.swift:159`) — the same base the chat list is drawn at, which the photo
+    /// measures as 14 rather than the 17 the module's ratios are written against.
+    public static let rowTitle = Font.system(size: TelegramLibraryMetrics.scaled(17), weight: .regular)
     /// `Font.regular(floor(itemListBaseFontSize * 15.0 / 17.0))` (`ItemListDisclosureItem.swift:467`).
-    public static let value = Font.system(size: 15, weight: .regular)
+    public static let value = Font.system(size: TelegramLibraryMetrics.scaled(15), weight: .regular)
     /// `Font.regular(itemListBaseFontSize * 14.0 / 17.0)` (`ItemListSwitchItem.swift:290`).
-    public static let secondary = Font.system(size: 14, weight: .regular)
-    /// `Font.regular(itemListBaseHeaderFontSize)` (`ItemListSectionHeaderItem.swift:183`), base 13.
-    public static let sectionHeader = Font.system(size: 13, weight: .regular)
+    public static let secondary = Font.system(size: TelegramLibraryMetrics.scaled(14), weight: .regular)
+    /// `Font.regular(itemListBaseHeaderFontSize)` (`ItemListSectionHeaderItem.swift:183`), which is
+    /// itself `floor(itemListBaseFontSize × 13/17)` (`ItemListItem.swift:173`).
+    public static let sectionHeader = Font.system(size: TelegramLibraryMetrics.scaled(13), weight: .regular)
 }

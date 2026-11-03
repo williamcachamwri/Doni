@@ -63,6 +63,17 @@ public struct TelegramPalette: Sendable {
     /// dark `:499`/`:500`). A dark unread bubble is a white pill with black digits.
     public let unreadBadgeFill: Color
     public let unreadBadgeText: Color
+    /// `chatList.unreadBadgeInactiveBackgroundColor` / `…TextColor` (day `:561`/`:562`,
+    /// dark `:501`/`:502`) — the *muted* bubble. Doni borrows it for a track whose file is not on
+    /// the phone, because that is the photo's grey pill: it measures `#666666` at 3x with black
+    /// digits inside.
+    public let unreadBadgeInactiveFill: Color
+    public let unreadBadgeInactiveText: Color
+    /// What a Liquid Glass capsule reads as on this screen. The photo's own bar and tab capsules
+    /// measure `#3e3e40` inside with a `#686869` rim (`box`/`vedges` inside the capsules at
+    /// y 172…302 px), which is what `glassEffect(.regular)` composites to over the app's black.
+    /// On a device without Liquid Glass the shell paints this instead, under a thin material.
+    public let glassFallback: Color
     /// Doni's own blue, chosen for what the app lights up rather than what Telegram does:
     /// a matched run, the row that is playing, the selected chip and the glass capsule's tint.
     /// It is Telegram's colour-customised dark accent (`DefaultDarkPresentationTheme.swift:7`),
@@ -106,6 +117,9 @@ public struct TelegramPalette: Sendable {
         segmentedDivider: Color,
         unreadBadgeFill: Color,
         unreadBadgeText: Color,
+        unreadBadgeInactiveFill: Color,
+        unreadBadgeInactiveText: Color,
+        glassFallback: Color,
         highlight: Color
     ) {
         self.accent = accent
@@ -144,6 +158,9 @@ public struct TelegramPalette: Sendable {
         self.segmentedDivider = segmentedDivider
         self.unreadBadgeFill = unreadBadgeFill
         self.unreadBadgeText = unreadBadgeText
+        self.unreadBadgeInactiveFill = unreadBadgeInactiveFill
+        self.unreadBadgeInactiveText = unreadBadgeInactiveText
+        self.glassFallback = glassFallback
         self.highlight = highlight
     }
 
@@ -185,6 +202,9 @@ public struct TelegramPalette: Sendable {
         segmentedDivider: Color(rgb: 0xd6d6dc),
         unreadBadgeFill: Color(rgb: 0x0088ff),
         unreadBadgeText: Color(rgb: 0xffffff),
+        unreadBadgeInactiveFill: Color(rgb: 0xb6b6bb),
+        unreadBadgeInactiveText: Color(rgb: 0xffffff),
+        glassFallback: Color(rgb: 0xf2f2f2, alpha: 0.9),
         highlight: Color(rgb: 0x0088ff)
     )
 
@@ -231,6 +251,9 @@ public struct TelegramPalette: Sendable {
         segmentedDivider: Color(rgb: 0x505155),
         unreadBadgeFill: Color(rgb: 0xffffff),
         unreadBadgeText: Color(rgb: 0x000000),
+        unreadBadgeInactiveFill: Color(rgb: 0x666666),
+        unreadBadgeInactiveText: Color(rgb: 0x000000),
+        glassFallback: Color(rgb: 0x3e3e40),
         highlight: Color(rgb: 0x3e88f7)
     )
 }
