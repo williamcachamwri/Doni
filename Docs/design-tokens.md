@@ -611,13 +611,13 @@ surfaces from HIG + Liquid Glass: real glass where the OS has it (`#available(iO
 |---|---|---|
 | **56 pt** (168 px, four pitches measured) | row pitch, pinned and unpinned alike | `vedges`/separator rows at y 1181, 1349, 1517, 1685, 1853, 2021 |
 | **49 pt** circle, left edge at **16 pt** | artwork column, vertically centred (3.5 pt above and below) | `hedges y=1265`: 48 → 195 px; `vedges x=121`: 1191 → 1338 px |
-| **75 pt** | text column left edge — `24 + 49` (`ChatListItem.swift:2574`) plus the 2 pt the content rect carries (`:4054`), *not* the 84 the 17-scale gives | `hedges 1349` |
+| **75 pt** | text column left edge — `avatarLeftInset = 24 + diameter` (`ChatListItem.swift:2574`) plus the 2 pt the content rect carries (`:4054`), *not* the 84 the 17-scale gives. The gap after a 49 pt tile at 16 is therefore 10 pt. | `hedges 1349` |
 | `semibold(13)` `floor(14 × 16/17)` | title | `:2289` + ink 27–30 px |
 | `regular(12)` `floor(14 × 15/17)` | preview line, `#8d8e93` | `:2290`, ink 26 px |
 | `regular(11)` `floor(14 × 14/17)` | timestamp, `#8d8e93`, right edge at **372 pt** = 16 from the edge | `:2292`, `hedges 1230`: last ink 1117 px |
 | `#000000` / `#1c1c1d` | list background / the pinned block's background | `box 15 1400`, `box 15 700` |
 | `#545458` at 0.55, **1 px**, from **75 pt** to **374 pt** | the rule: it starts where the text does and stops 16 from the right edge. Over black it reads `#2e2e30`, over the pinned block `#3b3b3d` — the same token, two composites | `hedges 1349`, `hedges 1517` |
-| 63 × 40 px = **21 × 13.3 pt**, pill, `#666666` fill, `#000000` digits, `semibold(11)` tabular | the unread bubble slot: content-width pill, 16 pt from the right edge, under the timestamp | `hedges 1439`, `vedges 1070`, `box 1062 1421` |
+| 63 × 48 px = **21 × 16 pt**, pill, `#666666` fill, `#000000` digits, `semibold(9)` tabular (`floor(14 × 12/17)`, `:2294`) | the unread bubble slot: `badgeDiameter = floor(base × 20/17)` = 16 (`:2578`), content-width (`badgeWidth = max(16, text + 8)`, `ChatListBadgeNode.swift:89`), right edge at `contentRect.maxX` = `width − 16` because `params.rightInset` is zero, top at `contentRect.maxY − 16 − floor(4 × 14/17)` (`:4614-4625`) = **21.7 pt** below the row's top | `hedges 1440`: 1059 → 1122 px; `vedges 1112`: 1420 → 1457 px, and at `x=1080`: 1415 → 1463 px |
 | `#eb5545` fill, white digits | a mention bubble — the same pill, the destructive colour | `box 150 2300` |
 | `#38c4ed` fill, white digits | the fork's own accent on the active pill. Doni uses its own accent token here, so this hex is recorded as *theirs*, not as a target | `box 1030 2100` |
 
@@ -626,21 +626,23 @@ surfaces from HIG + Liquid Glass: real glass where the OS has it (`#available(iO
 | Value | What | Where |
 |---|---|---|
 | `#1c1c1d`, and **no rule** | what the bar band reads over black, and the absence of a separator under it | `box 10 200 30 100`; `hedges 336/339/341/344` |
-| **54.7 pt** from the bottom of the status area to the first row | the bar's content band | row top 341 px − 59 pt status inset |
-| `semibold(22)`, centred, ink centre **78.5 pt** | the large title — the photo's bar title is *not* the `semibold(17)` `ChatTitleView` of the source; it is iOS 26's large title, and Doni follows the photo | `bands 400 800 150 341`: 211→260 px |
-| capsule **44 pt** tall (131 px), left edge at **16 pt**, 12 pt of padding around the word | the leading text action ("Sửa") | `vedges 100`: 172→302 px; `hedges 225`: 47→211 px |
+| glass starts **50.7 pt** down, the first row **113.7 pt** | the band is 63 pt of its own, i.e. **66.7 pt below the phone's 47 pt safe area** | `vedges 350 120 360`: #000000 → #161617 at 152 px; separators at 341 px |
+| capsule **44 pt** tall, its top **10.3 pt** below the safe area, so its centreline is **32 pt** down | the row everything in the bar shares: the title ink centre is at 78.5 pt and the icon ink centre at 78.8, both against a 47 pt inset | `vedges 100`: 172 → 302 px; `bands 380 800 150 341`: 212→259 px |
+| `semibold(22)`, centred, 16.0 pt of ink | the large title — the photo's bar title is *not* the literal `semibold(17)` the source sets (`DocumentPreviewController.swift:202`); its stems measure 7 px where the row's `semibold(13)` measures 4, and 13 × 7 ÷ 4 = 22.7 | `bands 380 800 150 341`: 212→259 px; `row 236` runs |
+| leading capsule left edge **16 pt**, 12 pt of padding around the word | the text action ("Sửa") | `hedges 225`: 47→211 px |
 | group capsule **116.7 pt** wide, 44 tall, right edge at **374 pt**, three items on a 38.9 pt pitch | the trailing icon group | `hedges 225`: 773→1123 px |
+| icon ink 19.3 pt tall | the glyph size inside that group — Doni sizes an SF Symbol to land on it | `bands 780 1120 150 320`: 208→265 px |
 | glass reads `#3e3e40` over the pinned block, rim `#686869` | what `glassEffect(.regular)` composites to on this screen — the fallback Doni must land near | `box`/`vedges` inside the capsules |
 
 ### The floating tab bar, as photographed
 
 | Value | What | Where |
 |---|---|---|
-| **20 pt** from the left edge, the right edge and the bottom of the screen | the bar floats; nothing is full-bleed | `hedges 2380`: 60 px; `hedges 2330`: 1110 px; `vedges 600`: 2472 px |
-| **67.3 pt** tall (2270 → 2472 px) | the band both the capsule and the circle share | `vedges 400`, `vedges 1014` |
+| **20 pt** from the left edge, the right edge and the bottom **of the screen** | the bar floats; nothing is full-bleed. The bottom margin is measured past the home indicator, so the glass sits inside the safe area rather than on top of it | `hedges 2380`: 60 px and 1110 px; `vedges 400`: the capsule ends at 2472 px = 824 pt of 844 |
+| **67.3 pt** tall (2262 → 2472 px) | the band both the capsule and the circle share, bottom-aligned | `vedges 400`, `vedges 1014` |
 | capsule 278 pt for three items → **92.7 pt** each | the item pitch inside the glass | `hedges 2380`: 60 → 894 px |
-| separate **64 pt** circle, 8 pt after the capsule | search, as its own glass item rather than a field in the bar | `hedges 2380`: 918 → 1110 px |
-| icon ink 17.3 pt tall, centre **25.1 pt** below the band's top; label centre **50.3 pt** | the item's two rows: a 24 pt glyph over a `medium(10)` label | `bands 300 480 2270 2472`: 2320→2371, 2410→2435 px |
+| separate **64 pt** circle, 8 pt after the capsule | search, as its own glass item rather than a field in the bar | `hedges 2380`: 918 → 1110 px; `vedges 1014`: 2280 → 2472 px |
+| icon ink 19.3 pt tall, centre **25.1 pt** below the band's top; label centre **50.3 pt** | the item's two rows: a 24 pt glyph over a `medium(10)` label, both on centres rather than in a stack with a fixed gap | `bands 300 480 2270 2472`: 2320→2371, 2410→2435 px |
 | selected item: glyph and label in the accent, and the glass behind it reads blue (`#304562` family) | selection is *tinted glass*, not a filled circle | `hedges 2320` |
 | the list scrolls **under** the glass — a row is cut mid-height by the bar in the photo | the bar is an overlay, and the scroll content is inset instead of clipped | the last row of `IMG_2544` |
 
@@ -667,3 +669,11 @@ occupies the unread pill's slot with the pill's own metrics.
   values instead of copying the input.
 - `separatorColor` at 1 pt is a *hairline*: Telegram draws `1.0 / scale`, and a plain 1 pt line is
   visibly heavier on @3x.
+- A photographed **pill's height is a trap for `vedges`**. The unread bubble first read 40 px = 13.3 pt,
+  which is not any number in the source: the column was 10 px inside the pill's rounded right cap, where
+  a circle of radius 8 pt is only 12.7 pt tall. Reading the fill's own top and bottom edges away from both
+  the cap and the digits gives 1415 → 1463 px = **16 pt**, which is exactly `badgeDiameter =
+  floor(14 × 20/17)`. Cross-check a measured radius against the source formula before writing it down.
+- The same trap caught the bubble's **font**: its digits were first recorded as `semibold(11)`, but the
+  ink measures 19–20 px (6.5 pt) and the source sets `badgeFont` to `semibold(floor(base × 12/17))` =
+  `semibold(9)` (`ChatListItem.swift:2294`). Ink of 6.5 pt is what 9 pt digits look like.
