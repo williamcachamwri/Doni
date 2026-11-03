@@ -121,6 +121,28 @@ grep for `.passcode` there returns nothing. Assuming the blue gradient here woul
 | `80.0` / `10.0` | room left under the item stack (width > 320 / not) | `…PhoneEntryControllerNode.swift:607` |
 | — | the item stack is centred in the band; each node's frame is measured to its text, so headings read as centred without a `.center` paragraph style | `AuthorizationUtils/Sources/AuthorizationLayout.swift` |
 
+### Navigation bar, and the way back to the number
+
+| Value | What | Source |
+|---|---|---|
+| `separatorColor .clear`, `opaqueBackgroundColor .clear`, `edgeEffectColor .clear` | the sequence's bar is transparent: no fill, no hairline, only the back chevron is drawn | `AuthorizationSequenceController.swift:84` |
+| `statusBarHeight` (wide) / `navigationBarHeight` (≤ 320 pt) | `insets.top` of the code screen. The wide layout leaves the bar zone to the 100×100 `IntroMessage` sticker (`:591`, item at `:650`); the compact one pushes the content below the bar | `AuthorizationSequenceCodeEntryControllerNode.swift:534`, `:655` |
+| `44.0` | the bar's own content height Doni reserves under the status bar | iOS standard; Doni has no sticker art, so it uses the compact rule wherever the chevron shows |
+| `#0088ff`, disabled `#d0d0d0` | back arrow colour | `Display/Source/NavigationBackButtonNode.swift:34`, `:40` |
+| `4.0` arrow→label spacing, label `systemFont(17)`, hit slop `16` vertical / `10` horizontal | the rest of the back button | `:20`, `:7`, `:57` |
+| alert, no title, generic action first and default action second; the default one runs `back()` | tapping the chevron does not go back immediately — it asks first | `AuthorizationSequenceCodeEntryController.swift:67-89` |
+| `.phoneEntry(countryCode: default, number: "")` | what `back()` actually does: the engine is put back on the phone step with an empty number | `AuthorizationSequenceController.swift:379-386` |
+
+**Doni's difference, forced by TDLib.** There is no cancel-authentication request at all —
+`td_api.tl` offers only `logOut` (`:12292`), `close` (`:12295`) and `destroy` (`:12299`), none of
+which leaves the session waiting for a phone number. Going back is therefore a UI move: the code
+screen flies off, the number screen comes back with the number it was left with (Telegram clears
+it), and picking a different number sends `setAuthenticationPhoneNumber`, which
+`AuthManager.cpp:638-648` accepts from `WaitCode`, `WaitPassword`, `WaitRegistration`,
+`WaitEmailAddress` and `WaitEmailCode` as long as no query is in flight — it answers with a fresh
+`authorizationStateWaitCode` for the new number (`:1117-1120`, and `update_state` always sends the
+update, `:1690-1693`).
+
 ### Phone number (`AuthorizationSequencePhoneEntryControllerNode.swift`)
 
 | Value | What | Source |

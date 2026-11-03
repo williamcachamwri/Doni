@@ -49,7 +49,13 @@ final class TelegramSession: ObservableObject {
         self.flow = flow
 
         Task {
-            for await step in flow.steps { self.step = step }
+            for await step in flow.steps {
+                self.step = step
+                if step == .closed {
+                    self.restart()
+                    return
+                }
+            }
         }
         Task {
             do {
@@ -60,8 +66,22 @@ final class TelegramSession: ObservableObject {
         }
     }
 
-    func submitPhoneNumber(_ number: String) {
-        run { try await $0.submitPhoneNumber(number) }
+    /// TDLib cannot reopen a client it has closed, so the logout path throws this one away and
+    /// builds a fresh client + flow, which is what puts the login screen back on stage.
+    private func restart() {
+        client?.close()
+        client = nil
+        flow = nil
+        step = nil
+        isWaiting = false
+        start()
+    }
+
+    /// `then` runs only when the server accepted the number. TDLib does not always announce the
+    /// code screen again afterwards — a number it is already waiting for a code on keeps the state
+    /// — so the screen that asked for the number needs to know the request landed.
+    func submitPhoneNumber(_ number: String, then: (() -> Void)? = nil) {
+        run({ try await $0.submitPhoneNumber(number) }, onSucceed: then)
     }
 
     func submitCode(_ code: String) {
@@ -80,13 +100,19 @@ final class TelegramSession: ObservableObject {
         run { try await $0.logOut() }
     }
 
-    private func run(_ action: @escaping @Sendable (TdLoginFlow) async throws -> Void) {
+    private func run(
+        _ action: @escaping @Sendable (TdLoginFlow) async throws -> Void,
+        onSucceed then: (() -> Void)? = nil
+    ) {
         guard let flow else { return }
         isWaiting = true
         lastError = nil
         Task {
             do {
                 try await action(flow)
+                if let then {
+                    then()
+                }
             } catch {
                 lastError = Self.describe(error)
             }

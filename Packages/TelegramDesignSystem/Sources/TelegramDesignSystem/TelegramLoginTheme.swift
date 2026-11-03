@@ -122,6 +122,17 @@ public enum TelegramLoginMetrics {
     /// Telegram draws its rules and box borders one *physical* pixel wide, so the point
     /// width depends on the display: 1 pt would read visibly heavier at @3x.
     public static func hairline(displayScale: CGFloat) -> CGFloat { 1.0 / max(1.0, displayScale) }
+
+    /// The authorization screens run under a transparent navigation bar (`separatorColor`
+    /// and `opaqueBackgroundColor` are both `.clear`, `AuthorizationSequenceController.swift:84`).
+    /// The compact code layout pushes its content below the bar — `insets.top = navigationBarHeight`
+    /// (`AuthorizationSequenceCodeEntryControllerNode.swift:655`) — which is what Doni does on every
+    /// screen that offers the back chevron, since the 100 pt `IntroMessage` sticker that keeps the
+    /// wide layout clear is an asset this app does not carry.
+    public static let navigationBarHeight: CGFloat = 44
+    /// The back button is a 44 pt square at the leading edge; `NavigationBackButtonNode` grows its
+    /// touch area the same way (`hitTestSlop`, `NavigationBackButtonNode.swift:57`).
+    public static let backButtonSide: CGFloat = 44
 }
 
 /// Motion tokens, read off the reference's animation calls rather than guessed at.

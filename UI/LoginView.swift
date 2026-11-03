@@ -23,6 +23,13 @@ struct LoginView: View {
     @State private var entry = ""
     @State private var isKeyboardVisible = false
 
+    /// Backing out of a code screen is a UI move, not a protocol one: TDLib keeps waiting for the
+    /// code it sent, and takes a new phone number from that state (`TdLoginFlow.submitPhoneNumber`).
+    @State private var isPickingANewNumber = false
+    @State private var savedNumber = ""
+    @State private var savedCountry = DialCountry.current()
+    @State private var isAskingToStop = false
+
     @State private var ghost: Ghost?
     @State private var ghostToken = 0
     @State private var ghostTextOffset: CGFloat = 0
@@ -82,7 +89,7 @@ struct LoginView: View {
                     }
 
                     screen(
-                        session.step,
+                        isPickingANewNumber ? .waitPhoneNumber : session.step,
                         entry: $entry,
                         country: $country,
                         screenWidth: proxy.size.width,
@@ -91,11 +98,25 @@ struct LoginView: View {
                     )
                 }
             }
+            .overlay(alignment: .topLeading) {
+                if offersBack(session.step), !isPickingANewNumber {
+                    backButton
+                }
+            }
         }
         .on(UIApplication.keyboardWillShowNotification) { isKeyboardVisible = true }
         .on(UIApplication.keyboardWillHideNotification) { isKeyboardVisible = false }
         .task { session.start() }
         .onAppear { fadeLiveIn() }
+        .alert(
+            Text(verbatim: ""),
+            isPresented: $isAskingToStop,
+            actions: {
+                Button("Tiếp tục", role: .cancel) {}
+                Button("Dừng") { stopAndGoBack() }
+            },
+            message: { Text("Bạn muốn dừng quá trình nhập mã và quay lại chọn số điện thoại khác?") }
+        )
         .onChange(of: session.step) { previous, next in
             stepped(from: previous, to: next)
         }
@@ -116,6 +137,33 @@ struct LoginView: View {
         }
     }
 
+    /// Telegram's navigation bar over the authorization sequence is transparent — clear background,
+    /// clear separator (`AuthorizationSequenceController.swift:84`) — so all of it that reaches the
+    /// screen is this chevron, tinted with the bar's own accent (`NavigationBackButtonNode.swift:34`).
+    private var backButton: some View {
+        Button(action: { isAskingToStop = true }) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(list.accent)
+                .frame(width: TelegramLoginMetrics.backButtonSide,
+                       height: TelegramLoginMetrics.navigationBarHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(liveAlpha)
+    }
+
+    /// Every screen after the phone number can be backed out of, because TDLib takes a new number
+    /// from all of them.
+    private func offersBack(_ step: TdAuthorizationStep?) -> Bool {
+        switch screen(of: step) {
+        case .code, .password, .otherDevice, .signUp:
+            true
+        default:
+            false
+        }
+    }
+
     @ViewBuilder private func screen(
         _ step: TdAuthorizationStep?,
         entry: Binding<String>,
@@ -125,9 +173,12 @@ struct LoginView: View {
         isGhost: Bool
     ) -> some View {
         let subtitleText = subtitle(for: step)
+        /// The screens that offer the back chevron hang below the navigation bar it lives in;
+        /// the phone screen owns the whole band, as it does in the reference.
+        let navBand = offersBack(step) ? TelegramLoginMetrics.navigationBarHeight : 0
 
         VStack(spacing: 0) {
-            gap(TelegramLoginMetrics.topInset)
+            gap(TelegramLoginMetrics.topInset + navBand)
 
             VStack(spacing: 0) {
                 Text(title(for: step))
@@ -214,12 +265,18 @@ struct LoginView: View {
     ) {
         guard screen(of: previous) != screen(of: next) else { return }
 
+        if screen(of: previous) == .phone {
+            savedNumber = entry
+            savedCountry = country
+        }
+
         let outgoing = Ghost(step: previous, entry: entry, country: country)
         withoutAnimation {
             entry = ""
             isCodeFailed = false
             shakeOffsets = []
             shakeProgress = 0
+            isPickingANewNumber = false
         }
 
         if screen(of: previous) != .busy {
@@ -254,6 +311,36 @@ struct LoginView: View {
     private func fadeLiveIn() {
         withoutAnimation { liveAlpha = 0 }
         withAnimation(TelegramLoginMotion.fadeIn) { liveAlpha = 1 }
+    }
+
+    /// The code screen flies up exactly as it did on the way forward — nothing is sent anywhere,
+    /// the number screen is simply put back on stage with the number it was left with.
+    private func stopAndGoBack() {
+        let outgoing = Ghost(step: session.step, entry: entry, country: country)
+        withoutAnimation {
+            isPickingANewNumber = true
+            entry = savedNumber
+            country = savedCountry
+            isCodeFailed = false
+            shakeOffsets = []
+            shakeProgress = 0
+        }
+        handOver(outgoing)
+        fadeLiveIn()
+    }
+
+    /// The other half: TDLib does not re-announce the code state for a number it was already
+    /// waiting on, so the way back to it is driven from here rather than from `stepped`.
+    private func returnToCode() {
+        savedNumber = entry
+        savedCountry = country
+        let outgoing = Ghost(step: .waitPhoneNumber, entry: entry, country: country)
+        withoutAnimation {
+            isPickingANewNumber = false
+            entry = ""
+        }
+        handOver(outgoing)
+        fadeLiveIn()
     }
 
     /// The boxes take the hard shake, the word and phrase fields the gentle one, and only the
@@ -456,7 +543,12 @@ struct LoginView: View {
     private func submit(_ step: TdAuthorizationStep?, entry: String) {
         switch screen(of: step) {
         case .phone:
-            session.submitPhoneNumber(country.dialCode + String(entry.filter { $0.isNumber }))
+            let number = country.dialCode + String(entry.filter { $0.isNumber })
+            if isPickingANewNumber {
+                session.submitPhoneNumber(number, then: returnToCode)
+            } else {
+                session.submitPhoneNumber(number)
+            }
         case .code:
             session.submitCode(entry)
         case .password:

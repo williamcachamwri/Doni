@@ -58,6 +58,11 @@ public actor TdLoginFlow {
     /// International format, e.g. `+84905000000`. Default settings: TDLib's
     /// own `phoneNumberAuthenticationSettings` would switch on flash calls and
     /// SMS retriever, neither of which this app needs (`td_api.tl:12192`).
+    ///
+    /// Also the request that backs out of a code entry: TDLib has no cancel-authentication
+    /// request, but accepts a new number while it is waiting for a code, a password or a
+    /// registration (`AuthManager.cpp:638-648`), and answers it with a fresh
+    /// `authorizationStateWaitCode` for the new number.
     public func submitPhoneNumber(_ number: String) async throws {
         _ = try await client.request("setAuthenticationPhoneNumber", ["phone_number": .string(number)])
     }
