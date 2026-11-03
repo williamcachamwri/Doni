@@ -582,6 +582,74 @@ as one app with the library rather than as two widgets, and every number inside 
 | the counts, "Đăng xuất", the channel rows' `@username` line | Doni's own content — the app has one purpose, so its settings say what is on the phone rather than offering 30 sections | |
 | logout wipes the library (`Library.wipe()`) before the session closes | Doni's own behaviour, and the reason the row exists at all: `file_id` is TDLib's per-database number (`td_api.tl:326`), so rows kept across a logout would point at nothing | `App/Library.swift` |
 
+## The screenshot oracle — the scale and the materials Doni actually wears
+
+The parity test is a photo: `IMG_2544` is the reference app's chat list on the user's phone, and
+`IMG_2543` is Doni on the same phone. Both are 1170 × 2532 px, i.e. 390 × 844 pt @3x, so every number
+below is `px / 3` read off the reference with `Scripts/probe.swift` (`box`, `vedges`, `hedges`, `bands`).
+Two things come out of that photo that the source files alone cannot give: **which text scale the app
+is really drawn at**, and **what the glass actually reads as** once it is over black.
+
+**The scale is `baseDisplaySize` 14, not 17.** Every source number in the sections above is written at
+17; the phone is not. Three independent measurements say so: the row pitch is 168 px = **56 pt** (at 17
+it is 68), the avatar is 147 px = **49 pt** = `floor(14 × 60/17)`, and the ink heights are those of
+`semibold(13)` / `regular(12)` — "Zalo" (ascender only) is 27 px = 9.0 pt, "macbook" 30 px = 10.0 pt,
+and a 16 pt title would measure 11.7. So the whole list is Telegram's smallest text size, and Doni
+copies the photo rather than the default: every font below is `floor(14 × n / 17)`.
+
+**The materials are Apple's, not a flattened colour.** The bar has no opaque band and no rule under it —
+`hedges` across y 336…344 px finds nothing — and the band it does occupy reads `#1c1c1d`, which is both
+what `glassEffect` composites to over black and what `chatList.pinnedItemBackground` (`:483`) is, so the
+photo cannot separate the two; what it does say is that the bar and the pinned block are the same colour
+and neither is a rule. The capsules are glass. Doni keeps the geometry Telegram measured and takes its
+surfaces from HIG + Liquid Glass: real glass where the OS has it (`#available(iOS 26.0, *)`),
+`.ultraThinMaterial` over the measured colour where it does not.
+
+### The row, as photographed
+
+| Value | What | Where |
+|---|---|---|
+| **56 pt** (168 px, four pitches measured) | row pitch, pinned and unpinned alike | `vedges`/separator rows at y 1181, 1349, 1517, 1685, 1853, 2021 |
+| **49 pt** circle, left edge at **16 pt** | artwork column, vertically centred (3.5 pt above and below) | `hedges y=1265`: 48 → 195 px; `vedges x=121`: 1191 → 1338 px |
+| **75 pt** | text column left edge — `24 + 49` (`ChatListItem.swift:2574`) plus the 2 pt the content rect carries (`:4054`), *not* the 84 the 17-scale gives | `hedges 1349` |
+| `semibold(13)` `floor(14 × 16/17)` | title | `:2289` + ink 27–30 px |
+| `regular(12)` `floor(14 × 15/17)` | preview line, `#8d8e93` | `:2290`, ink 26 px |
+| `regular(11)` `floor(14 × 14/17)` | timestamp, `#8d8e93`, right edge at **372 pt** = 16 from the edge | `:2292`, `hedges 1230`: last ink 1117 px |
+| `#000000` / `#1c1c1d` | list background / the pinned block's background | `box 15 1400`, `box 15 700` |
+| `#545458` at 0.55, **1 px**, from **75 pt** to **374 pt** | the rule: it starts where the text does and stops 16 from the right edge. Over black it reads `#2e2e30`, over the pinned block `#3b3b3d` — the same token, two composites | `hedges 1349`, `hedges 1517` |
+| 63 × 40 px = **21 × 13.3 pt**, pill, `#666666` fill, `#000000` digits, `semibold(11)` tabular | the unread bubble slot: content-width pill, 16 pt from the right edge, under the timestamp | `hedges 1439`, `vedges 1070`, `box 1062 1421` |
+| `#eb5545` fill, white digits | a mention bubble — the same pill, the destructive colour | `box 150 2300` |
+| `#38c4ed` fill, white digits | the fork's own accent on the active pill. Doni uses its own accent token here, so this hex is recorded as *theirs*, not as a target | `box 1030 2100` |
+
+### The bar, as photographed
+
+| Value | What | Where |
+|---|---|---|
+| `#1c1c1d`, and **no rule** | what the bar band reads over black, and the absence of a separator under it | `box 10 200 30 100`; `hedges 336/339/341/344` |
+| **54.7 pt** from the bottom of the status area to the first row | the bar's content band | row top 341 px − 59 pt status inset |
+| `semibold(22)`, centred, ink centre **78.5 pt** | the large title — the photo's bar title is *not* the `semibold(17)` `ChatTitleView` of the source; it is iOS 26's large title, and Doni follows the photo | `bands 400 800 150 341`: 211→260 px |
+| capsule **44 pt** tall (131 px), left edge at **16 pt**, 12 pt of padding around the word | the leading text action ("Sửa") | `vedges 100`: 172→302 px; `hedges 225`: 47→211 px |
+| group capsule **116.7 pt** wide, 44 tall, right edge at **374 pt**, three items on a 38.9 pt pitch | the trailing icon group | `hedges 225`: 773→1123 px |
+| glass reads `#3e3e40` over the pinned block, rim `#686869` | what `glassEffect(.regular)` composites to on this screen — the fallback Doni must land near | `box`/`vedges` inside the capsules |
+
+### The floating tab bar, as photographed
+
+| Value | What | Where |
+|---|---|---|
+| **20 pt** from the left edge, the right edge and the bottom of the screen | the bar floats; nothing is full-bleed | `hedges 2380`: 60 px; `hedges 2330`: 1110 px; `vedges 600`: 2472 px |
+| **67.3 pt** tall (2270 → 2472 px) | the band both the capsule and the circle share | `vedges 400`, `vedges 1014` |
+| capsule 278 pt for three items → **92.7 pt** each | the item pitch inside the glass | `hedges 2380`: 60 → 894 px |
+| separate **64 pt** circle, 8 pt after the capsule | search, as its own glass item rather than a field in the bar | `hedges 2380`: 918 → 1110 px |
+| icon ink 17.3 pt tall, centre **25.1 pt** below the band's top; label centre **50.3 pt** | the item's two rows: a 24 pt glyph over a `medium(10)` label | `bands 300 480 2270 2472`: 2320→2371, 2410→2435 px |
+| selected item: glyph and label in the accent, and the glass behind it reads blue (`#304562` family) | selection is *tinted glass*, not a filled circle | `hedges 2320` |
+| the list scrolls **under** the glass — a row is cut mid-height by the bar in the photo | the bar is an overlay, and the scroll content is inset instead of clipped | the last row of `IMG_2544` |
+
+**Doni's own, in this section.** Four tabs instead of three plus a search circle; the search circle
+opens the library's field instead of a search screen; `play/pause` and the account menu in the trailing
+group instead of Telegram's camera / add-contact / compose; a 49 pt *cover* in the column the reference
+uses for an avatar, circular because the photo's column is circular; and the download bubble, which
+occupies the unread pill's slot with the pill's own metrics.
+
 ## Known traps found while extracting
 
 - An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so
