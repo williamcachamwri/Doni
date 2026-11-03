@@ -58,6 +58,11 @@ public enum TelegramLibraryMetrics {
     /// glyph inside the bubble is measured off a render rather than off a line.
     public static let stateGlyph: CGFloat = 9
 
+    /// Doni's own: the chat list has no heart in a row, so this has nothing to be quoted from. It
+    /// is 12 pt because it shares the column's first line with `regular(14)` (`:2292`) and a mark
+    /// taller than the number beside it reads as the column's subject rather than its note.
+    public static let favoriteMark: CGFloat = 12
+
     public static let navigationBarHeight: CGFloat = 44
     /// `SearchBarStyle.height` for `.modern` (`SearchBarNode.swift:859-870`).
     public static let searchFieldHeight: CGFloat = 36

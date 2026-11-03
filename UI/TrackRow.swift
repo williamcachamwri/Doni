@@ -17,6 +17,13 @@ struct TrackRow: View {
     /// The row the player is holding, which wears the list's own `itemSelectedBackgroundColor`.
     let isCurrent: Bool
     let isPlaying: Bool
+    /// The right-hand slot's first line. The list rather than the row decides it, because a
+    /// favourited slice has a range to show where the library has a duration.
+    let headline: String
+    /// Doni's own mark — the chat list has no heart in a row. It takes the accent the design lab
+    /// picked (`#3e88f7`) at 12 pt, small enough to sit beside the 14 pt number without widening
+    /// the column.
+    let isFavorite: Bool
     let artwork: CoverArtwork
     let play: () -> Void
 
@@ -53,9 +60,16 @@ struct TrackRow: View {
                 .padding(.top, TelegramLibraryMetrics.titleTop)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .trailing, spacing: 7) {
-                    Text(track.headline)
-                        .font(TelegramLibraryTypography.duration)
-                        .foregroundStyle(palette.chatListDateText)
+                    HStack(spacing: 4) {
+                        if isFavorite {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: TelegramLibraryMetrics.favoriteMark))
+                                .foregroundStyle(palette.highlight)
+                        }
+                        Text(headline)
+                            .font(TelegramLibraryTypography.duration)
+                            .foregroundStyle(palette.chatListDateText)
+                    }
                     StateBubble(ready: track.isDownloaded, playing: isPlaying, palette: palette)
                 }
                 .layoutPriority(1)

@@ -390,6 +390,9 @@ cover, and Telegram itself puts a 54 pt picture there.
 | `mediaActiveControl` played / `mediaInactiveControl` not | in dark both are **white**, the idle one at 40 % — `#0088ff` / `#cacaca` are the day values and Doni is a dark app | `DefaultDarkPresentationTheme.swift:559`, `:595` |
 | title one line `.middle`, preview one line `.end` | a song's name matters at both ends, the way the audio row cuts it (`ChatMessageInteractiveFileNode.swift:751`), while a preview line is cut the way the chat list cuts its own (`ChatListItem.swift:3824`) | both cited |
 | tabular digits in the duration column | `m:ss` and `h:mm:ss` line up down the column, as Telegram's bar title and its file sizes do | `ChatTitleView.swift:26`, `ChatMessageInteractiveFileNode.swift:579` |
+| **12** pt heart, in the highlight, left of the duration | Doni's own: the chat list has no keep-mark in a row. 12 because it shares that line with `regular(14)` and a mark taller than the number beside it reads as the column's subject. It is the only way a library row can say "already kept" | `TelegramLibraryMetrics.favoriteMark` |
+| the duration slot showing `1:20–4:05` instead | the same column, on a heart row that holds a slice — the list hands the row its headline, since a marked part of a song is the more useful number than its whole length | Doni's own, `TrackRow.headline` |
+| long-press a row to keep or un-keep it | not a new gesture: the chat list's own row menu is built by `chatContextMenuItems`, and its destructive entries are drawn in the menu's destructive colour | `ChatContextMenus.swift:83`, `ChatListController.swift:1026`, `:1257` |
 | clear button scaled `0.2 → 1.0`, not faded | Telegram scales the pill's clear button when it appears and goes | `SearchBarNode.swift:1647` |
 
 **Doni's own, not copied from a line.** Colouring the matched run inside a title: Telegram's chat list

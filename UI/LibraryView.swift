@@ -26,9 +26,6 @@ struct LibraryView: View {
 
     @State private var query = ""
     @State private var showsAccountMenu = false
-    /// The strip of player is the closed state of this; opening it is the strip's only job.
-    @State private var showsPlayer = false
-    @FocusState private var fieldFocused: Bool
 
     private let palette = TelegramPalette.dark
 
@@ -38,15 +35,7 @@ struct LibraryView: View {
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            MiniPlayerBar(player: player, artwork: artwork) { showsPlayer = true }
-                .transition(.offset(y: TelegramShellMetrics.miniPlayerHeight)
-                    .combined(with: .opacity))
-        }
-        .fullScreenCover(isPresented: $showsPlayer) {
-            NowPlayingView(player: player, artwork: artwork)
-        }
-        .animation(TelegramShellMotion.appear, value: player.current?.uniqueId)
+        .playerStrip(player: player, artwork: artwork)
         .task {
             player.bind(session.covers())
             indexer.run(session, library: library)
@@ -75,7 +64,7 @@ struct LibraryView: View {
         VStack(spacing: 0) {
             titleRow
                 .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-            searchRow
+            SearchField(query: $query, placeholder: "Tìm kiếm bài hát")
         }
         .background(palette.navOpaqueBackground.ignoresSafeArea(edges: .top))
         .overlay(alignment: .bottom) {
@@ -132,78 +121,13 @@ struct LibraryView: View {
         .animation(TelegramLoginMotion.easeInOut(0.2), value: indexer.statusLine)
     }
 
-    private var searchRow: some View {
-        HStack(spacing: 0) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: TelegramLibraryMetrics.searchCornerRadius)
-                    .fill(palette.searchInputFill)
-                HStack(spacing: 0) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: TelegramLibraryMetrics.loupeSide, weight: .regular))
-                        .foregroundStyle(palette.searchPlaceholder)
-                        .frame(width: TelegramLibraryMetrics.loupeSide)
-                    if query.isEmpty {
-                        Text("Tìm kiếm bài hát")
-                            .font(TelegramLibraryTypography.searchField)
-                            .foregroundStyle(palette.searchPlaceholder)
-                    }
-                }
-                .padding(.leading, TelegramLibraryMetrics.loupeInset)
-                .allowsHitTesting(false)
-                TextField("", text: $query)
-                    .font(TelegramLibraryTypography.searchField)
-                    .foregroundStyle(palette.navPrimaryText)
-                    .focused($fieldFocused)
-                    .padding(.leading, TelegramLibraryMetrics.fieldTextInset)
-                    .padding(.trailing, query.isEmpty
-                        ? TelegramLibraryMetrics.searchPadding
-                        : TelegramLibraryMetrics.clearWidth)
-                    .submitLabel(.done)
-                clearButton
-            }
-            .frame(height: TelegramLibraryMetrics.searchFieldHeight)
-
-            if fieldFocused {
-                Button("Huỷ") {
-                    query = ""
-                    fieldFocused = false
-                }
-                .font(TelegramLibraryTypography.searchField)   // Cancel without a custom title is `regular(17)`
-                .foregroundStyle(palette.accent)
-                .padding(.leading, 11)
-                .transition(.opacity)
-            }
-        }
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: fieldFocused)
-        .padding(.horizontal, TelegramLibraryMetrics.searchPadding)
-        .padding(.top, TelegramLibraryMetrics.searchPadding)
-        .padding(.bottom, TelegramLibraryMetrics.searchBelow)
-    }
-
-    /// The clear button does not fade, it scales: 0.2 hidden, 1.0 shown (`:1647`).
-    private var clearButton: some View {
-        Button {
-            query = ""
-        } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 17, weight: .regular))
-                .foregroundStyle(palette.searchClearButton)
-                .frame(width: TelegramLibraryMetrics.clearWidth,
-                       height: TelegramLibraryMetrics.searchFieldHeight)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .scaleEffect(query.isEmpty ? TelegramLibraryMetrics.clearHiddenScale : 1.0)
-        .opacity(query.isEmpty ? 0 : 1)
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: query.isEmpty)
-        .allowsHitTesting(!query.isEmpty)
-    }
-
     // MARK: List
 
     private var rows: some View {
         let visible = indexer.matches(of: query)
+        // The hearts are read off the published list rather than queried per row: a keystroke
+        // redraws every visible row, and a thousand lookups for it is a lot of SQL for a screen.
+        let kept = Set(library.favorites.map { $0.track.uniqueId })
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -218,9 +142,20 @@ struct LibraryView: View {
                             palette: palette,
                             isCurrent: player.current?.uniqueId == track.uniqueId,
                             isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
+                            headline: track.headline,
+                            isFavorite: kept.contains(track.uniqueId),
                             artwork: artwork
                         ) {
                             player.play(track, in: Array(visible))
+                        }
+                        .contextMenu {
+                            Button {
+                                library.toggleFavorite(track)
+                            } label: {
+                                Label(kept.contains(track.uniqueId) ? "Bỏ yêu thích" : "Yêu thích",
+                                      systemImage: kept.contains(track.uniqueId)
+                                          ? "heart.slash" : "heart")
+                            }
                         }
                         .transition(.offset(y: 6).combined(with: .opacity))
                         .task(id: track.uniqueId) {

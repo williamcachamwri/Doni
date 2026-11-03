@@ -24,10 +24,26 @@ final class Library: ObservableObject {
     /// What the phone knew when the app last closed, newest first — the rows the list shows before
     /// the walk has brought anything back.
     @Published private(set) var storedTracks: [StoreTrack] = []
+    @Published private(set) var favorites: [StoredFavorite] = []
+    @Published private(set) var playlists: [StoredPlaylist] = []
+    @Published private(set) var channels: [StoreChannel] = []
+    @Published private(set) var downloadedCount = 0
+    @Published private(set) var trackCount = 0
 
     init(filename: String = "library.db") {
         store = LibraryStore(path: Self.directory.appendingPathComponent(filename).path)
         refresh()
+    }
+
+    /// Every published list and number, re-read. Called after anything that touches the file, so a
+    /// heart tapped in one tab shows in the other three without a relaunch.
+    func refresh() {
+        favorites = store.favorites().map { remembered($0) }
+        playlists = store.playlists()
+        channels = store.channels()
+        downloadedCount = store.downloadedCount()
+        trackCount = store.trackCount()
+        storedTracks = verified(store.tracks())
     }
 
     // MARK: The walk
@@ -38,6 +54,7 @@ final class Library: ObservableObject {
         store.save(channel: StoreChannel(chatId: channel.chatId, username: channel.username,
                                          title: channel.title, isSelected: true))
         store.setSelectedChannel(chatId: channel.chatId)
+        refresh()
     }
 
     /// A page of the walk, written as it arrives. The walk can be stopped halfway, and what it has
@@ -47,16 +64,90 @@ final class Library: ObservableObject {
         store.appendTracks(page.map { stored($0, chatId: chatId) })
     }
 
-    func refresh() {
-        storedTracks = verified(store.tracks())
-    }
-
     // MARK: Downloads
 
     /// Where TDLib put the file. Recorded so the row shows as downloaded and a second play of the
     /// same song never asks the network again.
     func recordDownload(path: String, uniqueId: String) {
         store.setLocalPath(path, uniqueId: uniqueId)
+        downloadedCount = store.downloadedCount()
+    }
+
+    // MARK: Hearts
+
+    func isFavorite(_ uniqueId: String) -> Bool {
+        store.isFavorite(uniqueId)
+    }
+
+    /// The row's heart, and the list that reads it. A slice is what makes a favourite here
+    /// something other than a bookmark, so it travels with the toggle.
+    @discardableResult
+    func toggleFavorite(_ track: any Playable, segment: ClosedRange<Int>? = nil) -> Bool {
+        let on = store.toggleFavorite(uniqueId: track.uniqueId, segment: segment)
+        refresh()
+        return on
+    }
+
+    func setSegment(_ segment: ClosedRange<Int>?, uniqueId: String) {
+        store.setFavoriteSegment(segment, uniqueId: uniqueId)
+        refresh()
+    }
+
+    // MARK: Lists
+
+    @discardableResult
+    func createPlaylist(named name: String) -> StoredPlaylist? {
+        defer { refresh() }
+        return store.createPlaylist(name: name)
+    }
+
+    @discardableResult
+    func renamePlaylist(id: Int64, name: String) -> Bool {
+        defer { refresh() }
+        return store.renamePlaylist(id: id, name: name)
+    }
+
+    func deletePlaylist(id: Int64) {
+        store.deletePlaylist(id: id)
+        refresh()
+    }
+
+    /// Songs in the order the user put them in, with the files behind them checked.
+    func tracks(in playlistId: Int64) -> [StoreTrack] {
+        verified(store.playlistTracks(playlistId: playlistId))
+    }
+
+    func add(_ track: StoreTrack, to playlistId: Int64) {
+        store.add(track: track, to: playlistId)
+        refresh()
+    }
+
+    func removeTrack(uniqueId: String, from playlistId: Int64) {
+        store.removeTrack(uniqueId: uniqueId, from: playlistId)
+        refresh()
+    }
+
+    func playlists(containing uniqueId: String) -> [Int64] {
+        store.playlists(containing: uniqueId)
+    }
+
+    // MARK: The file
+
+    func select(channel chatId: Int64) {
+        store.setSelectedChannel(chatId: chatId)
+        refresh()
+    }
+
+    func remove(channel chatId: Int64) {
+        store.removeChannel(chatId: chatId)
+        refresh()
+    }
+
+    /// Everything this app put on the phone, thrown away. The session is Keychain's business; the
+    /// rows, the hearts and the lists are not.
+    func wipe() {
+        store.wipeLibrary()
+        refresh()
     }
 
     // MARK: Rows
@@ -74,20 +165,27 @@ final class Library: ObservableObject {
                    miniArtwork: track.miniArtwork)
     }
 
-    /// The rows are only as good as the files behind them: a path that no longer exists is cleared
-    /// in the database too, so the row asks for the song again instead of failing to play it.
+    /// Rows are only as good as the files behind them: a path that no longer exists is cleared in
+    /// the database too, so the row asks for the song again instead of failing to play it.
     private func verified(_ rows: [StoreTrack]) -> [StoreTrack] {
-        let reader = FileManager.default
-        return rows.map { row in
-            guard let path = row.localPath else { return row }
-            guard reader.fileExists(atPath: path) else {
-                store.setLocalPath(nil, uniqueId: row.uniqueId)
-                var cleared = row
-                cleared.localPath = nil
-                return cleared
-            }
-            return row
+        rows.map(verified(path:))
+    }
+
+    private func verified(path row: StoreTrack) -> StoreTrack {
+        guard let path = row.localPath else { return row }
+        guard FileManager.default.fileExists(atPath: path) else {
+            store.setLocalPath(nil, uniqueId: row.uniqueId)
+            var cleared = row
+            cleared.localPath = nil
+            return cleared
         }
+        return row
+    }
+
+    private func remembered(_ favorite: StoredFavorite) -> StoredFavorite {
+        var fresh = favorite
+        fresh.track = verified(path: favorite.track)
+        return fresh
     }
 
     private static var directory: URL {
