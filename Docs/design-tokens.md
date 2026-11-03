@@ -181,15 +181,43 @@ not reproduced here.
 
 ### Motion
 
+`kCAMediaTimingFunctionSpring` is **not one curve**. `CAAnimationUtils.swift:119-204` routes a
+0.5 s animation through a real `CASpringAnimation` and *every other duration* through a fixed
+bezier, so the 0.3 s hand-over below is a bezier even though the call site says "spring".
+
 | Value | What | Source |
 |---|---|---|
-| `0.5 s`, `kCAMediaTimingFunctionSpring` | the screen slides up into place | `AuthorizationSequenceController.swift:1407` |
-| `0.2 s`, `easeInEaseOut` | and slides back down when it is dismissed | `:1416` |
-| `0.3 s` alpha 0 → 1 | fade of the first screen's content | `:1367` |
-| `0.2 s` fade, `0.3 s` spring (−100 y, additive), `0.4 s` scale 1 → 0.3 | the snapshot of the phone screen as it hands over to the code screen | `AuthorizationSequencePhoneEntryControllerNode.swift:544-549` |
-| `0.3 s` alpha on each incoming node; `0.3 s` scale 0.3 → 1.0 on the sticker | the code/phone screens appearing | `:565-569` |
-| `0.15 s`, `.easeInOut` | relayout when the code state changes | `AuthorizationSequenceCodeEntryControllerNode.swift:947` |
-| shake `amplitude −30.0`, `0.5 s`, `count 6`, decaying | wrong code | `:953` |
+| `0.5 s` spring: `mass 3, stiffness 1000, damping 500` (pre-26) / `mass 1, stiffness 555.027, damping 47.118` (iOS 26) | the whole sequence sliding up by its own height when it is presented | `AuthorizationSequenceController.swift:1407`, `UIKitUtils.m:53-77` |
+| ζ = 47.118 / 2√555.027 = **1.000**, ω₀ = √555.027 = 23.559 rad/s → `response 0.2667 s, dampingFraction 1.0` | the same spring in SwiftUI's parameters | derived from the two lines above |
+| `0.2 s`, `easeInEaseOut` | and sliding back down when it is dismissed | `:1416` |
+| `0.3 s` alpha 0 → 1 | the first screen fading in | `:1367` |
+| bezier `(0.380, 0.700, 0.125, 1.000)` | what "spring" means for any duration ≠ 0.5 s, i.e. every hand-over | `CAAnimationUtils.swift:186` |
+| `easeInEaseOut` = `(0.42, 0.0, 0.58, 1.0)` | the default of `animateAlpha` / `animateScale` / `animatePosition` | `:397`, `:401`, `:421` |
+
+Hand-over between two screens — the outgoing screen is snapshotted in two pieces and thrown off
+the top while the incoming one fades up behind it (`AuthorizationSequencePhoneEntryControllerNode.swift:544-569`):
+
+| Piece | What it does |
+|---|---|
+| field block | alpha 1 → 0 in `0.2 s`; position additive 0 → **−100** in `0.3 s` (bezier above); scale 1 → **0.3** in `0.4 s` |
+| text block (title + notice) | alpha 1 → 0 in `0.2 s`; position 0 → **−140** in `0.3 s` |
+| incoming nodes | alpha 0 → 1 in `0.3 s` each; the sticker scales 0.3 → 1.0 in `0.3 s` |
+| the proceed button | **not** part of either snapshot — it is one shared node whose frame morphs |
+
+Code boxes (`CodeInputView.swift`, driven from `AuthorizationSequenceCodeEntryControllerNode.swift`):
+
+| Value | What | Source |
+|---|---|---|
+| alpha 0 → 1 in `0.25 s`, scaleY 0.01 → 1 in `0.25 s` from a bottom anchor, position spring from `+0.35·h` over `0.4 s` (`mass 5, stiffness 900, damping 70` → response 0.468 s, ζ 0.522) | a digit entering its box | `CodeInputView.swift:82-86`, `UIKitUtils.m:86-90`, `CAAnimationUtils.swift:338` |
+| alpha 1 → 0 in `0.2 s` while it falls `h/2` | a digit being deleted (`:90-95`) | `:91-94` |
+| border colour cross-fade `0.15 s` **linear** | inactive → active → failed → succeeded | `:72` |
+| `inactiveBorder #c8c7cc`, `activeBorder #0088ff`, `failedBorder #ff3b30`, `succeedBorder #00c900` | the four border colours — `succeedBorder` is `itemDisclosureActions.constructive.fillColor` | `CodeEntryControllerNode.swift:635-638`, `DefaultDayPresentationTheme.swift:500` |
+| wrong code: `animateError()` then shake `amplitude −30, 0.5 s, count 6, decay` → keyframes `0, −30, +15, −10, +7.5, −6, +5, 0`, evenly spaced, linear | the boxes throw sideways and decay | `CodeEntryControllerNode.swift:952-953`, `ShakeAnimation.swift:9-39` |
+| word / phrase field: `addShakeAnimation()` with the helper's defaults → `amplitude 3, 0.3 s, count 4`, no decay = `0, +3, −3, +3, −3, 0` | the same gesture, gentler | `:919`, `:945` |
+| red borders held for **0.85 s**, *then* the text is cleared | a rejected code is not emptied immediately | `CodeInputView.swift:190-201` |
+| scale keyframes `1.0 → 1.1 → 1.0` over `0.4 s` | an accepted code pulses once | `CodeEntryControllerNode.swift:1003-1004` |
+| error text `regular(13) #ff3b30`, centred, `field.maxY + 11`, or `+ 24` when the screen is wider than 320 pt | the line under the field | `:958`, `:967` |
+| `0.15 s` `.easeInOut` | relayout when the code state changes | `:947` |
 
 ## Known traps found while extracting
 
