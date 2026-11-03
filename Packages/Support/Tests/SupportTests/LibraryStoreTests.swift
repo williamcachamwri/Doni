@@ -1,0 +1,276 @@
+import Foundation
+import Testing
+@testable import Support
+
+/// A database in a temporary directory, thrown away when the test ends.
+private func makeStore() throws -> (LibraryStore, URL) {
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("doni-store-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return (LibraryStore(path: directory.appendingPathComponent("library.db").path), directory)
+}
+
+private func track(_ key: String, chatId: Int64 = -1001, date: Int64 = 1_730_000_000,
+                   title: String = "Bài hát") -> StoreTrack {
+    let number = Int64(key.unicodeScalars.first?.value ?? 0)
+    return StoreTrack(uniqueId: key, chatId: chatId, messageId: number,
+                      fileId: 10, coverFileId: 20, title: title, performer: "Sơn Tùng M-TP",
+                      fileName: "\(key).mp3", duration: 200, size: 5_000_000, date: date)
+}
+
+@Suite("LibraryStore")
+struct LibraryStoreTests {
+    @Test("an empty database answers with empty lists, not an error")
+    func freshDatabaseIsEmpty() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        #expect(store.channels().isEmpty)
+        #expect(store.tracks().isEmpty)
+        #expect(store.favorites().isEmpty)
+        #expect(store.playlists().isEmpty)
+        #expect(store.trackCount() == 0)
+    }
+
+    @Test("a second open of the same file finds what the first wrote")
+    func rowsSurviveReopen() throws {
+        let (store, directory) = try makeStore()
+        let path = directory.appendingPathComponent("library.db").path
+        store.save(channel: StoreChannel(chatId: -1002, username: "vn", title: "VN Music"))
+        store.replaceTracks(chatId: -1002, tracks: [track("u1"), track("u2")])
+        store.close()
+
+        let reopened = LibraryStore(path: path)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        #expect(reopened.trackCount(chatId: -1002) == 2)
+        #expect(reopened.channels().map { $0.title } == ["VN Music"])
+        reopened.close()
+    }
+
+    @Test("only one channel is the one home reads")
+    func selectionIsExclusive() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A"))
+        store.save(channel: StoreChannel(chatId: -2, username: "b", title: "B"))
+        store.setSelectedChannel(chatId: -1)
+        #expect(store.selectedChannel()?.chatId == -1)
+        store.setSelectedChannel(chatId: -2)
+        #expect(store.channels().filter { $0.isSelected }.map { $0.chatId } == [-2])
+    }
+
+    @Test("saving a channel twice updates it instead of doubling it")
+    func channelUpsert() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "Old"))
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "New"))
+        #expect(store.channels().count == 1)
+        #expect(store.channels().first?.title == "New")
+    }
+
+    @Test("the library reads newest first, the way a chat does")
+    func tracksComeBackNewestFirst() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [
+            track("old", date: 1_000), track("new", date: 2_000), track("mid", date: 1_500)
+        ])
+        #expect(store.tracks().map { $0.uniqueId } == ["new", "mid", "old"])
+    }
+
+    @Test("the same file id twice in two channels is stored once")
+    func dedupesByUniqueId() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("dup")])
+        store.appendTracks([track("dup", chatId: -2, title: "Bài khác")])
+        #expect(store.trackCount() == 1)
+        #expect(store.track(uniqueId: "dup")?.title == "Bài khác")
+    }
+
+    @Test("a full page replaces the page before it")
+    func replaceClearsTheChannel() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a"), track("b")])
+        store.replaceTracks(chatId: -1, tracks: [track("b"), track("c")])
+        #expect(store.tracks(chatId: -1).map { $0.uniqueId }.sorted() == ["b", "c"])
+    }
+
+    @Test("where the file landed is written back onto the row")
+    func localPathIsRemembered() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        #expect(store.downloadedCount() == 0)
+        store.setLocalPath("/tmp/a.mp3", uniqueId: "a")
+        #expect(store.track(uniqueId: "a")?.localPath == "/tmp/a.mp3")
+        #expect(store.downloadedCount() == 1)
+        store.setLocalPath(nil, uniqueId: "a")
+        #expect(store.track(uniqueId: "a")?.localPath == nil)
+    }
+
+    @Test("the cover's own id and the inline artwork survive the round trip")
+    func artworkColumns() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        var row = track("a")
+        row.miniArtwork = Data([0xff, 0xd8, 0x01])
+        store.replaceTracks(chatId: -1, tracks: [row])
+        let read = try #require(store.track(uniqueId: "a"))
+        #expect(read.coverFileId == 20)
+        #expect(read.miniArtwork == Data([0xff, 0xd8, 0x01]))
+    }
+
+    @Test("a heart on, then off, then on again")
+    func favoriteToggles() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        #expect(store.toggleFavorite(uniqueId: "a", segment: nil) == true)
+        #expect(store.isFavorite("a"))
+        #expect(store.favorites().count == 1)
+        #expect(store.favorites().first?.segment == nil)
+        #expect(store.toggleFavorite(uniqueId: "a", segment: nil) == false)
+        #expect(!store.isFavorite("a"))
+        #expect(store.favorites().isEmpty)
+    }
+
+    @Test("a heart can hold three minutes of a one-hour set")
+    func favoriteSegmentRoundTrips() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        #expect(store.toggleFavorite(uniqueId: "a", segment: 72...100))
+        #expect(store.favoriteSegment("a") == 72...100)
+        #expect(store.favorites().first?.segment == 72...100)
+    }
+
+    @Test("a whole favourite can be narrowed to a slice without losing the heart")
+    func settingASegmentOnAnExistingFavourite() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        store.toggleFavorite(uniqueId: "a", segment: nil)
+        #expect(store.setFavoriteSegment(10...20, uniqueId: "a"))
+        #expect(store.isFavorite("a"))
+        #expect(store.favoriteSegment("a") == 10...20)
+    }
+
+    @Test("a favourite whose song is gone is not a favourite at all")
+    func favouritesJoinTheTrack() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a"), track("b")])
+        store.toggleFavorite(uniqueId: "a", segment: nil)
+        store.replaceTracks(chatId: -1, tracks: [track("b")])
+        #expect(store.isFavorite("a"), "the heart is still pressed")
+        #expect(store.favorites().isEmpty, "but there is nothing left to play")
+    }
+
+    @Test("a playlist name has to be new and not blank")
+    func playlistNames() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        #expect(store.createPlaylist(name: "Chạy bộ")?.name == "Chạy bộ")
+        #expect(store.createPlaylist(name: "Chạy bộ") == nil, "a duplicate name")
+        #expect(store.createPlaylist(name: "   ") == nil)
+        #expect(store.playlists().count == 1)
+    }
+
+    @Test("songs keep the order they were added in")
+    func playlistOrder() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a"), track("b"), track("c")])
+        let playlist = try #require(store.createPlaylist(name: "P"))
+        #expect(store.add(track: track("c"), to: playlist.id))
+        #expect(store.add(track: track("a"), to: playlist.id))
+        #expect(store.add(track: track("b"), to: playlist.id))
+        #expect(store.playlistTracks(playlistId: playlist.id).map { $0.uniqueId } == ["c", "a", "b"])
+        #expect(store.playlists().first?.trackCount == 3)
+    }
+
+    @Test("adding the same song twice does not double it")
+    func playlistDedupes() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        let playlist = try #require(store.createPlaylist(name: "P"))
+        #expect(store.add(track: track("a"), to: playlist.id))
+        #expect(!store.add(track: track("a"), to: playlist.id))
+        #expect(store.playlistTracks(playlistId: playlist.id).count == 1)
+        #expect(store.playlists(containing: "a") == [playlist.id])
+    }
+
+    @Test("taking a song out of one list leaves the other lists alone")
+    func removeFromOnePlaylist() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a"), track("b")])
+        let first = try #require(store.createPlaylist(name: "P1"))
+        let second = try #require(store.createPlaylist(name: "P2"))
+        store.add(track: track("a"), to: first.id)
+        store.add(track: track("a"), to: second.id)
+        store.removeTrack(uniqueId: "a", from: first.id)
+        #expect(store.playlistTracks(playlistId: first.id).isEmpty)
+        #expect(store.playlistTracks(playlistId: second.id).count == 1)
+        #expect(store.playlists(containing: "a") == [second.id])
+    }
+
+    @Test("deleting a list does not delete the song it held")
+    func deletePlaylistKeepsTracks() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        let playlist = try #require(store.createPlaylist(name: "P"))
+        store.add(track: track("a"), to: playlist.id)
+        store.deletePlaylist(id: playlist.id)
+        #expect(store.playlists().isEmpty)
+        #expect(store.playlistTracks(playlistId: playlist.id).isEmpty)
+        #expect(store.track(uniqueId: "a") != nil)
+    }
+
+    @Test("renaming a list keeps its songs")
+    func renamePlaylist() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        let playlist = try #require(store.createPlaylist(name: "Old"))
+        store.add(track: track("a"), to: playlist.id)
+        #expect(store.renamePlaylist(id: playlist.id, name: "New"))
+        #expect(!store.renamePlaylist(id: playlist.id, name: "  "))
+        #expect(store.playlists().first?.name == "New")
+        #expect(store.playlistTracks(playlistId: playlist.id).count == 1)
+    }
+
+    @Test("a channel that goes away takes its songs and their hearts with it")
+    func removeChannelCleansUp() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A"))
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        store.toggleFavorite(uniqueId: "a", segment: nil)
+        store.removeChannel(chatId: -1)
+        #expect(store.channels().isEmpty)
+        #expect(store.tracks().isEmpty)
+        #expect(!store.isFavorite("a"))
+    }
+
+    @Test("a logout empties the library but not the file it lives in")
+    func wipeLeavesTheDatabaseOpen() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A"))
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        store.toggleFavorite(uniqueId: "a", segment: nil)
+        let playlist = try #require(store.createPlaylist(name: "P"))
+        store.add(track: track("a"), to: playlist.id)
+        store.wipeLibrary()
+        #expect(store.channels().isEmpty)
+        #expect(store.tracks().isEmpty)
+        #expect(store.favorites().isEmpty)
+        #expect(store.playlists().isEmpty)
+        #expect(store.createPlaylist(name: "Sau khi đăng xuất") != nil, "the tables are still there")
+    }
+}
