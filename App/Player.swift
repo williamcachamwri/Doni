@@ -11,7 +11,7 @@ import TdSession
 /// session is `.playback`, which is the only category that survives the app being suspended.
 @MainActor
 final class Player: ObservableObject {
-    @Published private(set) var current: TdTrack?
+    @Published private(set) var current: (any Playable)?
     @Published private(set) var isPlaying = false
     @Published private(set) var elapsed: TimeInterval = 0
     @Published private(set) var duration: TimeInterval = 0
@@ -22,7 +22,7 @@ final class Player: ObservableObject {
     /// Queue order, so the list can mark the row it is on.
     @Published private(set) var queueCount = 0
 
-    private var queue: [TdTrack] = []
+    private var queue: [any Playable] = []
     private var index = 0
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
@@ -74,16 +74,16 @@ final class Player: ObservableObject {
     /// Plays one track out of `list`, fetching its file first if the phone does not have it.
     /// The whole list becomes the queue so next/previous walk the channel the way a listener
     /// expects, newest first.
-    func play(_ track: TdTrack, in list: [TdTrack]) {
+    func play(_ track: any Playable, in list: [any Playable]) {
         queue = list
-        index = list.firstIndex(of: track) ?? 0
+        index = list.firstIndex { $0.uniqueId == track.uniqueId } ?? 0
         queueCount = list.count
         segment = nil
         startCurrent()
     }
 
     /// The same track again, but only for the slice the user favourited.
-    func play(segment: ClosedRange<Double>, of track: TdTrack) {
+    func play(segment: ClosedRange<Double>, of track: any Playable) {
         play(track, in: [track])
         self.segment = segment
     }
@@ -177,7 +177,7 @@ final class Player: ObservableObject {
         }
     }
 
-    private func open(path: String, track: TdTrack) {
+    private func open(path: String, track: any Playable) {
         let url = URL(fileURLWithPath: path)
         guard let engine = try? AVAudioPlayer(contentsOf: url) else {
             isFetchingFile = false
@@ -228,7 +228,7 @@ final class Player: ObservableObject {
 
     // MARK: Lock screen and control centre
 
-    private func publishNowPlaying(elapsed: TimeInterval, track: TdTrack? = nil) {
+    private func publishNowPlaying(elapsed: TimeInterval, track: (any Playable)? = nil) {
         let shown = track ?? current
         guard let shown else { return }
         let artist = shown.displayPerformer.isEmpty ? "Doni" : shown.displayPerformer

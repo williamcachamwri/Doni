@@ -32,19 +32,19 @@ final class CoverArtwork: ObservableObject {
 
     /// The tile's content, best first: the downloaded cover, then the inline minithumbnail,
     /// then nothing, which is where the gradient takes over.
-    func image(for track: TdTrack) -> UIImage? {
+    func image(for track: any Playable) -> UIImage? {
         sharp(for: track) ?? mini(for: track)
     }
 
     /// The downloaded cover alone, so a row can cross-fade it over the minithumbnail it already
     /// has on screen instead of swapping one image for another under a finger.
-    func sharp(for track: TdTrack) -> UIImage? {
+    func sharp(for track: any Playable) -> UIImage? {
         guard let id = track.coverFileId else { return nil }
         return cache.object(forKey: NSNumber(value: id))
     }
 
     /// The 40×30 the message carried, which is what a row shows until the sharp file lands.
-    func mini(for track: TdTrack) -> UIImage? {
+    func mini(for track: any Playable) -> UIImage? {
         guard let data = track.miniArtwork else { return nil }
         if let held = miniDecoded[track.uniqueId] { return held }
         guard let image = UIImage(data: data) else { return nil }
@@ -54,14 +54,14 @@ final class CoverArtwork: ObservableObject {
 
     /// Whether this row is showing the sharp cover, which is what tells the view whether to
     /// cross-fade at all.
-    func isSharp(for track: TdTrack) -> Bool {
+    func isSharp(for track: any Playable) -> Bool {
         sharp(for: track) != nil
     }
 
     /// Asks TDLib for the cover and decodes it off the main thread. Called from a row's
     /// `.task`, so scrolling past a track is what orders the fetches and a row that disappears
     /// cancels its own.
-    func load(track: TdTrack, via downloader: TdFileDownloader?) async {
+    func load(track: any Playable, via downloader: TdFileDownloader?) async {
         guard let coverFileId = track.coverFileId,
               cache.object(forKey: NSNumber(value: coverFileId)) == nil
         else { return }

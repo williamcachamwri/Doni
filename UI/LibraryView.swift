@@ -208,7 +208,7 @@ struct LibraryView: View {
                             isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
                             artwork: artwork
                         ) {
-                            player.play(track, in: visible)
+                            player.play(track, in: Array(visible))
                         }
                         .transition(.offset(y: 6).combined(with: .opacity))
                         .task(id: track.uniqueId) {
@@ -290,7 +290,7 @@ struct LibraryView: View {
 /// instead of centred: `rawContentRect.origin.y = 8`, the preview at `minY + lineHeight − 2`,
 /// the timestamp at `minY + 2`, and the rule inset to where the text column begins.
 private struct TrackRow: View {
-    let track: TdTrack
+    let track: any Playable
     let query: String
     let hairline: CGFloat
     let palette: TelegramPalette
@@ -321,7 +321,7 @@ private struct TrackRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)   // a song's name matters at both ends (`ChatMessageInteractiveFileNode.swift:751`)
                     HighlightedText(
-                        text: preview,
+                        text: track.previewLine,
                         query: query,
                         font: TelegramLibraryTypography.preview,
                         color: palette.chatListMessageText,
@@ -333,7 +333,7 @@ private struct TrackRow: View {
                 .padding(.top, TelegramLibraryMetrics.titleTop)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .trailing, spacing: 7) {
-                    Text(headline)
+                    Text(track.headline)
                         .font(TelegramLibraryTypography.duration)
                         .foregroundStyle(palette.chatListDateText)
                     StateBubble(ready: track.isDownloaded, playing: isPlaying, palette: palette)
@@ -360,31 +360,13 @@ private struct TrackRow: View {
         }
         .buttonStyle(ChatListHighlight(color: palette.chatListItemHighlighted))
     }
-
-    /// Telegram's preview line is "author: message"; the author half of a track is who sang it,
-    /// and the size belongs where a channel's message count would not be read.
-    private var preview: String {
-        let performer = track.displayPerformer
-        let size = DataSize.string(track.size)
-        if performer.isEmpty {
-            return track.origin == .document ? track.fileExtension.uppercased() + " · " + size : size
-        }
-        return performer + " · " + size
-    }
-
-    /// A document has no duration in the schema, and its extension is the useful number there.
-    private var headline: String {
-        if let seconds = MediaClock.duration(track.duration) { return seconds }
-        let ext = track.fileExtension.uppercased()
-        return ext.isEmpty ? "—" : ext
-    }
 }
 
 /// The icon column: the sharp cover when TDLib has fetched it, the minithumbnail the message
 /// carried until then, Telegram's avatar gradient when the post has no artwork at all — always
 /// clipped as a `.roundedRect` so the column reads as one shape.
 private struct ArtworkTile: View {
-    let track: TdTrack
+    let track: any Playable
     let artwork: CoverArtwork
     let hairline: CGFloat
     let palette: TelegramPalette
