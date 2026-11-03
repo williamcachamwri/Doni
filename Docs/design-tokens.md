@@ -50,12 +50,46 @@ Each screen adds its own section *before* it is built. Nothing here is guessed: 
 
 ## Palette — dark
 
+Doni is a dark app: the reference the whole shell is measured against is Telegram iOS 26 in dark
+mode, so the dark palette is extracted in full rather than one token at a time. `DefaultDarkPresentationTheme.swift`
+is the file; line numbers below are its own.
+
 | Token | Value | Source |
 |---|---|---|
-| accent | `#3e88f7` | `DefaultDarkPresentationTheme.swift:7` |
+| accent, `list.itemAccent`, `rootNav.accentText`, `navigationSearchBar.accentColor`, `chatList.checkmark` | **`#ffffff`** — in Telegram's *plain* dark theme the accent is white, not blue | `:344`, `:373`, `:420`, `:494` |
+| `#3e88f7` | only the colour-customised dark variant is blue, and only when the user picked a colour | `:7` |
+| chatList.background / itemBackground | `#000000` — the list is true black, so a row has no card and no fill | `:480`, `:482` |
+| chatList.pinnedItemBackground | `#1c1c1d` | `:483` |
+| chatList.itemHighlighted / itemSelected | `#121212` / `#191919` | `:484`, `:486` |
+| chatList.title, authorName, messageHighlightedText | `#ffffff` | `:487`, `:490`, `:492` |
+| chatList.dateText, messageText, muteIcon, sectionHeaderText | `#8d8e93` | `:489`, `:491`, `:498`, `:508` |
+| chatList.itemSeparator | `#545458` @ **0.55** — the same value `rootNav` and `rootTabBar` use, so one hairline colour runs through the shell | `:481`, `:347`, `:361` |
+| chatList.unreadBadgeActive background / text | **`#ffffff` / `#000000`** — an unread bubble in dark is a white pill with black digits | `:499`, `:500` |
+| chatList.unreadBadgeInactive background / text | `#666666` / `#000000` | `:501`, `:502` |
+| message.mediaActiveControl / mediaInactiveControl | `#ffffff` / `#ffffff` @ 0.4 | `:559`, `:595` |
+| message.mediaControlInnerBackground | `#262628` | `:559` |
+| message.textHighlight | `#f5c038` (a *bubble* colour; the chat list has no matched-run tint at all) | `:559` |
+| rootNav button / primaryText / secondaryText | `#ffffff` / `#ffffff` / `#ffffff` @ 0.5 | `:339`, `:341`, `:342` |
+| rootNav.blurredBackground | `#1d1d1d` @ **0.9** — the bar is a blur over black, which is what makes content read through it | `:345` |
+| rootNav.opaqueBackground | `#1d1d1d` mixed 10 % with black → `#1a1a1a` | `:346` |
+| rootTabBar icon / selected icon / text | `#ffffff` for all three; selection is carried by weight and the glass capsule, not by colour | `:362-365` |
+| navigationSearchBar background | `#1c1c1d`; field fill `#ffffff` @ 0.1; placeholder, icon and clear `#8f8f8f` | `:372`, `:374`, `:376-378` |
+| list.plainBackground / modalPlainBackground | `#000000` / `#1c1c1d` — a pushed screen is a lighter black than the list it came from | `:415`, `:416` |
+| list.itemPrimaryText / itemSecondaryText / itemDisabledText | `#ffffff` / `#98989e` / `#8f8f8f` | `:417-419` |
+| list.itemDestructive | `#eb5545` | `:422` |
+| list.itemPlaceholderText | `#4d4d4d` | `:423` |
+| list.itemBlocksBackground / modalBlocksBackground | `#1c1c1d` / `#1c1c1d` | `:413`, `:414`, `:424` |
+| chatList.regularSearchBarColor / pinnedSearchBarColor | `#272728` | `:505`, `:506` |
+| online dot | `#4cc91f` | `:514` |
+| switch frame / handle / positive | `#39393d` / `#121212` / `#08a723` | `:405`, `:406`, `:408` |
 
-Dark palette is extended per screen as it is built; the day values above are not mirrored by
-assumption.
+**Correction to a day-only assumption.** The library row first shipped the state bubble in
+`mediaActiveControl #0088ff` / `mediaInactiveControl #cacaca`
+(`DefaultDayPresentationTheme.swift:632-633`). Those are the day values. In dark — the mode this app
+is measured in — the same two controls are **white and white at 0.4**, and the unread badge Telegram
+draws beside them is a white pill with black digits. The row's dark state bubble is therefore white,
+and the blue stays only where Telegram itself keeps blue: nothing.
+
 
 ## Metrics
 
@@ -320,7 +354,7 @@ to a file anyone else can read.
 | Fact | What it decides | Source |
 |---|---|---|
 | `audio.album_cover_minithumbnail` on **112/168** — 40×30 (57 of them) or 40×22 (55), 716–850 JPEG bytes, inline | the list shows real cover art without asking for a file, because TDLib serialises `bytes` as base64 inside the message | `td_api.tl:583`, `:361` |
-| `album_cover_thumbnail` on the same 112 — 320×240 (57) or 320×180 (55) JPEG, as a `File`; `external_album_covers` on **168/168**, two entries each: 100×100 *and* 600×600 | hi-res art exists for every track and is a *fetch*, so it belongs to playback (M3) and Now Playing, not to a list that has to scroll at 120 Hz | `td_api.tl:583`, `:286` |
+| `album_cover_thumbnail` on the same 112 — 320×240 (57) or 320×180 (55) JPEG, as a `File`; `external_album_covers` on **168/168**, two entries each: 100×100 *and* 600×600, `expected_size` 0 on every one of them | the sharp tile is the **widest `external_album_covers` entry**, fetched for every track rather than only the 112 that carry `album_cover_thumbnail` — see the cover pipeline | `td_api.tl:583`, `:393` |
 | a document's `minithumbnail` is the file icon Telegram draws for it | documents get the gradient tile; their minithumbnail is never read as artwork | `td_api.tl:594` |
 | the covers come in two shapes — 40×30 over 4:3 (320×240) and 40×22 over 16:9 (320×180) | the square tile fills and crops the sides of a 16:9 cover; letterboxing it would leave white bars in an icon column that Telegram never shows | measured |
 | `performer` on 168/168, tag `title` on 168/168 | the preview line is the artist's name; nobody has to parse a caption to say who sang | `td_api.tl:583` |
@@ -353,7 +387,7 @@ cover, and Telegram itself puts a 54 pt picture there.
 | `84 − 16 − 54` → **14** | the gap after the tile, chosen so the text column still starts at `textLeftInset` 84 and the rule still begins where the text does | `ChatListItem.swift:2567`, `:5378` |
 | seven gradient pairs, `abs(messageId) % 7`, lighter stop on top | a coverless track gets colour the way a photoless peer does, and it is stable because a message id is | `AvatarNode.swift:322-330`, `PeerAvatar.swift:407-414`, `:426` |
 | **20**, and a bubble holding no count is a square of that side | the unread-bubble slot carries download state instead of a number | `ChatListItem.swift:2578`, `ChatListBadgeNode.swift:89`, `:94` |
-| `mediaActiveControl #0088ff` played / `mediaInactiveControl #cacaca` not | the bubble's two colours — the same pair Telegram puts on a media button | `DefaultDayPresentationTheme.swift:632-633` |
+| `mediaActiveControl` played / `mediaInactiveControl` not | in dark both are **white**, the idle one at 40 % — `#0088ff` / `#cacaca` are the day values and Doni is a dark app | `DefaultDarkPresentationTheme.swift:559`, `:595` |
 | title one line `.middle`, preview one line `.end` | a song's name matters at both ends, the way the audio row cuts it (`ChatMessageInteractiveFileNode.swift:751`), while a preview line is cut the way the chat list cuts its own (`ChatListItem.swift:3824`) | both cited |
 | tabular digits in the duration column | `m:ss` and `h:mm:ss` line up down the column, as Telegram's bar title and its file sizes do | `ChatTitleView.swift:26`, `ChatMessageInteractiveFileNode.swift:579` |
 | clear button scaled `0.2 → 1.0`, not faded | Telegram scales the pill's clear button when it appears and goes | `SearchBarNode.swift:1647` |
@@ -366,6 +400,28 @@ where a duration is missing, and `performer · size` as the preview line. The tw
 tiles (18 pt note, 9 pt play / download arrow) are measured off renders, because Telegram's equivalents
 are native assets (`Media/Message Audio Play`), not point sizes in a file.
 
+### The cover pipeline
+
+The blurry tile was the row's one real defect: a 40×30 minithumbnail scaled to 54 pt is a 4.5× upscale,
+and it only exists on 112 of 168 tracks. The fix is measured in the same dump — `external_album_covers` is
+on **168/168** with a 600×600 entry — so the list downloads instead of upscaling.
+
+| Value | What | Source |
+|---|---|---|
+| widest of the two `external_album_covers` entries → 600×600 | the file to fetch, chosen by `width` rather than by position, because the pair's order is a habit of the posting bots and not a guarantee | `TdTrack.coverFileId`, `td_api.tl:583`, `:393` |
+| `priority 1` for a cover, `16` for the song the user pressed play on | TDLib's priority is 1-32 and the higher wins; 168 covers must never queue ahead of audio | `td_api.tl:15001`, `TdFileDownloader.coverPriority` / `.audioPriority` |
+| `synchronous: false` | the request answers with a `file` that is still in flight; the completion is a later `updateFile`, which is why `TdClient` mirrors those onto `files` | `td_api.tl:15001`, `:11596` |
+| **20 s** patience | a file TDLib neither completes nor keeps talking about must not pin a row on its placeholder forever — the row falls back to the gradient | `TdFileDownloader.patience` |
+| downsample to **162 px** | 54 pt at @3x is the largest the tile can ever be drawn; decoding 600×600 into memory 11× bigger for a list is the mistake this line exists to prevent | `ImageIO` `thumbnailPixelWidth`, `TelegramLibraryTheme.artSide` |
+| tiers: sharp cover → minithumbnail → gradient | the row is never empty: art arrives when it arrives, and the gradient Telegram gives a photoless peer is the floor | measured, `AvatarNode.swift:322-330` |
+| alpha `0 → 1` in **0.15 s** when the sharp cover lands | the chat list fades a badge's text in over exactly that, so a tile changing underneath a scrolling list is not a pop | `ChatListBadgeNode.swift:205` |
+| 20 pt bubble on **every** row | chosen over hiding an idle bubble: a straight right-hand column scans better, and the column is Telegram's own second slot | `ChatListItem.swift:2578` |
+| matched run in **`#3e88f7`**, not in the accent | dark Telegram's accent is white and so is the title, so a white highlight is invisible; `#3e88f7` is the colour the accent-customised dark theme uses | `DefaultDarkPresentationTheme.swift:7` |
+
+**Why the second stream exists.** `TdClient.updates` has exactly one consumer — `TdLoginFlow.begin()` drains
+it to read authorization states. A download watcher taking turns on that stream with the login loop would
+quietly steal states, so `route()` copies every `updateFile`'s `file` onto `files`, and `TdFileDownloader` is
+the only reader of that.
 
 
 ### Search bar (`SearchBarNode.swift`)
