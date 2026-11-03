@@ -16,9 +16,11 @@ settings:
     CLANG_WARN_DOCUMENTATION_COMMENTS: YES
     DEAD_CODE_STRIPPING: YES
     ENABLE_USER_SCRIPT_SANDBOXING: NO
+    # Unsigned by default so `make build` stays a pure compile+link gate. Device
+    # runs opt in with CODE_SIGNING_ALLOWED=YES (see `make device`).
     CODE_SIGNING_ALLOWED: NO
-    CODE_SIGN_IDENTITY: ""
-    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ${DONI_TEAM_ID}
 
 packages:
   Support:

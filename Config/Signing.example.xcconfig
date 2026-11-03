@@ -1,0 +1,10 @@
+# Copy to Config/Signing.xcconfig (gitignored) and set the team to sign with.
+#
+# A free personal team is enough for this app: background audio, Keychain, the
+# CarPlay audio category and a Share extension all work without paid
+# entitlements. The id stays out of the repository because it is a personal
+# identifier, not a project constant.
+#
+# On a free personal team the id to put here is the TeamIdentifier (the "O=" of
+# the profile), not the one in the certificate's common name — they differ.
+DONI_TEAM_ID=
