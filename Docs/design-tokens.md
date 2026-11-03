@@ -527,6 +527,61 @@ Already recorded with the library row; `TelegramShellMotion` is that file's timi
 in (`:205`), 0.15 s alpha out (`:161`), 0.12 s collapse (`:170`), 0.2 s entrance overshoot
 (`:128`, `:134`) and the 8 pt slide (`:206`).
 
+## Settings — the clothing the item list wears
+
+`submodules/ItemListUI` is the module every real Telegram settings screen is built from. It is
+now in `Scripts/fetch-design-reference.sh`'s path list, so these numbers are read off the same
+checkout as everything else. The base sizes are not written as literals anywhere in the fetched
+subset — `fontSize.itemListBaseFontSize` is passed through — but the module's own ratios fix them:
+`/ 17.0 * 15.0` (`ItemListTextItem.swift:169`), `* 14.0 / 17.0` (`ItemListSwitchItem.swift:290`),
+`* 15.0 / 17.0` (`ItemListDisclosureItem.swift:467`) say the row base is 17, and `* 12.0 / 13.0`,
+`* 11.0 / 13.0` (`ItemListSectionHeaderItem.swift:188`, `:191`) say the header base is 13.
+
+### The row
+
+| Value | What | Source |
+|---|---|---|
+| `regular(17)` | a settings row's title — the same 17 the bar titles wear, but regular, because the row is not a heading | `ItemListActionItem.swift:159` |
+| **15.0** above and below that title, so the row is text height + 30 | the glass vertical inset. Legacy is 11 (`:191`); Doni wears the glass number the way the app wears the glass bar | `:186-189`, `:200` |
+| `y = floorToScreenPixels((height − textHeight) / 2) + 1.0` | the title's own placement — the +1 is in the source, not a rounding artefact | `:303` |
+| **16** for the title, and **16** for the hairline's left end | `leftInset = 16.0 + params.leftInset`, `bottomStripeInset = 16.0 + params.leftInset` | `:237`, `:282` |
+| in the plain style the rule runs from there to the edge; only the grouped card stops it **16** short | `bottomStripeNode.frame = (x: leftInset, width: params.width − leftInset)` for `.plain` (`:253`), and `params.width − rightInset − bottomStripeInset − separatorRightInset` with `separatorRightInset = 16.0` for the card (`:184`, `:298`) | Doni's rows are plain, so they take `:253` |
+| `regular(15)` for the value at the right, **20** in from the edge | the disclosure row's right-hand text | `ItemListDisclosureItem.swift:467`, `:503` |
+| `regular(14)` for the line under a title | a row's secondary text, scaled off the same base | `ItemListSwitchItem.swift:290` |
+| **13** above and below a row that has that second line, with **1** between the two lines | `verticalInset = 13.0` the moment a label exists, and `titleSpacing = 1.0`; the row is `inset × 2 + title + 1 + label` (`:551`) — so a two-line row is not a one-line row plus a line | `ItemListDisclosureItem.swift:525-528`, `:546`, `:551` |
+| **44** fixed for a row that holds a control | the switch row does not size on its text at all | `ItemListSwitchItem.swift:311`, `:316` |
+| **43** of column, icon centred inside it | the icon band a settings title is pushed right by (`leftInset += 43.0`; `iconNode.frame.x = params.leftInset + floor((leftInset − params.leftInset − icon.width) / 2)`). Doni's rows have no icons, so its titles sit at 16 — the position the reference gives a row that sets `noInsets` (`:418`) | `ItemListDisclosureItem.swift:418-422`, `:607` |
+| `itemDestructiveColor` | the colour a destructive row's text takes | `ItemListActionItem.swift:168-170` |
+
+### The section header
+
+| Value | What | Source |
+|---|---|---|
+| `regular(13)`, **15** in from the left | a header is *not* on the row's 16: the inset is 15 | `ItemListSectionHeaderItem.swift:180`, `:183` |
+| band = text height **+ 13**, title pinned at **y = 7.0** | so a header is 7 above and 6 below its text — the numbers are the frame, not a guess at it | `:228`, `:252` |
+| **24** above a header, **28** when another section already ended above it | the gap that separates sections | `:231`, `:233` |
+| `sectionHeaderTextColor` = `#8d8e93` | dark's own header grey — the same value the chat list's date already carries, so Doni spends no new colour on it | `DefaultDarkPresentationTheme.swift:430`, `:205` in `TelegramPalette.swift` |
+| an action in the header is `itemAccentColor` | the "clear everything" style verb, if a header ever gets one | `:204` |
+| rows in a plain list get **22** between sections | the non-grouped rhythm, recorded because the grouped one is measured above and the two are not interchangeable | `ItemListItem.swift:84`, `:90` |
+
+### Settings (`UI/SettingsView.swift`)
+
+Telegram's settings screens set the card's side margin from their own caller
+(`ListView`'s `params.leftInset` is `state.insets.left`, `ListView.swift:2316`, filled by
+`additionalInsets` — `ItemListController.swift:138` — which no fetched module sets), so the
+grouped card's margin is the one number here the reference does not give. Doni therefore keeps
+the treatment the rest of the shell already wears: full-bleed rows on `chatListBackground`, an
+inset hairline at 16, and no rounded card. That is Doni's own *choice*, made so the screen reads
+as one app with the library rather than as two widgets, and every number inside it is measured.
+
+| Value | What | Source |
+|---|---|---|
+| 44 pt bar, centred `semibold(17)`, 1 px rule | the bar on every other screen | `ChatTitleView.swift:26`, `ChatListItem.swift:928` |
+| title 17 / value 15 / secondary 14 / header 13, insets 16 and 15, 15 pt of vertical padding (13 and a 1 pt line once a row has a second line), 20 pt for the value, 24 pt between sections | all five rows and both headers | the two tables above |
+| full-bleed rows, no icons, no card | Doni's own, as just stated | |
+| the counts, "Đăng xuất", the channel rows' `@username` line | Doni's own content — the app has one purpose, so its settings say what is on the phone rather than offering 30 sections | |
+| logout wipes the library (`Library.wipe()`) before the session closes | Doni's own behaviour, and the reason the row exists at all: `file_id` is TDLib's per-database number (`td_api.tl:326`), so rows kept across a logout would point at nothing | `App/Library.swift` |
+
 ## Known traps found while extracting
 
 - An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so
