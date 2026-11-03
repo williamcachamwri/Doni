@@ -37,19 +37,15 @@ final class LibraryIndexer: ObservableObject {
 
     private var task: Task<Void, Never>?
 
+    /// Bumped by every walk that starts, so a cancelled walk can recognise that the handle it
+    /// is about to clear is not its own.
+    private var generation = 0
+
     /// Folded haystacks, so a keystroke re-folds only what the last page brought in.
     private var haystacks: [String: String] = [:]
 
-    #if DEBUG
-    /// Raw pages, kept only to compare the parser against a real channel.
-    private var dump: [TdJSON] = []
-    #endif
-
     /// The channel Doni was built around.
     static let username = "VNMusicRemix"
-
-    /// Pages kept in the raw dump; see `writeDump`.
-    private static let dumpPageCap = 3
 
     var isReading: Bool {
         switch phase {
@@ -94,10 +90,39 @@ final class LibraryIndexer: ObservableObject {
         selectedId = track.uniqueId
     }
 
+    /// Starts the walk if nothing is walking. `.task` on first appearance uses this.
     func run(_ session: TelegramSession) {
-        guard task == nil else { return }
-        guard let reader = session.reader() else { return }
-        task = Task { await self.index(reader) }
+        startWalk(session, replacing: false)
+    }
+
+    /// Pull-to-refresh: the walk starts again from the newest message and the spinner is held
+    /// until it ends. The rows already on screen stay — see `index`.
+    func reload(_ session: TelegramSession) async {
+        guard let walk = startWalk(session, replacing: true) else { return }
+        await walk.value
+    }
+
+    /// The handle is set before anything can suspend, so a second call while a walk is running
+    /// either does nothing (a tap) or replaces it (a refresh) rather than racing it.
+    @discardableResult
+    private func startWalk(_ session: TelegramSession, replacing: Bool) -> Task<Void, Never>? {
+        if replacing {
+            stop()
+        } else if task != nil {
+            return nil
+        }
+        guard let reader = session.reader() else { return nil }
+        generation += 1
+        let mine = generation
+        let walk = Task { await self.index(reader) }
+        task = walk
+        // Letting the handle go when the walk ends is what allows a second walk at all; the
+        // generation check keeps a replaced walk from clearing the one that replaced it.
+        Task {
+            await walk.value
+            if self.generation == mine { self.task = nil }
+        }
+        return walk
     }
 
     func stop() {
@@ -124,6 +149,10 @@ final class LibraryIndexer: ObservableObject {
         var messages = 0
         var pages = 0
         var cursor: Int64 = 0
+        haystacks = [:]
+        // A refresh over a library that is already on screen waits for the walk to end before
+        // it swaps, so the list never shrinks to one page and grows back under the finger.
+        let publishAsItGoes = tracks.isEmpty
 
         while !Task.isCancelled {
             let page: TdHistoryPage
@@ -135,49 +164,28 @@ final class LibraryIndexer: ObservableObject {
             }
             pages += 1
             messages += page.messages.count
-            #if DEBUG
-            if pages <= Self.dumpPageCap { dump.append(contentsOf: page.messages) }
-            #endif
 
             for track in page.tracks where !seen.contains(track.uniqueId) {
                 seen.insert(track.uniqueId)
                 collected.append(track)
             }
-            // Newest first, the way a chat reads. TDLib's page order is its own
-            // business, so the list is ordered here rather than trusted.
-            self.tracks = collected.sorted {
-                $0.date != $1.date ? $0.date > $1.date : $0.messageId > $1.messageId
-            }
+            if publishAsItGoes { tracks = Self.newestFirst(collected) }
             phase = .reading(.init(trackCount: collected.count, messageCount: messages, pageCount: pages))
 
             guard !page.isLast, let oldest = page.oldestMessageId, oldest != cursor else { break }
             cursor = oldest
         }
 
-        writeDump()
         guard !Task.isCancelled else { return }
+        if !publishAsItGoes { tracks = Self.newestFirst(collected) }
         phase = .finished(.init(trackCount: collected.count, messageCount: messages, pageCount: pages))
     }
 
-    /// Task #10 of the plan: a real page of TDLib JSON, kept next to the database
-    /// so the parser can be checked against what a channel actually posts. Debug
-    /// builds only, never sent anywhere, and the first thing to delete once the
-    /// parser is settled — it holds message content.
-    private func writeDump() {
-        #if DEBUG
-        guard !dump.isEmpty, let text = TdJSON.array(dump).serialized else { return }
-        let url = Self.dumpURL
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? text.write(to: url, atomically: true, encoding: .utf8)
-        #endif
+    /// Newest first, the way a chat reads. TDLib's page order is its own business, so the list
+    /// is ordered here rather than trusted.
+    private static func newestFirst(_ tracks: [TdTrack]) -> [TdTrack] {
+        tracks.sorted { $0.date != $1.date ? $0.date > $1.date : $0.messageId > $1.messageId }
     }
-
-    private static var dumpURL: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Doni/debug/raw-index-dump.json")
-    }
-
-    static var dumpPath: String { dumpURL.path }
 
     private static func describe(_ error: any Error) -> String {
         if let failure = error as? TdClient.Failure { return failure.description }
