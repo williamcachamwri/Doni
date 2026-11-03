@@ -33,17 +33,29 @@ final class CoverArtwork: ObservableObject {
     /// The tile's content, best first: the downloaded cover, then the inline minithumbnail,
     /// then nothing, which is where the gradient takes over.
     func image(for track: TdTrack) -> UIImage? {
-        if let id = track.coverFileId, let sharp = cache.object(forKey: NSNumber(value: id)) {
-            return sharp
-        }
-        return miniImage(for: track)
+        sharp(for: track) ?? mini(for: track)
+    }
+
+    /// The downloaded cover alone, so a row can cross-fade it over the minithumbnail it already
+    /// has on screen instead of swapping one image for another under a finger.
+    func sharp(for track: TdTrack) -> UIImage? {
+        guard let id = track.coverFileId else { return nil }
+        return cache.object(forKey: NSNumber(value: id))
+    }
+
+    /// The 40×30 the message carried, which is what a row shows until the sharp file lands.
+    func mini(for track: TdTrack) -> UIImage? {
+        guard let data = track.miniArtwork else { return nil }
+        if let held = miniDecoded[track.uniqueId] { return held }
+        guard let image = UIImage(data: data) else { return nil }
+        miniDecoded[track.uniqueId] = image
+        return image
     }
 
     /// Whether this row is showing the sharp cover, which is what tells the view whether to
     /// cross-fade at all.
     func isSharp(for track: TdTrack) -> Bool {
-        guard let id = track.coverFileId else { return false }
-        return cache.object(forKey: NSNumber(value: id)) != nil
+        sharp(for: track) != nil
     }
 
     /// Asks TDLib for the cover and decodes it off the main thread. Called from a row's
@@ -63,16 +75,6 @@ final class CoverArtwork: ObservableObject {
         guard !Task.isCancelled, let image else { return }
         cache.setObject(image, forKey: NSNumber(value: coverFileId))
         revision += 1
-    }
-
-    /// The 40×30 JPEG the message itself carried (`td_api.tl:361`), decoded once per track. It is
-    /// soft at 54 pt, which is exactly why it is the fallback and not the plan.
-    private func miniImage(for track: TdTrack) -> UIImage? {
-        guard let data = track.miniArtwork else { return nil }
-        if let held = miniDecoded[track.uniqueId] { return held }
-        guard let image = UIImage(data: data) else { return nil }
-        miniDecoded[track.uniqueId] = image
-        return image
     }
 
     /// Decoding a 600×600 cover whole costs more memory and time than a row can justify, so

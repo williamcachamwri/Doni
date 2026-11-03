@@ -4,18 +4,22 @@ import TelegramDesignSystem
 import TdSession
 import UIKit
 
-/// M2: the library, wearing Telegram's chat-list clothing.
+/// M2: the library, wearing Telegram's chat-list clothing, in the mode the whole shell is
+/// measured in — dark, true black, one hairline colour from the bar to the rules.
 ///
-/// The chrome is `ChatListItem.swift`'s — a 68 pt row, the icon column 16 pt from the edge and
-/// the text pinned at 84 whatever stands in that column, the title 8 pt below the top of the row
-/// rather than centred, one physical pixel for the rule, and `#e5e5ea` under a finger. What
-/// stands in the icon column is the track's own cover, which TDLib sends inline with the message
-/// (`audio.album_cover_minithumbnail`), and the unread-bubble slot on the right carries whether
-/// the file is already on the phone. Numbers and their lines are in `Docs/design-tokens.md`,
-/// "Chat list — the clothing the library wears".
+/// The chrome is `ChatListUI`'s — a 68 pt row, the icon column 16 pt from the edge and the text
+/// pinned at 84 whatever stands in that column, the title 8 pt below the top of the row rather
+/// than centred, one physical pixel for the rule, and `#121212` under a finger
+/// (`DefaultDarkPresentationTheme.swift:484`). What stands in the icon column is the track's own
+/// cover: the sharp 600×600 file Telegram already holds on the server when it has one
+/// (`external_album_covers`), the 40×30 `minithumbnail` the message carried when it does not, and
+/// the avatar gradient when there is no artwork at all. A tap hands the track to `Player`.
+/// Numbers and their lines are in `Docs/design-tokens.md`.
 struct LibraryView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
+    @ObservedObject var player: Player
+    @ObservedObject var artwork: CoverArtwork
 
     @Environment(\.displayScale) private var displayScale
 
@@ -23,7 +27,7 @@ struct LibraryView: View {
     @State private var showsAccountMenu = false
     @FocusState private var fieldFocused: Bool
 
-    private let palette = TelegramPalette.day
+    private let palette = TelegramPalette.dark
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +35,10 @@ struct LibraryView: View {
             rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
-        .task { indexer.run(session) }
+        .task {
+            player.bind(session.covers())
+            indexer.run(session)
+        }
         .confirmationDialog(
             "Tài khoản",
             isPresented: $showsAccountMenu,
@@ -197,12 +204,16 @@ struct LibraryView: View {
                             query: query,
                             hairline: TelegramGeometry.hairline(displayScale: displayScale),
                             palette: palette,
-                            isSelected: indexer.selectedId == track.uniqueId,
-                            artwork: ArtworkCache.image(for: track)
+                            isCurrent: player.current?.uniqueId == track.uniqueId,
+                            isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
+                            artwork: artwork
                         ) {
-                            indexer.select(track)
+                            player.play(track, in: visible)
                         }
                         .transition(.offset(y: 6).combined(with: .opacity))
+                        .task(id: track.uniqueId) {
+                            await artwork.load(track: track, via: session.covers())
+                        }
                     }
                     footer(visible)
                 }
@@ -244,7 +255,7 @@ struct LibraryView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)
                         .frame(height: 40)
-                        .background(Capsule().fill(palette.accent))
+                        .background(Capsule().fill(palette.highlight))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 72)
@@ -283,12 +294,14 @@ private struct TrackRow: View {
     let query: String
     let hairline: CGFloat
     let palette: TelegramPalette
-    let isSelected: Bool
-    let artwork: UIImage?
-    let select: () -> Void
+    /// The row the player is holding, which wears the list's own `itemSelectedBackgroundColor`.
+    let isCurrent: Bool
+    let isPlaying: Bool
+    let artwork: CoverArtwork
+    let play: () -> Void
 
     var body: some View {
-        Button(action: select) {
+        Button(action: play) {
             HStack(alignment: .top, spacing: TelegramLibraryMetrics.artToText) {
                 ArtworkTile(
                     track: track,
@@ -303,7 +316,7 @@ private struct TrackRow: View {
                         query: query,
                         font: TelegramLibraryTypography.title,
                         color: palette.chatListTitle,
-                        accent: palette.accent
+                        accent: palette.highlight
                     )
                     .lineLimit(1)
                     .truncationMode(.middle)   // a song's name matters at both ends (`ChatMessageInteractiveFileNode.swift:751`)
@@ -312,7 +325,7 @@ private struct TrackRow: View {
                         query: query,
                         font: TelegramLibraryTypography.preview,
                         color: palette.chatListMessageText,
-                        accent: palette.accent
+                        accent: palette.highlight
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -323,7 +336,7 @@ private struct TrackRow: View {
                     Text(headline)
                         .font(TelegramLibraryTypography.duration)
                         .foregroundStyle(palette.chatListDateText)
-                    StateBubble(ready: track.isDownloaded, palette: palette)
+                    StateBubble(ready: track.isDownloaded, playing: isPlaying, palette: palette)
                 }
                 .layoutPriority(1)
                 .padding(.top, TelegramLibraryMetrics.dateTop)
@@ -333,7 +346,7 @@ private struct TrackRow: View {
             .padding(.trailing, TelegramLibraryMetrics.trailing)
             .frame(maxWidth: .infinity)
             .frame(height: TelegramLibraryMetrics.rowHeight)
-            .background(isSelected ? palette.chatListItemSelected : Color.clear)
+            .background(isCurrent ? palette.chatListItemSelected : Color.clear)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(palette.chatListSeparator)
@@ -367,30 +380,37 @@ private struct TrackRow: View {
     }
 }
 
-/// The icon column: real cover art when the message carried it, Telegram's avatar gradient when
-/// it did not, always clipped as a `.roundedRect` so the column reads as one shape.
+/// The icon column: the sharp cover when TDLib has fetched it, the minithumbnail the message
+/// carried until then, Telegram's avatar gradient when the post has no artwork at all — always
+/// clipped as a `.roundedRect` so the column reads as one shape.
 private struct ArtworkTile: View {
     let track: TdTrack
-    let artwork: UIImage?
+    let artwork: CoverArtwork
     let hairline: CGFloat
     let palette: TelegramPalette
 
+    private var sharp: UIImage? { artwork.sharp(for: track) }
+    private var mini: UIImage? { artwork.mini(for: track) }
+
     var body: some View {
-        Group {
-            if let artwork {
-                Image(uiImage: artwork)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .overlay(Color.black.opacity(TelegramLibraryMetrics.artScrim))
-            } else {
-                TelegramTrackGradient.linear(track.messageId)
-                    .overlay {
-                        Image(systemName: "music.note")
-                            .font(.system(size: TelegramLibraryMetrics.artGlyph, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
+        ZStack {
+            TelegramTrackGradient.linear(track.messageId)
+                .overlay {
+                    Image(systemName: "music.note")
+                        .font(.system(size: TelegramLibraryMetrics.artGlyph, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+            if let mini {
+                fill(mini)
+            }
+            if let sharp {
+                // The sharp file fades over the soft one it replaces rather than swapping under a
+                // scrolling list — the 0.15 s a badge takes to appear (`ChatListBadgeNode.swift:205`).
+                fill(sharp)
+                    .transition(.opacity)
             }
         }
+        .animation(TelegramShellMotion.crossfade, value: sharp != nil)
         .frame(
             width: TelegramLibraryMetrics.artSide,
             height: TelegramLibraryMetrics.artSide
@@ -399,11 +419,18 @@ private struct ArtworkTile: View {
             RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius, style: .continuous)
         )
         .overlay {
-            // A pale cover on a white list needs an edge; the list already draws its rules one
+            // A pale cover on a black list needs an edge; the list already draws its rules one
             // physical pixel wide.
             RoundedRectangle(cornerRadius: TelegramLibraryMetrics.artRadius, style: .continuous)
                 .strokeBorder(palette.chatListSeparator, lineWidth: hairline)
         }
+    }
+
+    private func fill(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .overlay(Color.black.opacity(TelegramLibraryMetrics.artScrim))
     }
 }
 
@@ -422,25 +449,32 @@ private struct ChatListHighlight: ButtonStyle {
     }
 }
 
-/// The unread-bubble slot, telling the user whether tapping plays now or waits.
-/// `mediaActiveControlColor` for what is on the phone, `mediaInactiveControlColor` for what
-/// still has to come down (`DefaultDayPresentationTheme.swift:632-633`).
+/// The unread-bubble slot, telling the user whether tapping plays now or waits, and which row
+/// is making noise. In dark the two controls are white and white at 0.4 with a `#262628` glyph
+/// inside them (`DefaultDarkPresentationTheme.swift:559`), the way Telegram's own play button is a
+/// dark triangle in a white circle.
 private struct StateBubble: View {
     let ready: Bool
+    let playing: Bool
     let palette: TelegramPalette
 
     var body: some View {
         ZStack {
             Circle().fill(ready ? palette.mediaActiveControl : palette.mediaInactiveControl)
-            Image(systemName: ready ? "play.fill" : "arrow.down")
+            Image(systemName: glyph)
                 .font(.system(size: TelegramLibraryMetrics.stateGlyph, weight: .bold))
-                .foregroundStyle(.white)
-                .offset(x: ready ? 0.5 : 0)
+                .foregroundStyle(palette.mediaControlGlyph)
+                .offset(x: glyph == "play.fill" ? 0.5 : 0)
         }
         .frame(
             width: TelegramLibraryMetrics.stateSide,
             height: TelegramLibraryMetrics.stateSide
         )
+    }
+
+    private var glyph: String {
+        if playing { return "pause.fill" }
+        return ready ? "play.fill" : "arrow.down"
     }
 }
 
@@ -494,26 +528,11 @@ private struct Spinner: View {
     }
 }
 
-/// Decoded cover art, kept for the session. A `minithumbnail` is a few hundred bytes, so the
-/// whole library costs well under a megabyte of RAM and a row never re-decodes on scroll.
-@MainActor
-private enum ArtworkCache {
-    private static let cache: NSCache<NSString, UIImage> = {
-        let box = NSCache<NSString, UIImage>()
-        box.countLimit = 600
-        return box
-    }()
-
-    static func image(for track: TdTrack) -> UIImage? {
-        guard let data = track.miniArtwork else { return nil }
-        let key = track.uniqueId as NSString
-        if let held = cache.object(forKey: key) { return held }
-        guard let image = UIImage(data: data) else { return nil }
-        cache.setObject(image, forKey: key)
-        return image
-    }
-}
-
 #Preview {
-    LibraryView(session: TelegramSession(), indexer: LibraryIndexer())
+    LibraryView(
+        session: TelegramSession(),
+        indexer: LibraryIndexer(),
+        player: Player(),
+        artwork: CoverArtwork.shared
+    )
 }

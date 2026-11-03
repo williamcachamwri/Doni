@@ -38,6 +38,9 @@ final class Player: ObservableObject {
     }
 
     init() {
+        // Background audio only survives if the category is `.playback` before the first file is
+        // opened; `UIBackgroundModes` lists `audio` for the same reason.
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.addTarget { _ in
             Task { @MainActor in self.resume() }

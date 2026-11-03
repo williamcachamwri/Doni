@@ -31,10 +31,6 @@ final class LibraryIndexer: ObservableObject {
     @Published private(set) var tracks: [TdTrack] = []
     @Published private(set) var channel: TdChannel?
 
-    /// The row the list is holding. M3 makes this what the player is showing; until then it is
-    /// the chat list's own `itemSelectedBackgroundColor` on one row.
-    @Published private(set) var selectedId: String?
-
     private var task: Task<Void, Never>?
 
     /// Bumped by every walk that starts, so a cancelled walk can recognise that the handle it
@@ -84,10 +80,6 @@ final class LibraryIndexer: ObservableObject {
             )
         }
         return tracks.filter { haystacks[$0.uniqueId]?.contains(query) ?? false }
-    }
-
-    func select(_ track: TdTrack) {
-        selectedId = track.uniqueId
     }
 
     /// Starts the walk if nothing is walking. `.task` on first appearance uses this.
