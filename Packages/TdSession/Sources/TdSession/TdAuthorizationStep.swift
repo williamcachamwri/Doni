@@ -2,17 +2,16 @@ import Foundation
 
 /// What the user has to do next, as the login screen needs it.
 ///
-/// Mirrors `AuthorizationState` in TDLib 1.8.0 (`td_api.tl:87-119`) and keeps
-/// the data each state carries, because the UI shows it: the code length, the
-/// password hint, the confirmation link. `unknown` exists so a state TDLib
-/// adds later degrades to a message instead of a crash.
+/// Mirrors `AuthorizationState` in the pinned TDLib schema (`td_api.tl:206-263`)
+/// and keeps the data each state carries, because the UI shows it: the code
+/// length, the password hint, the confirmation link. `unknown` exists so a
+/// state TDLib adds later degrades to a message instead of a crash.
 public enum TdAuthorizationStep: Equatable, Sendable {
     case waitTdlibParameters
-    case waitEncryptionKey(isDatabaseEncrypted: Bool)
     case waitPhoneNumber
     case waitCode(phoneNumber: String, current: CodeDelivery, next: CodeDelivery?, timeout: Int)
     case waitOtherDeviceConfirmation(link: String)
-    case waitRegistration(termsOfServiceId: String, minimumAge: Int)
+    case waitRegistration(minimumAge: Int)
     case waitPassword(hint: String, hasRecoveryEmailAddress: Bool, emailAddressPattern: String)
     case ready
     case loggingOut
@@ -23,6 +22,10 @@ public enum TdAuthorizationStep: Equatable, Sendable {
     public enum CodeDelivery: Equatable, Sendable {
         case telegramMessage(length: Int)
         case sms(length: Int)
+        /// SMS-based authentication with a word that starts with the given
+        /// letter (`td_api.tl:37`) — the user types the word, not digits.
+        case smsWord(firstLetter: String)
+        case smsPhrase(firstWord: String)
         case call(length: Int)
         case flashCall(pattern: String)
         case missedCall(prefix: String, length: Int)
@@ -36,8 +39,6 @@ public enum TdAuthorizationStep: Equatable, Sendable {
         switch type {
         case "authorizationStateWaitTdlibParameters":
             return .waitTdlibParameters
-        case "authorizationStateWaitEncryptionKey":
-            return .waitEncryptionKey(isDatabaseEncrypted: state["is_encrypted"]?.bool ?? false)
         case "authorizationStateWaitPhoneNumber":
             return .waitPhoneNumber
         case "authorizationStateWaitCode":
@@ -45,10 +46,8 @@ public enum TdAuthorizationStep: Equatable, Sendable {
         case "authorizationStateWaitOtherDeviceConfirmation":
             return .waitOtherDeviceConfirmation(link: state["link"]?.string ?? "")
         case "authorizationStateWaitRegistration":
-            let terms = state["terms_of_service"] ?? .null
             return .waitRegistration(
-                termsOfServiceId: terms["id"]?.string ?? "",
-                minimumAge: Int(terms["minimum_age"]?.int ?? 13)
+                minimumAge: Int(state["terms_of_service"]?["min_user_age"]?.int ?? 13)
             )
         case "authorizationStateWaitPassword":
             return .waitPassword(
@@ -84,6 +83,10 @@ public enum TdAuthorizationStep: Equatable, Sendable {
             .telegramMessage(length: Int(value["length"]?.int ?? 5))
         case "authenticationCodeTypeSms":
             .sms(length: Int(value["length"]?.int ?? 5))
+        case "authenticationCodeTypeSmsWord":
+            .smsWord(firstLetter: value["first_letter"]?.string ?? "")
+        case "authenticationCodeTypeSmsPhrase":
+            .smsPhrase(firstWord: value["first_word"]?.string ?? "")
         case "authenticationCodeTypeCall":
             .call(length: Int(value["length"]?.int ?? 5))
         case "authenticationCodeTypeFlashCall":

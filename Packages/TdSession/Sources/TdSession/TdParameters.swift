@@ -1,6 +1,8 @@
 import Foundation
 
-/// The 13 fields of `tdlibParameters` (`td_api.tl:41`) for a normal install.
+/// The fields of `setTdlibParameters`, which is flat in the current schema
+/// (`td_api.tl:12185`): TDLib 1.8.0 wrapped them in a `tdlibParameters` object
+/// and asked for the encryption key in a second request; both are gone now.
 ///
 /// `use_message_database` and `use_chat_info_database` have to be on: the whole
 /// product is a local index of a channel's audio posts. `use_file_database` is
@@ -19,8 +21,6 @@ public struct TdParameters: Sendable {
     public var useChatInfoDatabase: Bool = true
     public var useMessageDatabase: Bool = true
     public var useSecretChats: Bool = false
-    public var enableStorageOptimizer: Bool = false
-    public var ignoreFileNames: Bool = false
 
     public init(
         apiId: Int32,
@@ -40,12 +40,14 @@ public struct TdParameters: Sendable {
         self.applicationVersion = applicationVersion
     }
 
-    public var json: TdJSON {
-        .object([
-            "@type": .string("tdlibParameters"),
+    /// The key is a parameter, not a follow-up request, so it has to be in
+    /// hand before the client can be configured at all.
+    public func setTdlibParameters(encryptionKey: String) -> [String: TdJSON] {
+        [
             "use_test_dc": .bool(useTestDc),
             "database_directory": .string(databaseDirectory),
             "files_directory": .string(filesDirectory),
+            "database_encryption_key": .string(encryptionKey),
             "use_file_database": .bool(useFileDatabase),
             "use_chat_info_database": .bool(useChatInfoDatabase),
             "use_message_database": .bool(useMessageDatabase),
@@ -56,9 +58,7 @@ public struct TdParameters: Sendable {
             "device_model": .string(deviceModel),
             "system_version": .string(systemVersion),
             "application_version": .string(applicationVersion),
-            "enable_storage_optimizer": .bool(enableStorageOptimizer),
-            "ignore_file_names": .bool(ignoreFileNames),
-        ])
+        ]
     }
 }
 
@@ -70,7 +70,7 @@ public struct TdParameters: Sendable {
 /// locked if the key is not sitting next to it in a plist.
 public protocol TdDatabaseKeyProviding: Sendable {
     /// Base64: the JSON interface encodes TDLib's `bytes` fields that way
-    /// (`checkDatabaseEncryptionKey encryption_key:bytes`, `td_api.tl:4032`).
+    /// (`setTdlibParameters ... database_encryption_key:bytes`, `td_api.tl:12185`).
     ///
     /// Throws, because the real implementation reads the Keychain and a
     /// hardware keystore can genuinely refuse.

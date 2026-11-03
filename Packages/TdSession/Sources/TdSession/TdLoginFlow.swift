@@ -4,10 +4,9 @@ import Foundation
 /// request each user answer turns into.
 ///
 /// The order is fixed by TDLib, not by us: `setTdlibParameters` only works in
-/// `authorizationStateWaitTdlibParameters` (`td_api.tl:4028`) and
-/// `checkDatabaseEncryptionKey` only in `authorizationStateWaitEncryptionKey`
-/// (`:4031`), so both are answered here as soon as the state arrives, before
-/// the UI ever sees them. Everything else waits for the user.
+/// `authorizationStateWaitTdlibParameters` (`td_api.tl:12170`) and it is the
+/// only request the flow sends on its own — the database key is one of its
+/// fields now, not a second step. Everything else waits for the user.
 public actor TdLoginFlow {
     private let client: TdClient
     private let parameters: TdParameters
@@ -38,12 +37,13 @@ public actor TdLoginFlow {
     /// after the loop already ran.
     public func snapshot() -> TdAuthorizationStep? { latest }
 
-    /// Sends `setTdlibParameters` and then answers state updates until the
-    /// client closes. Throws when an automatic step fails — TDLib rejecting a
-    /// wrong key, or the key store refusing — because there is no screen that
-    /// could retry it.
+    /// Reads the database key, sends it inside `setTdlibParameters`, and then
+    /// answers state updates until the client closes. Throws when the automatic
+    /// step fails — TDLib rejecting a wrong key with a 401, or the key store
+    /// refusing — because there is no screen that could retry it.
     public func begin() async throws {
-        _ = try await client.request("setTdlibParameters", ["parameters": parameters.json])
+        let key = try keyProvider.databaseEncryptionKey()
+        _ = try await client.request("setTdlibParameters", parameters.setTdlibParameters(encryptionKey: key))
         for await update in client.updates {
             guard update.type == "updateAuthorizationState",
                   let state = update["authorization_state"]
@@ -51,19 +51,13 @@ public actor TdLoginFlow {
             let step = TdAuthorizationStep.decode(state)
             latest = step
             yield.yield(step)
-            if case .waitEncryptionKey = step {
-                _ = try await client.request(
-                    "checkDatabaseEncryptionKey",
-                    ["encryption_key": .string(try keyProvider.databaseEncryptionKey())]
-                )
-            }
         }
         yield.finish()
     }
 
     /// International format, e.g. `+84905000000`. Default settings: TDLib's
     /// own `phoneNumberAuthenticationSettings` would switch on flash calls and
-    /// SMS retriever, neither of which this app needs (`td_api.tl:4037`).
+    /// SMS retriever, neither of which this app needs (`td_api.tl:12192`).
     public func submitPhoneNumber(_ number: String) async throws {
         _ = try await client.request("setAuthenticationPhoneNumber", ["phone_number": .string(number)])
     }
@@ -73,10 +67,14 @@ public actor TdLoginFlow {
     }
 
     /// Only valid once `next_type` is set and the server timeout has passed
-    /// (`td_api.tl:4039`); TDLib answers otherwise with an error, which the
-    /// screen shows.
+    /// (`td_api.tl:12212`); TDLib answers otherwise with an error, which the
+    /// screen shows. The reason is required now and the user pressing the
+    /// button is the only reason this app has.
     public func resendCode() async throws {
-        _ = try await client.request("resendAuthenticationCode")
+        _ = try await client.request(
+            "resendAuthenticationCode",
+            ["reason": .object(["@type": .string("resendCodeReasonUserRequest")])]
+        )
     }
 
     public func submitPassword(_ password: String) async throws {

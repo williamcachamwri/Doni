@@ -2,10 +2,9 @@ import Foundation
 import Testing
 @testable import TdSession
 
-/// Each case is the JSON TDLib actually sends, copied from the 1.8.0 schema.
+/// Each case is the JSON TDLib actually sends, copied from the pinned schema.
 @Test(arguments: [
     ("authorizationStateWaitTdlibParameters", TdAuthorizationStep.waitTdlibParameters),
-    ("authorizationStateWaitEncryptionKey", TdAuthorizationStep.waitEncryptionKey(isDatabaseEncrypted: true)),
     ("authorizationStateWaitPhoneNumber", TdAuthorizationStep.waitPhoneNumber),
     ("authorizationStateReady", TdAuthorizationStep.ready),
     ("authorizationStateLoggingOut", TdAuthorizationStep.loggingOut),
@@ -13,7 +12,7 @@ import Testing
     ("authorizationStateClosed", TdAuthorizationStep.closed),
 ])
 func decodesPlainStates(type: String, expected: TdAuthorizationStep) {
-    let state = TdJSON.parse(#"{"@type":"\#(type)","is_encrypted":true}"#) ?? .null
+    let state = TdJSON.parse(#"{"@type":"\#(type)"}"#) ?? .null
     #expect(TdAuthorizationStep.decode(state) == expected)
 }
 
@@ -70,10 +69,42 @@ func decodesRegistrationState() {
     let state = TdJSON.parse(
         """
         {"@type":"authorizationStateWaitRegistration",
-         "terms_of_service":{"id":"abcd","text":"...","minimum_age":18}}
+         "terms_of_service":{"text":{"text":"..."},"min_user_age":18,"show_popup":true}}
         """
     ) ?? .null
-    #expect(TdAuthorizationStep.decode(state) == .waitRegistration(termsOfServiceId: "abcd", minimumAge: 18))
+    #expect(TdAuthorizationStep.decode(state) == .waitRegistration(minimumAge: 18))
+}
+
+@Test("A word or a phrase replaces the digits for SMS delivery")
+func decodesSmsWordAndPhraseDeliveries() {
+    let word = TdJSON.parse(
+        """
+        {"@type":"authorizationStateWaitCode",
+         "code_info":{"phone_number":"+84905000000","timeout":0,
+                      "type":{"@type":"authenticationCodeTypeSmsWord","first_letter":"b"}}}
+        """
+    ) ?? .null
+    #expect(
+        TdAuthorizationStep.decode(word)
+            == .waitCode(phoneNumber: "+84905000000", current: .smsWord(firstLetter: "b"), next: nil, timeout: 0)
+    )
+
+    let phrase = TdJSON.parse(
+        """
+        {"@type":"authorizationStateWaitCode",
+         "code_info":{"phone_number":"+84905000000","timeout":0,
+                      "type":{"@type":"authenticationCodeTypeSmsPhrase","first_word":"bank"}}}
+        """
+    ) ?? .null
+    #expect(
+        TdAuthorizationStep.decode(phrase)
+            == .waitCode(
+                phoneNumber: "+84905000000",
+                current: .smsPhrase(firstWord: "bank"),
+                next: nil,
+                timeout: 0
+            )
+    )
 }
 
 @Test("A missed call delivery says which prefix to dial and how many digits")
