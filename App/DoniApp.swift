@@ -1,11 +1,16 @@
 import SwiftUI
-import TelegramDesignSystem
 
 @main
 struct DoniApp: App {
+    @StateObject private var session = TelegramSession()
+
     var body: some Scene {
         WindowGroup {
-            DoniRootView()
+            if session.isAuthorized {
+                DoniRootView()
+            } else {
+                LoginView(session: session)
+            }
         }
     }
 }
