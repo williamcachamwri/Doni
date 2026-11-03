@@ -12,6 +12,7 @@ import TdBridge
 /// wired correctly end to end.
 struct DoniRootView: View {
     private let palette = TelegramPalette.day
+    @ObservedObject var session: TelegramSession
     @State private var transport: String = "checking tdlib…"
 
     var body: some View {
@@ -29,6 +30,8 @@ struct DoniRootView: View {
                             .foregroundStyle(palette.chatListMessageText)
                     }
                 }
+
+                Button("Đăng xuất", role: .destructive) { session.logOut() }
             }
             .listRowBackground(palette.chatListBackground)
             .scrollContentBackground(.hidden)
@@ -40,5 +43,5 @@ struct DoniRootView: View {
 }
 
 #Preview {
-    DoniRootView()
+    DoniRootView(session: TelegramSession())
 }

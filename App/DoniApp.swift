@@ -7,7 +7,7 @@ struct DoniApp: App {
     var body: some Scene {
         WindowGroup {
             if session.isAuthorized {
-                DoniRootView()
+                DoniRootView(session: session)
             } else {
                 LoginView(session: session)
             }
