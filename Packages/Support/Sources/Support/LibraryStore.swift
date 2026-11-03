@@ -271,14 +271,13 @@ public final class LibraryStore: @unchecked Sendable {
 
     // MARK: Tracks
 
-    /// Writes a page of the library. A song's `local_path` comes from whatever TDLib reported in
-    /// the snapshot, so a re-read of a channel keeps the files that are already on the phone
-    /// rather than forgetting where they are.
+    /// Writes a page of the library. A song the page re-states keeps the path already recorded
+    /// on the phone, because the write is an upsert; a song the page no longer mentions is
+    /// retired, since the channel does not carry it any more.
     public func replaceTracks(chatId: Int64, tracks: [StoreTrack]) {
         lock.lock()
         defer { lock.unlock() }
         sqlRun(handle, "BEGIN")
-        deleteTracks(chatId: chatId)
         // The rows are written under the channel they are being replaced for, so a page that
         // carries the wrong `chat_id` cannot leave a song behind that no channel can reach.
         for track in tracks {
@@ -286,9 +285,12 @@ public final class LibraryStore: @unchecked Sendable {
             owned.chatId = chatId
             insert(track: owned)
         }
+        pruneTracks(chatId: chatId, keeping: tracks.map { $0.uniqueId })
         sqlRun(handle, "COMMIT")
     }
 
+    /// A walk writes page by page, newest first, so pages overlap. The write underneath is an
+    /// upsert, which is what lets an overlap update a row without forgetting where its file is.
     public func appendTracks(_ tracks: [StoreTrack]) {
         lock.lock()
         defer { lock.unlock() }
@@ -344,10 +346,43 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
+    /// Retires the rows a page did not mention. The list is bound as parameters, not spliced into
+    /// the SQL, so a unique id is never an injection point.
+    private func pruneTracks(chatId: Int64, keeping uniqueIds: [String]) {
+        guard !uniqueIds.isEmpty else {
+            deleteTracks(chatId: chatId)
+            return
+        }
+        let marks = repeatElement("?", count: uniqueIds.count).joined(separator: ", ")
+        guard let statement = prepare(
+            "DELETE FROM track WHERE chat_id = ? AND unique_id NOT IN (\(marks))") else { return }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int64(statement, 1, chatId)
+        // Index 1 is the channel, so the list starts at 2 — bound onto 1 would overwrite it and
+        // leave a NULL in the last slot, which makes `NOT IN` match nothing at all.
+        for (offset, key) in uniqueIds.enumerated() {
+            sqlite3_bind_text(statement, Int32(2 + offset), key, -1, Self.transient)
+        }
+        sqlite3_step(statement)
+    }
+
     private func insert(track: StoreTrack) {
         guard let statement = prepare("""
-            INSERT OR REPLACE INTO track (\(Self.columns))
+            INSERT INTO track (\(Self.columns))
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(unique_id) DO UPDATE SET
+                chat_id = excluded.chat_id,
+                message_id = excluded.message_id,
+                file_id = excluded.file_id,
+                cover_file_id = COALESCE(excluded.cover_file_id, track.cover_file_id),
+                title = excluded.title,
+                performer = excluded.performer,
+                file_name = excluded.file_name,
+                duration = COALESCE(excluded.duration, track.duration),
+                size = excluded.size,
+                date = excluded.date,
+                local_path = COALESCE(excluded.local_path, track.local_path),
+                mini_artwork = COALESCE(excluded.mini_artwork, track.mini_artwork)
             """) else { return }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_text(statement, 1, track.uniqueId, -1, Self.transient)

@@ -110,6 +110,41 @@ struct LibraryStoreTests {
         #expect(store.track(uniqueId: "a")?.localPath == nil)
     }
 
+    @Test("a page that repeats a song keeps the file already on the phone")
+    func rereadingKeepsTheDownload() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.appendTracks([track("a")])
+        store.setLocalPath("/tmp/a.mp3", uniqueId: "a")
+        // A walk re-reads the same message and reports no path: the row must stay playable.
+        store.appendTracks([track("a")])
+        #expect(store.track(uniqueId: "a")?.localPath == "/tmp/a.mp3")
+        #expect(store.downloadedCount() == 1)
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        #expect(store.track(uniqueId: "a")?.localPath == "/tmp/a.mp3")
+    }
+
+    @Test("a re-read with no thumbnail keeps the one already stored")
+    func rereadingKeepsTheArtwork() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        var row = track("a")
+        row.miniArtwork = Data([0xff, 0xd8, 0x01])
+        store.appendTracks([row])
+        store.appendTracks([track("a")])
+        #expect(store.track(uniqueId: "a")?.miniArtwork == Data([0xff, 0xd8, 0x01]))
+    }
+
+    @Test("an empty page clears its channel")
+    func emptyPageClearsTheChannel() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.replaceTracks(chatId: -1, tracks: [track("a"), track("b")])
+        store.replaceTracks(chatId: -1, tracks: [])
+        #expect(store.tracks(chatId: -1).isEmpty)
+        #expect(store.trackCount() == 0)
+    }
+
     @Test("the cover's own id and the inline artwork survive the round trip")
     func artworkColumns() throws {
         let (store, directory) = try makeStore()
