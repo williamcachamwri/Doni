@@ -17,12 +17,18 @@ PATHS=(
   submodules/TelegramUI/Components/AudioWaveformComponent
   submodules/TelegramUI/Components/MediaScrubberComponent
   submodules/TelegramUI/Components/MediaPlaybackHeaderPanelComponent
+  submodules/TelegramUI/Components/Chat/ChatMessageInteractiveFileNode
+  submodules/TelegramUI/Components/ChatTitleView
   submodules/AuthorizationUI/Sources
   submodules/AuthorizationUtils
   submodules/CodeInputView/Sources
   submodules/SolidRoundedButtonNode/Sources
   submodules/PresentationDataUtils/Sources
   submodules/Display/Source
+  submodules/ChatListUI/Sources
+  submodules/SearchBarNode/Sources
+  submodules/AvatarNode/Sources
+  submodules/TelegramStringFormatting/Sources
 )
 
 if [[ -d "$REF/.git" ]]; then

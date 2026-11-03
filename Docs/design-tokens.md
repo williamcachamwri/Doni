@@ -61,7 +61,8 @@ assumption.
 
 Extracted per screen, in the screen sections below — row height, insets, corner radius and hairline
 widths are quoted from the component files that draw them, never from eyeballing a screenshot. The
-login screens have theirs; the chat list, player and overlay screens get theirs when they are built.
+login screens and the chat list have theirs; the player and overlay screens get theirs when they are
+built.
 
 ## Typography
 
@@ -240,6 +241,93 @@ Code boxes (`CodeInputView.swift`, driven from `AuthorizationSequenceCodeEntryCo
 | scale keyframes `1.0 → 1.1 → 1.0` over `0.4 s` | an accepted code pulses once | `CodeEntryControllerNode.swift:1003-1004` |
 | error text `regular(13) #ff3b30`, centred, `field.maxY + 11`, or `+ 24` when the screen is wider than 320 pt | the line under the field | `:958`, `:967` |
 | `0.15 s` `.easeInOut` | relayout when the code state changes | `:947` |
+
+## Chat list — the clothing the library wears
+
+`ChatListItem.swift` is the reference's chat-list cell: 3 900 lines of layout, but the geometry a
+row is made of is six numbers and one formula. Every value below is at the default
+`itemListBaseFontSize` / `baseDisplaySize` of **17**; Telegram scales each font by
+`floor(base × n / 17)`, so at 17 the literals are the sizes themselves.
+
+### The cell
+
+| Value | What | Source |
+|---|---|---|
+| `Font.semibold(16)` | title (peer name) | `ChatListItem.swift:2289` |
+| `Font.regular(15)` | last-message preview | `:2290` |
+| `Font.regular(14)` | timestamp | `:2292` |
+| `Font.with(size: 12, weight: .semibold, traits: [.monospacedNumbers])` | unread badge | `:2293` |
+| `min(60, floor(base × 60/17))` → **60** | avatar diameter | `:2027`, `:2559` |
+| `16.0` (`useCommunityViewLayout` → 10.0) | avatar left edge inset | `:2560` |
+| `edge + 8.0 + diameter` → **84** | text left inset | `:2567` |
+| `width − 84 − rightInset − 18.0` | text width, before the timestamp is subtracted | `:3673`, `:3849` |
+| `contentRect.maxX − dateWidth`, `y = contentRect.minY + 2.0` | timestamp frame — its right edge lands **16** from the screen edge | `:4556` |
+| `floor((itemHeight − 60) / 2)` | avatar is vertically centred → `y = 4` at the height below | `:4208` |
+| `8 × 2 + 1 − 21 + title + 3 × measure − 1 − 3` | row height | `:4042-4051` |
+| `1.0 / UIScreen.main.scale` | separator thickness — one *physical* pixel | `:928` |
+| separator left `= leftInset + 2.0` (i.e. the text column), right `= rightInset + 16.0`; full width when the row is the last of a section or a pinned one that lost its neighbour | rule placement | `:5378-5394` |
+| `top: firstWithHeader ? 29 : 0` | the only cell inset: 29 pt under a section header | `:2152-2154` |
+
+The height formula counts **four** line boxes: the title plus three `measureLayout` lines, and
+`measureLayout` is laid out with `titleFont` (`:4038`), so all four are the same height `L`. Substituting
+`titleSpacing = −1`, `authorSpacing = −3`: `itemHeight = 17 − 21 + 4L − 4 = 4L − 8`. `L` is the line
+height of `semibold(16)`, measured on this machine from the same San Francisco metrics iOS uses:
+`ascender 15.469 + descender 3.375 + leading 0 = 18.84` → pixel-ceil **19**. So `4 × 19 − 8 = 68`.
+
+Text anchors follow from the same block (`rawContentRect.origin.y = 8` at `:4054`, since `layoutOffset`
+is `0.0` at `:3671`): the title sits **8** from the top of the row, and the preview at
+`contentRect.minY + titleHeight − 2` = **25** (`:4766`). They are not centred as a pair — with the
+avatar centred at 4…64, the title's line box straddles the avatar's upper third, which is what a
+Telegram row looks like. A sender name (`authorLayout`) would be inserted at the same 25 with the
+preview pushed to `25 + authorHeight − 3`.
+
+### The row Telegram actually uses for audio
+
+A music file is not a peer, and `ChatMessageInteractiveFileNode.swift` is the reference's audio and
+document row, so the library's content column is that node's, inside the chat list's chrome:
+
+| Value | What | Source |
+|---|---|---|
+| `progressDiameter = 44.0` | the play / download circle | `:858` |
+| `Font.regular(16)` | file title | `:578` |
+| `Font.with(size: 13, traits: [.monospacedNumbers])` | size line | `:579` |
+| `Font.regular(11)` | duration line (voice notes) | `:580` |
+| `constrained.width − 44.0 − 8.0` | the circle plus an 8 pt gap, i.e. the text column starts 8 after the button | `:744` |
+| `x = 57, y = 1, height = 18`, width `boundingWidth − 60` | waveform frame | `:1279-1280` |
+| `sampleWidth 2.0`, `distance 2.0`, `peakHeight 18.0` | one bar every 4 pt | `AudioWaveformComponent.swift:524-531` |
+| title `#0b8bed`, description `#999999` | *inside a bubble* only — a list row keeps `chatList.title` `#000000` | `DefaultDayPresentationTheme.swift:636-637` |
+| `mediaActiveControlColor #0088ff`, `mediaInactiveControlColor #cacaca` | played / unplayed, active / inactive button | `:632-633` |
+
+### Avatars
+
+Telegram has no letter avatars: a peer with no photo gets a white silhouette drawn on the gradient by
+`generateAvatarImage(size:icon:iconScale:color:customColors:)` (`PeerAvatar.swift:495-540`), the icon
+centred at `floor((size − iconSize) / 2)` and scaled by `size / 60`.
+
+| Value | What | Source |
+|---|---|---|
+| `#ff516a→#ff885e`, `#ffa85c→#ffcd6a`, `#665fff→#82b1ff`, `#54cb68→#a0de7e`, `#4acccd→#00fcfd`, `#2a9ef1→#72d5fd`, `#d669ed→#e0a2f3` | the seven day gradients, red / orange / purple / green / cyan / blue / violet | `AvatarNode.swift:322-330` |
+| `locations = [1.0, 0.0]`, start `(0,0)` → end `(0,h)` | vertical, **first colour at the bottom**: the lighter stop is on top | `AvatarNode.swift:1007-1017`, `PeerAvatar.swift:513-527` |
+| radius `= side / 2` (`.round`); `.roundedRect` is `floor(width × 0.25)` | chat-list avatars are circles | `ChatListItem.swift:2039-2045`, `AvatarNode.swift:980-985` |
+
+### Search bar (`SearchBarNode.swift`)
+
+Telegram's `.modern` field, the one the chat list uses:
+
+| Value | What | Source |
+|---|---|---|
+| `height 36.0`, `cornerDiameter 21.0` → radius `10.5` | the pill | `:859-870`, `:848-856`, `:1045` |
+| `padding 10.0` | the field is inset 10 from each edge of the bar | `:872-883` |
+| `Font.regular(17)` text, `Font.semibold(17)` Cancel in `theme.accent` | typing and the cancel word | `:839-846`, `:1122` |
+| loupe at `field.minX + 5.0`, vertically centred minus one pixel; text at `field.minX + 24.0`; 27 pt reserved at the right for the clear button | inside the pill | `:1203-1205`, `:1195`, `:1200` |
+| fill `#000000` @ 0.06, text `#000000`, placeholder and icon `#8e8e93`, clear `#7b7b81`, separator `#c8c7cc`, bar background `#ffffff` | `navigationSearchBar`, day | `DefaultDayPresentationTheme.swift:444-455` |
+
+### Navigation bar title
+
+| Value | What | Source |
+|---|---|---|
+| `Font.with(size: 17, weight: .semibold, traits: [.monospacedNumbers])` / `Font.regular(13)` | title / subtitle | `ChatTitleView.swift:26-27` |
+| `#000000` / `#787878` | day colours | `DefaultDayPresentationTheme.swift:415-416` |
 
 ## Known traps found while extracting
 
