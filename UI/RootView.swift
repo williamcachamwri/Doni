@@ -102,11 +102,11 @@ struct RootView: View {
             }
             // The slot the reference gives its cloud drive (`Features/Cloud/CloudMusicView.swift`),
             // which is where Settings used to sit: the account moved to the header's avatar, the way
-            // MeloX puts it (`ContentView.swift:453-457`).
+            // MeloX puts it (`ContentView.swift:453-457`). It holds the files the user brought, so it
+            // needs neither the session nor the walk — only the library, the player and the covers.
             Tab(DoniTab.cloud.title, systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
                 NavigationStack {
-                    CloudMusicView(session: session, player: player, artwork: artwork,
-                                   library: library, indexer: indexer)
+                    CloudMusicView(player: player, artwork: artwork, library: library)
                 }
             }
             // The reference's own search tab: a `Tab` with the search role, whose content is a

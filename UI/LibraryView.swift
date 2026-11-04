@@ -101,7 +101,7 @@ struct LibraryView: View {
             }
         }
         .navigationDestination(isPresented: $showsSettings) {
-            SettingsView(session: session, indexer: indexer, library: library)
+            SettingsView(session: session, indexer: indexer, player: player, library: library)
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
@@ -290,7 +290,7 @@ struct LibraryView: View {
 
     private func subtitle(_ action: DoniHomeAction) -> String {
         switch action {
-        case .shuffle: return "\(visible.count) bài trong kênh"
+        case .shuffle: return "\(visible.count) bài trong thư viện"
         case .newest: return "\(newest.count) bài vừa về"
         case .likes: return "\(keptAll.count) bài đã tim"
         case .offline: return "\(offlineAll.count) bài có trên máy"

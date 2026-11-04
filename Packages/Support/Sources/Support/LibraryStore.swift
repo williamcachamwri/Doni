@@ -41,6 +41,8 @@ public struct StoreChannel: Equatable, Sendable, Identifiable {
 public struct StoreTrack: Equatable, Sendable, Identifiable {
     public var id: String { uniqueId }
     public var uniqueId: String
+    /// The channel that posted it, or `0` for a file the user brought in themselves — Telegram does
+    /// not number a chat that, so the gap is this app's to use, and it is what `isLocal` asks.
     public var chatId: Int64
     public var messageId: Int64
     public var fileId: Int
@@ -76,6 +78,14 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
         self.miniArtwork = miniArtwork
         self.coverUniqueId = coverUniqueId
     }
+
+    /// A song this app owns outright: a file the user imported, not a post a channel made.
+    ///
+    /// Nothing can be fetched for it — `fileId` is `0` because TDLib never heard of the file, and the
+    /// cover comes out of the container rather than off Telegram's servers — and the bytes sit where
+    /// this app put them, so it is on the phone until the user deletes it. A channel re-read never
+    /// prunes these: every walk writes under a real `chat_id`.
+    public var isLocal: Bool { chatId == 0 }
 }
 
 /// A list the user made.
@@ -439,6 +449,30 @@ public final class LibraryStore: @unchecked Sendable {
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_text(statement, 1, uniqueId, -1, Self.transient)
         return sqlite3_step(statement) == SQLITE_ROW ? Self.read(statement) : nil
+    }
+
+    /// The songs the user brought in themselves — the rows no channel answers for.
+    public func localTracks() -> [StoreTrack] {
+        tracks(chatId: 0)
+    }
+
+    /// Retiring one song and everything that pointed at it. A heart or a playlist entry left on a row
+    /// whose file has gone is a song that will never play again, so they go with it — the same rule
+    /// `removeChannel` applies to a whole channel at once.
+    ///
+    /// The id is bound, not spliced: it is bytes for a Telegram song and a hash for an imported one,
+    /// and neither belongs in the SQL text.
+    public func removeTrack(uniqueId: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        sqlRun(handle, "BEGIN")
+        for table in ["favorite", "playlist_track", "track"] {
+            guard let statement = prepare("DELETE FROM \(table) WHERE unique_id = ?") else { break }
+            sqlite3_bind_text(statement, 1, uniqueId, -1, Self.transient)
+            sqlite3_step(statement)
+            sqlite3_finalize(statement)
+        }
+        sqlRun(handle, "COMMIT")
     }
 
     /// Where TDLib put the file, so a song that is already downloaded never asks again.

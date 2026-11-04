@@ -30,11 +30,13 @@ import TdSession
 struct SettingsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
+    @ObservedObject var player: Player
     @ObservedObject var library: Library
 
     @State private var confirmingLogout = false
     @State private var searchText = ""
     @State private var showsAddChannel = false
+    @State private var showsPendingSongs = false
 
     var body: some View {
         ScrollView {
@@ -49,7 +51,8 @@ struct SettingsView: View {
                         ForEach(lines) { line in
                             if line.id != lines.first?.id { divider }
                             row(line.symbol, line.title,
-                                subtitle: line.subtitle, value: line.value)
+                                subtitle: line.subtitle, value: line.value,
+                                action: line.action)
                         }
                     }
                 }
@@ -108,6 +111,12 @@ struct SettingsView: View {
             AddChannelSheet(session: session, library: library) {
                 indexer.run(session, library: library)
             }
+        }
+        .navigationDestination(isPresented: $showsPendingSongs) {
+            // The cover cache the app already holds: the rows on that screen are the songs the phone
+            // does not have yet, and their pictures come through the same cache as every other row.
+            PendingSongsView(session: session, player: player, artwork: CoverArtwork.shared,
+                             library: library, indexer: indexer)
         }
     }
 
@@ -322,9 +331,9 @@ struct SettingsView: View {
 
     // MARK: What is on the phone
 
-    /// The library's three numbers, in the two-line shape every other row on the screen wears. They
-    /// carry a value rather than a chevron because none of them has somewhere to go: the songs
-    /// themselves live on the home tab.
+    /// The library's numbers, in the two-line shape every other row on the screen wears. The first
+    /// three carry a value and nowhere to go; the last is the one thing on this card that has a screen
+    /// of its own, because a song waiting to be fetched is a queue and a queue wants rows.
     private var lines: [SettingLine] {
         [
             SettingLine(symbol: "doc.text", title: "Bài đã chỉ mục",
@@ -339,7 +348,19 @@ struct SettingsView: View {
                         subtitle: "Bị xoá khi đăng xuất",
                         value: DataSize.string(library.downloadedBytes),
                         keywords: "dung lượng bộ nhớ cache"),
+            SettingLine(symbol: "tray.and.arrow.down", title: "Bài chưa tải về",
+                        subtitle: "Chọn bài để đưa về máy",
+                        value: pendingCount.formatted(),
+                        keywords: "cloud chưa tải chờ download telegram",
+                        action: { showsPendingSongs = true }),
         ].filter { $0.matches(searchText) }
+    }
+
+    /// The songs the channels hold and the phone does not. Read off the rows the library already
+    /// publishes — the same list the pending screen filters — rather than a new store query for one
+    /// number. A file the user imported is not in it: nothing can fetch such a song back.
+    private var pendingCount: Int {
+        library.storedTracks.reduce(0) { $1.isDownloaded || $1.isLocal ? $0 : $0 + 1 }
     }
 
     private var visibleChannels: [StoreChannel] {
@@ -378,13 +399,16 @@ struct SettingsView: View {
     }
 }
 
-/// One row of a card that carries a value instead of a destination.
+/// One row of a card that carries a value instead of a chevron. `action` is the difference between
+/// a number and a door: the rows that have one open a screen, and the ones that do not only say what
+/// the library holds.
 private struct SettingLine: Identifiable {
     let symbol: String
     let title: String
     let subtitle: String
     let value: String
     let keywords: String
+    var action: (() -> Void)? = nil
 
     var id: String { title }
 
@@ -458,6 +482,6 @@ private struct ChannelAvatar: View {
 #Preview {
     NavigationStack {
         SettingsView(session: TelegramSession(), indexer: LibraryIndexer(),
-                     library: Library.shared)
+                     player: Player(), library: Library.shared)
     }
 }

@@ -1,42 +1,44 @@
 import SwiftUI
 import Support
 import TelegramDesignSystem
-import TdSession
+import UniformTypeIdentifiers
 
-/// The tab MeloX puts its cloud drive in (`Features/Cloud/CloudMusicView.swift:99-206`), wearing
-/// Doni's own meaning: the songs Telegram has indexed that are **not on this phone yet**.
+/// The tab MeloX puts its cloud drive in (`Features/Cloud/CloudMusicView.swift:99-206`), meaning the
+/// same thing here: **the files the user brought themselves**.
 ///
-/// The reference's cloud is a NetEase drive — files on someone else's server, listed with the same
-/// plain rows as its local library, with a quota over the top and a device-side copy made by
-/// tapping. Doni has the same split already: TDLib knows a thousand songs in the channel and holds
-/// none of them until asked. Same list, same gesture, one difference worth naming — the transfer runs
-/// the other way. Nothing here is uploaded anywhere; a row is a file on Telegram's servers that this
-/// app is being offered the chance to bring home.
+/// The reference's cloud is a NetEase drive — songs that live on someone else's server, listed with
+/// the same plain rows as its local library, with a quota over the top and a device-side copy made by
+/// tapping. Doni's is the mirror of that and the copy is the point: a song here was picked out of the
+/// Files app, copied into this app's own storage, and is on the phone until the user deletes it.
+/// Nothing is uploaded anywhere. The upload glyph therefore stays an upload — into the library, not
+/// out of the phone — and the destructive swipe is the one the reference can honestly make, because
+/// the row that goes here is gone for good rather than re-listed by the next page of a server query.
 ///
-/// So the reference's upload button becomes the button that adds a channel, its quota line becomes
-/// how much of the phone the library has already taken, and its destructive swipe becomes a download:
-/// a row this app cannot delete, because the next walk would re-index the song and the list would be
-/// lying about what it removed.
+/// What the indexed-but-not-downloaded songs of a Telegram channel are for moved to
+/// `PendingSongsView`, which is the downloads screen this list used to be.
 struct CloudMusicView: View {
-    @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    @ObservedObject var indexer: LibraryIndexer
 
     @State private var query = ""
-    @State private var showsAddChannel = false
-    /// The rows this screen has asked TDLib for and is still waiting on, in the order they were
-    /// pressed. MeloX holds the same idea as one `isUploading` flag on its store
-    /// (`CloudMusicView.swift:110-115`); here the wait is per row, so the row that landed can leave
-    /// while the others keep their spinner.
-    @State private var fetching: [String] = []
+    @State private var showsFileImporter = false
+    /// The files this screen is holding open. MeloX has one `isUploading` flag on its store
+    /// (`CloudMusicView.swift:110-115`); a picker here can hand over several at once, so the count is
+    /// what says "still working" and how many are left.
+    @State private var importing = 0
+    /// The song a swipe asked to delete, held until the dialog answers. MeloX's `pendingDeletion`
+    /// (`CloudMusicView.swift:51-71`), same shape: the row names itself in the button so a tap that
+    /// was meant for the row above it cannot take the wrong file.
+    @State private var pendingDeletion: StoreTrack?
+    /// The one failure this screen can produce: the file would not open, or would not copy. MeloX's
+    /// error alert (`CloudMusicView.swift:72-86`), for the same reason — a picker that seemed to work
+    /// and added nothing is a silent bug unless it says so.
+    @State private var failure: String?
 
     var body: some View {
         List {
-            // The reference's progress row, at the head of the list rather than inside a row, so a
-            // swipe that is still running stays visible while the list scrolls under it.
-            if !fetching.isEmpty {
+            if importing > 0 {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text(waitingLine)
@@ -47,10 +49,8 @@ struct CloudMusicView: View {
             if !visible.isEmpty {
                 Section {
                     Button(action: playAll) {
-                        HStack {
-                            Label("Phát tất cả", systemImage: "play.fill")
-                            Spacer()
-                        }
+                        Label(query.isEmpty ? "Phát tất cả" : "Phát kết quả",
+                              systemImage: "play.fill")
                     }
                 } header: {
                     Text(headline)
@@ -64,148 +64,135 @@ struct CloudMusicView: View {
                     }
                     .buttonStyle(.plain)
                     .task(id: track.uniqueId) {
-                        await artwork.load(track: track, via: session.covers(),
-                                           side: MusicSearchMetrics.songArt)
+                        // No downloader: the cover of a file the phone owns is read out of the file,
+                        // which is the first thing `CoverArtwork` tries and the only thing it needs.
+                        await artwork.load(track: track, side: MusicSearchMetrics.songArt)
                     }
                     .swipeActions(edge: .trailing) {
-                        Button {
-                            download(track)
+                        Button(role: .destructive) {
+                            pendingDeletion = track
                         } label: {
-                            Label("Tải về máy", systemImage: "arrow.down.circle")
+                            Label("Xoá", systemImage: "trash")
                         }
-                        .tint(MusicTint.accent)
                     }
                 }
             }
-
-            footer
         }
         .listStyle(.plain)
         .navigationTitle("Cloud Music")
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Tìm bài chưa tải")
+                    prompt: "Tìm bài của bạn")
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    showsAddChannel = true
+                    showsFileImporter = true
                 } label: {
-                    Label("Thêm kênh nhạc", systemImage: "square.and.arrow.down")
-                        .labelStyle(.iconOnly)
+                    if importing > 0 {
+                        ProgressView()
+                    } else {
+                        Label("Thêm nhạc từ file", systemImage: "square.and.arrow.up")
+                            .labelStyle(.iconOnly)
+                    }
                 }
+                .disabled(importing > 0)
+                .accessibilityLabel(importing > 0 ? "Đang thêm nhạc…" : "Thêm nhạc từ file")
             }
         }
-        .refreshable { await indexer.reload(session, library: library) }
+        .fileImporter(
+            isPresented: $showsFileImporter,
+            allowedContentTypes: [.audio],
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls):
+                importFiles(urls)
+            case .failure(let error):
+                failure = error.localizedDescription
+            }
+        }
+        .confirmationDialog("Xoá bài này?", isPresented: deleting,
+                           titleVisibility: .visible, presenting: pendingDeletion) { song in
+            Button("Xoá \(song.displayTitle)", role: .destructive) {
+                library.removeLocal(song)
+                pendingDeletion = nil
+            }
+            Button("Huỷ", role: .cancel) {}
+        } message: { _ in
+            Text("Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.")
+        }
+        .alert("Không thêm được bài", isPresented: failing) {
+            Button("OK", role: .cancel) { failure = nil }
+        } message: {
+            Text(failure ?? "File không đọc được.")
+        }
         .overlay {
-            if visible.isEmpty && !indexer.isReading {
+            if visible.isEmpty && importing == 0 {
                 emptyState
-            }
-        }
-        .sheet(isPresented: $showsAddChannel) {
-            AddChannelSheet(session: session, library: library) {
-                indexer.run(session, library: library)
             }
         }
     }
 
     // MARK: What the list is
 
-    /// Every indexed song the phone does not hold, newest first — the order `Library` reads its
-    /// track table in, and the same order the home feed's shelves use.
-    private var pending: [StoreTrack] {
-        library.storedTracks.filter { !$0.isDownloaded }
+    /// The songs this app owns outright, newest first — the order `Library` reads its track table in.
+    private var kept: [StoreTrack] {
+        library.storedTracks.filter(\.isLocal)
     }
 
-    /// The same fold the favourites and playlist screens use, so "tinh yeu" still finds "Tình yêu"
-    /// while the field is only being asked about this list.
+    /// The same fold the favourites and playlist screens use, so "tinh yeu" still finds "Tình yêu".
     private var visible: [StoreTrack] {
         let key = SearchTextFold.normalized(query)
-        guard !key.isEmpty else { return pending }
-        return pending.filter {
+        guard !key.isEmpty else { return kept }
+        return kept.filter {
             SearchTextFold.normalized(
                 "\($0.displayTitle) \($0.displayPerformer) \($0.fileName)"
             ).contains(key)
         }
     }
 
-    /// The line over the list. The reference's is its drive quota; the number this app can say in
-    /// the same slot is how much of the catalogue is still out on Telegram, and what the phone has
-    /// already spent on the rest.
+    /// The reference's quota line, in the same slot (`CloudMusicView.swift:128-136`), saying the only
+    /// thing this app can: how many files the user has brought and how much of the phone they cost.
     private var headline: String {
         if !query.isEmpty {
             return "\(visible.count.formatted()) kết quả"
         }
-        return "\(pending.count.formatted()) bài chưa tải · "
-            + "\(DataSize.string(library.downloadedBytes)) trên máy"
+        let bytes = kept.reduce(Int64(0)) { $0 + $1.size }
+        return "\(kept.count.formatted()) bài của bạn · " + DataSize.string(bytes)
     }
 
     private var waitingLine: String {
-        fetching.count == 1
-            ? "Đang tải 1 bài về máy…"
-            : "Đang tải \(fetching.count.formatted()) bài về máy…"
+        importing == 1
+            ? "Đang thêm 1 bài vào thư viện…"
+            : "Đang thêm \(importing.formatted()) bài vào thư viện…"
     }
 
-    // MARK: Foot and empty
-
-    /// MeloX's pagination footer (`CloudMusicView.swift:216-248`): a centred line of `subheadline`
-    /// over a hidden separator while it is still working, and a `bordered` retry button when the
-    /// read broke. A walk is what makes new rows appear here, so this is the list's version of
-    /// "loading more".
-    @ViewBuilder
-    private var footer: some View {
-        if indexer.isReading {
-            HStack {
-                Spacer()
-                ProgressView(indexer.statusLine.isEmpty ? "Đang đọc kênh…" : indexer.statusLine)
-                Spacer()
-            }
-        } else if let failure = indexer.failureLine {
-            VStack(spacing: 8) {
-                Text(failure)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                Button("Đọc lại kênh") { indexer.run(session, library: library) }
-                    .buttonStyle(.bordered)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-            .listRowSeparator(.hidden)
-        }
+    private var deleting: Binding<Bool> {
+        Binding(get: { pendingDeletion != nil },
+                set: { shown in if !shown { pendingDeletion = nil } })
     }
 
-    /// The three empties this screen can be, in the reference's own shape
-    /// (`CloudMusicView.swift:178-199`): a search with no answer, a library nothing has been read
-    /// into, and a phone that already holds everything.
+    private var failing: Binding<Bool> {
+        Binding(get: { failure != nil },
+                set: { shown in if !shown { failure = nil } })
+    }
+
+    // MARK: Empty
+
+    /// The two empties, in the reference's own shape (`CloudMusicView.swift:178-199`): a search with
+    /// no answer, and a drive nobody has put anything in yet — whose one action is the button that
+    /// fills it.
     @ViewBuilder
     private var emptyState: some View {
         if !query.isEmpty {
             ContentUnavailableView.search(text: query)
-        } else if library.channels.isEmpty {
-            ContentUnavailableView {
-                Label("Chưa có kênh nhạc nào", systemImage: "icloud")
-            } description: {
-                Text("Thêm một kênh Telegram để Doni biết trong đó có bài nào.")
-            } actions: {
-                Button("Thêm kênh nhạc") { showsAddChannel = true }
-                    .buttonStyle(.borderedProminent)
-            }
-        } else if pending.isEmpty {
-            ContentUnavailableView {
-                Label("Mọi bài đã có trên máy", systemImage: "checkmark.icloud")
-            } description: {
-                Text("\(library.trackCount.formatted()) bài trong kênh đã nằm trong "
-                    + "\(DataSize.string(library.downloadedBytes)) bạn đang giữ.")
-            } actions: {
-                Button("Đọc lại kênh") { indexer.run(session, library: library) }
-                    .buttonStyle(.borderedProminent)
-            }
         } else {
             ContentUnavailableView {
-                Label("Chưa có bài nào trong kênh", systemImage: "icloud")
+                Label("Chưa có bài nào của bạn", systemImage: "externaldrive")
             } description: {
-                Text("Kênh trên danh sách chưa có file nhạc nào được đọc.")
+                Text("Chọn một file nhạc trên máy để Doni giữ nó trong thư viện, "
+                    + "nghe được cả khi không có mạng.")
             } actions: {
-                Button("Đọc lại kênh") { indexer.run(session, library: library) }
+                Button("Thêm nhạc từ file") { showsFileImporter = true }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -218,26 +205,25 @@ struct CloudMusicView: View {
         player.play(first, in: visible.map { $0 as any Playable })
     }
 
-    /// One swipe, one file. The row stops being a cloud row when the path lands — `Library` patches
-    /// the published row in place — so this list drains as its downloads finish.
-    private func download(_ track: StoreTrack) {
-        guard !fetching.contains(track.uniqueId) else { return }
-        fetching.append(track.uniqueId)
+    /// One picker, as many files as were selected. Hashing and copying are a few hundred milliseconds
+    /// of disk each, so they run one after another rather than all at once, and the count at the head
+    /// of the list ticks down as they land — the only progress a user can act on.
+    private func importFiles(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        importing = urls.count
         Task {
-            await player.download(track)
-            fetching.removeAll { $0 == track.uniqueId }
+            var added = 0
+            for url in urls {
+                if await library.importMusic(from: url) != nil { added += 1 }
+                importing -= 1
+            }
+            if added == 0 { failure = "Không file nào mở được." }
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        CloudMusicView(
-            session: TelegramSession(),
-            player: Player(),
-            artwork: CoverArtwork.shared,
-            library: Library.shared,
-            indexer: LibraryIndexer()
-        )
+        CloudMusicView(player: Player(), artwork: CoverArtwork.shared, library: Library.shared)
     }
 }

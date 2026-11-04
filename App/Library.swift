@@ -117,6 +117,112 @@ final class Library: ObservableObject {
         }
     }
 
+    // MARK: Files the user brings
+
+    /// A song the user picked out of the Files app, taken into the library.
+    ///
+    /// The bytes are copied rather than read where they lie: a security-scoped URL is only good while
+    /// this app is holding it, and one that points at iCloud is a file with no audio in it until the
+    /// system decides to fetch it — and "Nghe offline" is a promise about the next train ride. Nothing
+    /// leaves the phone: the copy has one reader, and it is this app.
+    ///
+    /// The row is published the way a live arrival is, and for the same reason — `refresh()` would
+    /// re-stat every file the library knows to prove that one song arrived.
+    func importMusic(from url: URL) async -> StoreTrack? {
+        guard let row = await Self.take(url) else { return nil }
+        store.appendTracks([row])
+        trackCount = store.trackCount()
+        downloadedCount = store.downloadedCount()
+        downloadedBytes = store.downloadedBytes()
+        if let index = storedTracks.firstIndex(where: { $0.uniqueId == row.uniqueId }) {
+            storedTracks[index] = row
+        } else {
+            storedTracks.insert(row, at: 0)
+        }
+        return row
+    }
+
+    /// A song the user imported, taken out again: the row, whatever pointed at it, and the bytes the
+    /// app copied. The one delete this library can honour outright — no walk re-indexes a file nobody
+    /// posted, so a row removed here stays gone.
+    func removeLocal(_ track: StoreTrack) {
+        if let path = track.localPath { try? FileManager.default.removeItem(atPath: path) }
+        store.removeTrack(uniqueId: track.uniqueId)
+        refresh()
+    }
+
+    /// One file, hashed and copied and written down.
+    ///
+    /// Off the main thread because a forty megabyte song is a hundred milliseconds of hashing and
+    /// another hundred of copying, and the screen that asked for it is showing a spinner while that
+    /// happens rather than freezing.
+    private nonisolated static func take(_ url: URL) async -> StoreTrack? {
+        // Only a URL the Files app handed over needs this, and it answers false for a file the app
+        // already owns — so the pair is entered on the flag rather than assumed.
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let taken: StoreTrack? = await Task.detached(priority: .userInitiated) {
+            guard isAudioFile(url), let hash = fingerprint(url), let kept = copy(url, named: hash)
+            else { return nil }
+            let bytes = size(ofPath: kept)
+            guard bytes > 0 else { return nil }
+            // An empty title is not a failure: the row falls back to the file's own name without its
+            // extension, which is the same fallback a captionless channel post is shown by.
+            let tags = await AudioTags.read(path: kept)
+            return StoreTrack(uniqueId: hash, chatId: 0, messageId: 0, fileId: 0,
+                              title: tags.title, performer: tags.performer,
+                              fileName: url.lastPathComponent,
+                              duration: await AudioDuration.seconds(ofPath: kept),
+                              size: bytes, date: Int64(Date().timeIntervalSince1970),
+                              localPath: kept)
+        }.value
+        return taken
+    }
+
+    /// The name a file is kept under, and the id its row is stored by: SHA-256 of its own bytes.
+    ///
+    /// MTProto's `file_unique_id` (`td_api.tl:784`) is what says two Telegram songs are the same file,
+    /// and there is none here — these bytes never went through Telegram. Hashing the content instead
+    /// means the same MP3 picked twice updates the row it already has rather than spending the space
+    /// a second time. Chunked because a one-hour set is 140 MB and `Data(contentsOf:)` would be asked
+    /// to hold all of it at once; one megabyte is the size MeloX's uploader streams at, too.
+    private nonisolated static func fingerprint(_ url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            guard let chunk = try? handle.read(upToCount: Self.fingerprintChunk) else { return nil }
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    private nonisolated static let fingerprintChunk = 1024 * 1024
+
+    /// A file rather than a directory, a symlink or whatever else the picker was pointed at.
+    private nonisolated static func isAudioFile(_ url: URL) -> Bool {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attributes?[.type] as? FileAttributeType) == .typeRegular
+    }
+
+    private nonisolated static func copy(_ url: URL, named hash: String) -> String? {
+        let destination = musicDirectory.appendingPathComponent(hash)
+            .appendingPathExtension(url.pathExtension)
+        if FileManager.default.fileExists(atPath: destination.path) { return destination.path }
+        do {
+            try FileManager.default.copyItem(at: url, to: destination)
+            return destination.path
+        } catch {
+            return nil
+        }
+    }
+
+    private nonisolated static func size(ofPath path: String) -> Int64 {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: path)
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+    }
+
     // MARK: Downloads
 
     /// Where TDLib put the file. Recorded so the row shows as downloaded and a second play of the
@@ -417,6 +523,7 @@ final class Library: ObservableObject {
         store.wipeLibrary()
         try? FileManager.default.removeItem(at: Self.coverDirectory)
         try? FileManager.default.removeItem(at: Self.avatarDirectory)
+        try? FileManager.default.removeItem(at: Self.musicDirectory)
         refresh()
     }
 
@@ -458,7 +565,7 @@ final class Library: ObservableObject {
         return fresh
     }
 
-    private static var directory: URL {
+    private nonisolated static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let url = base.appendingPathComponent("Doni", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -470,6 +577,16 @@ final class Library: ObservableObject {
     /// the only reader of it is this app.
     private static var coverDirectory: URL {
         let url = directory.appendingPathComponent("Covers", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// Where a file the user brought in is kept. Not `Caches`, and not TDLib's directory: the system
+    /// is free to take a cache back and TDLib prunes its own when the phone wants the room, and an
+    /// imported song is the one thing here that cannot afford to disappear — no channel holds a copy
+    /// and there is nothing to fetch it back from.
+    private nonisolated static var musicDirectory: URL {
+        let url = directory.appendingPathComponent("Music", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

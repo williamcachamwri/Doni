@@ -499,6 +499,28 @@ struct LibraryStoreTests {
         #expect(!store.isFavorite("a"))
     }
 
+    @Test("a file the user brought is a list of its own, and a walk cannot touch it")
+    func localRowsAreTheOnesNobodyPosted() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1001, username: "a", title: "A"))
+        store.appendTracks([track("a"),
+                            track("h", chatId: 0, localPath: "/tmp/h.mp3")])
+        #expect(store.localTracks().map(\.uniqueId) == ["h"])
+        #expect(store.track(uniqueId: "h")?.isLocal == true)
+        #expect(store.track(uniqueId: "a")?.isLocal == false)
+
+        // A page that no longer mentions the channel's song retires it — and has to leave the
+        // imported one alone, since no channel will ever bring it back.
+        store.replaceTracks(chatId: -1001, tracks: [])
+        #expect(store.tracks().map(\.uniqueId) == ["h"])
+
+        store.toggleFavorite(uniqueId: "h", segment: nil)
+        store.removeTrack(uniqueId: "h")
+        #expect(store.localTracks().isEmpty)
+        #expect(!store.isFavorite("h"), "a heart on a row whose file is gone never plays again")
+    }
+
     @Test("a logout empties the library but not the file it lives in")
     func wipeLeavesTheDatabaseOpen() throws {
         let (store, directory) = try makeStore()
