@@ -3,6 +3,7 @@ import MediaPlayer
 import SwiftUI
 import TelegramDesignSystem
 import TdSession
+import UIKit
 
 /// The one thing that makes noise.
 ///
@@ -28,6 +29,8 @@ final class Player: ObservableObject {
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
     private var loading: Task<Void, Never>?
+    /// The lock screen's cover, and the bitmap it was made from. See `artwork(for:)`.
+    private var artworkItem: (uniqueId: String, image: UIImage, item: MPMediaItemArtwork)?
     /// Set once the session is authorized: a song is a `file_id` until TDLib puts it on the phone.
     private var downloader: TdFileDownloader?
     /// Where a file that has just landed is written down, so the row reads as downloaded next
@@ -100,6 +103,7 @@ final class Player: ObservableObject {
         ticker = nil
         engine?.stop()
         engine = nil
+        artworkItem = nil
         current = nil
         isPlaying = false
         isFetchingFile = false
@@ -157,7 +161,12 @@ final class Player: ObservableObject {
         guard index >= 0, index < queue.count else { return }
         let track = queue[index]
         loading?.cancel()
+        // The song before this one is put down now rather than when the next arrives: an
+        // `AVAudioPlayer` holds its file open, a one-hour mix is a hundred and forty megabytes, and
+        // the fetch below can take a minute — a gap in which the app was carrying two of them at
+        // once with only one of them audible.
         engine?.stop()
+        engine = nil
         current = track
         elapsed = 0
         duration = Double(track.duration ?? 0)
@@ -248,12 +257,29 @@ final class Player: ObservableObject {
             // The lock screen runs its own clock from this rate, so 0 is what holds it still.
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
         ]
-        if let artwork = CoverArtwork.shared.image(for: shown, side: MusicArtworkMetrics.heroSide) {
-            // The lock screen asks for the artwork at whatever size it has; the bitmap we
-            // already decoded for the row is the one it gets back.
-            let size = artwork.size
-            info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: size) { _ in artwork }
+        if let artwork = artwork(for: shown) {
+            info[MPMediaItemPropertyArtwork] = artwork
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// The lock screen's cover, rebuilt only when the picture behind it actually changed.
+    ///
+    /// `nowPlayingInfo` crosses into another process and the ticker writes it four times a second,
+    /// so an hour of listening used to hand out fourteen thousand fresh `MPMediaItemArtwork` objects
+    /// holding fourteen thousand copies of one bitmap — which is how a player that plays fine ends up
+    /// killed by the system an hour in. The cache asks for the hero's size because that is the
+    /// biggest the lock screen can draw, and takes the row's minithumbnail only when nothing better
+    /// has arrived, because an artwork slot that is soft beats one that is empty.
+    private func artwork(for track: any Playable) -> MPMediaItemArtwork? {
+        let image = CoverArtwork.shared.sharp(for: track, side: MusicArtworkMetrics.heroSide)
+            ?? CoverArtwork.shared.mini(for: track)
+        guard let image else { return nil }
+        if let held = artworkItem, held.uniqueId == track.uniqueId, held.image === image {
+            return held.item
+        }
+        let item = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        artworkItem = (track.uniqueId, image, item)
+        return item
     }
 }
