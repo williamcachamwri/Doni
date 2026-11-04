@@ -1,0 +1,217 @@
+import SwiftUI
+import Support
+import TelegramDesignSystem
+
+/// The screen MeloX puts behind an empty search field (`SearchDiscoveryView.swift:16-45`): sections
+/// 28 apart, each one a `.title2.bold()` heading with 14 down to its content, over 8 pt of scroll
+/// padding, and pull-to-refresh on top.
+///
+/// MeloX's shelf is Netease's ten recommended playlists and its grid is twenty genres; a Telegram
+/// channel has neither. The same furniture carries what this store really holds — the user's own lists
+/// on the shelf, and the artists the channel actually has as tiles, each tile tapping straight into a
+/// search for that name the way MeloX's tile taps into a genre.
+struct SearchDiscoveryView: View {
+    @ObservedObject var session: TelegramSession
+    @ObservedObject var indexer: LibraryIndexer
+    @ObservedObject var artwork: CoverArtwork
+    @ObservedObject var library: Library
+
+    /// The artists the index knows, biggest first. The grid shows the first twelve.
+    let artists: [SearchArtist]
+    /// Tapping a tile searches that artist.
+    let search: (String) -> Void
+
+    private static let tileLimit = 12
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: MusicSearchMetrics.sectionSpacing) {
+                shelf
+                categories
+            }
+            .padding(.vertical, MusicSearchMetrics.verticalPadding)
+        }
+        .refreshable {
+            await indexer.reload(session, library: library)
+        }
+    }
+
+    @ViewBuilder
+    private var shelf: some View {
+        let lists = library.playlists
+        if !lists.isEmpty {
+            VStack(alignment: .leading, spacing: MusicSearchMetrics.headingToContent) {
+                Text("Danh sách của bạn")
+                    .font(.title2.bold())
+                    .padding(.horizontal, MusicSearchMetrics.shelfMargin)
+
+                ScrollView(.horizontal) {
+                    LazyHStack(alignment: .top, spacing: MusicSearchMetrics.shelfGap) {
+                        ForEach(lists) { list in
+                            NavigationLink(value: list.id) {
+                                card(list)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .contentMargins(.horizontal, MusicSearchMetrics.shelfMargin, for: .scrollContent)
+                .scrollIndicators(.hidden)
+            }
+        }
+    }
+
+    /// A 172 pt card: the list's picture, then two lines of words under it
+    /// (`SearchDiscoveryView.swift:66-78`, `MediaCardView.swift:11-28`).
+    private func card(_ list: StoredPlaylist) -> some View {
+        let cover = library.firstTrack(in: list.id)
+        return VStack(alignment: .leading, spacing: MusicFeedMetrics.cardTextGap) {
+            PlaylistArt(listId: list.id, coverPath: list.coverPath, cover: cover,
+                        side: MusicSearchMetrics.shelfCard,
+                        radius: MusicArtworkMetrics.radius, artwork: artwork)
+                .task(id: list.id) {
+                    if let cover {
+                        await artwork.load(track: cover, via: session.covers(),
+                                           side: MusicSearchMetrics.shelfCard)
+                    }
+                }
+
+            Text(list.name)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+
+            Text("\(list.trackCount) bài")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(width: MusicSearchMetrics.shelfCard, alignment: .leading)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var categories: some View {
+        if artists.isEmpty {
+            ContentUnavailableView(
+                "Chưa có gì để gợi ý",
+                systemImage: "magnifyingglass",
+                description: Text("Thư viện vẫn đang được đọc.")
+            )
+            .padding(.vertical, 24)
+        } else {
+            VStack(alignment: .leading, spacing: MusicSearchMetrics.headingToContent) {
+                Text("Nghệ sĩ")
+                    .font(.title2.bold())
+
+                LazyVGrid(columns: columns, spacing: MusicSearchMetrics.gridSpacing) {
+                    ForEach(Array(artists.prefix(Self.tileLimit).enumerated()),
+                            id: \.element.id) { position, artist in
+                        SearchCategoryTile(
+                            title: artist.name,
+                            systemImage: Self.glyphs[position % Self.glyphs.count],
+                            colors: Self.pair(at: position)
+                        ) {
+                            search(artist.name)
+                        }
+                        .accessibilityHint("\(artist.tracks.count) bài")
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: MusicSearchMetrics.gridSpacing),
+              count: MusicSearchMetrics.gridColumns)
+    }
+
+    /// The reference's category glyphs (`SearchDiscoveryView.swift:175-196`), cycled because a tile
+    /// here is an artist and has no genre of its own to draw.
+    private static let glyphs = ["music.mic", "mic.fill", "guitars.fill",
+                                 "pianokeys", "waveform", "music.note"]
+
+    /// MeloX paints each category with a two-colour pair; the six it ships are the home tiles'
+    /// (`HomeQuickActionsView.swift:81-96`), cycled in the same order.
+    private static func pair(at position: Int) -> [Color] {
+        let pairs = MusicQuickActionMetrics.gradientPairs
+        let pair = pairs[position % pairs.count]
+        return [pair.from, pair.to]
+    }
+}
+
+/// MeloX's category card: a diagonal gradient, a 60 pt bold watermark turned −8° into the top
+/// trailing corner at white 0.22, the name in `.title3.bold()` at the bottom leading, all of it 1.55
+/// wide to tall inside 14 pt of radius (`SearchDiscoveryView.swift:117-146`).
+private struct SearchCategoryTile: View {
+    let title: String
+    let systemImage: String
+    let colors: [Color]
+    let search: () -> Void
+
+    var body: some View {
+        Button(action: search) {
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+
+                Image(systemName: systemImage)
+                    .font(.system(size: MusicSearchMetrics.tileGlyph, weight: .bold))
+                    .foregroundStyle(.white.opacity(MusicSearchMetrics.tileGlyphInk))
+                    .rotationEffect(.degrees(MusicSearchMetrics.tileGlyphRotation))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(MusicSearchMetrics.tilePadding)
+
+                Text(title)
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(MusicSearchMetrics.tileLabelMinScale)
+                    .padding(MusicSearchMetrics.tilePadding)
+            }
+            .aspectRatio(MusicSearchMetrics.tileAspect, contentMode: .fit)
+            .clipShape(.rect(cornerRadius: MusicSearchMetrics.tileRadius))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One artist's name and the songs that carry it — the facet a Telegram channel allows in place of
+/// Netease's genres.
+struct SearchArtist: Identifiable {
+    let name: String
+    let tracks: [any Playable]
+
+    var id: String { name }
+
+    /// The artwork an artist has is the artwork of a song they are on; the newest is the one worth
+    /// showing.
+    var sample: any Playable { tracks[0] }
+}
+
+extension Array where Element == any Playable {
+    /// Grouped by performer, biggest first, then by name — the order MeloX's category list is in
+    /// before it is filtered.
+    var searchArtists: [SearchArtist] {
+        var grouped: [String: [any Playable]] = [:]
+        for track in self where !track.displayPerformer.trimmedSearchName.isEmpty {
+            grouped[track.displayPerformer.trimmedSearchName, default: []].append(track)
+        }
+        return grouped.map { SearchArtist(name: $0.key, tracks: $0.value) }
+            .sorted { lhs, rhs in
+                lhs.tracks.count == rhs.tracks.count ? lhs.name < rhs.name
+                                                      : lhs.tracks.count > rhs.tracks.count
+            }
+    }
+}
+
+extension String {
+    /// A performer field is bot-written text with the name padded in spaces, and an empty one is
+    /// literally empty after the pad is gone.
+    var trimmedSearchName: String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

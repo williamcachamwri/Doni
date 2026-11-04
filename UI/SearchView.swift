@@ -3,14 +3,36 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The search tab, after MeloX: the title and the field are the system's, not a header drawn by
-/// hand — `.navigationTitle` plus `.searchable(placement: .navigationBarDrawer(displayMode: .always))`
-/// (`SearchView.swift:35-40`). Under iOS 26 that field sits in the tab bar's own search role, so it
-/// is glass, it grabs the keyboard when the tab is tapped, and it shrinks the bar away as the
-/// results scroll.
+/// Which facet the field is searching. MeloX has five because Netease serves five kinds of result
+/// (`SearchView.swift:56-60`, `:145-212`); Doni has the three its own store can answer for.
+enum DoniSearchScope: String, CaseIterable, Identifiable {
+    case songs
+    case playlists
+    case artists
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .songs: return "Bài hát"
+        case .playlists: return "Danh sách"
+        case .artists: return "Nghệ sĩ"
+        }
+    }
+}
+
+/// The search tab, worn the way the reference wears it (`SearchView.swift:25-111`).
 ///
-/// What it searches is the whole library, and the fold it searches with is `SearchTextFold`'s, so
-/// "tinh yeu" finds "Tình yêu" the way the list always did.
+/// The chrome is all the system's: `.navigationTitle` and a `.searchable` field in the nav drawer,
+/// `.searchScopes` for the facets and `.searchSuggestions` for the completions under the keyboard —
+/// and because this tab is the one with `role: .search`, iOS 26 puts the field in the tab bar's own
+/// search circle, takes the keyboard the moment the tab is tapped, and shrinks the bar away as the
+/// results scroll. An empty field is not an empty screen: it is the discovery view
+/// (`SearchDiscoveryView.swift:16-45`).
+///
+/// What differs is only where the answers come from. MeloX asks a network and waits 350 ms for it, so
+/// it needs a loading row and a result cache; Doni asks its own index, which already has the answer,
+/// so it shows results immediately and keeps only the suggestion debounce (`:113-126`).
 struct SearchView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -18,55 +40,279 @@ struct SearchView: View {
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
 
-    @Environment(\.displayScale) private var displayScale
-
     @State private var query = ""
-
-    private let palette = TelegramPalette.dark
+    @State private var scope: DoniSearchScope = .songs
+    @State private var suggestions: [String] = []
 
     var body: some View {
-        List {
-            ForEach(visible, id: \.uniqueId) { track in
-                TrackRow(
-                    track: track,
-                    query: query,
-                    hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                    palette: palette,
-                    isCurrent: player.current?.uniqueId == track.uniqueId,
-                    isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
-                    headline: track.headline,
-                    isFavorite: kept.contains(track.uniqueId),
-                    artwork: artwork
-                ) {
-                    player.play(track, in: visible)
+        Group {
+            if trimmed.isEmpty {
+                SearchDiscoveryView(session: session, indexer: indexer, artwork: artwork,
+                                    library: library, artists: allArtists, search: search)
+            } else {
+                results
+            }
+        }
+        .navigationDestination(for: Int64.self) { id in
+            PlaylistDetailView(playlistId: id, session: session, player: player,
+                               artwork: artwork, library: library)
+        }
+        .navigationTitle("Tìm kiếm")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "Tìm bài hát")
+        .searchSuggestions {
+            ForEach(suggestions, id: \.self) { suggestion in
+                Label {
+                    Text(verbatim: suggestion)
+                } icon: {
+                    Image(systemName: "magnifyingglass")
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .trackActions(track, library: library)
-                .task(id: track.uniqueId) {
-                    await artwork.load(track: track, via: session.covers())
+                .searchCompletion(suggestion)
+            }
+        }
+        .searchScopes($scope) {
+            ForEach(DoniSearchScope.allCases) { kind in
+                Text(kind.title).tag(kind)
+            }
+        }
+        .overlay {
+            if !trimmed.isEmpty && isEmpty {
+                ContentUnavailableView.search(text: query)
+            }
+        }
+        .task(id: trimmed) { await suggest() }
+    }
+
+    private var trimmed: String { query.trimmedSearchName }
+
+    // MARK: - Results
+
+    @ViewBuilder
+    private var results: some View {
+        switch scope {
+        case .songs: songResults
+        case .playlists: playlistResults
+        case .artists: artistResults
+        }
+    }
+
+    /// MeloX's song list: plain rows, each one a button that plays inside the result set, with the
+    /// favourite on a trailing swipe (`SearchView.swift:146-167`).
+    private var songResults: some View {
+        List {
+            ForEach(songMatches, id: \.uniqueId) { track in
+                Button {
+                    player.play(track, in: songMatches)
+                } label: {
+                    SearchTrackRow(track: track, performer: track.displayPerformer,
+                                   artwork: artwork)
+                        .task(id: track.uniqueId) {
+                            await artwork.load(track: track, via: session.covers(),
+                                               side: MusicSearchMetrics.songArt)
+                        }
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing) {
+                    Button {
+                        library.toggleFavorite(track)
+                    } label: {
+                        Label(library.isFavorite(track.uniqueId) ? "Bỏ yêu thích" : "Yêu thích",
+                              systemImage: library.isFavorite(track.uniqueId) ? "heart.slash" : "heart")
+                    }
+                    .tint(MusicSearchMetrics.favoriteInk)
                 }
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(palette.chatListBackground.ignoresSafeArea())
-        .navigationTitle("Tìm kiếm")
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Tìm bài hát")
-        .scrollDismissesKeyboard(.interactively)
-        .overlay {
-            if !query.isEmpty && visible.isEmpty {
-                ContentUnavailableView.search(text: query)
+    }
+
+    private var playlistResults: some View {
+        List {
+            ForEach(library.playlists.filter { matches($0.name) }, id: \.id) { list in
+                NavigationLink(value: list.id) {
+                    SearchMediaRow(title: list.name, subtitle: "\(list.trackCount) bài",
+                                   circular: false) {
+                        PlaylistArt(listId: list.id, coverPath: list.coverPath,
+                                    cover: library.firstTrack(in: list.id),
+                                    side: MusicSearchMetrics.mediaArt,
+                                    radius: MusicSearchMetrics.mediaArtRadius, artwork: artwork)
+                            .task(id: list.id) {
+                                if let cover = library.firstTrack(in: list.id) {
+                                    await artwork.load(track: cover, via: session.covers(),
+                                                       side: MusicSearchMetrics.mediaArt)
+                                }
+                            }
+                    }
+                }
             }
+        }
+        .listStyle(.plain)
+    }
+
+    /// An artist has no picture of its own here, so it wears a song it is on, cut to a circle the way
+    /// MeloX cuts an artist (`SearchView.swift:180-191`, `:394`).
+    private var artistResults: some View {
+        List {
+            ForEach(artistMatches) { artist in
+                Button {
+                    search(artist.name)
+                } label: {
+                    SearchMediaRow(title: artist.name, subtitle: "\(artist.tracks.count) bài",
+                                   circular: true) {
+                        TrackCover(track: artist.sample, side: MusicSearchMetrics.mediaArt,
+                                   radius: MusicSearchMetrics.mediaArt / 2, artwork: artwork)
+                            .task(id: artist.sample.uniqueId) {
+                                await artwork.load(track: artist.sample, via: session.covers(),
+                                                   side: MusicSearchMetrics.mediaArt)
+                            }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    // MARK: - Matching
+
+    private var songMatches: [any Playable] {
+        guard !trimmed.isEmpty else { return [] }
+        switch scope {
+        case .songs, .playlists: return indexer.matches(of: query)
+        case .artists: return performerMatches
         }
     }
 
-    private var visible: [any Playable] {
-        indexer.matches(of: query)
+    /// The artists the field names — every artist, folded, before the field says anything.
+    private var allArtists: [SearchArtist] { indexer.tracks.searchArtists }
+
+    private var artistMatches: [SearchArtist] {
+        allArtists.filter { matches($0.name) }
     }
 
-    private var kept: Set<String> {
-        Set(library.favorites.map { $0.track.uniqueId })
+    /// Songs whose *performer* is what the field found, which is the one thing the artists scope can
+    /// hand the songs scope.
+    private var performerMatches: [any Playable] {
+        artistMatches.flatMap(\.tracks)
+    }
+
+    private var isEmpty: Bool {
+        switch scope {
+        case .songs, .artists: return songMatches.isEmpty
+        case .playlists: return library.playlists.filter { matches($0.name) }.isEmpty
+        }
+    }
+
+    private func matches(_ text: String) -> Bool {
+        SearchTextFold.normalized(text).contains(SearchTextFold.normalized(trimmed))
+    }
+
+    /// Completions out of the index itself, 300 ms after the field last changed — the same wait the
+    /// reference puts in front of its network call (`SearchView.swift:113-126`).
+    private func suggest() async {
+        suggestions = []
+        guard !trimmed.isEmpty else { return }
+        do {
+            try await Task.sleep(for: MusicSearchMetrics.suggestionDebounce)
+        } catch {
+            return
+        }
+        guard !Task.isCancelled, trimmed == query.trimmedSearchName else { return }
+        suggestions = Self.suggestionsFor(trimmed, in: indexer.tracks)
+    }
+
+    /// Titles and performer names that contain the fragment, in the order the library holds them,
+    /// capped at eight.
+    private static func suggestionsFor(_ fragment: String, in tracks: [any Playable]) -> [String] {
+        let needle = SearchTextFold.normalized(fragment)
+        var seen = Set<String>()
+        var found: [String] = []
+        for track in tracks {
+            for candidate in [track.displayTitle, track.displayPerformer.trimmedSearchName]
+            where !candidate.isEmpty && seen.insert(candidate).inserted
+                && SearchTextFold.normalized(candidate).contains(needle) {
+                found.append(candidate)
+                if found.count == 8 { return found }
+            }
+        }
+        return found
+    }
+
+    /// Tapping a tile or an artist row puts that name in the field, which is what MeloX's tile does
+    /// with a genre.
+    private func search(_ text: String) {
+        scope = .songs
+        query = text
+    }
+}
+
+/// The song row the reference's search uses: `TrackRowView` with the artwork on — 44 pt cover at r6,
+/// 12 to the text, 3 between the two lines, and the duration in `.caption.monospacedDigit()` at the
+/// trailing edge (`TrackRowView.swift:17-58`).
+private struct SearchTrackRow: View {
+    let track: any Playable
+    let performer: String
+    let artwork: CoverArtwork
+
+    var body: some View {
+        HStack(spacing: MusicSearchMetrics.songGap) {
+            TrackCover(track: track, side: MusicSearchMetrics.songArt,
+                       radius: MusicSearchMetrics.songArtRadius, artwork: artwork)
+
+            VStack(alignment: .leading, spacing: MusicSearchMetrics.songTextGap) {
+                Text(track.displayTitle)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(performer.trimmedSearchName.isEmpty ? "Doni" : performer.trimmedSearchName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: MusicSearchMetrics.songTrailingGap)
+
+            if let text = MediaClock.duration(track.duration) {
+                Text(text)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// MeloX's media row: 54 pt of artwork — a circle for an artist, r7 for anything else — then the
+/// name and one line of secondary text (`SearchView.swift:386-408`).
+private struct SearchMediaRow<Artwork: View>: View {
+    let title: String
+    let subtitle: String?
+    let circular: Bool
+    @ViewBuilder let artwork: () -> Artwork
+
+    var body: some View {
+        HStack(spacing: MusicSearchMetrics.mediaGap) {
+            artwork()
+                .frame(width: MusicSearchMetrics.mediaArt, height: MusicSearchMetrics.mediaArt)
+                .clipShape(.rect(cornerRadius: circular ? MusicSearchMetrics.mediaArt / 2
+                                                        : MusicSearchMetrics.mediaArtRadius))
+
+            VStack(alignment: .leading, spacing: MusicSearchMetrics.mediaTextGap) {
+                Text(title)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
     }
 }

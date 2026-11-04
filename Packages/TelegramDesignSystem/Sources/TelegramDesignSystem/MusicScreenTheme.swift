@@ -271,6 +271,52 @@ public enum MusicPlaylistMetrics {
     public static let listRowCurrent: Double = 0.10
 }
 
+/// The search tab: the discovery screen an empty field wears and the rows a filled one does.
+/// `SearchDiscoveryView.swift`, `SearchView.swift` and the row it borrows,
+/// `Shared/Media/TrackRowView.swift:17-58`.
+public enum MusicSearchMetrics {
+    /// The discovery stack breaks 28 between its sections and takes 8 vertically (`:18`, `:36`).
+    public static let sectionSpacing: CGFloat = 28
+    public static let verticalPadding: CGFloat = 8
+    /// A heading is `.title2.bold()` with 14 down to its content (`:21-23`, `:59-61`).
+    public static let headingToContent: CGFloat = 14
+    /// The shelf under a heading: 172 pt cards, 14 apart, 16 inside the scroll edges, no indicators
+    /// (`:64-82`).
+    public static let shelfCard: CGFloat = 172
+    public static let shelfGap: CGFloat = 14
+    public static let shelfMargin: CGFloat = 16
+    /// The tile grid is two flexible columns 12 apart inside the default horizontal padding
+    /// (`:11-14`, `:25-34`).
+    public static let gridColumns: Int = 2
+    public static let gridSpacing: CGFloat = 12
+    /// A tile: 1.55 aspect, r14, 14 of padding, a 60 pt bold watermark at white 0.22 turned −8°, and
+    /// a `.title3.bold()` label that may shrink to 0.75 (`:120-145`).
+    public static let tileAspect: CGFloat = 1.55
+    public static let tileRadius: CGFloat = 14
+    public static let tilePadding: CGFloat = 14
+    public static let tileGlyph: CGFloat = 60
+    public static let tileGlyphInk: Double = 0.22
+    public static let tileGlyphRotation: Double = -8
+    public static let tileLabelMinScale: CGFloat = 0.75
+    /// The song row is the shared track row with artwork on: art 44 r6, 12 to the text, 3 between the
+    /// two lines, at least 8 before the duration, which is `.caption.monospacedDigit()` (`:17-58`).
+    public static let songArt: CGFloat = 44
+    public static let songArtRadius: CGFloat = 6
+    public static let songGap: CGFloat = 12
+    public static let songTextGap: CGFloat = 3
+    public static let songTrailingGap: CGFloat = 8
+    /// A media row — artist or playlist: art 54 at r7, or a circle for an artist, 12 to the text and
+    /// 4 between its lines (`SearchView.swift:386-408`).
+    public static let mediaArt: CGFloat = 54
+    public static let mediaArtRadius: CGFloat = 7
+    public static let mediaGap: CGFloat = 12
+    public static let mediaTextGap: CGFloat = 4
+    /// Suggestions are asked for 300 ms after the field last changed (`SearchView.swift:113-126`).
+    public static let suggestionDebounce: Duration = .milliseconds(300)
+    /// The swipe-to-favourite action wears the reference's pink (`SearchView.swift:165`).
+    public static let favoriteInk: Color = .pink
+}
+
 /// The up-next page inside the player. `NowPlayingQueuePage.swift`.
 public enum MusicQueueMetrics {
     /// `Text(…).font(.title2.bold())` for the "Next up" heading (`:53`).

@@ -726,6 +726,10 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Playlist detail row | outer gap 4 · inner gap 12 · text gap 3 · name `.body` 2 lines, **no artist and no artwork column** (`showsArtwork` is the toplist layout's) · index `.title3` secondary monospaced in a 40 column · current row a 32 circle stroked 1.5 at `primary` 0.60 with a `caption.bold` play/pause in it · menu ellipsis `body.semibold` in 42×44 · leading 20 / trailing 8 / vertical 11 · background `primary` 0.10 while the player holds it, no animation | `PlaylistTrackList.swift:86-284` |
 | Playlist detail rule | `Divider()` over `primary` 0.12, leading 66, trailing 20, between rows only | `PlaylistTrackList.swift:31-39` |
 | Detail empty state | `ContentUnavailableView` + `foregroundStyle(.primary)` + `minHeight` 180 | `PlaylistTrackList.swift:13-15` |
+| Search discovery | sections 28 apart over 8 vertical · heading `title2.bold()` with 14 down to its content · shelf cards 172 wide, 14 apart, 16 inside the scroll edges, indicators hidden · grid of 2 flexible columns at 12 inside the default horizontal padding · tile 1.55 aspect at r14 with 14 padding, a 60 pt `bold` watermark at white 0.22 turned −8° into the top trailing corner and a `title3.bold()` label that may shrink to 0.75 · pull-to-refresh | `SearchDiscoveryView.swift:11-45,59-82,120-146` |
+| Search song row | art 44 r6 · gap 12 · text gap 3 · at least 8 before a `caption.monospacedDigit` duration · a plain button, favourite on a trailing swipe in pink | `TrackRowView.swift:17-58`, `SearchView.swift:146-167` |
+| Search media row | art 54 — r7, or a circle for an artist · gap 12 · text gap 4 · title 1 line over a `caption` secondary subtitle | `SearchView.swift:386-408` |
+| Search chrome | `.navigationTitle` + `.searchable` in the nav drawer + `.searchScopes` + `.searchSuggestions`, the completions asked for 300 ms after the field last changed, `ContentUnavailableView.search(text:)` when the answer is nothing, and the tab itself carrying `role: .search` | `SearchView.swift:25-111,113-126`, `ContentView.swift:366-372` |
 | Add-to-playlist row | art 52 r7 · gap 12 · text gap 3 | `AddToPlaylistSheet.swift:86-95` |
 | Queue pills | height 44 · radius 22 · gap 14 · glyph `title3.semibold` · idle white 0.12 with 0.86 white ink, on white 0.7 with 0.62 black ink · row 60 with 8 vertical padding · top inset and mask both stop at pills+60 · toggle `.smooth(0.34)` | `NowPlayingQueuePage.swift:45`, `:100-107`, `:181-187`, `:229`, `:282-299`, `:307` |
 | Queue heading | `title2.bold()`, 14 top / 10 bottom; the empty state is a `ContentUnavailableView` with 24 row insets | `NowPlayingQueuePage.swift:52-58`, `:61-74` |
@@ -831,6 +835,25 @@ real cover still gets a colour rather than the gradient, which is exactly what M
 The reading then drives `.environment(\.colorScheme:)`, `.toolbarColorScheme(_:for: .navigationBar,
 .tabBar)` and the `.glassProminent` play pill's white-on-black / black-on-white flip
 (`PlaylistDetailView.swift:150-151,167`, `PlaylistDetailContent.swift:403-409`).
+
+**Search is the tab's, not a field drawn by hand.** The reference makes search a `Tab` with
+`role: .search` whose content is a `.searchable` list (`ContentView.swift:366-372`,
+`SearchView.swift:36-40`), so the glass field in the tab bar *is* the search button: it takes the
+keyboard the moment the tab is tapped and the bar shrinks away as the results scroll. Doni already
+wired it that way; what was missing was everything behind the field. MeloX's empty field is a
+discovery screen — a shelf of recommended playlists over a grid of twenty genre tiles — and its filled
+field is a plain list of artwork rows with scopes (`Bài hát / Album / Nghệ sĩ / Danh sách / Podcast`)
+and completions under the keyboard. Doni wears the same furniture with the three facets its store can
+actually answer for (`UI/SearchView.swift`, `UI/SearchDiscoveryView.swift`): the shelf is the user's
+own lists, the tiles are the artists the channel really carries — each tile taps into a search for
+that name, which is what MeloX's tile does to a genre — and the scopes are songs, lists and artists.
+
+Two differences are forced by where the answers come from, not by taste. A Telegram channel has no
+genres, so the tiles cycle MeloX's six gradient pairs and six category glyphs over artist names. And
+MeloX waits on a network: it sleeps 350 ms before searching, keeps a result cache, and draws a
+`ProgressView` row while the request is out; Doni asks its own index, which has the answer already, so
+it shows results immediately and keeps only the 300 ms debounce in front of the completions
+(`SearchView.swift:113-126`).
 
 ## Known traps found while extracting
 

@@ -185,7 +185,9 @@ private struct PlaylistRow: View {
 /// Every Netease list carries server artwork of its own, so the reference has only the first tier
 /// here; the other two are what a Telegram list forces, and they are drawn the way `TrackCover`
 /// dresses a song with no artwork.
-private struct PlaylistArt: View {
+///
+/// The search tab's discovery shelf wears the same picture, so this is not private to the tab.
+struct PlaylistArt: View {
     /// The list's own number, which is what the coverless gradient is picked by.
     let listId: Int64
     /// The picture the user chose, if any.
@@ -224,7 +226,9 @@ private struct PlaylistArt: View {
 /// the screen light or dark from that average (`ArtworkAccentColorProvider.swift:276-284`), and hands
 /// the result to the background, the nav bar, the tab bar and every row — which is why a bright
 /// cover makes it pale and a dark one near-black.
-private struct PlaylistDetailView: View {
+///
+/// The search tab pushes this screen too, so it is not private to the tab.
+struct PlaylistDetailView: View {
     let playlistId: Int64
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
