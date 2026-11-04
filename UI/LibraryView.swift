@@ -409,18 +409,18 @@ struct LibraryView: View {
     }
 }
 
-/// The account button, in the one place the reference puts it — the head of the bar, after the
-/// group of circles (`ContentView.swift:453-457`, `:474-497`): the profile picture at 28 pt in a
-/// `.quaternary` disc, clipped to a circle, and the person glyph for the accounts that never chose
-/// a picture.
+/// The account's own picture, worn wherever an account is named: 28 pt at the head of the bar
+/// (`ContentView.swift:487-488`) and 60 pt in the settings card (`SettingsAccountSection.swift:64-76`).
 ///
 /// The picture is the file behind it rather than the thumbnail `getMe` sends inside the user object:
 /// the inline JPEG is around a hundred pixels wide and 28 pt on a 3× screen asks for 84 of them,
 /// which is the blur the account's own Telegram does not have. The inline one is what shows first —
 /// it arrives with the session and needs no download — and the file replaces it when it lands.
-private struct AccountAvatar: View {
+struct AccountAvatar: View {
     let account: TdAccount?
     let photo: UIImage?
+    /// The side the mark is drawn at, in points.
+    var side: CGFloat = 28
 
     var body: some View {
         if let photo {
@@ -431,7 +431,10 @@ private struct AccountAvatar: View {
             Image(systemName: account == nil
                 ? "person.crop.circle"
                 : "person.crop.circle.fill")
+                .resizable()
+                .scaledToFit()
                 .foregroundStyle(.secondary)
+                .frame(width: side, height: side)
         }
     }
 
@@ -439,13 +442,10 @@ private struct AccountAvatar: View {
         Image(uiImage: image)
             .resizable()
             .scaledToFill()
-            .frame(width: Self.side, height: Self.side)
+            .frame(width: side, height: side)
             .background(.quaternary, in: .circle)
             .clipShape(.circle)
     }
-
-    /// `ContentView.swift:487-488` — 28 pt, on both edges.
-    private static let side: CGFloat = 28
 }
 
 #Preview {

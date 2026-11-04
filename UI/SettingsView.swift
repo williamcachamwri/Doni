@@ -140,12 +140,8 @@ struct SettingsView: View {
         Group {
             if let account = session.account {
                 HStack(spacing: MusicSettingsMetrics.accountGap) {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.secondary)
-                        .frame(width: MusicSettingsMetrics.accountAvatar,
-                               height: MusicSettingsMetrics.accountAvatar)
-                        .background(.quaternary, in: .circle)
+                    AccountAvatar(account: account, photo: session.accountPhoto,
+                                  side: MusicSettingsMetrics.accountAvatar)
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: MusicSettingsMetrics.accountTextGap) {
