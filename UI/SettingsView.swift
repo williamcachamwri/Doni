@@ -53,6 +53,7 @@ struct SettingsView: View {
                             if line.id != lines.first?.id { divider }
                             row(line.symbol, line.title,
                                 subtitle: line.subtitle, value: line.value,
+                                disclosure: line.action != nil,
                                 action: line.action)
                         }
                     }
@@ -275,15 +276,17 @@ struct SettingsView: View {
     }
 
     /// One row: the tinted glyph in its 30 pt column, the words beside it, and either a value or a
-    /// mark on the right (`SettingsHomeComponents.swift:58-88`).
+    /// mark on the right (`SettingsHomeComponents.swift:58-88`). A row that opens another screen says
+    /// so with the disclosure chevron — the value alone reads as a number, not as a door.
     private func row(_ symbol: String, _ title: String, subtitle: String? = nil,
-                     value: String? = nil, selected: Bool = false,
+                     value: String? = nil, selected: Bool = false, disclosure: Bool = false,
                      action: (() -> Void)? = nil) -> some View {
         row(title, mark: {
             Image(systemName: symbol)
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.tint)
-        }, subtitle: subtitle, value: value, selected: selected, action: action)
+        }, subtitle: subtitle, value: value, selected: selected, disclosure: disclosure,
+            action: action)
     }
 
     /// The same row with a mark of the caller's own rather than a glyph, which is what lets a channel
@@ -291,7 +294,7 @@ struct SettingsView: View {
     private func row<Mark: View>(_ title: String,
                                  @ViewBuilder mark: () -> Mark,
                                  subtitle: String? = nil, value: String? = nil,
-                                 selected: Bool = false,
+                                 selected: Bool = false, disclosure: Bool = false,
                                  action: (() -> Void)? = nil) -> some View {
         let content = HStack(spacing: MusicSettingsMetrics.rowIconGap) {
             mark()
@@ -320,6 +323,12 @@ struct SettingsView: View {
                 Image(systemName: "checkmark")
                     .font(MusicSettingsMetrics.chevronFont)
                     .foregroundStyle(.tint)
+            }
+            if disclosure {
+                Image(systemName: "chevron.right")
+                    .font(MusicSettingsMetrics.chevronFont)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, MusicSettingsMetrics.rowPaddingH)
@@ -353,7 +362,7 @@ struct SettingsView: View {
                         subtitle: "Nghe được khi không có mạng",
                         value: "\(library.downloadedCount.formatted()) bài",
                         keywords: "tải offline file"),
-            SettingLine(symbol: "internalfolder", title: "Bộ nhớ",
+            SettingLine(symbol: "internaldrive", title: "Bộ nhớ",
                         subtitle: "Ảnh bìa, nhạc Telegram, file của bạn",
                         value: library.disk.map { DataSize.string($0.managedBytes) } ?? "…",
                         keywords: "dung lượng bộ nhớ cache storage disk",
@@ -417,9 +426,9 @@ struct SettingsView: View {
     }
 }
 
-/// One row of a card that carries a value instead of a chevron. `action` is the difference between
-/// a number and a door: the rows that have one open a screen, and the ones that do not only say what
-/// the library holds.
+/// One row of a card that carries a value. `action` is the difference between a number and a door:
+/// the rows that have one open a screen and wear the chevron that says so, and the ones that do not
+/// only report what the library holds.
 private struct SettingLine: Identifiable {
     let symbol: String
     let title: String
