@@ -10,8 +10,8 @@ import TelegramDesignSystem
 /// them (`Docs/design-tokens.md`, "The floating tab bar, as photographed").
 ///
 /// Selection is not a colour change alone: the chosen item's glass reads blue where the rest reads
-/// `#1c1c1d`, and its label takes the accent, which is what the photo shows on the tab that is
-/// open.
+/// `#1c1c1d`, and its glyph and label go white on that glass — on the device, an accent label over
+/// accent glass disappeared into it.
 struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where Tab.AllCases == [Tab] {
     @Binding var selection: Tab
     let title: (Tab) -> String
@@ -57,14 +57,16 @@ struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where T
                     }
                 Text(title(tab))
                     .font(TelegramShellTypography.tabLabel)
-                    .foregroundStyle(isSelected ? palette.highlight : palette.tabBarText)
+                    .foregroundStyle(isSelected ? palette.tabBarSelectedIcon : palette.navSecondaryText)
                     .lineLimit(1)
                     .frame(width: TelegramFloatingBarMetrics.itemWidth,
                            height: TelegramFloatingBarMetrics.labelBox)
                     .padding(.top, TelegramFloatingBarMetrics.labelTop)
             }
             .frame(width: TelegramFloatingBarMetrics.itemWidth)
-            .overlay {
+            // The lit glass goes *behind* the item, never over it: as an overlay it frosted the
+            // glyph and the label into an unreadable blue blob, which is what the device showed.
+            .background {
                 if isSelected {
                     Capsule()
                         .fill(palette.highlight.opacity(0.001))
@@ -72,7 +74,6 @@ struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where T
                                        fallback: palette.highlight.opacity(0.22))
                         .padding(.horizontal, 3)
                         .padding(.vertical, 5)
-                        .allowsHitTesting(false)
                 }
             }
             .contentShape(Rectangle())
@@ -86,7 +87,7 @@ struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where T
         Image(systemName: symbol(tab, isSelected))
             .font(.system(size: TelegramFloatingBarMetrics.iconBox,
                           weight: isSelected ? .semibold : .regular))
-            .foregroundStyle(palette.tabBarIcon)
+            .foregroundStyle(isSelected ? palette.tabBarSelectedIcon : palette.navSecondaryText)
     }
 
     /// The unread pill's own clothing, in the corner of the icon: `semibold(9)` digits in the

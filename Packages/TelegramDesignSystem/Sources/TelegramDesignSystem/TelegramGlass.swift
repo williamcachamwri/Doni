@@ -16,9 +16,6 @@ public enum TelegramGlassStyle: Sendable {
     case circle
     /// A circle lit by a colour: the tab that is chosen, whose glass reads blue (`#304562`).
     case tintedCircle(Color)
-    /// The full-bleed band a nav bar is: glass with hard edges, because it runs to both sides of
-    /// the phone and a corner would show.
-    case band
     /// The pill a search field sits in.
     case field
 }
@@ -36,8 +33,6 @@ extension View {
             glassed(in: Circle(), tint: nil, fallback: fallback)
         case let .tintedCircle(tint):
             glassed(in: Circle(), tint: tint, fallback: fallback)
-        case .band:
-            glassed(in: Rectangle(), tint: nil, fallback: fallback)
         case .field:
             glassed(
                 in: RoundedRectangle(cornerRadius: TelegramLibraryMetrics.searchCornerRadius,
@@ -53,8 +48,10 @@ extension View {
         if #available(iOS 26.0, macOS 26.0, *) {
             if let tint {
                 // A tinted capsule is also the one you can press, so it gets `interactive`, which
-                // is what makes Apple's glass brighten under a finger.
-                glassEffect(.regular.interactive().tint(tint.opacity(0.6)), in: shape)
+                // is what makes Apple's glass brighten under a finger. The tint goes in at 0.45:
+                // `#3e88f7` at 0.6 over the dark glass read as a solid blue blob on the device,
+                // and 0.45 lands on the `#304562` the photo's selection measures.
+                glassEffect(.regular.interactive().tint(tint.opacity(0.45)), in: shape)
             } else {
                 glassEffect(.regular, in: shape)
             }

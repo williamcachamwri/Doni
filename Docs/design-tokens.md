@@ -597,6 +597,13 @@ it is 68), the avatar is 147 px = **49 pt** = `floor(14 × 60/17)`, and the ink 
 and a 16 pt title would measure 11.7. So the whole list is Telegram's smallest text size, and Doni
 copies the photo rather than the default: every font below is `floor(14 × n / 17)`.
 
+**2026-11-04 — the user overruled the oracle's scale.** Seen on the device, the photo's `extraSmall`
+list read as cramped, and the direction was "đẹp hơn, hiện đại hơn". So the list moved to the source's
+own base 17 — the same expressions, evaluated at 17: the pitch is `4 × 20 − 8` = **72 pt**, the
+artwork **60 pt**, the text column **86 pt**, the title `semibold(16)`, the preview `regular(15)`, the
+timestamp `regular(14)`. The rows above keep the photo's numbers as measured; the app wears the
+17-scale of them. The bar's band was overruled the same day — see "The bar, as photographed".
+
 **The materials are Apple's, not a flattened colour.** The bar has no opaque band and no rule under it —
 `hedges` across y 336…344 px finds nothing — and the band it does occupy reads `#1c1c1d`, which is both
 what `glassEffect` composites to over black and what `chatList.pinnedItemBackground` (`:483`) is, so the
@@ -622,6 +629,13 @@ surfaces from HIG + Liquid Glass: real glass where the OS has it (`#available(iO
 | `#38c4ed` fill, white digits | the fork's own accent on the active pill. Doni uses its own accent token here, so this hex is recorded as *theirs*, not as a target | `box 1030 2100` |
 
 ### The bar, as photographed
+
+**2026-11-04 — the band became a pill.** Drawn literally, the full-bleed band read on the device as a
+flat slab with hard edges, and the user rejected it. The bar is now a floating glass **pill**: the
+measured 44 pt of controls wrapped in 4 pt of glass above and below (52 pt), 16 pt from the screen's
+edges like the photo's capsules, 8 pt under the safe area, the first row 12 pt below it
+(`TelegramBarMetrics.topClearance` = 72). The actions sit on the glass rather than in nested capsules,
+because the pill itself is now the vessel the band was.
 
 | Value | What | Where |
 |---|---|---|
@@ -652,8 +666,9 @@ surfaces from HIG + Liquid Glass: real glass where the OS has it (`#available(iO
 `278 / 4` and not the measured 92.7; the search circle opens its **own screen** (`UI/SearchView.swift`),
 because a field under the bar would be a row the photo does not have — the library's list starts
 12.7 pt below the band exactly as the reference's does; `play/pause` and the account menu in the
-trailing group instead of Telegram's camera / add-contact / compose; a 49 pt *cover* in the column
-the reference uses for an avatar, circular because the photo's column is circular; the download
+trailing group instead of Telegram's camera / add-contact / compose; a 60 pt *cover* in the column
+the reference uses for an avatar (49 pt in the photo, 60 at the scale the user directed), circular
+because the photo's column is circular; the download
 bubble, which occupies the unread pill's slot with the pill's own metrics; a badge over the library
 tab only while the channel is being read; and the mini player as a third floating capsule above the
 bar with 8 pt between them, since the reference's music panel is full-bleed and this build's chrome

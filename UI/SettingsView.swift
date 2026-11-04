@@ -4,8 +4,8 @@ import TelegramDesignSystem
 
 /// What is on the phone, and the one button that takes it away.
 ///
-/// The row is `ItemListUI`'s: a `scaled(17)` regular title — 14 pt at the phone's font preset —
-/// 16 pt in, a 12 pt value 20 pt from the right
+/// The row is `ItemListUI`'s: a `scaled(17)` regular title — 17 pt at the app's own base —
+/// 16 pt in, a `scaled(15)` value 20 pt from the right
 /// edge, 15 pt of padding above and below (`Docs/design-tokens.md`, "Settings — the clothing the
 /// item list wears"). Telegram sets these screens in rounded cards whose side margin comes from the
 /// caller rather than from the module, so there is no number to read off it; Doni keeps the
@@ -24,9 +24,9 @@ struct SettingsView: View {
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        VStack(spacing: 0) {
-            GlassBar(title: "Cài đặt")
+        ZStack(alignment: .top) {
             list
+            GlassBar(title: "Cài đặt")
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .confirmationDialog("Đăng xuất khỏi Telegram?", isPresented: $confirmingLogout,
@@ -70,6 +70,7 @@ struct SettingsView: View {
             // A plain list closes its last section with 22 (`ItemListItem.swift:90`).
             .padding(.bottom, TelegramSettingsMetrics.plainSectionEnd)
         }
+        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
     }
 

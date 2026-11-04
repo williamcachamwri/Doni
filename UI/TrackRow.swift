@@ -5,8 +5,8 @@ import UIKit
 
 /// The chat-list row, worn by every list this app shows.
 ///
-/// The geometry is the chat list's, down to the title sitting 6 pt from the top instead of
-/// centred: `rawContentRect.origin.y = floor(base × 8 / 17)` at the phone's `base` of 14, the
+/// The geometry is the chat list's, down to the title sitting 8 pt from the top instead of
+/// centred: `rawContentRect.origin.y = floor(base × 8 / 17)` at the app's `base` of 17, the
 /// preview at `minY + lineHeight − 2`, the timestamp at `minY + 2`, and the rule inset to where the
 /// text column begins. The library, the hearts and
 /// the lists all draw it, so a song looks the same wherever it is found.
@@ -22,7 +22,7 @@ struct TrackRow: View {
     /// favourited slice has a range to show where the library has a duration.
     let headline: String
     /// Doni's own mark — the chat list has no heart in a row. It takes the accent the design lab
-    /// picked (`#3e88f7`) at 10 pt, small enough to sit beside the 11 pt number without widening
+    /// picked (`#3e88f7`) at 12 pt, small enough to sit beside the 14 pt number without widening
     /// the column.
     let isFavorite: Bool
     let artwork: CoverArtwork

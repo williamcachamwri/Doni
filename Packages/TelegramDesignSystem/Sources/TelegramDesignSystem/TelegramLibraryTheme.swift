@@ -9,26 +9,26 @@ public enum TelegramGeometry {
     public static func hairline(displayScale: CGFloat) -> CGFloat { 1.0 / max(1.0, displayScale) }
 }
 
-/// Typography and geometry of a chat-list row, at the scale the reference *phone* is drawn at.
+/// Geometry and typography of a chat-list row, at Telegram's own default scale.
 ///
-/// The source files are written at Telegram's default `itemListBaseFontSize` of 17, and the
-/// sections above quote them; the photo in "The screenshot oracle" says the phone is not at 17. It
-/// is at Telegram's smallest size, and three independent measurements agree: the pitch is 56 pt
-/// rather than 68, the icon column is 49 pt rather than 60, and the title ink is 9.0–10.0 pt rather
-/// than 11.7. So every scaled number below is `floor(14 × n / 17)` — the same expression the
-/// reference uses, evaluated at the size the app is really set to.
+/// The source files are written at Telegram's default `itemListBaseFontSize` of 17, and every
+/// number below quotes them through the same scaling expression the reference uses, evaluated at
+/// that 17. The list was first drawn at the reference phone's `extraSmall` (base 14 — a 56 pt
+/// pitch, a 49 pt icon, a 13 pt title, all measured off the photo); the user looked at it on the
+/// device and directed the list to be larger and more modern, so the app now sits at the source's
+/// own 17 — a 68 pt pitch, a 60 pt icon, a 16 pt title — with every ratio between the parts kept.
 public enum TelegramLibraryMetrics {
-    /// `PresentationFontSize.extraSmall.baseDisplaySize` (`ComponentsThemes.swift:21`) and
-    /// `ItemListItem.itemListBaseFontSize` for the same case (`ItemListItem.swift:176-179`).
-    public static let base: CGFloat = 14
+    /// `ItemListItem.itemListBaseFontSize` for the default case (`ItemListItem.swift:176-179`);
+    /// the app's own scale since 2026-11-04, by the user's direction.
+    public static let base: CGFloat = 17
 
     /// Telegram's own scaling expression (`ChatListItem.swift:2289-2294`), kept as a function so
     /// each token cites the ratio it was passed rather than a hand-worked number.
     public static func scaled(_ ratio: CGFloat) -> CGFloat { floor(base * ratio / 17.0) }
 
-    /// The line box of `semibold(13)`, the `L` of the row's own height formula. At 17 this is the
-    /// 19 the sections above quote.
-    public static let lineHeight: CGFloat = 16
+    /// The line box of the title — `scaled(20)`, which is the 16 the 56 pt pitch was built from at
+    /// the old base and 20 here; `4L − 8` then gives 72.
+    public static let lineHeight: CGFloat = scaled(20)
     /// `titleHeight + 3L − 1 − 3 + 8 × 2 + 1 − 21` (`ChatListItem.swift:4042-4051`), which with
     /// `titleHeight = L` is `4L − 8` — and `4 × 16 − 8 = 56` is the pitch the photo measures.
     public static let rowHeight: CGFloat = 4.0 * lineHeight - 8.0
@@ -89,10 +89,10 @@ public enum TelegramLibraryMetrics {
     public static let stateGlyph: CGFloat = scaled(12)
 
     /// Doni's own: the chat list has no heart in a row, so this has nothing to be quoted from. It
-    /// is one point under the timestamp because it shares that line with `regular(11)` (`:2292`)
+    /// is two points under the timestamp because it shares that line with `regular(14)` (`:2292`)
     /// and a mark taller than the number beside it reads as the column's subject rather than its
     /// note.
-    public static let favoriteMark: CGFloat = 10
+    public static let favoriteMark: CGFloat = 12
 
     public static let navigationBarHeight: CGFloat = 44
     /// `SearchBarStyle.height` for `.modern` (`SearchBarNode.swift:859-870`). These five are
@@ -116,7 +116,7 @@ public enum TelegramLibraryMetrics {
 }
 
 /// The list's fonts, from the same calls that set them — `floor(base × n/17)` (`:2289-2294`),
-/// evaluated at the photo's base of 14 rather than the source's 17.
+/// evaluated at the app's base of 17, which is the size the source itself is written at.
 public enum TelegramLibraryTypography {
     /// `Font.semibold(floor(base × 16/17))` — the peer name (`ChatListItem.swift:2289`), 13 pt.
     public static let title = Font.system(size: TelegramLibraryMetrics.scaled(16), weight: .semibold)

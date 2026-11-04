@@ -22,7 +22,8 @@ struct LikesView: View {
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .top) {
+            rows
             GlassBar(
                 title: "Yêu thích",
                 actions: [
@@ -31,7 +32,6 @@ struct LikesView: View {
                     },
                 ]
             )
-            rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
     }
@@ -82,6 +82,7 @@ struct LikesView: View {
                 footer(kept)
             }
         }
+        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .animation(TelegramLoginMotion.easeInOut(0.2), value: kept.map(\.id))
     }

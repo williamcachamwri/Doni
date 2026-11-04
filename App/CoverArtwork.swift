@@ -5,27 +5,27 @@ import UIKit
 
 /// The cover art a row shows, at the size the row actually draws.
 ///
-/// `minithumbnail` is 40×30 and that is why the list looked blurred: a 49 pt tile on a 3× screen
-/// wants 147 pixels, and Telegram sends a 600×600 `external_album_covers` entry for every track in
+/// `minithumbnail` is 40×30 and that is why the list looked blurred: a 60 pt tile on a 3× screen
+/// wants 180 pixels, and Telegram sends a 600×600 `external_album_covers` entry for every track in
 /// the channel (`td_api.tl:583`). So the sharp file is asked for by id, pulled through TDLib at
 /// cover priority, and downsampled on a background thread before it is ever handed to a layer.
 @MainActor
 final class CoverArtwork: ObservableObject {
-    /// 49 pt at @3x — `TelegramLibraryMetrics.artSide` times the scale the tile is drawn on.
-    static let pixelSide = 147
+    /// 60 pt at @3x — `TelegramLibraryMetrics.artSide` times the scale the tile is drawn on.
+    static let pixelSide = 180
 
     /// Bumped whenever a tile can be drawn, so the list re-reads the cache.
     @Published private(set) var revision = 0
 
     /// One cache for the app: the list, the mini player and the lock screen all want the same
-    /// 147 px bitmap for the same cover.
+    /// 180 px bitmap for the same cover.
     static let shared = CoverArtwork()
 
     private let cache = NSCache<NSNumber, UIImage>()
     private var miniDecoded: [String: UIImage] = [:]
 
     init() {
-        // A 147 px square is about 86 KB; 240 of them is the whole library at 20 MB, and a
+        // A 180 px square is about 129 KB; 240 of them is the whole library at 30 MB, and a
         // screenful is twenty rows.
         cache.countLimit = 240
     }

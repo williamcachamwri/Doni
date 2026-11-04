@@ -8,7 +8,7 @@ import TdSession
 /// Telegram has no counterpart — its music player only has saved music on the server
 /// (`TelegramCore/Sources/TelegramEngine/Peers/SavedMusic.swift`), not a list you name yourself —
 /// so the screen is Doni's own, and it spends what it has on chrome the reference *does* measure:
-/// the same 56 pt row, the same 49 pt circular icon column, the same 75 pt text inset, the same
+/// the same 68 pt row, the same 60 pt circular icon column, the same 86 pt text inset, the same
 /// one-pixel rule inset to where the text begins.
 struct PlaylistsView: View {
     @ObservedObject var session: TelegramSession
@@ -42,14 +42,14 @@ struct PlaylistsView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                rows
                 GlassBar(title: "Danh sách", actions: [
                     GlassBarAction(symbol: "plus", label: "Danh sách mới") {
                         name = ""
                         naming = .create
                     },
                 ])
-                rows
             }
             .background(palette.chatListBackground.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)   // every level of this tab draws its own bar
@@ -133,6 +133,7 @@ struct PlaylistsView: View {
                 }
             }
         }
+        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .animation(TelegramLoginMotion.easeInOut(0.2), value: lists.map(\.name))
     }
@@ -225,16 +226,7 @@ private struct PlaylistDetailView: View {
     var body: some View {
         let tracks = library.tracks(in: playlistId)
         let kept = Set(library.favorites.map { $0.track.uniqueId })
-        return VStack(spacing: 0) {
-            GlassBar(
-                title: library.playlists.first { $0.id == playlistId }?.name ?? "",
-                onBack: { dismiss() },
-                actions: [
-                    GlassBarAction(symbol: "trash", label: "Xoá danh sách") {
-                        confirmsDelete = true
-                    },
-                ]
-            )
+        return ZStack(alignment: .top) {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(tracks) { track in
@@ -275,8 +267,19 @@ private struct PlaylistDetailView: View {
                     }
                 }
             }
+            .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
             .contentMargins(.bottom, floatingClearance, for: .scrollContent)
             .animation(TelegramLoginMotion.easeInOut(0.2), value: tracks.map(\.uniqueId))
+
+            GlassBar(
+                title: library.playlists.first { $0.id == playlistId }?.name ?? "",
+                onBack: { dismiss() },
+                actions: [
+                    GlassBarAction(symbol: "trash", label: "Xoá danh sách") {
+                        confirmsDelete = true
+                    },
+                ]
+            )
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)

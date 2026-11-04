@@ -7,11 +7,11 @@ import UIKit
 /// M2: the library, wearing Telegram's chat-list clothing, in the mode the whole shell is
 /// measured in — dark, true black, one hairline colour from the bar to the rules.
 ///
-/// The chrome is `ChatListUI`'s at the scale the phone draws it — a 56 pt row, the icon column
-/// 16 pt from the edge and the text pinned at 75 whatever stands in that column, the title 6 pt
+/// The chrome is `ChatListUI`'s at the app's own scale — a 72 pt row, the icon column
+/// 16 pt from the edge and the text pinned at 86 whatever stands in that column, the title 8 pt
 /// below the top of the row rather than centred, one physical pixel for the rule, and `#121212`
-/// under a finger (`DefaultDarkPresentationTheme.swift:484`). Above it sits `GlassBar`, the bar the
-/// photo shows rather than the flattened band the source describes. What stands in the icon column
+/// under a finger (`DefaultDarkPresentationTheme.swift:484`). Above it floats `GlassBar`, the
+/// pill the device asked the photo's band to become. What stands in the icon column
 /// is the track's own
 /// cover: the sharp 600×600 file Telegram already holds on the server when it has one
 /// (`external_album_covers`), the 40×30 `minithumbnail` the message carried when it does not, and
@@ -32,7 +32,8 @@ struct LibraryView: View {
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .top) {
+            rows
             GlassBar(
                 title: "Thư viện",
                 leading: "Kênh",
@@ -46,7 +47,6 @@ struct LibraryView: View {
                     },
                 ]
             )
-            rows
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
@@ -112,8 +112,10 @@ struct LibraryView: View {
                 footer()
             }
         }
-        // The list runs under the floating bar, the way the reference's collection does; the
-        // clearance is only what the last row needs to finish above the glass.
+        // The list runs under the floating pill, the way the reference's collection does; the
+        // clearance is what the first row needs to start below the glass and what the last row
+        // needs to finish above the tab bar.
+        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .refreshable { await indexer.reload(session, library: library) }
         .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))

@@ -4,44 +4,44 @@ import Testing
 
 @Suite("TelegramLibraryMetrics")
 struct TelegramLibraryMetricsTests {
-    @Test("the scale is the phone's, not the source default")
+    @Test("the scale is the app's own, which is the source's default")
     func scale() {
-        // The photo that is the parity oracle measures a 56 pt pitch, a 49 pt icon and a 13 pt
-        // title, which is Telegram's `extraSmall`; the source files are written at 17.
-        #expect(TelegramLibraryMetrics.base == 14)
-        #expect(TelegramLibraryMetrics.scaled(16) == 13)
-        #expect(TelegramLibraryMetrics.scaled(15) == 12)
-        #expect(TelegramLibraryMetrics.scaled(14) == 11)
-        #expect(TelegramLibraryMetrics.scaled(12) == 9)
-        #expect(TelegramLibraryMetrics.scaled(20) == 16)
-        #expect(TelegramLibraryMetrics.scaled(60) == 49)
-        #expect(TelegramLibraryMetrics.scaled(8) == 6)
+        // The list was first drawn at the reference phone's `extraSmall` (base 14); the user
+        // directed it larger, so the app sits at the source's own 17 and every ratio is kept.
+        #expect(TelegramLibraryMetrics.base == 17)
+        #expect(TelegramLibraryMetrics.scaled(16) == 16)
+        #expect(TelegramLibraryMetrics.scaled(15) == 15)
+        #expect(TelegramLibraryMetrics.scaled(14) == 14)
+        #expect(TelegramLibraryMetrics.scaled(12) == 12)
+        #expect(TelegramLibraryMetrics.scaled(20) == 20)
+        #expect(TelegramLibraryMetrics.scaled(60) == 60)
+        #expect(TelegramLibraryMetrics.scaled(8) == 8)
     }
 
     @Test("the art tile is the chat list's own icon slot, centred in the cell")
     func artTile() {
-        #expect(TelegramLibraryMetrics.artSide == 49)
+        #expect(TelegramLibraryMetrics.artSide == 60)
         // `floor((itemHeight − diameter) / 2)`, the way the avatar sits (`ChatListItem.swift:4208`).
-        #expect(TelegramLibraryMetrics.artTop == 3)
+        #expect(TelegramLibraryMetrics.artTop == 6)
         // `avatarLeftInset = 24 + diameter` (`:2574`) plus the 2 pt the content rect carries
-        // (`:4054`): the text column begins at 75, where the photo measures it.
-        #expect(TelegramLibraryMetrics.textColumnLeft == 75)
+        // (`:4054`): the text column begins at 86.
+        #expect(TelegramLibraryMetrics.textColumnLeft == 86)
         #expect(TelegramLibraryMetrics.leading + TelegramLibraryMetrics.artSide
-            + TelegramLibraryMetrics.artToText == 75, "the text column still begins where the photo says")
+            + TelegramLibraryMetrics.artToText == 86, "the text column still begins where the inset says")
         #expect(TelegramLibraryMetrics.artToText == 10)
     }
 
     @Test("the row keeps the chat list's own anchors")
     func anchors() {
-        // `4L − 8` at the photo's line box of 16.
-        #expect(TelegramLibraryMetrics.rowHeight == 56)
-        #expect(TelegramLibraryMetrics.titleTop == 6)
-        #expect(TelegramLibraryMetrics.dateTop == 8)
+        // `4L − 8` at the line box of 20.
+        #expect(TelegramLibraryMetrics.rowHeight == 72)
+        #expect(TelegramLibraryMetrics.titleTop == 8)
+        #expect(TelegramLibraryMetrics.dateTop == 10)
         #expect(TelegramLibraryMetrics.titleToPreview == -2)
-        #expect(TelegramLibraryMetrics.stateSide == 16)
-        #expect(TelegramLibraryMetrics.stateGlyph == 9)
-        // The pill is pinned to the bottom of the content rect, 21.7 pt below the row's top.
-        #expect(abs(TelegramLibraryMetrics.stateTop - 21.7) < 0.01)
+        #expect(TelegramLibraryMetrics.stateSide == 20)
+        #expect(TelegramLibraryMetrics.stateGlyph == 12)
+        // The pill is pinned to the bottom of the content rect.
+        #expect(abs(TelegramLibraryMetrics.stateTop - 35.0) < 0.01)
         #expect(TelegramLibraryMetrics.searchFieldHeight == 36)
         #expect(TelegramLibraryMetrics.searchCornerRadius == 10.5)
     }
@@ -55,15 +55,17 @@ struct TelegramLibraryMetricsTests {
 
 @Suite("TelegramBarMetrics")
 struct TelegramBarMetricsTests {
-    @Test("the bar is the height the photo measures")
+    @Test("the bar is the pill the device asked for, wrapping the capsule the photo measures")
     func band() {
-        // 44 pt of capsule (`vedges 100`: 172 → 302 px) with 10 pt above and 12.7 below, the gap to
-        // the first row at 113.7 pt.
-        #expect(TelegramBarMetrics.capsuleHeight == 44)
-        #expect(TelegramBarMetrics.height == 66.7)
+        // 44 pt of controls (`vedges 100`: 172 → 302 px) with 4 pt of glass above and below.
+        #expect(TelegramBarMetrics.contentHeight == 44)
+        #expect(TelegramBarMetrics.height == 52)
         #expect(TelegramBarMetrics.sideInset == 16)
-        // One capsule holding three items on a 38.9 pt pitch (`hedges 225`: 773 → 1123 px).
-        #expect(TelegramBarMetrics.actionPitch * 3 == TelegramBarMetrics.actionGroupWidth)
+        // The pill floats 8 under the safe area and the first row starts 12 under it.
+        #expect(TelegramBarMetrics.topClearance
+            == TelegramBarMetrics.topGap + TelegramBarMetrics.height
+                + TelegramBarMetrics.belowGap)
+        #expect(TelegramBarMetrics.topClearance == 72)
     }
 
     @Test("the floating bar keeps its 20 pt of screen clear on three sides")

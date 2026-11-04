@@ -8,56 +8,64 @@ struct GlassBarAction {
     let run: () -> Void
 }
 
-/// The bar the photo shows, which is not the bar the source describes.
+/// The bar on top of a screen: a floating glass pill, rounded like the tab bar it faces.
 ///
-/// `Docs/design-tokens.md`, "The bar, as photographed": a glass band 66.7 pt under the safe area
-/// with **no rule under it** and nothing full-bleed inside it — a centred large title, one *text*
-/// action in a capsule 16 pt from the left, and a group of icon actions in a single capsule that
-/// ends 16 pt from the right, each item on a 38.9 pt pitch. The reference's own bar is
-/// `DocumentPreviewController`'s `semibold(17)`; the phone was running a build that draws iOS 26's
-/// glass bar, and the photo is the oracle, so the title is the `semibold(22)` its ink height
-/// measures and the band is real glass.
+/// The first build drew the photo's full-bleed band and the user rejected it on the device — so
+/// the band became a pill carrying the same contents: a centred large title, a text action at the
+/// leading edge, icon actions at the trailing one. The actions sit directly on the glass rather
+/// than in nested capsules, because the pill itself is now the vessel the photo's band was.
+/// `Docs/design-tokens.md`, "The bar, as photographed"; the pill's own numbers are in
+/// `TelegramBarMetrics` and marked Doni's own there.
 struct GlassBar: View {
     let title: String
-    /// The word in the leading capsule — the photo's is "Sửa". Doni puts the thing it replaces
-    /// here rather than an icon, because the measured action is text: 12 pt of glass on each side
-    /// of the ink.
+    /// The word in the leading action — the photo's is "Sửa".
     var leading: String?
     var onLeading: (() -> Void)?
-    /// A chevron instead of the leading capsule, for a bar that sits over a list you can leave.
+    /// A chevron instead of the leading word, for a bar that sits over a list you can leave.
     var onBack: (() -> Void)?
     var actions: [GlassBarAction] = []
 
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        VStack(spacing: 0) {
-            Color.clear
-                .frame(height: TelegramBarMetrics.capsuleTop)
-            ZStack {
-                Text(title)
-                    .font(TelegramShellTypography.barLargeTitle)
-                    .foregroundStyle(palette.navPrimaryText)
-                    .lineLimit(1)
-                    .padding(.horizontal, TelegramBarMetrics.actionGroupWidth + 24)
-                HStack(spacing: 0) {
-                    leadingItem
-                    Spacer(minLength: 0)
-                    trailingGroup
-                }
+        ZStack {
+            Text(title)
+                .font(TelegramShellTypography.barLargeTitle)
+                .foregroundStyle(palette.navPrimaryText)
+                .lineLimit(1)
+                .padding(.horizontal, edgeSpan + TelegramBarMetrics.titleGuard)
+            HStack(spacing: 0) {
+                leadingItem
+                Spacer(minLength: 0)
+                trailingGroup
             }
-            .frame(height: TelegramBarMetrics.capsuleHeight)
-            .padding(.horizontal, TelegramBarMetrics.sideInset)
-            Color.clear
-                .frame(height: TelegramBarMetrics.height
-                    - TelegramBarMetrics.capsuleTop
-                    - TelegramBarMetrics.capsuleHeight)
         }
+        .frame(height: TelegramBarMetrics.contentHeight)
+        .padding(.horizontal, TelegramBarMetrics.padding)
         .frame(height: TelegramBarMetrics.height)
         .frame(maxWidth: .infinity)
-        .telegramGlass(.band, fallback: palette.barBlurredBackground)
+        .telegramGlass(.capsule, fallback: palette.barBlurredBackground)
+        .padding(.horizontal, TelegramBarMetrics.sideInset)
+        .padding(.top, TelegramBarMetrics.topGap)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
+    }
+
+    /// How far the centred title must keep from each side. The first build padded by the photo's
+    /// *three*-icon group whatever the screen had, and "Thư viện" drew as "Thứ v…"; this derives
+    /// the guard from what the bar actually holds, with a width-per-character estimate for the
+    /// leading word.
+    private var edgeSpan: CGFloat {
+        let leadingSpan: CGFloat
+        if onBack != nil {
+            leadingSpan = TelegramBarMetrics.actionPitch
+        } else if let leading {
+            leadingSpan = CGFloat(leading.count) * 10 + 2 * TelegramBarMetrics.textPadding
+        } else {
+            leadingSpan = 0
+        }
+        let trailingSpan = CGFloat(actions.count) * TelegramBarMetrics.actionPitch
+        return max(leadingSpan, trailingSpan)
     }
 
     @ViewBuilder
@@ -68,7 +76,7 @@ struct GlassBar: View {
                     .font(.system(size: TelegramBarMetrics.actionGlyph, weight: .semibold))
                     .foregroundStyle(palette.navPrimaryText)
                     .frame(width: TelegramBarMetrics.actionPitch,
-                           height: TelegramBarMetrics.capsuleHeight)
+                           height: TelegramBarMetrics.contentHeight)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -79,34 +87,27 @@ struct GlassBar: View {
                     .font(TelegramShellTypography.barAction)
                     .foregroundStyle(palette.navPrimaryText)
                     .padding(.horizontal, TelegramBarMetrics.textPadding)
-                    .frame(height: TelegramBarMetrics.capsuleHeight)
-                    .contentShape(Capsule())
+                    .frame(height: TelegramBarMetrics.contentHeight)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .telegramGlass(.capsule, fallback: palette.glassFallback)
             .accessibilityLabel(leading)
         }
     }
 
     @ViewBuilder
     private var trailingGroup: some View {
-        if !actions.isEmpty {
-            HStack(spacing: 0) {
-                ForEach(actions, id: \.label) { action in
-                    Button(action: action.run) {
-                        Image(systemName: action.symbol)
-                            .font(.system(size: TelegramBarMetrics.actionGlyph, weight: .regular))
-                            .foregroundStyle(palette.navPrimaryText)
-                            .frame(width: TelegramBarMetrics.actionPitch,
-                                   height: TelegramBarMetrics.capsuleHeight)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(action.label)
-                }
+        ForEach(actions, id: \.label) { action in
+            Button(action: action.run) {
+                Image(systemName: action.symbol)
+                    .font(.system(size: TelegramBarMetrics.actionGlyph, weight: .regular))
+                    .foregroundStyle(palette.navPrimaryText)
+                    .frame(width: TelegramBarMetrics.actionPitch,
+                           height: TelegramBarMetrics.contentHeight)
+                    .contentShape(Rectangle())
             }
-            .frame(width: TelegramBarMetrics.actionPitch * CGFloat(actions.count))
-            .telegramGlass(.capsule, fallback: palette.glassFallback)
+            .buttonStyle(.plain)
+            .accessibilityLabel(action.label)
         }
     }
 }

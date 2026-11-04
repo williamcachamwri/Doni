@@ -1,13 +1,14 @@
 import SwiftUI
 import Support
 import TelegramDesignSystem
+import TdSession
 
 /// The screen the tab bar's search circle opens.
 ///
 /// The photo's list has no field in it — search is the circle, not a pill under the bar — so the
-/// field lives here instead, in the one screen Telegram gives it its own bar. What it searches is
-/// the whole library, and the fold it searches with is `SearchTextFold`'s, so "tinh yeu" finds
-/// "Tình yêu" the way the list always did.
+/// field lives here, wearing the bar's own vessel: a floating glass pill with a "Huỷ" beside it,
+/// over a list the results scroll under. What it searches is the whole library, and the fold it
+/// searches with is `SearchTextFold`'s, so "tinh yeu" finds "Tình yêu" the way the list always did.
 struct SearchView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -24,10 +25,16 @@ struct SearchView: View {
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        VStack(spacing: 0) {
-            GlassBar(title: "Tìm kiếm", leading: "Huỷ", onLeading: close)
-            SearchField(query: $query, placeholder: "Tìm bài hát", autoFocus: true)
+        ZStack(alignment: .top) {
             rows
+            HStack(spacing: 10) {
+                SearchField(query: $query, placeholder: "Tìm bài hát", autoFocus: true)
+                Button("Huỷ", action: close)
+                    .font(TelegramShellTypography.barAction)
+                    .foregroundStyle(palette.navPrimaryText)
+            }
+            .padding(.horizontal, TelegramBarMetrics.sideInset)
+            .padding(.top, TelegramBarMetrics.topGap)
         }
         .background(palette.chatListBackground.ignoresSafeArea())
     }
@@ -69,6 +76,7 @@ struct SearchView: View {
                 }
             }
         }
+        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
     }
