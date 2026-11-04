@@ -205,8 +205,7 @@ struct NowPlayingView: View {
         ZStack(alignment: .top) {
             switch page {
             case .artwork:
-                ArtworkPage(track: track, player: player, artwork: artwork, library: library,
-                            onArtworkFrameChange: recordArtworkPageFrame)
+                ArtworkPage(track: track, player: player, artwork: artwork, library: library)
                     .transition(pageTransition(for: .artwork))
             case .lyrics:
                 LyricsPage(player: player, lyrics: lyrics,
@@ -226,6 +225,19 @@ struct NowPlayingView: View {
                     .clipped()
                     .transition(NowPlayingPageTransition.songHeader(reducesMotion: reduceMotion))
             }
+        }
+        .background {
+            // A copy of the artwork page that is never seen and never transitioned, which is the
+            // only instance whose geometry is the settled layout. The page the user is looking at
+            // is drawn with its transition offset while the switch runs, so measuring it would
+            // send the cover to where the page is on its way in rather than where it will rest —
+            // the reference keeps the same two sources and simply distrusts the visible one while
+            // a transition is in flight (`NowPlayingView.swift:586-612`).
+            ArtworkPage(track: track, player: player, artwork: artwork, library: library,
+                        onArtworkFrameChange: recordArtworkPageFrame)
+                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
         .overlay {
             GeometryReader { _ in
@@ -352,7 +364,9 @@ private struct ArtworkPage: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    let onArtworkFrameChange: (CGRect) -> Void
+    /// Where the cover slot landed. Only the hidden copy of the page is asked; the one the user
+    /// sees is allowed to be mid-transition when it is measured.
+    var onArtworkFrameChange: ((CGRect) -> Void)? = nil
 
     var body: some View {
         GeometryReader { edge in
@@ -372,7 +386,7 @@ private struct ArtworkPage: View {
                     .onGeometryChange(for: CGRect.self) { geometry in
                         geometry.frame(in: .named(NowPlayingPortraitCoordinateSpace.name))
                     } action: { frame in
-                        onArtworkFrameChange(frame)
+                        onArtworkFrameChange?(frame)
                     }
 
                 Spacer(minLength: MusicNowPlayingMetrics.artworkBottomSpacer)
