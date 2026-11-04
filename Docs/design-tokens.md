@@ -855,6 +855,21 @@ The reading then drives `.environment(\.colorScheme:)`, `.toolbarColorScheme(_:f
 .tabBar)` and the `.glassProminent` play pill's white-on-black / black-on-white flip
 (`PlaylistDetailView.swift:150-151,167`, `PlaylistDetailContent.swift:403-409`).
 
+**The zoom has two ends and a prefetch, and Doni now has all three.** MeloX declares one
+`@Namespace` for the whole tab bar (`ContentView.swift:45`), injects it through the environment
+(`:393`) and hands it to every tab's stack (`:385-387`), so a card in a shelf on one tab can pass its
+cover to a screen pushed on top of it: `matchedTransitionSource(id: "playlist-\(id)", in:)` on the
+card, `.navigationTransition(.zoom(sourceID:in:))` on the destination
+(`MusicNavigationTransitions.swift:43-52`, `:82-85`, `AppNavigation.swift:128-133,243-248`). The
+source carries a second thing — `ArtworkDetailAssetsPrefetchModifier` asks for the detail's artwork
+while the card is still on screen (`MusicNavigationTransitions.swift:48-52, 59-74`), so the cover that
+flies out of the card is already the cover the hero draws. Doni's cards cannot fetch a variant of a
+URL, but they can order the tier: a playlist card now loads its cover at `heroSide` (300 pt → 768 px)
+rather than its own 54/166/172 pt, which is the same promise, and `sharp(for:side:)` answers a small
+surface from a big tier through `atLeast(_:than:)`, so the card loses nothing by asking.
+Transcribed in `UI/MusicNavigation.swift`; the sources are the home shelf, the playlists list and both
+of search's lists, and the destination is the pushed `PlaylistDetailView` on each of the three stacks.
+
 **Search is the tab's, not a field drawn by hand.** The reference makes search a `Tab` with
 `role: .search` whose content is a `.searchable` list (`ContentView.swift:366-372`,
 `SearchView.swift:36-40`), so the glass field in the tab bar *is* the search button: it takes the

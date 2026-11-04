@@ -62,15 +62,19 @@ struct PlaylistsView: View {
                 ForEach(library.playlists) { list in
                     NavigationLink(value: list.id) {
                         PlaylistRow(playlist: list, cover: covers[list.id], artwork: artwork)
+                            // The row draws 54 pt but orders the hero's 300, which is the reference's
+                            // prefetch on the card a zoom starts from
+                            // (`MusicNavigationTransitions.swift:48-52, 65-68`).
                             .task(id: list.id) {
                                 let cover = library.firstTrack(in: list.id)
                                 covers[list.id] = cover
                                 if let cover {
                                     await artwork.load(track: cover, via: session.covers(),
-                                                       side: MusicPlaylistMetrics.rowArt)
+                                                       side: MusicArtworkMetrics.heroSide)
                                 }
                             }
                     }
+                    .musicMatchedTransitionSource(playlistID: list.id)
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             pendingDeletion = list
@@ -104,6 +108,7 @@ struct PlaylistsView: View {
         .navigationDestination(for: Int64.self) { id in
             PlaylistDetailView(playlistId: id, session: session, player: player,
                                artwork: artwork, library: library)
+                .musicNavigationTransition(playlistID: id)
         }
         .sheet(item: $naming) { kind in
             PlaylistNameSheet(title: kind.title, verb: kind.verb, initial: kind.initial) { text in

@@ -57,6 +57,13 @@ struct LibraryView: View {
             sectionContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        // A playlist card on a shelf pushes the detail on this tab's own stack, which is the only way
+        // the zoom can carry the cover across it (`AppNavigation.swift:243-248`).
+        .navigationDestination(for: Int64.self) { id in
+            PlaylistDetailView(playlistId: id, session: session, player: player,
+                               artwork: artwork, library: library)
+                .musicNavigationTransition(playlistID: id)
+        }
         // The system's own bar: a large title and three glass circles, which is what MeloX
         // asks for and what iOS 26 draws (`ContentView.swift:377-379`, `:429-460`).
         .navigationTitle("Trang chủ")
@@ -165,21 +172,27 @@ struct LibraryView: View {
         }
     }
 
+    /// A list, opened the way the reference opens one: the card hands its cover to the screen the zoom
+    /// grows (`MusicNavigationTransitions.swift:43-52`, `AppNavigation.swift:243-248`).
+    ///
+    /// The card also asks for the hero's size rather than its own, which is MeloX's prefetch on the
+    /// source (`MusicNavigationTransitions.swift:48-52, 65-68`): by the time the zoom is running, the
+    /// 300 pt picture the detail draws is already on the phone, so the cover that flies out is the
+    /// cover that lands.
     private var playlistShelf: some View {
         HomeShelf(title: "Danh sách") {
-            ForEach(playlists, id: \.uniqueId) { shelf in
-                Button {
-                    onOpenTab(.playlists)
-                } label: {
+            ForEach(playlists, id: \.id) { shelf in
+                NavigationLink(value: shelf.id) {
                     HomeCard(cover: shelf.cover, title: shelf.name,
                              subtitle: "\(shelf.count) bài",
                              side: MusicFeedMetrics.playlistCard, artwork: artwork)
                         .task(id: shelf.cover.uniqueId) {
                             await artwork.load(track: shelf.cover, via: session.covers(),
-                                               side: MusicFeedMetrics.playlistCard)
+                                               side: MusicArtworkMetrics.heroSide)
                         }
                 }
                 .buttonStyle(.plain)
+                .musicMatchedTransitionSource(playlistID: shelf.id)
             }
         }
     }
@@ -237,17 +250,17 @@ struct LibraryView: View {
     /// A list the user made, and the song whose cover stands in for the artwork MeloX reads off
     /// the network. A list still empty has no cover to wear, so it stays off the shelf.
     private struct PlaylistShelf {
+        let id: Int64
         let name: String
         let count: Int
         let cover: any Playable
-        let uniqueId: String
     }
 
     private var playlists: [PlaylistShelf] {
         library.playlists.prefix(Self.shelfLimit).compactMap { list in
             guard let cover = library.tracks(in: list.id).first else { return nil }
-            return PlaylistShelf(name: list.name, count: list.trackCount,
-                                 cover: cover, uniqueId: String(list.id))
+            return PlaylistShelf(id: list.id, name: list.name, count: list.trackCount,
+                                 cover: cover)
         }
     }
 

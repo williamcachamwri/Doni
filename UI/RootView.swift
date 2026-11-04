@@ -11,7 +11,8 @@ import TelegramDesignSystem
 /// substitute for APIs the old deployment target did not have. On iOS 26 they are simply there:
 /// the bar is glass and tints the selected tab, the accessory slot is where a mini player lives,
 /// the bar gets out of the way when the list scrolls, and a `matchedTransitionSource` hands the
-/// cover to the zoom instead of a geometry effect pretending to.
+/// cover to the zoom instead of a geometry effect pretending to. Two namespaces do that: one for the
+/// strip's trip into the player, one shared by every tab's cards for their trip into a playlist.
 struct RootView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -28,6 +29,11 @@ struct RootView: View {
     /// One namespace for the cover's trip between the strip and the panel
     /// (`ContentView.swift:44-47`).
     @Namespace private var playerSpace
+
+    /// A second one for a card's trip into the screen it opens. The reference keeps these apart
+    /// (`ContentView.swift:44-45`): the player's artwork and a playlist's cover are different covers,
+    /// and one id is not allowed to mean two things in the same namespace.
+    @Namespace private var musicSpace
 
     private let transitionID = "player-art"
 
@@ -111,6 +117,9 @@ struct RootView: View {
                 }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Every tab's stack is handed the same namespace, which is what lets a shelf card on one tab
+        // zoom into a screen pushed on it (`ContentView.swift:385-393`).
+        .environment(\.musicNavigationNamespace, musicSpace)
     }
 }
 

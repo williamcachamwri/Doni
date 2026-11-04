@@ -57,6 +57,7 @@ struct SearchView: View {
         .navigationDestination(for: Int64.self) { id in
             PlaylistDetailView(playlistId: id, session: session, player: player,
                                artwork: artwork, library: library)
+                .musicNavigationTransition(playlistID: id)
         }
         .navigationTitle("Tìm kiếm")
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
@@ -126,12 +127,16 @@ struct SearchView: View {
                                     radius: MusicSearchMetrics.mediaArtRadius, artwork: artwork)
                             .task(id: list.id) {
                                 if let cover = library.firstTrack(in: list.id) {
+                                    // The row draws 54 but orders the hero's 300, so the cover the
+                                    // zoom flies out is the one the detail draws
+                                    // (`MusicNavigationTransitions.swift:48-52, 65-68`).
                                     await artwork.load(track: cover, via: session.covers(),
-                                                       side: MusicSearchMetrics.mediaArt)
+                                                       side: MusicArtworkMetrics.heroSide)
                                 }
                             }
                     }
                 }
+                .musicMatchedTransitionSource(playlistID: list.id)
             }
         }
         .listStyle(.plain)

@@ -52,6 +52,7 @@ struct SearchDiscoveryView: View {
                                 card(list)
                             }
                             .buttonStyle(.plain)
+                            .musicMatchedTransitionSource(playlistID: list.id)
                         }
                     }
                 }
@@ -71,8 +72,11 @@ struct SearchDiscoveryView: View {
                         radius: MusicArtworkMetrics.radius, artwork: artwork)
                 .task(id: list.id) {
                     if let cover {
+                        // The card draws 172 but orders the hero's 300, so the cover the zoom flies
+                        // out of is the one the detail draws (`MusicNavigationTransitions.swift:48-52,
+                        // 65-68`).
                         await artwork.load(track: cover, via: session.covers(),
-                                           side: MusicSearchMetrics.shelfCard)
+                                           side: MusicArtworkMetrics.heroSide)
                     }
                 }
 
