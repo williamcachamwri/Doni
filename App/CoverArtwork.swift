@@ -127,10 +127,11 @@ final class CoverArtwork: ObservableObject {
     /// hold a thousand rows; the last screens the user actually looked at are what matter.
     private static let recentLimit = 40
 
-    /// 8 MB of pinned tiles. A 192 px row tile is 147 KB, so this is some fifty-five of them — the
-    /// four screens a phone can be looking at at once — and a 768 px hero is 2.3 MB of it, so the
-    /// byte cap, not the count, is what decides.
-    private static let pinnedBudget = 8 * 1024 * 1024
+    /// 16 MB of pinned tiles. A 192 px row tile is 147 KB and a 768 px hero is 2.3 MB, so the byte
+    /// cap and not the count is what decides. It used to be 8 MB, which held eight of the 512 px
+    /// shelf cards the home feed draws — and the feed has three shelves on screen at once, so a
+    /// flick back to a strip that was visible two seconds ago was still a gradient.
+    private static let pinnedBudget = 16 * 1024 * 1024
 
     init() {
         // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero is 2.3 MB, and a
@@ -530,27 +531,42 @@ final class CoverArtwork: ObservableObject {
 
     // MARK: The sources on disk
 
-    /// A cover's own bytes, kept between launches. `Library/Caches` because that is exactly what this
-    /// is: every file here can be fetched or read out of the song again, and the system is allowed to
-    /// take the space back. Nothing is written outside the phone.
-    nonisolated static var sourceDirectory: URL {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        let url = base.appendingPathComponent("Doni/Covers", isDirectory: true)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
-
-    /// The directory this cache used before covers were named for a `file_unique_id`.
+    /// A cover's own bytes, kept between launches.
     ///
-    /// Its files were named for a hash of TDLib's row number, so two things are true of them: some
-    /// are the picture of a different song than the one that would now ask for them, and none can be
-    /// found again under the new name. They are deleted on the way in rather than left to age out of
-    /// the budget, because leaving them means leaving both the wrongness and the space.
+    /// Deliberately not in `Library/Caches` any more: that is the one place iOS is allowed to empty
+    /// while the app is not running, and it is what made a trip to another app cost every picture in
+    /// the library — the memory tiers were gone, and so was the disk tier that was supposed to answer
+    /// for them, so each cover had to come back from Telegram. Application Support is left alone, and
+    /// what the system gets instead is a directory excluded from the backup: every file in it is a
+    /// copy of something the phone can fetch again.
+    nonisolated static let sourceDirectory: URL = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let url = base.appendingPathComponent("Doni/Cover Cache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var excluded = url
+        try? excluded.setResourceValues(values)
+        return url
+    }()
+
+    /// The two cache directories this one replaced, both under `Library/Caches`: the first was named
+    /// for a hash of TDLib's row number, so some of its files are the picture of a different song
+    /// than the one that would now ask for them, and none can be found again under the new name; the
+    /// second is where the bytes lived until they moved out of a directory the system empties on its
+    /// own. Both are deleted on the way in rather than left to age out of the budget, because leaving
+    /// them means leaving the wrongness, the space, or both.
+    ///
+    /// Not in here: `Application Support/Doni/Covers`, which is the same name in a directory this
+    /// cache must never touch — those are the pictures a user chose for their own lists, and the only
+    /// copy of each one is the file this app wrote.
     private nonisolated static func discardLegacySources() {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.removeItem(
-            at: base.appendingPathComponent("Doni/Cover Sources", isDirectory: true)
-        )
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        for name in ["Doni/Covers", "Doni/Cover Sources"] {
+            try? FileManager.default.removeItem(
+                at: caches.appendingPathComponent(name, isDirectory: true)
+            )
+        }
     }
 
     /// A file per cover, named for a hash of the cache key: a key carries a colon and, for a
