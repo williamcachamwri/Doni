@@ -51,6 +51,10 @@ final class Player: ObservableObject {
 
     /// The order the list was played in, kept so turning shuffle off puts it back.
     private var source: [any Playable] = []
+    /// The system's media controls. A property rather than a local in `init`, because the favourite's
+    /// state has to be written back to the command from inside the app as well — the row's heart and
+    /// the lock screen's button are the same fact.
+    private let commands = MPRemoteCommandCenter.shared()
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
     /// Held because `AVAudioPlayer.delegate` is a weak reference, and because one watcher outlives
@@ -101,7 +105,7 @@ final class Player: ObservableObject {
         // Background audio only survives if the category is `.playback` before the first file is
         // opened; `UIBackgroundModes` lists `audio` for the same reason.
         try? AVAudioSession.sharedInstance().setCategory(.playback)
-        let center = MPRemoteCommandCenter.shared()
+        let center = commands
         center.playCommand.addTarget { _ in
             Task { @MainActor in self.resume() }
             return .success
@@ -129,18 +133,21 @@ final class Player: ObservableObject {
             Task { @MainActor in self.seek(to: event.positionTime) }
             return .success
         }
-        // The star the system draws in its own media controls — the lock screen, Control Centre, the
-        // Dynamic Island's Now Playing and the same card as a Live Activity. It is `ratingCommand`:
-        // `likeCommand` is the heart, and the star slot only exists once this command is enabled.
-        // Doni has no ratings, so one star at the top of the scale means exactly what the row's heart
-        // means, and the press toggles it either way.
-        center.ratingCommand.minimumRating = 0
-        center.ratingCommand.maximumRating = 1
-        center.ratingCommand.addTarget { _ in
-            Task { @MainActor in self.rateFromRemote() }
+        // The star the system draws in its own media controls — the lock screen, Control Centre and
+        // the Dynamic Island's Now Playing. It is `likeCommand`, one of the three feedback commands
+        // (`MPRemoteCommandCenter.h:54-58`), and it is the only one of them whose glyph the system
+        // also fills in: `isActive` is documented as "the user already liked this item", so the same
+        // control says both "favourite this" and "this is favourited" without a private key.
+        //
+        // `ratingCommand` was tried first and draws nothing at all on this system, which is what the
+        // screenshots of other apps have been showing.
+        center.likeCommand.localizedTitle = "Thêm vào yêu thích"
+        center.likeCommand.localizedShortTitle = "Yêu thích"
+        center.likeCommand.addTarget { _ in
+            Task { @MainActor in self.likeFromRemote() }
             return .success
         }
-        center.ratingCommand.isEnabled = true
+        center.likeCommand.isEnabled = true
     }
 
     /// Plays one track out of `list`, fetching its file first if the phone does not have it.
@@ -654,11 +661,12 @@ final class Player: ObservableObject {
 
     // MARK: Lock screen and control centre
 
-    /// The star's answer: the same heart the row wears, pressed from outside the app.
+    /// The favourite, pressed from outside the app: the same heart the row wears.
     ///
-    /// The rating the event carries is not trusted — some of the system's surfaces send the maximum on
-    /// every press rather than the change they want — so a press flips whatever the row would do.
-    private func rateFromRemote() {
+    /// A press is treated as a toggle rather than as the state the event carries, because the system
+    /// sends its own "liked" for every press — the only thing worth asking is what the library does
+    /// not yet have.
+    private func likeFromRemote() {
         guard let track = current else { return }
         library.toggleFavorite(track)
         publishNowPlaying(elapsed: elapsed)
@@ -679,12 +687,14 @@ final class Player: ObservableObject {
         if let artwork = artwork(for: shown) {
             info[MPMediaItemPropertyArtwork] = artwork
         }
-        // The system's star is filled from this, and it is the only way the lock screen, Control
-        // Centre and the Dynamic Island can tell a favourited song from one that is merely playing.
-        // Read off the list the library already publishes rather than from the store: this dictionary
-        // is rewritten four times a second by the ticker.
-        info[MPMediaItemPropertyRating] =
-            library.favorites.contains(where: { $0.track.uniqueId == shown.uniqueId }) ? 1.0 : 0.0
+        // The favourite's state lives on the command, not in the dictionary: `isActive` is what makes
+        // the system's button read as already liked. It is written here because this is the one place
+        // every change is already reported — a song that starts, a heart pressed in a row, a star
+        // pressed on the lock screen. The ticker comes through four times a second, so the write only
+        // happens when the answer actually moved, and the answer comes from the list the library
+        // publishes rather than a query against the store.
+        let on = library.favorites.contains(where: { $0.track.uniqueId == shown.uniqueId })
+        if commands.likeCommand.isActive != on { commands.likeCommand.isActive = on }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
