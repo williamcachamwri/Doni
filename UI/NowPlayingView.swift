@@ -3,18 +3,20 @@ import MediaPlayer
 import Support
 import TelegramDesignSystem
 
-/// The full player the strip opens, after the Apple Music set: the cover fills the screen behind
-/// a blur and a scrim, the words and the transport sit on top of it, and a system volume slider
-/// closes the stack.
+/// The full player the strip opens, drawn to the mockup the user pointed at — the Apple Music
+/// panel — element for element: a grabber at the top, the cover filling the width less 2 × 16,
+/// the words at the left with a star and an ellipsis in round glass buttons at the right, a 4 pt
+/// progress line with elapsed and *remaining* times (the cut, when one is being marked, takes the
+/// centre slot), three transport buttons, a thumbless system volume between two speakers, and the
+/// mockup's three grey glyphs along the bottom.
 ///
 /// Telegram has no such screen — it expands its 190 pt panel in place
 /// (`OverlayAudioPlayerControlsNode.swift:806`) — so the layout is the mockup's while the motion
-/// is Telegram's: the 0.15 s crossfade (`TelegramShellMotion`) on every track change, the
-/// badge node's `pop` easing on the play/pause glyph and the timestamps, a spring press-scale on
-/// every button, and the symbols themselves swapping with `replace.downUp`. The song's own words
-/// slide up from the bottom on a change, the way the reference swaps a row's content under a
-/// finger. The heart and the cut moved into the words' row as round glass buttons, because the
-/// mockup's transport is exactly three buttons wide.
+/// is Telegram's: the 0.15 s crossfade (`TelegramShellMotion`) on every track change, the badge
+/// node's `pop` easing on the play/pause glyph and the timestamps, a spring press-scale on every
+/// button, the symbols swapping with `replace.downUp`, and the song's own words sliding up from
+/// the bottom on a change. The screen closes like the panel it imitates: a drag down, or a tap on
+/// the grabber.
 struct NowPlayingView: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
@@ -34,21 +36,22 @@ struct NowPlayingView: View {
             backdrop
             GeometryReader { edge in
                 VStack(spacing: 0) {
-                    topBar
-                    Spacer(minLength: 20)
-                    art(edge.size.width - 48)
-                    Spacer(minLength: 20)
+                    grabber
+                        .padding(.top, 8)
+                    art(edge.size.width - 32)
+                        .padding(.top, 12)
+                    Spacer(minLength: 24)
                     words
                     scrubber
-                        .padding(.top, 18)
+                        .padding(.top, 20)
                     transport
-                        .padding(.top, 10)
-                    volume
                         .padding(.top, 16)
-                    sliceCaption
-                    Spacer(minLength: 12)
+                    volume
+                        .padding(.top, 20)
+                    bottomRow
+                        .padding(.top, 24)
                 }
-                .padding(.bottom, 16)
+                .padding(.bottom, 12)
                 .animation(TelegramShellMotion.pop, value: player.current?.uniqueId)
             }
         }
@@ -57,16 +60,24 @@ struct NowPlayingView: View {
 
     /// The cover drawn twice: once as the screen itself — blurred hard, scaled to hide the blur's
     /// edge, dimmed so white text always wins — and once as the square the mockup puts in the
-    /// middle. Both crossfade on the 0.15 s Telegram easing when the song changes.
+    /// middle. A track with no artwork blurs its own gradient, so even a photoless song tints the
+    /// screen the way the mockup's backdrop tints it. Both crossfade on the 0.15 s Telegram easing
+    /// when the song changes.
     private var backdrop: some View {
         ZStack {
-            if let track = player.current, let image = artwork.image(for: track) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .blur(radius: 64)
-                    .scaleEffect(1.25)
-                    .overlay(Color.black.opacity(0.45))
+            if let track = player.current {
+                Group {
+                    if let image = artwork.image(for: track) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        TelegramTrackGradient.linear(track.messageId)
+                    }
+                }
+                .blur(radius: 64)
+                .scaleEffect(1.25)
+                .overlay(Color.black.opacity(0.45))
             } else {
                 palette.chatListBackground
             }
@@ -75,22 +86,18 @@ struct NowPlayingView: View {
         .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
     }
 
-    private var topBar: some View {
-        HStack {
-            circleButton("chevron.down", label: "Đóng") { dismiss() }
-            Spacer()
-            Text("Đang phát")
-                .font(TelegramShellTypography.barAction)
-                .foregroundStyle(palette.navSecondaryText)
-            Spacer()
-            // The bar's own symmetry: the title sits centred because both slots exist.
-            Color.clear.frame(width: 36, height: 36)
-        }
-        .padding(.horizontal, 20)
-        .frame(height: 44)
+    /// The mockup's only chrome: a drag handle. Tapping it closes, the way a sheet's handle does.
+    private var grabber: some View {
+        Capsule()
+            .fill(Color.white.opacity(0.35))
+            .frame(width: 36, height: 5)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture { dismiss() }
+            .accessibilityLabel("Đóng")
     }
 
-    /// The mockup's art: the width the screen has less 2 × 24, with a soft drop so the square
+    /// The mockup's art: the width the screen has less 2 × 16, with a soft drop so the square
     /// lifts off its own blurred copy behind it.
     private func art(_ width: CGFloat) -> some View {
         Group {
@@ -103,13 +110,14 @@ struct NowPlayingView: View {
         }
         .frame(width: width, height: width)
         .frame(maxWidth: .infinity)
-        .shadow(color: .black.opacity(0.35), radius: 20, y: 12)
+        .shadow(color: .black.opacity(0.3), radius: 18, y: 10)
         .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
     }
 
-    /// The words at the left, the heart and the cut at the right, all on one row. The cut lives in
-    /// a menu because the mockup's transport has no room for a fourth button — and a cut is a
-    /// three-step choice (start, end, or let go), which a menu states better than a toggle does.
+    /// The words at the left, the star and the cut at the right, all on one row — the mockup's
+    /// own arrangement. The cut lives in a menu because the mockup's transport has no room for a
+    /// fourth button, and a cut is a three-step choice (start, end, keep, or let go), which a menu
+    /// states better than a toggle does.
     @ViewBuilder
     private var words: some View {
         if let track = player.current {
@@ -124,24 +132,25 @@ struct NowPlayingView: View {
                         .foregroundStyle(palette.navSecondaryText)
                         .lineLimit(1)
                 }
-                Spacer(minLength: 0)
-                heartButton(track)
+                Spacer(minLength: 12)
+                favoriteButton(track)
                 cutMenu
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
             .id(track.uniqueId)
             .transition(.push(from: .bottom))
         }
     }
 
-    private func heartButton(_ track: any Playable) -> some View {
+    /// The mockup's star: white outline while a song is only playing, filled once it is kept.
+    private func favoriteButton(_ track: any Playable) -> some View {
         let kept = library.favorites.contains { $0.id == track.uniqueId }
         return Button {
             library.toggleFavorite(track)
         } label: {
-            Image(systemName: kept ? "heart.fill" : "heart")
+            Image(systemName: kept ? "star.fill" : "star")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(kept ? palette.highlight : palette.navPrimaryText)
+                .foregroundStyle(palette.navPrimaryText)
                 .frame(width: 36, height: 36)
                 .contentShape(Circle())
         }
@@ -164,7 +173,14 @@ struct NowPlayingView: View {
                     markIn = player.elapsed
                 }
             }
-            if player.segment != nil {
+            if let segment = player.segment {
+                Button("Giữ đoạn này") {
+                    if let uniqueId = player.current?.uniqueId {
+                        library.setSegment(
+                            Int(segment.lowerBound)...Int(segment.upperBound),
+                            uniqueId: uniqueId)
+                    }
+                }
                 Button("Bỏ cắt", role: .destructive) {
                     player.segment = nil
                     markIn = nil
@@ -189,7 +205,7 @@ struct NowPlayingView: View {
             lane
             timestamps
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 16)
     }
 
     private var lane: some View {
@@ -223,10 +239,14 @@ struct NowPlayingView: View {
     }
 
     /// Elapsed at the left, what is left of the song at the right with its minus sign, the way the
-    /// mockup prints it. Both run on `numericText`, so a second ticks in rather than blinks in.
+    /// mockup prints it. The centre slot the mockup gives to Dolby Atmos carries the cut instead:
+    /// its range while it is held, the moment it starts from while it is being marked. Both times
+    /// run on `numericText`, so a second ticks in rather than blinks in.
     private var timestamps: some View {
         HStack {
             Text(MediaClock.duration(Int(player.elapsed.rounded())) ?? "0:00")
+            Spacer()
+            cutState
             Spacer()
             Text(remaining)
         }
@@ -235,6 +255,17 @@ struct NowPlayingView: View {
         .monospacedDigit()
         .contentTransition(.numericText())
         .animation(.linear(duration: 0.25), value: player.elapsed)
+    }
+
+    /// The centre slot only ever holds text, so the two times stay pinned to their edges whether
+    /// or not there is a cut — marking one never moves them under the finger.
+    @ViewBuilder
+    private var cutState: some View {
+        if let segment = player.segment {
+            Text("\(clock(segment.lowerBound)) – \(clock(segment.upperBound))")
+        } else if let started = markIn {
+            Text("cắt từ \(clock(started))")
+        }
     }
 
     private var remaining: String {
@@ -248,19 +279,20 @@ struct NowPlayingView: View {
     /// button images in place.
     private var transport: some View {
         HStack(spacing: 0) {
-            step(system: "backward.fill", size: 32, enabled: player.hasPrevious,
+            step(system: "backward.fill", size: 34, enabled: player.hasPrevious,
                  action: player.previous)
             Spacer(minLength: 0)
-            step(system: player.isPlaying ? "pause.fill" : "play.fill", size: 44,
+            step(system: player.isPlaying ? "pause.fill" : "play.fill", size: 46,
                  enabled: player.current != nil, action: player.toggle)
             Spacer(minLength: 0)
-            step(system: "forward.fill", size: 32, enabled: player.hasNext, action: player.next)
+            step(system: "forward.fill", size: 34, enabled: player.hasNext, action: player.next)
         }
-        .padding(.horizontal, 40)
+        .padding(.horizontal, 60)
     }
 
     /// The system volume, wearing the mockup's own clothes: a speaker at each end and the slider
-    /// between them. `MPVolumeView` is the one public way to move the device's volume from an app.
+    /// between them. `MPVolumeView` is the one public way to move the device's volume from an app;
+    /// its thumb is erased so the slider reads as the mockup's bare line.
     private var volume: some View {
         HStack(spacing: 12) {
             Image(systemName: "speaker.fill")
@@ -271,59 +303,23 @@ struct NowPlayingView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(palette.navPrimaryText)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 16)
     }
 
-    /// What the cut currently is, said in the panel's `medium(12)`, with the button that writes it
-    /// down beside it. The height is held whether or not there is a cut, so marking one never
-    /// moves the transport under the finger.
-    @ViewBuilder
-    private var sliceCaption: some View {
-        VStack(spacing: 0) {
-            if let segment = player.segment {
-                HStack(spacing: 10) {
-                    Text("\(clock(segment.lowerBound)) – \(clock(segment.upperBound))")
-                        .foregroundStyle(palette.navSecondaryText)
-                    keepSliceButton(segment)
-                }
-            } else if let started = markIn {
-                Text("Bắt đầu cắt từ \(clock(started))")
-                    .foregroundStyle(palette.navSecondaryText)
-            }
+    /// The mockup's three resting glyphs along the bottom. Doni has no lyrics, AirPlay screen or
+    /// queue screen behind them yet, so they sit as the mockup draws them — grey, at rest.
+    private var bottomRow: some View {
+        HStack(spacing: 0) {
+            Image(systemName: "quote.bubble")
+                .frame(maxWidth: .infinity)
+            Image(systemName: "airplayaudio")
+                .frame(maxWidth: .infinity)
+            Image(systemName: "list.bullet")
+                .frame(maxWidth: .infinity)
         }
-        .font(TelegramShellTypography.timestamp)
-        .monospacedDigit()
-        .frame(height: TelegramShellMetrics.sliceCaptionHeight)
-        .padding(.top, 14)
-    }
-
-    /// `setFavoriteSegment` writes onto a heart that already exists, so this never has to know
-    /// whether the song was kept whole first.
-    private func keepSliceButton(_ segment: ClosedRange<Double>) -> some View {
-        let uniqueId = player.current?.uniqueId ?? ""
-        let kept = library.favorites.first { $0.id == uniqueId }?.segment
-            == Int(segment.lowerBound)...Int(segment.upperBound)
-        return Button(kept ? "Bỏ cắt" : "Giữ đoạn") {
-            library.setSegment(kept ? nil : Int(segment.lowerBound)...Int(segment.upperBound),
-                               uniqueId: uniqueId)
-        }
-        .font(TelegramShellTypography.timestamp)
-        .foregroundStyle(kept ? palette.navSecondaryText : palette.highlight)
-    }
-
-    /// A 36 pt glass circle, the size the words' row's buttons wear.
-    private func circleButton(_ symbol: String, label: String,
-                              action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(palette.navPrimaryText)
-                .frame(width: 36, height: 36)
-                .contentShape(Circle())
-        }
-        .buttonStyle(PlayerButtonStyle())
-        .telegramGlass(.circle, fallback: palette.glassFallback)
-        .accessibilityLabel(label)
+        .font(.system(size: 20, weight: .medium))
+        .foregroundStyle(palette.navSecondaryText.opacity(0.7))
+        .padding(.horizontal, 36)
     }
 
     private func step(system: String, size: CGFloat, enabled: Bool,
@@ -356,8 +352,8 @@ struct PlayerButtonStyle: ButtonStyle {
     }
 }
 
-/// `MPVolumeView` stripped of its route button, tinted to the panel: white ink on a third-white
-/// track, found by walking the view's own tree once it has laid out.
+/// `MPVolumeView` worn to match the mockup: the route button hidden, the thumb erased, white ink
+/// on a third-white track — found by walking the view's own tree once it has laid out.
 private struct SystemVolumeSlider: UIViewRepresentable {
     func makeUIView(context: Context) -> MPVolumeView {
         let view = MPVolumeView()
@@ -366,20 +362,23 @@ private struct SystemVolumeSlider: UIViewRepresentable {
     }
 
     func updateUIView(_ view: MPVolumeView, context: Context) {
-        Task { Self.tint(view) }
+        Task { Self.dress(view) }
     }
 
-    private static func tint(_ root: UIView) {
+    private static func dress(_ root: UIView) {
         for subview in root.subviews {
             if let slider = subview as? UISlider {
                 slider.minimumTrackTintColor = .white
                 slider.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.3)
+                for state: UIControl.State in [.normal, .selected, .highlighted] {
+                    slider.setThumbImage(UIImage(), for: state)
+                }
             } else if let button = subview as? UIButton {
                 // The route button is deprecated but still drawn by default; hiding it here is
                 // the panel's own decision, the mockup's volume row has no route button.
                 button.isHidden = true
             } else {
-                tint(subview)
+                dress(subview)
             }
         }
     }

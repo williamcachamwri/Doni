@@ -39,26 +39,10 @@ public enum TelegramShellMetrics {
     /// keeps the hairline weight the rest of the shell uses.
     public static let progressBarHeight: CGFloat = 2
 
-    /// `scrubberThickness = 7.0` in the expanded panel's own scrubber (`:266`), drawn with round
-    /// caps and no handle (`:716`).
-    public static let scrubberHeight: CGFloat = 7
     /// `buttonSize = CGSize(width: 64.0, height: 64.0)` for the transport row (`:887`); the glyph
     /// inside it is a 76 pt asset box (`:899`), which an SF Symbol cannot be sized from, so the
     /// point sizes live with the screen that draws them.
     public static let transportButton: CGFloat = 64
-    /// `height: 10.0 + 8.0 * 2.0` — the band the 7 pt line is drawn in, so a finger has 26 pt to
-    /// land on rather than 7 (`:867`).
-    public static let scrubberBand: CGFloat = 26
-    /// `buttonsWidth = min(width − insets − 2 × (sideInset + 60.0), 320.0)` (`:888`): the three
-    /// centre buttons share a band that stops at 320 however wide the phone is.
-    public static let transportCentreBand: CGFloat = 320
-    /// The two side buttons are 64 pt boxes starting 12 pt outside the bar's own 16 pt inset
-    /// (`x = leftInset + sideInset − 12.0`, mirrored at `:891` and `:892`), so the glyphs keep the
-    /// column the rest of the panel uses while the touch boxes overhang it.
-    public static let transportSlotInset: CGFloat = miniPlayerSideInset - 12
-    /// Doni's own: the line under the transport that says what the loop is currently holding —
-    /// one `medium(12)` row (`:267`) with room for the button beside it.
-    public static let sliceCaptionHeight: CGFloat = 20
 
     /// `tabBarHeight = 49.0 + bottomInset` (`TabBarController.swift:206`), the band the list
     /// scrolls under. Doni's bar floats instead — see `TelegramFloatingBarMetrics` — so this is the
