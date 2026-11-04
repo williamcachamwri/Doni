@@ -180,8 +180,12 @@ final class LibraryIndexer: ObservableObject {
         }
 
         guard !Task.isCancelled else { return }
-        tracks = Self.newestFirst(collected.values)
+        // The store publishes the finished list, not the walk. They are the same songs, and the
+        // stored copy knows two things the post never did: the length the app read off the file of a
+        // document post — Telegram sends no duration there (`td_api.tl:594`) — and where the copy on
+        // the phone is.
         library.refresh()
+        tracks = library.storedTracks
         if let failure {
             phase = .failed(failure)
         } else {

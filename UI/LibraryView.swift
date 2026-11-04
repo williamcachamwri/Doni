@@ -109,6 +109,9 @@ struct LibraryView: View {
             // The bind comes first: the restored song may need TDLib for its file, and a player
             // without a downloader would leave the row spinning.
             player.restore()
+            // Before the walk rather than after it: the files this needs are already on the phone, so
+            // the timestamps land while the channel is still being read.
+            await library.measureStoredDurations()
             indexer.run(session, library: library)
         }
         .sheet(isPresented: $showsAddChannel) {

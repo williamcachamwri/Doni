@@ -98,6 +98,45 @@ final class Library: ObservableObject {
             filled.localPath = path
             return filled
         }
+        // A song that has just landed can now be timed, and it is the only moment it costs nothing:
+        // the file is already open on the device and the read is its own header.
+        if storedTracks.first(where: { $0.uniqueId == uniqueId })?.duration == nil {
+            measure(path: path, uniqueId: uniqueId)
+        }
+    }
+
+    // MARK: Lengths
+
+    /// A duration the row did not come with, written down.
+    ///
+    /// Patched into the published rows the way a download path is: the list is showing the row, and
+    /// a `refresh()` to prove one number would re-stat every file in the library to do it.
+    func recordDuration(_ seconds: Int, uniqueId: String) {
+        store.setDuration(seconds, uniqueId: uniqueId)
+        storedTracks = storedTracks.map { row in
+            guard row.uniqueId == uniqueId, row.duration != seconds else { return row }
+            var filled = row
+            filled.duration = seconds
+            return filled
+        }
+    }
+
+    /// The rows the phone holds but cannot time, measured. Run once on the way into the library;
+    /// after that the store answers nothing and this is free.
+    func measureStoredDurations() async {
+        for row in store.unmeasuredTracks() {
+            guard !Task.isCancelled, let path = row.localPath else { continue }
+            guard let seconds = await AudioDuration.seconds(ofPath: path) else { continue }
+            recordDuration(seconds, uniqueId: row.uniqueId)
+        }
+    }
+
+    /// One file, timed, in the background of the screen that asked for it.
+    private func measure(path: String, uniqueId: String) {
+        Task { [weak self] in
+            guard let seconds = await AudioDuration.seconds(ofPath: path) else { return }
+            self?.recordDuration(seconds, uniqueId: uniqueId)
+        }
     }
 
     // MARK: Hearts

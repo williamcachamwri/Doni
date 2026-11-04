@@ -546,6 +546,12 @@ final class Player: ObservableObject {
         self.engine = engine
         self.duration = engine.duration
         self.isFetchingFile = false
+        // A document post has no duration in the schema and the engine has just read the container's
+        // own, so the row that was showing a mime type and a byte count gets the number it should
+        // have had. Free here and nowhere else: `AVAudioPlayer` has already opened the file.
+        if track.duration == nil, engine.duration > 0.5 {
+            library.recordDuration(Int(engine.duration.rounded()), uniqueId: track.uniqueId)
+        }
         // A fresh `AVAudioPlayer` starts at full, so the slider's position has to be written into
         // it before the first sample goes out — otherwise the second song of a queue jumps louder.
         engine.volume = volume

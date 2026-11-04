@@ -393,6 +393,42 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
+    /// A length the app measured and Telegram never sent.
+    ///
+    /// The walk does not get to disagree: it writes `NULL` for every document row it re-reads and the
+    /// upsert's `COALESCE` keeps this instead.
+    public func setDuration(_ seconds: Int, uniqueId: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("UPDATE track SET duration = ? WHERE unique_id = ?")
+        else { return }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int(statement, 1, Int32(seconds))
+        sqlite3_bind_text(statement, 2, uniqueId, -1, Self.transient)
+        sqlite3_step(statement)
+    }
+
+    /// Songs the list cannot time but the phone could: no duration, and a file to read one from.
+    ///
+    /// Newest first, the way the list itself is ordered, so what the user is shown is what gets its
+    /// timestamp first.
+    public func unmeasuredTracks(onlyOnDevice: Bool = true) -> [StoreTrack] {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = onlyOnDevice
+            ? """
+            SELECT \(Self.columns) FROM track
+            WHERE duration IS NULL AND local_path IS NOT NULL
+            ORDER BY date DESC, message_id DESC
+            """
+            : "SELECT \(Self.columns) FROM track WHERE duration IS NULL ORDER BY date DESC"
+        guard let statement = prepare(sql) else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var rows: [StoreTrack] = []
+        while sqlite3_step(statement) == SQLITE_ROW { rows.append(Self.read(statement)) }
+        return rows
+    }
+
     private func deleteTracks(chatId: Int64) {
         guard let statement = prepare("DELETE FROM track WHERE chat_id = ?") else { return }
         defer { sqlite3_finalize(statement) }

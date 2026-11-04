@@ -18,11 +18,13 @@ private func sql(_ handle: OpaquePointer?, _ statement: String) {
 }
 
 private func track(_ key: String, chatId: Int64 = -1001, date: Int64 = 1_730_000_000,
-                   title: String = "Bài hát") -> StoreTrack {
+                   title: String = "Bài hát", duration: Int? = 200,
+                   localPath: String? = nil) -> StoreTrack {
     let number = Int64(key.unicodeScalars.first?.value ?? 0)
     return StoreTrack(uniqueId: key, chatId: chatId, messageId: number,
                       fileId: 10, coverFileId: 20, title: title, performer: "Sơn Tùng M-TP",
-                      fileName: "\(key).mp3", duration: 200, size: 5_000_000, date: date)
+                      fileName: "\(key).mp3", duration: duration, size: 5_000_000, date: date,
+                      localPath: localPath)
 }
 
 @Suite("LibraryStore")
@@ -225,6 +227,34 @@ struct LibraryStoreTests {
         store.replaceTracks(chatId: -1, tracks: [row])
         store.replaceTracks(chatId: -1, tracks: [track("a")])
         #expect(store.track(uniqueId: "a")?.coverUniqueId == "AQADFR4AAn3M-VZy")
+    }
+
+    @Test("a length the app measured outlives the walk that never had one")
+    func measuredDurationSurvivesTheWalk() throws {
+        // A document post has no duration in the schema, so every page of it arrives as a NULL and
+        // would otherwise blank the number the app read off the file.
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.appendTracks([track("a", duration: nil)])
+        store.setDuration(212, uniqueId: "a")
+        #expect(store.track(uniqueId: "a")?.duration == 212)
+        store.appendTracks([track("a", duration: nil)])
+        #expect(store.track(uniqueId: "a")?.duration == 212)
+        // Telegram's own number wins when the post carries one: it is the sender's, not a guess.
+        store.appendTracks([track("a", duration: 180)])
+        #expect(store.track(uniqueId: "a")?.duration == 180)
+    }
+
+    @Test("the songs worth timing are the ones the phone has")
+    func onlyFilesOnTheDeviceAreMeasured() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.appendTracks([
+            track("untimed", duration: nil, localPath: "/tmp/untimed.m4a"),
+            track("remote", duration: nil),
+            track("known", localPath: "/tmp/known.mp3")
+        ])
+        #expect(store.unmeasuredTracks().map(\.uniqueId) == ["untimed"])
     }
 
     @Test("a heart on, then off, then on again")
