@@ -138,18 +138,22 @@ final class Library: ObservableObject {
     ///
     /// The row is published the way a live arrival is, and for the same reason — `refresh()` would
     /// re-stat every file the library knows to prove that one song arrived.
-    func importMusic(from url: URL) async -> StoreTrack? {
-        guard let row = await Self.take(url) else { return nil }
-        store.appendTracks([row])
-        trackCount = store.trackCount()
-        downloadedCount = store.downloadedCount()
-        downloadedBytes = store.downloadedBytes()
-        if let index = storedTracks.firstIndex(where: { $0.uniqueId == row.uniqueId }) {
-            storedTracks[index] = row
-        } else {
-            storedTracks.insert(row, at: 0)
+    func importMusic(from url: URL) async -> Result<StoreTrack, MusicImportFailure> {
+        switch await Self.take(url) {
+        case .failure(let reason):
+            return .failure(reason)
+        case .success(let row):
+            store.appendTracks([row])
+            trackCount = store.trackCount()
+            downloadedCount = store.downloadedCount()
+            downloadedBytes = store.downloadedBytes()
+            if let index = storedTracks.firstIndex(where: { $0.uniqueId == row.uniqueId }) {
+                storedTracks[index] = row
+            } else {
+                storedTracks.insert(row, at: 0)
+            }
+            return .success(row)
         }
-        return row
     }
 
     /// A song the user imported, taken out again: the row, whatever pointed at it, and the bytes the
@@ -166,26 +170,34 @@ final class Library: ObservableObject {
     /// Off the main thread because a forty megabyte song is a hundred milliseconds of hashing and
     /// another hundred of copying, and the screen that asked for it is showing a spinner while that
     /// happens rather than freezing.
-    private nonisolated static func take(_ url: URL) async -> StoreTrack? {
+    ///
+    /// Every step says which one it failed at. Collapsing them into `nil` is what let this import
+    /// report "no file could be opened" for weeks while nobody — including the app — knew whether
+    /// the file, the permission, the read or the write was the thing that refused.
+    private nonisolated static func take(_ url: URL) async -> Result<StoreTrack, MusicImportFailure> {
         // Only a URL the Files app handed over needs this, and it answers false for a file the app
-        // already owns — so the pair is entered on the flag rather than assumed.
+        // already owns — so the pair is entered on the flag rather than assumed. Held for the whole
+        // read: the defer runs when this function returns, which is after the task below has
+        // finished, and a permission given up halfway through a copy is a failed copy.
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        let taken: StoreTrack? = await Task.detached(priority: .userInitiated) {
-            guard isAudioFile(url), let hash = fingerprint(url), let kept = copy(url, named: hash)
-            else { return nil }
-            let bytes = size(ofPath: kept)
-            guard bytes > 0 else { return nil }
-            // An empty title is not a failure: the row falls back to the file's own name without its
-            // extension, which is the same fallback a captionless channel post is shown by.
-            let tags = await AudioTags.read(path: kept)
-            return StoreTrack(uniqueId: hash, chatId: 0, messageId: 0, fileId: 0,
-                              title: tags.title, performer: tags.performer,
-                              fileName: url.lastPathComponent,
-                              duration: await AudioDuration.seconds(ofPath: kept),
-                              size: bytes, date: Int64(Date().timeIntervalSince1970),
-                              localPath: kept)
-        }.value
+        let taken: Result<StoreTrack, MusicImportFailure> =
+            await Task.detached(priority: .userInitiated) {
+                guard isAudioFile(url) else { return .failure(.notAFile) }
+                guard let hash = fingerprint(url) else { return .failure(.unreadable) }
+                guard let kept = copy(url, named: hash) else { return .failure(.unwritable) }
+                let bytes = size(ofPath: kept)
+                guard bytes > 0 else { return .failure(.empty) }
+                // An empty title is not a failure: the row falls back to the file's own name without
+                // its extension, which is the same fallback a captionless channel post is shown by.
+                let tags = await AudioTags.read(path: kept)
+                return .success(StoreTrack(uniqueId: hash, chatId: 0, messageId: 0, fileId: 0,
+                                           title: tags.title, performer: tags.performer,
+                                           fileName: url.lastPathComponent,
+                                           duration: await AudioDuration.seconds(ofPath: kept),
+                                           size: bytes, date: Int64(Date().timeIntervalSince1970),
+                                           localPath: kept))
+            }.value
         return taken
     }
 
@@ -219,14 +231,36 @@ final class Library: ObservableObject {
         (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
     }
 
+    /// The bytes read through the URL and written out again, rather than handed to `copyItem`.
+    ///
+    /// `copyItem` is FileManager's fast path, and it does not travel through the permission a picked
+    /// URL carries: a perfectly good MP3 sitting in the phone's own Downloads opens with a file
+    /// handle, hashes, and then refuses to be copied — which is exactly the "no file could be
+    /// opened" this import kept reporting. Reading is what the permission is for, so this reads.
     private nonisolated static func copy(_ url: URL, named hash: String) -> String? {
         let destination = musicDirectory.appendingPathComponent(hash)
             .appendingPathExtension(url.pathExtension)
         if FileManager.default.fileExists(atPath: destination.path) { return destination.path }
+        guard let source = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? source.close() }
         do {
-            try FileManager.default.copyItem(at: url, to: destination)
+            guard FileManager.default.createFile(atPath: destination.path, contents: nil) else {
+                return nil
+            }
+            let target = try FileHandle(forWritingTo: destination)
+            defer { try? target.close() }
+            while true {
+                guard let chunk = try source.read(upToCount: fingerprintChunk) else {
+                    throw CocoaError(.fileReadUnknown)
+                }
+                if chunk.isEmpty { break }
+                try target.write(contentsOf: chunk)
+            }
             return destination.path
         } catch {
+            // Half a song on the phone is worse than none: it would hash to the same id next time
+            // and be found already there.
+            try? FileManager.default.removeItem(at: destination)
             return nil
         }
     }
@@ -688,5 +722,23 @@ final class Library: ObservableObject {
             }
         }.value
         return written ? url.path : nil
+    }
+}
+
+/// Why a file the user picked did not become a song, in words the screen can show.
+///
+/// Every step of an import used to answer the same `nil`, and that is how a broken import sat in
+/// this app for weeks reporting "no file could be opened" while nobody — including the app — knew
+/// whether the picker, the permission, the read or the write was the thing that refused.
+enum MusicImportFailure: Error {
+    case notAFile, unreadable, unwritable, empty
+
+    var message: String {
+        switch self {
+        case .notAFile: return "không phải một tệp"
+        case .unreadable: return "không mở được tệp"
+        case .unwritable: return "không ghi được vào thư mục nhạc"
+        case .empty: return "tệp rỗng"
+        }
     }
 }

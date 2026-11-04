@@ -218,12 +218,26 @@ struct CloudMusicView: View {
         importing = urls.count
         Task {
             var added = 0
+            var complaint = ""
             for url in urls {
-                if await library.importMusic(from: url) != nil { added += 1 }
+                switch await library.importMusic(from: url) {
+                case .success:
+                    added += 1
+                case .failure(let reason) where complaint.isEmpty:
+                    // The first refusal, with the name it refused. A screen that only says "none of
+                    // these opened" cannot be answered by the person standing in front of it.
+                    complaint = "\(url.lastPathComponent) — \(reason.message)"
+                case .failure:
+                    break
+                }
                 importing -= 1
             }
             claimed.forEach { $0.stopAccessingSecurityScopedResource() }
-            if added == 0 { failure = "Không file nào mở được." }
+            if added == 0 {
+                failure = complaint.isEmpty
+                    ? "Không có file nào được chọn."
+                    : "Không thêm được: \(complaint)."
+            }
         }
     }
 }
