@@ -40,6 +40,11 @@ struct DoniApp: App {
                 }
             }
             .animation(TelegramLoginMotion.presentation, value: session.isAuthorized)
+            // The client is started here and nowhere else. It used to be the login screen's job, and
+            // this screen now waits for TDLib's first word before it draws either of them — a screen
+            // that waits for the answer cannot be the one that asks the question. Left as it was,
+            // every launch was a black canvas forever.
+            .task { session.start() }
         }
     }
 }

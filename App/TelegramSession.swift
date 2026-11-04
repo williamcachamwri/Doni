@@ -50,11 +50,15 @@ final class TelegramSession: ObservableObject {
     private var flow: TdLoginFlow?
     private var downloader: TdFileDownloader?
 
-    /// Idempotent: SwiftUI can call this from several `.task` bodies.
+    /// Idempotent: the app calls this once from its root, and any screen that finds the client
+    /// missing can ask again.
     func start() {
         guard client == nil else { return }
         guard let parameters = Self.parameters() else {
             lastError = "Thiếu api_id/api_hash trong bundle — xem Config/Tdlib.xcconfig"
+            // Nothing is going to answer, so the root has to stop waiting for one. A screen that
+            // waits for a state that never comes is a black canvas with no explanation.
+            hasAnswered = true
             return
         }
 
@@ -83,6 +87,9 @@ final class TelegramSession: ObservableObject {
                 try await flow.begin()
             } catch {
                 lastError = Self.describe(error)
+                // The same reason as above: a failed begin has no state behind it, and the root is
+                // waiting on one.
+                hasAnswered = true
             }
         }
     }

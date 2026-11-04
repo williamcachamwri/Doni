@@ -129,7 +129,6 @@ struct LoginView: View {
         .on(UIApplication.keyboardWillHideNotification) {
             withAnimation(TelegramLoginMotion.presentation) { isKeyboardVisible = false }
         }
-        .task { session.start() }
         .onAppear { fadeLiveIn() }
         .alert(
             Text(verbatim: ""),
