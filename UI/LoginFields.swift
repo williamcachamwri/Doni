@@ -161,13 +161,19 @@ struct CodeBoxes: View {
 
     let palette: TelegramListPalette
     let length: Int
-    var isCompact = false
+    /// The band the row has to live in, so the boxes are chosen by what fits instead of by a guess
+    /// at how wide a phone is.
+    let availableWidth: CGFloat
     var entry: Entry = .normal
     var isGhost = false
     @Binding var text: String
 
     private var boxWidth: CGFloat {
-        isCompact ? TelegramLoginMetrics.codeBoxCompactWidth : TelegramLoginMetrics.codeBoxWidth
+        TelegramLoginMetrics.fitCodeBoxWidth(digits: length, available: availableWidth)
+    }
+
+    private var isCompact: Bool {
+        boxWidth < TelegramLoginMetrics.codeBoxWidth
     }
 
     private var boxHeight: CGFloat {

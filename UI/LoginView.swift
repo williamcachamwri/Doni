@@ -77,45 +77,47 @@ struct LoginView: View {
     }
 
     var body: some View {
-        ZStack {
-            LoginBackdrop(canvas: list.background)
-
-            GeometryReader { proxy in
-                ZStack {
-                    if let ghost {
-                        screen(
-                            ghost.step,
-                            entry: .constant(ghost.entry),
-                            country: .constant(ghost.country),
-                            screenWidth: proxy.size.width,
-                            motion: HandOver(
-                                textOffset: ghostTextOffset,
-                                fieldOffset: ghostFieldOffset,
-                                fieldScale: ghostFieldScale,
-                                alpha: ghostAlpha,
-                                crestSide: ghost.crestSide
-                            ),
-                            isGhost: true
-                        )
-                        .allowsHitTesting(false)
-                    }
-
+        GeometryReader { proxy in
+            ZStack {
+                if let ghost {
                     screen(
-                        isPickingANewNumber ? .waitPhoneNumber : session.step,
-                        entry: $entry,
-                        country: $country,
+                        ghost.step,
+                        entry: .constant(ghost.entry),
+                        country: .constant(ghost.country),
                         screenWidth: proxy.size.width,
-                        motion: HandOver(alpha: liveAlpha,
-                                         crestSide: liveCrestSide,
-                                         crestScale: liveCrestScale),
-                        isGhost: false
+                        motion: HandOver(
+                            textOffset: ghostTextOffset,
+                            fieldOffset: ghostFieldOffset,
+                            fieldScale: ghostFieldScale,
+                            alpha: ghostAlpha,
+                            crestSide: ghost.crestSide
+                        ),
+                        isGhost: true
                     )
+                    .allowsHitTesting(false)
                 }
+
+                screen(
+                    isPickingANewNumber ? .waitPhoneNumber : session.step,
+                    entry: $entry,
+                    country: $country,
+                    screenWidth: proxy.size.width,
+                    motion: HandOver(alpha: liveAlpha,
+                                     crestSide: liveCrestSide,
+                                     crestScale: liveCrestScale),
+                    isGhost: false
+                )
             }
-            .overlay(alignment: .topLeading) {
-                if offersBack(session.step), !isPickingANewNumber {
-                    backButton
-                }
+        }
+        // The backdrop belongs behind the sequence, not beside it. A ZStack proposes its own width to
+        // what it holds, and this one is 520 pt wide on its own account — its glows are fixed squares
+        // — so as a sibling it handed the reader a canvas 130 pt wider than the phone. The field block
+        // was laid out for that and then centred in the real one, which put the country name and the
+        // dial code off the left edge; `proxy.size.width` was wrong for the code boxes too.
+        .background { LoginBackdrop(canvas: list.background) }
+        .overlay(alignment: .topLeading) {
+            if offersBack(session.step), !isPickingANewNumber {
+                backButton
             }
         }
         // The sequence is a screen of the app, so it forces the appearance the rest of the app is
@@ -542,7 +544,7 @@ struct LoginView: View {
                 CodeBoxes(
                     palette: list,
                     length: length,
-                    isCompact: screenWidth <= 320 || (screenWidth <= 375 && length > 5),
+                    availableWidth: screenWidth - 2 * TelegramLoginMetrics.horizontalInset,
                     entry: isCodeFailed ? .failed : .normal,
                     text: entry
                 )
@@ -656,6 +658,10 @@ private struct LoginBackdrop: View {
             glow(Color(rgb: 0x3e88f7), opacity: 0.20, side: 520)
                 .offset(x: drift ? 92 : -70, y: drift ? 176 : 108)
         }
+        // Sized to what it is given, never to its own art: the glows are fixed squares and would
+        // otherwise make this the widest thing in any stack that holds it, and a stack hands its own
+        // width down to its siblings.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .onAppear {
             guard !reduceMotion else { return }

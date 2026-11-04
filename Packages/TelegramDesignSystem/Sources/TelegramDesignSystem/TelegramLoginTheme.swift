@@ -160,6 +160,22 @@ public enum TelegramLoginMetrics {
     public static let codeBoxSpacing: CGFloat = 15
     public static let codeBoxCornerRadius: CGFloat = 15
 
+    /// The box size a row of `digits` boxes has to use to live inside `available`.
+    ///
+    /// The reference has two box sizes and picks between them by phone width; a row of 43 pt boxes
+    /// with 15 between them is 333 pt at six digits and 391 at seven, so a width rule alone lets a
+    /// longer code draw past both edges of the screen. Picking by fit instead, the row is never
+    /// wider than the band it was given — and the band is measured, not guessed.
+    public static func fitCodeBoxWidth(digits: Int, available: CGFloat) -> CGFloat {
+        let count = CGFloat(max(digits, 1))
+        let spacing = CGFloat(max(digits - 1, 0)) * codeBoxSpacing
+        for width in [codeBoxWidth, codeBoxCompactWidth] where count * width + spacing <= available {
+            return width
+        }
+        // Even the compact row does not fit: share the band out rather than overflow it.
+        return max(12, (available - spacing) / count)
+    }
+
     /// The authorization screens run under a transparent navigation bar (`separatorColor`
     /// and `opaqueBackgroundColor` are both `.clear`, `AuthorizationSequenceController.swift:84`).
     /// The compact code layout pushes its content below the bar — `insets.top = navigationBarHeight`
