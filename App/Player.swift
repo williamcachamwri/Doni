@@ -54,6 +54,11 @@ final class Player: ObservableObject {
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
     private var loading: Task<Void, Never>?
+    /// The lead-time fetch of the song queued behind this one, and the song it was started for. The
+    /// id is what stops a timer that fires four times a second asking for the same file forty times
+    /// over.
+    private var prefetch: Task<Void, Never>?
+    private var prefetchingId: String?
     /// The second last written into the resume snapshot, so the clock saves once per second of
     /// listening and not four times (`PlayerStore.swift:190, 1231-1235`).
     private var lastPersistedSecond = -1
@@ -74,6 +79,13 @@ final class Player: ObservableObject {
     /// A repeat loop always has somewhere to go, so the next button is never idle while one is on.
     var hasNext: Bool { !queue.isEmpty && (index + 1 < queue.count || repeatMode != .off) }
     var hasPrevious: Bool { !queue.isEmpty && (index > 0 || repeatMode != .off) }
+
+    /// The row the next button would land on, wrap-around included, and nothing when the loop says
+    /// this song goes again — that is the row worth having on the phone already.
+    private var nextUp: (any Playable)? {
+        guard hasNext, repeatMode != .one else { return nil }
+        return queue[index + 1 < queue.count ? index + 1 : 0]
+    }
 
     func bind(_ downloader: TdFileDownloader?) {
         self.downloader = downloader
@@ -254,6 +266,9 @@ final class Player: ObservableObject {
     func stop() {
         loading?.cancel()
         loading = nil
+        prefetch?.cancel()
+        prefetch = nil
+        prefetchingId = nil
         ticker?.invalidate()
         ticker = nil
         engine?.stop()
@@ -432,6 +447,25 @@ final class Player: ObservableObject {
         library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
     }
 
+    /// How much of a song has to be left before the one behind it is brought onto the phone.
+    ///
+    /// Ten seconds is about what a file takes to land on a phone's connection, and asking earlier
+    /// would spend the download on songs the listener may never reach.
+    private static let prefetchLead: TimeInterval = 10
+
+    /// The lead-time fetch, asked for once per song.
+    ///
+    /// A quarter-second timer is the only clock the player has, so this is a threshold the tick
+    /// crosses rather than an event TDLib sends. `download` is the ask every other surface uses, and
+    /// a press that lands mid-fetch is answered by the same file rather than a second copy of it —
+    /// which is the whole reason prefetching the next song is safe to start before it is wanted.
+    private func prefetchAhead(remaining: TimeInterval) {
+        guard isPlaying, remaining <= Self.prefetchLead, let track = nextUp else { return }
+        guard !track.isDownloaded, track.uniqueId != prefetchingId else { return }
+        prefetchingId = track.uniqueId
+        prefetch = Task { await self.download(track) }
+    }
+
     // MARK: Loading
 
     /// Loading the row under the playhead. `autoplay: false` is the relaunch case: the song is
@@ -462,6 +496,15 @@ final class Player: ObservableObject {
         isFetchingFile = track.localPath == nil
         lastPersistedSecond = Int(elapsed)
         persist()
+
+        // A lead-time fetch for the song the playhead has just arrived on stays: the seat it holds at
+        // TDLib is the one the load below needs anyway. One that has been left behind goes, because
+        // it shares the download queue with the song the user actually pressed.
+        if let prefetchingId, prefetchingId != track.uniqueId, prefetchingId != nextUp?.uniqueId {
+            self.prefetchingId = nil
+            prefetch?.cancel()
+            prefetch = nil
+        }
 
         let path = track.localPath
         let fileId = track.fileId
@@ -544,6 +587,7 @@ final class Player: ObservableObject {
     private func tick() {
         guard let engine else { return }
         let end = segment?.upperBound ?? engine.duration
+        prefetchAhead(remaining: end - engine.currentTime)
         if engine.currentTime >= end - 0.05 {
             if let segment {
                 // A favourited slice loops: that is the point of saving three minutes of a
