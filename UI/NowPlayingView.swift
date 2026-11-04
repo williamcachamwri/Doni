@@ -264,7 +264,7 @@ private struct ArtworkPage: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    SongActions(track: track, player: player, library: library)
+                    SongActions(track: track, player: player, artwork: artwork, library: library)
                 }
                 .padding(.bottom, MusicNowPlayingMetrics.coreHeight)
             }
@@ -295,10 +295,19 @@ private struct ArtworkPage: View {
 /// 10 apart (`NowPlayingSongActions.swift:15`, `:46-58`, `:215-221`) — and hides the star on the
 /// artwork page (`NowPlayingArtworkPage.swift:149-152`), so Doni's artwork page has the ellipsis
 /// alone and the star is the first verb inside it.
+///
+/// Listing is the one verb the reference does differently: its menu holds a single "add to" button
+/// that opens a picker (`NowPlayingSongActions.swift:107-114`, `AddToPlaylistSheet.swift`), and
+/// Doni does the same rather than threading every list into the menu. A screen with no lists still
+/// has to answer the tap, so the picker carries the create button the reference gives it — with a
+/// working empty state, which the reference's reload cannot be here.
 struct SongActions: View {
     let track: any Playable
     @ObservedObject var player: Player
+    @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
+
+    @State private var showsPlaylists = false
 
     var body: some View {
         Menu {
@@ -315,10 +324,10 @@ struct SongActions: View {
                 Label("Nghe tiếp theo", systemImage: "text.badge.plus")
             }
             Divider()
-            ForEach(library.playlists) { list in
-                Button("Thêm vào “\(list.name)”") {
-                    library.add(track, to: list.id)
-                }
+            Button {
+                showsPlaylists = true
+            } label: {
+                Label("Thêm vào danh sách", systemImage: "plus.circle")
             }
             Divider()
             cutButtons
@@ -340,6 +349,9 @@ struct SongActions: View {
         .tint(.white)
         .menuOrder(.fixed)
         .accessibilityLabel("Khác")
+        .sheet(isPresented: $showsPlaylists) {
+            AddToPlaylistSheet(track: track, artwork: artwork, library: library)
+        }
     }
 
     /// A cut is a three-step choice — mark, reach the end, keep or let go — which a menu states

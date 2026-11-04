@@ -210,7 +210,7 @@ private struct QueueSongHeader: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            SongActions(track: track, player: player, library: library)
+            SongActions(track: track, player: player, artwork: artwork, library: library)
         }
         .frame(height: MusicNowPlayingMetrics.songHeaderHeight)
     }
