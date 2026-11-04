@@ -478,13 +478,30 @@ final class CoverArtwork: ObservableObject {
         return nil
     }
 
-    /// What a cover is called in this cache.
+    /// What a cover is called in this cache, and whether the phone may keep it between launches.
+    ///
+    /// Three identities, best first. The cover's own `file_unique_id` is the exact one. When there is
+    /// none — and for a `coverTypeGenerated` thumbnail there usually is none, because TDLib has not
+    /// made the file yet and `fileRemoteUnknown` carries no identity — the song it was generated from
+    /// is used instead: `TdTrack` refuses to exist without its own `remote.unique_id`, so every row
+    /// has one, and a generated cover is derived from exactly that file. Filed under the song, the
+    /// bytes can only ever be this song's picture, and they outlive the database rebuild that makes
+    /// TDLib's row number worthless.
+    ///
+    /// That fallback is the whole of the "artwork goes back to a gradient when I leave the app and
+    /// come back" complaint. Without an identity the token was `persistent: false`, which means no
+    /// disk tier at all: the cover was decoded into memory, never written down, and had to be
+    /// fetched from Telegram again on every relaunch — for most of a music channel's posts, which
+    /// are exactly the ones whose covers are generated.
     private nonisolated static func token(for track: any Playable) -> CoverToken? {
         if let unique = track.coverUniqueId, !unique.isEmpty {
             return CoverToken(id: unique, persistent: true)
         }
         guard let fileId = track.coverFileId else { return nil }
-        return CoverToken(id: "db:\(fileId)", persistent: false)
+        guard !track.uniqueId.isEmpty else {
+            return CoverToken(id: "db:\(fileId)", persistent: false)
+        }
+        return CoverToken(id: "gen:\(track.uniqueId)", persistent: true)
     }
 
     private nonisolated static func coverKey(_ cover: CoverToken, pixels: Int) -> NSString {
@@ -693,10 +710,10 @@ final class CoverArtwork: ObservableObject {
 /// MTProto's name for the same bytes in every database on every device, so it is what every memory
 /// key and every source file here is built from.
 ///
-/// A row indexed before the identity was recorded has only the number to go on. That still answers
-/// inside this process, where the number is consistent, but `persistent` is false for it: those
-/// bytes neither come off the disk nor go back to it. The next read of that channel records the
-/// identity and the cover becomes storable again.
+/// A row whose cover has no identity of its own is filed under the song instead, because a
+/// generated thumbnail is derived from that one file and the song's own `unique_id` is never
+/// missing. Only a row with neither — which the store does not keep — falls back to the number, and
+/// for it `persistent` is false: those bytes neither come off the disk nor go back to it.
 private struct CoverToken: Equatable {
     let id: String
     let persistent: Bool
