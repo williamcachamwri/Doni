@@ -3,15 +3,19 @@ import SwiftUI
 import Support
 import TdSession
 
-/// Walks one channel's history, 100 messages at a time, and collects everything
-/// playable in it.
+/// Walks every channel on the allow-list, 100 messages at a time, and collects everything playable
+/// in it.
 ///
 /// Index-first: the app reads the whole channel before it decides what the library is, because a
 /// music library that only knows the first screenful of posts is not a library. The loop keeps the
 /// oldest message id it has seen and asks for messages older than that, which is the only direction
-/// `getChatHistory` walks; a page shorter than the limit ends the channel. Each page is written to
+/// `getChatHistory` walks; a page with nothing older ends the channel. Each page is written to
 /// `Library` as it lands, and the stored rows go on screen before the walk starts, so the list is
 /// full the moment it is opened and the walk only has to improve it.
+///
+/// A channel is read by the chat id its row carries, which is resolved once by the screen that adds
+/// it — see `TdChannelReader.probe`. The walk never looks a handle up: an allow-list the user filled
+/// is a list of chats, not of usernames to keep re-resolving.
 @MainActor
 final class LibraryIndexer: ObservableObject {
     struct Snapshot: Equatable {
@@ -22,7 +26,6 @@ final class LibraryIndexer: ObservableObject {
 
     enum Phase: Equatable {
         case idle
-        case resolving
         case reading(Snapshot)
         case finished(Snapshot)
         case failed(String)
@@ -30,7 +33,6 @@ final class LibraryIndexer: ObservableObject {
 
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var tracks: [any Playable] = []
-    @Published private(set) var channel: TdChannel?
 
     private var task: Task<Void, Never>?
 
@@ -41,12 +43,13 @@ final class LibraryIndexer: ObservableObject {
     /// Folded haystacks, so a keystroke re-folds only what the last page brought in.
     private var haystacks: [String: String] = [:]
 
-    /// The channel Doni was built around.
-    static let username = "VNMusicRemix"
+    /// The channel Doni was built around, and the one key that says its free offer was already made.
+    static let defaultUsername = "VNMusicRemix"
+    private static let seededDefaultKey = "library.seededDefaultChannel"
 
     var isReading: Bool {
         switch phase {
-        case .resolving, .reading:
+        case .reading:
             return true
         case .idle, .finished, .failed:
             return false
@@ -56,8 +59,6 @@ final class LibraryIndexer: ObservableObject {
     /// The bar's second line, in the chat list's `secondaryTextColor`.
     var statusLine: String {
         switch phase {
-        case .resolving:
-            return "Đang mở @" + Self.username
         case let .reading(snapshot), let .finished(snapshot):
             return "\(snapshot.trackCount.formatted()) bài · đã đọc \(snapshot.messageCount.formatted()) tin"
         case .idle, .failed:
@@ -130,59 +131,81 @@ final class LibraryIndexer: ObservableObject {
     }
 
     private func index(_ reader: TdChannelReader, library: Library) async {
-        phase = .resolving
-        let channel: TdChannel
-        do {
-            channel = try await reader.channel(username: Self.username)
-        } catch {
-            phase = .failed(Self.describe(error))
+        await seedDefaultChannel(reader, library: library)
+        let targets = library.indexedChannels
+        guard !targets.isEmpty else {
+            phase = .finished(.init(trackCount: tracks.count, messageCount: 0, pageCount: 0))
             return
         }
-        self.channel = channel
-        library.remember(channel)
 
-        var seen: Set<String> = []
-        var collected: [TdTrack] = []
+        // Keyed by `unique_id`, which is the only id that means the same song in two sources: a walk
+        // that re-reads a row overwrites the stored copy of it rather than doubling the list, and a
+        // channel it never reaches keeps the rows already on screen.
+        var collected: [String: any Playable] = Dictionary(
+            uniqueKeysWithValues: tracks.map { ($0.uniqueId, $0) }
+        )
         var messages = 0
         var pages = 0
-        var cursor: Int64 = 0
+        var failure: String?
         haystacks = [:]
-        // A refresh over a library that is already on screen waits for the walk to end before
-        // it swaps, so the list never shrinks to one page and grows back under the finger.
+        // A refresh over a library that is already on screen waits for the walk to end before it
+        // publishes, so the list never re-sorts itself a thousand times under the finger — and never
+        // shrinks to one page and grows back, because what it grows from is the screen's own rows.
         let publishAsItGoes = tracks.isEmpty
 
-        while !Task.isCancelled {
-            let page: TdHistoryPage
-            do {
-                page = try await reader.page(chatId: channel.chatId, cursor: cursor)
-            } catch {
-                phase = .failed(Self.describe(error))
-                return
-            }
-            pages += 1
-            messages += page.messages.count
+        for target in targets {
+            guard !Task.isCancelled else { return }
+            var cursor: Int64 = 0
+            while !Task.isCancelled {
+                let page: TdHistoryPage
+                do {
+                    page = try await reader.page(chatId: target.chatId, cursor: cursor)
+                } catch {
+                    // One channel that will not answer is not a reason to stop the others, but the
+                    // first complaint is the one the screen gets to show.
+                    failure = failure ?? Self.describe(error)
+                    break
+                }
+                pages += 1
+                messages += page.messages.count
+                for track in page.tracks { collected[track.uniqueId] = track }
+                library.remember(page: page.tracks, chatId: target.chatId)
+                if publishAsItGoes { tracks = Self.newestFirst(collected.values) }
+                phase = .reading(.init(trackCount: collected.count, messageCount: messages,
+                                       pageCount: pages))
 
-            for track in page.tracks where !seen.contains(track.uniqueId) {
-                seen.insert(track.uniqueId)
-                collected.append(track)
+                guard !page.isLast, let oldest = page.oldestMessageId, oldest != cursor else { break }
+                cursor = oldest
             }
-            library.remember(page: page.tracks, chatId: channel.chatId)
-            if publishAsItGoes { tracks = Self.newestFirst(collected) }
-            phase = .reading(.init(trackCount: collected.count, messageCount: messages, pageCount: pages))
-
-            guard !page.isLast, let oldest = page.oldestMessageId, oldest != cursor else { break }
-            cursor = oldest
         }
 
         guard !Task.isCancelled else { return }
-        if !publishAsItGoes { tracks = Self.newestFirst(collected) }
+        tracks = Self.newestFirst(collected.values)
         library.refresh()
-        phase = .finished(.init(trackCount: collected.count, messageCount: messages, pageCount: pages))
+        if let failure {
+            phase = .failed(failure)
+        } else {
+            phase = .finished(.init(trackCount: collected.count, messageCount: messages,
+                                    pageCount: pages))
+        }
+    }
+
+    /// The first walk of an install gets the channel Doni was built around, because a library with
+    /// no channels and no songs is a screen that does nothing. Offered once: a list the user emptied
+    /// by hand is not a list to refill.
+    private func seedDefaultChannel(_ reader: TdChannelReader, library: Library) async {
+        guard library.channels.isEmpty,
+              !UserDefaults.standard.bool(forKey: Self.seededDefaultKey)
+        else { return }
+        UserDefaults.standard.set(true, forKey: Self.seededDefaultKey)
+        if let channel = try? await reader.channel(username: Self.defaultUsername) {
+            library.add(channel)
+        }
     }
 
     /// Newest first, the way a chat reads. TDLib's page order is its own business, so the list
     /// is ordered here rather than trusted.
-    private static func newestFirst(_ tracks: [TdTrack]) -> [TdTrack] {
+    private static func newestFirst(_ tracks: some Sequence<any Playable>) -> [any Playable] {
         tracks.sorted { $0.date != $1.date ? $0.date > $1.date : $0.messageId > $1.messageId }
     }
 

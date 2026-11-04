@@ -7,14 +7,15 @@ public struct StoreChannel: Equatable, Sendable, Identifiable {
     public var chatId: Int64
     public var username: String
     public var title: String
-    /// Whether Doni reads this channel — more than one can be added, one is the current one.
-    public var isSelected: Bool
+    /// Whether Doni reads this channel. The allow-list: any number of channels can be on it and the
+    /// walk reads all of them, so this is a per-channel yes rather than the one channel home shows.
+    public var isIndexed: Bool
 
-    public init(chatId: Int64, username: String, title: String, isSelected: Bool = false) {
+    public init(chatId: Int64, username: String, title: String, isIndexed: Bool = false) {
         self.chatId = chatId
         self.username = username
         self.title = title
-        self.isSelected = isSelected
+        self.isIndexed = isIndexed
     }
 }
 
@@ -115,7 +116,7 @@ public final class LibraryStore: @unchecked Sendable {
     }
 
     /// `1` is the first schema; a column added later bumps this and the row below it migrates.
-    private static let schemaVersion = 2
+    private static let schemaVersion = 3
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
@@ -156,9 +157,10 @@ public final class LibraryStore: @unchecked Sendable {
             chat_id INTEGER PRIMARY KEY,
             username TEXT NOT NULL,
             title TEXT NOT NULL,
-            is_selected INTEGER NOT NULL DEFAULT 0
+            is_indexed INTEGER NOT NULL DEFAULT 0
         )
         """)
+        renameSelectedColumn(handle)
         sqlRun(handle, """
         CREATE TABLE IF NOT EXISTS track (
             unique_id TEXT PRIMARY KEY,
@@ -212,19 +214,35 @@ public final class LibraryStore: @unchecked Sendable {
     /// the one it is missing. Asking rather than reading `user_version` is what keeps this safe on a
     /// brand new database, where the statement above has already made the column and a second one
     /// would be an error.
-    private static func addMissingColumn(_ handle: OpaquePointer?) {
-        guard let handle else { return }
-        var hasCoverPath = false
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(handle, "PRAGMA table_info(playlist)", -1, &statement, nil)
-                == SQLITE_OK, let statement else { return }
-        defer { sqlite3_finalize(statement) }
-        while sqlite3_step(statement) == SQLITE_ROW, let pointer = sqlite3_column_text(statement, 1) {
-            if String(cString: pointer) == "cover_path" { hasCoverPath = true }
-        }
-        if !hasCoverPath {
+    private static func addMissingColumn(_ handle: OpaquePointer) {
+        if !hasColumn(handle, table: "playlist", column: "cover_path") {
             sqlRun(handle, "ALTER TABLE playlist ADD COLUMN cover_path TEXT")
         }
+    }
+
+    /// Version 3 changed what a channel row means. `is_selected` could only ever be true for one row
+    /// — the one channel the walk was built around — and the allow-list wants a yes for every channel
+    /// it reads, so the column keeps its values and takes the new name: the channel an older build
+    /// had selected is the channel this build indexes.
+    private static func renameSelectedColumn(_ handle: OpaquePointer) {
+        guard !hasColumn(handle, table: "channel", column: "is_indexed"),
+              hasColumn(handle, table: "channel", column: "is_selected")
+        else { return }
+        sqlRun(handle, "ALTER TABLE channel RENAME COLUMN is_selected TO is_indexed")
+    }
+
+    /// The names a table really has, which is the one thing `CREATE TABLE IF NOT EXISTS` cannot
+    /// report about a table an older build already made.
+    private static func hasColumn(_ handle: OpaquePointer, table: String,
+                                  column: String) -> Bool {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, "PRAGMA table_info(\(table))", -1, &statement, nil)
+                == SQLITE_OK, let statement else { return false }
+        defer { sqlite3_finalize(statement) }
+        while sqlite3_step(statement) == SQLITE_ROW, let pointer = sqlite3_column_text(statement, 1) {
+            if String(cString: pointer) == column { return true }
+        }
+        return false
     }
 
     // MARK: Channels
@@ -232,7 +250,7 @@ public final class LibraryStore: @unchecked Sendable {
     public func channels() -> [StoreChannel] {
         lock.lock()
         defer { lock.unlock() }
-        let sql = "SELECT chat_id, username, title, is_selected FROM channel"
+        let sql = "SELECT chat_id, username, title, is_indexed FROM channel"
             + " ORDER BY title COLLATE NOCASE"
         guard let statement = prepare(sql) else { return [] }
         defer { sqlite3_finalize(statement) }
@@ -242,19 +260,20 @@ public final class LibraryStore: @unchecked Sendable {
                 chatId: sqlite3_column_int64(statement, 0),
                 username: Self.text(statement, 1),
                 title: Self.text(statement, 2),
-                isSelected: sqlite3_column_int(statement, 3) != 0
+                isIndexed: sqlite3_column_int(statement, 3) != 0
             ))
         }
         return rows
     }
 
-    /// Remembers a channel. Reading it is the app's business, not the row's.
+    /// Remembers a channel. Reading it is the app's business, not the row's, so an upsert leaves the
+    /// opt-in exactly as the allow-list put it.
     @discardableResult
     public func save(channel: StoreChannel) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard let statement = prepare("""
-            INSERT INTO channel (chat_id, username, title, is_selected) VALUES (?, ?, ?, ?)
+            INSERT INTO channel (chat_id, username, title, is_indexed) VALUES (?, ?, ?, ?)
             ON CONFLICT (chat_id) DO UPDATE
             SET username = excluded.username, title = excluded.title
             """) else { return false }
@@ -262,24 +281,21 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_bind_int64(statement, 1, channel.chatId)
         sqlite3_bind_text(statement, 2, channel.username, -1, Self.transient)
         sqlite3_bind_text(statement, 3, channel.title, -1, Self.transient)
-        sqlite3_bind_int(statement, 4, channel.isSelected ? 1 : 0)
+        sqlite3_bind_int(statement, 4, channel.isIndexed ? 1 : 0)
         return sqlite3_step(statement) == SQLITE_DONE
     }
 
-    /// The one channel the home list reads. Exactly one row can hold this.
-    public func setSelectedChannel(chatId: Int64) {
+    /// Opting a channel into the index, or back out of it. Every row answers for itself: switching
+    /// one on leaves the others on, which is the whole point of an allow-list.
+    public func setChannel(chatId: Int64, indexed: Bool) {
         lock.lock()
         defer { lock.unlock() }
-        sqlRun(handle, "UPDATE channel SET is_selected = 0")
-        guard let statement = prepare("UPDATE channel SET is_selected = 1 WHERE chat_id = ?")
+        guard let statement = prepare("UPDATE channel SET is_indexed = ? WHERE chat_id = ?")
         else { return }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_int64(statement, 1, chatId)
+        sqlite3_bind_int(statement, 1, indexed ? 1 : 0)
+        sqlite3_bind_int64(statement, 2, chatId)
         sqlite3_step(statement)
-    }
-
-    public func selectedChannel() -> StoreChannel? {
-        channels().first { $0.isSelected }
     }
 
     public func removeChannel(chatId: Int64) {

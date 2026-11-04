@@ -166,4 +166,48 @@ public struct TdChannelReader: Sendable {
         }
         return TdHistoryPage(messages: items, totalCount: answer["total_count"]?.int.map { Int($0) })
     }
+
+    /// What the newest page of a channel holds, which is the one honest answer available before a
+    /// walk: TDLib will not say how many songs a channel has ever posted, and a promise of
+    /// "12 000 bài" turned out wrong is worse than "38 bài trong 100 tin gần nhất".
+    public func probe(_ channel: TdChannel) async throws -> TdChannelProbe {
+        let page = try await page(chatId: channel.chatId)
+        return TdChannelProbe(channel: channel, trackCount: page.trackCount,
+                              messageCount: page.messages.count)
+    }
+
+    /// The channels this account is already in, newest activity first, so the ones worth indexing are
+    /// at the top of the list a picker shows. `getChats` (`td_api.tl:12507`) answers with whole
+    /// `chat` objects (`:4080`), and a channel is a supergroup that says it is one
+    /// (`chatTypeSupergroup`, `:3893`); the handle is not in that answer, so a channel picked from
+    /// here is indexed by its chat id, which is all `getChatHistory` needs.
+    public func channels(limit: Int = 50) async throws -> [TdChannel] {
+        let answer = try await flow.request(
+            "getChats",
+            [
+                "chat_list": .object(["@type": .string("chatListMain")]),
+                "limit": .int(Int64(limit))
+            ]
+        )
+        guard let items = answer["chats"]?.array else { return [] }
+        return items.compactMap { chat in
+            guard chat["type"]?["is_channel"]?.bool == true, let chatId = chat["id"]?.int
+            else { return nil }
+            return TdChannel(chatId: chatId, username: "", title: chat["title"]?.string ?? "")
+        }
+    }
+}
+
+/// The result of reading one page of a channel before committing to all of it.
+public struct TdChannelProbe: Equatable, Sendable {
+    public let channel: TdChannel
+    /// Audio posts among the newest `TdChannelReader.pageSize` messages.
+    public let trackCount: Int
+    public let messageCount: Int
+
+    public init(channel: TdChannel, trackCount: Int, messageCount: Int) {
+        self.channel = channel
+        self.trackCount = trackCount
+        self.messageCount = messageCount
+    }
 }

@@ -61,8 +61,8 @@ struct SettingsView: View {
                                 row("person.2", channel.title,
                                     subtitle: channel.username.isEmpty
                                         ? nil : "@\(channel.username)",
-                                    selected: channel.isSelected) {
-                                    library.select(channel: channel.chatId)
+                                    selected: channel.isIndexed) {
+                                    library.setIndexed(channel.chatId, on: !channel.isIndexed)
                                 }
                             }
                         }

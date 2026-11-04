@@ -52,13 +52,25 @@ final class Library: ObservableObject {
 
     // MARK: The walk
 
-    /// The channel being read. Remembered as selected, because for now the one channel walked is
-    /// the one home shows; the picker changes that, not this.
-    func remember(_ channel: TdChannel) {
+    /// A channel on the allow-list, remembered from the link or the chat list it was picked out of.
+    /// The chat id is already resolved by then — the screen that adds a channel has read a page of it
+    /// to say what is in there — so a walk needs no second lookup to start.
+    func add(_ channel: TdChannel) {
         store.save(channel: StoreChannel(chatId: channel.chatId, username: channel.username,
-                                         title: channel.title, isSelected: true))
-        store.setSelectedChannel(chatId: channel.chatId)
+                                         title: channel.title, isIndexed: true))
         refresh()
+    }
+
+    /// Opting a channel into the index, or back out of it. Out leaves its rows on the phone: a
+    /// channel switched off is a channel not being read, not a channel deleted.
+    func setIndexed(_ chatId: Int64, on: Bool) {
+        store.setChannel(chatId: chatId, indexed: on)
+        refresh()
+    }
+
+    /// The channels the walk reads.
+    var indexedChannels: [StoreChannel] {
+        channels.filter(\.isIndexed)
     }
 
     /// A page of the walk, written as it arrives. The walk can be stopped halfway, and what it has
@@ -176,11 +188,6 @@ final class Library: ObservableObject {
     }
 
     // MARK: The file
-
-    func select(channel chatId: Int64) {
-        store.setSelectedChannel(chatId: chatId)
-        refresh()
-    }
 
     func remove(channel chatId: Int64) {
         store.removeChannel(chatId: chatId)

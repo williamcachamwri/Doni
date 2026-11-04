@@ -11,6 +11,12 @@ private func makeStore() throws -> (LibraryStore, URL) {
     return (LibraryStore(path: directory.appendingPathComponent("library.db").path), directory)
 }
 
+/// Runs a statement against a hand-built database, for the tests that need the schema an older
+/// build made rather than the one this build asks for.
+private func sql(_ handle: OpaquePointer?, _ statement: String) {
+    sqlite3_exec(handle, statement, nil, nil, nil)
+}
+
 private func track(_ key: String, chatId: Int64 = -1001, date: Int64 = 1_730_000_000,
                    title: String = "Bài hát") -> StoreTrack {
     let number = Int64(key.unicodeScalars.first?.value ?? 0)
@@ -48,16 +54,50 @@ struct LibraryStoreTests {
         reopened.close()
     }
 
-    @Test("only one channel is the one home reads")
-    func selectionIsExclusive() throws {
+    @Test("every channel on the allow-list is indexed, not only the last one switched on")
+    func indexingIsPerChannel() throws {
         let (store, directory) = try makeStore()
         defer { store.close(); try? FileManager.default.removeItem(at: directory) }
         store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A"))
         store.save(channel: StoreChannel(chatId: -2, username: "b", title: "B"))
-        store.setSelectedChannel(chatId: -1)
-        #expect(store.selectedChannel()?.chatId == -1)
-        store.setSelectedChannel(chatId: -2)
-        #expect(store.channels().filter { $0.isSelected }.map { $0.chatId } == [-2])
+        store.setChannel(chatId: -1, indexed: true)
+        store.setChannel(chatId: -2, indexed: true)
+        #expect(store.channels().filter(\.isIndexed).map { $0.chatId } == [-1, -2])
+        store.setChannel(chatId: -1, indexed: false)
+        #expect(store.channels().filter(\.isIndexed).map { $0.chatId } == [-2])
+    }
+
+    @Test("a channel the walk re-reads stays on, or off, the way the list put it")
+    func upsertKeepsTheOptIn() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A", isIndexed: true))
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "Renamed"))
+        #expect(store.channels().first?.isIndexed == true)
+        #expect(store.channels().first?.title == "Renamed")
+    }
+
+    @Test("a database from the one-channel build keeps its selected channel indexed")
+    func selectedColumnMigratesToIndexed() throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("doni-store-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let path = directory.appendingPathComponent("library.db").path
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        // Schema 2, written by hand: a channel table whose single flag could only ever be true for
+        // one row. Opening it has to carry that row's value into the flag the allow-list reads.
+        var old: OpaquePointer?
+        #expect(sqlite3_open(path, &old) == SQLITE_OK)
+        sql(old, "CREATE TABLE channel (chat_id INTEGER PRIMARY KEY, username TEXT NOT NULL,"
+            + " title TEXT NOT NULL, is_selected INTEGER NOT NULL DEFAULT 0)")
+        sql(old, "INSERT INTO channel VALUES (-1002, 'vn', 'VN Music', 1)")
+        sqlite3_close(old)
+
+        let store = LibraryStore(path: path)
+        defer { store.close() }
+        #expect(store.channels() == [StoreChannel(chatId: -1002, username: "vn",
+                                                  title: "VN Music", isIndexed: true)])
     }
 
     @Test("saving a channel twice updates it instead of doubling it")

@@ -208,6 +208,38 @@ func wrongEncryptionKeyStopsTheLoop() async throws {
     }
 }
 
+@Test("the chat list hands the picker channels and nothing else")
+func channelsAnswersTheChannelPicker() async throws {
+    let (transport, flow) = makeFlow()
+    let responder = Task.detached {
+        var answered: Set<String> = []
+        while !Task.isCancelled {
+            for request in transport.decodedRequests {
+                guard request.type == "getChats", let extra = request["@extra"]?.string,
+                      !answered.contains(extra)
+                else { continue }
+                answered.insert(extra)
+                transport.queue("""
+                {"@type":"chats","@extra":"\(extra)","chats":[
+                  {"@type":"chat","id":-1001,"title":"Nhạc Remix",
+                   "type":{"@type":"chatTypeSupergroup","supergroup_id":1,"is_channel":true}},
+                  {"@type":"chat","id":7,"title":"Bạn",
+                   "type":{"@type":"chatTypePrivate","user_id":7}},
+                  {"@type":"chat","id":-1002,"title":"Nhóm bàn",
+                   "type":{"@type":"chatTypeSupergroup","supergroup_id":2,"is_channel":false}}
+                ]}
+                """)
+            }
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+    }
+    defer { responder.cancel() }
+
+    let list = try await TdChannelReader(flow: flow).channels(limit: 5)
+    // A group is not a music library, and a private chat is neither — only `is_channel` survives.
+    #expect(list == [TdChannel(chatId: -1001, username: "", title: "Nhạc Remix")])
+}
+
 private struct RefusingKeyProvider: TdDatabaseKeyProviding {
     struct Denied: Error {}
     func databaseEncryptionKey() throws -> String { throw Denied() }
