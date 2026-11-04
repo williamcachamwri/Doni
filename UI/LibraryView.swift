@@ -4,8 +4,9 @@ import TelegramDesignSystem
 import TdSession
 import UIKit
 
-/// The home tab, wearing MeloX's feed: a row of gradient tiles, then shelves of cards you flick
-/// sideways, then the whole library as the list it has always been.
+/// The home tab, in MeloX's shape: one screen split by a segmented picker
+/// (`HomeView.swift:18-33`, `:36-47`), "Dành cho bạn" over the tiles and the shelves, "Nhạc" over
+/// the chips, the hero card and the grid.
 ///
 /// The numbers are the reference's — 32 pt between sections, 8 above the first one and 28 below the
 /// last, 16 of gutter, a shelf's own 14 from its title to its cards, 154 pt cards for a song and 166
@@ -14,9 +15,8 @@ import UIKit
 /// Doni's: there is no recommender behind a Telegram channel, so the tiles are the six things this
 /// app can actually do and the shelves are the four groups its store already keeps.
 ///
-/// The list stays at the foot of the feed because it *is* the library — MeloX's home embeds
-/// `LibraryView` as one of its own sections (`HomeView.swift:79-80`), which is the same bargain:
-/// the feed on top, the songs under it.
+/// There is no full-library list at the foot of the feed any more. The songs it showed are the
+/// "Tất cả" chip's grid, which reaches them in the same order and lets you see the covers.
 struct LibraryView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -27,9 +27,8 @@ struct LibraryView: View {
     let onOpenTab: (DoniTab) -> Void
     let onOpenPlayer: () -> Void
 
-    @Environment(\.displayScale) private var displayScale
-
     @State private var showsAccountMenu = false
+    @State private var section: DoniHomeSection = .forYou
 
     private let palette = TelegramPalette.dark
 
@@ -37,33 +36,52 @@ struct LibraryView: View {
     /// payload; Doni's library is one channel's thousand songs, so a shelf cuts itself.
     private static let shelfLimit = 20
 
+    /// How many cards a chip's grid holds. The reference asks its category for fifty playlists
+    /// (`ExploreView.swift:170`), and fifty covers is what one screen of this can fetch at once.
+    private static let facetLimit = 50
+
     var body: some View {
-        feed
-            // The system's own bar: a large title and three glass circles, which is what MeloX
-            // asks for and what iOS 26 draws (`ContentView.swift:377-379`, `:429-460`).
-            .navigationTitle("Thư viện")
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button(action: shuffleAll) {
-                        Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
-                    }
-                    Button {
-                        indexer.run(session, library: library)
-                    } label: {
-                        Label("Đọc lại kênh", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
-                    }
-                    Button {
-                        showsAccountMenu = true
-                    } label: {
-                        Label("Kênh và tài khoản", systemImage: "ellipsis").labelStyle(.iconOnly)
-                    }
+        VStack(spacing: 0) {
+            // The split sits above the content in the reference's own bar: a segmented picker on a
+            // strip of the screen's background, sixteen in from the edge (`HomeView.swift:44-47`).
+            Picker("Phần", selection: $section) {
+                ForEach(DoniHomeSection.allCases) { entry in
+                    Text(entry.title).tag(entry)
                 }
             }
-            .background(palette.chatListBackground.ignoresSafeArea())
-            .task {
-                player.bind(session.covers())
-                indexer.run(session, library: library)
+            .pickerStyle(.segmented)
+            .padding(.horizontal, MusicExploreMetrics.gutter)
+            .padding(.vertical, 8)
+            .background(palette.chatListBackground)
+
+            sectionContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        // The system's own bar: a large title and three glass circles, which is what MeloX
+        // asks for and what iOS 26 draws (`ContentView.swift:377-379`, `:429-460`).
+        .navigationTitle("Trang chủ")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(action: shuffleAll) {
+                    Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
+                }
+                Button {
+                    indexer.run(session, library: library)
+                } label: {
+                    Label("Đọc lại kênh", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
+                }
+                Button {
+                    showsAccountMenu = true
+                } label: {
+                    Label("Kênh và tài khoản", systemImage: "ellipsis").labelStyle(.iconOnly)
+                }
             }
+        }
+        .background(palette.chatListBackground.ignoresSafeArea())
+        .task {
+            player.bind(session.covers())
+            indexer.run(session, library: library)
+        }
         .confirmationDialog(
             "Tài khoản",
             isPresented: $showsAccountMenu,
@@ -79,31 +97,50 @@ struct LibraryView: View {
         }
     }
 
+    // MARK: Sections
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch section {
+        case .forYou:
+            feed
+        case .music:
+            HomeBrowse(session: session, player: player, artwork: artwork, facets: facets) {
+                await indexer.reload(session, library: library)
+            }
+        }
+    }
+
     // MARK: Feed
 
     private var feed: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: MusicFeedMetrics.sectionSpacing) {
-                HomeQuickActions(subtitle: subtitle, perform: perform)
+                // A channel still being read has no tiles worth tapping, so the first screen is the
+                // walk's own progress rather than six actions over "0 bài".
+                if !visible.isEmpty {
+                    HomeQuickActions(subtitle: subtitle, perform: perform)
 
-                if !newest.isEmpty {
-                    songShelf("Mới nhất", newest)
-                }
-                if !kept.isEmpty {
-                    songShelf("Yêu thích", kept)
-                }
-                if !offline.isEmpty {
-                    songShelf("Trên máy", offline)
-                }
-                if !playlists.isEmpty {
-                    playlistShelf
+                    if !newest.isEmpty {
+                        songShelf("Mới nhất", newest)
+                    }
+                    if !kept.isEmpty {
+                        songShelf("Yêu thích", kept)
+                    }
+                    if !offline.isEmpty {
+                        songShelf("Trên máy", offline)
+                    }
+                    if !playlists.isEmpty {
+                        playlistShelf
+                    }
                 }
 
-                allSongs
+                footer(visible.isEmpty, failure: indexer.failureLine)
             }
             .padding(.top, MusicFeedMetrics.feedTop)
             .padding(.bottom, MusicFeedMetrics.feedBottom)
         }
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
         .refreshable { await indexer.reload(session, library: library) }
     }
 
@@ -147,37 +184,26 @@ struct LibraryView: View {
         }
     }
 
-    /// The library as it has always been shown: the whole channel's songs, newest first, in rows.
-    private var allSongs: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            Text("Tất cả bài hát")
-                .font(.title2.bold())
-                .padding(.horizontal, MusicFeedMetrics.gutter)
-                .padding(.bottom, MusicFeedMetrics.headerToShelf)
-
-            ForEach(visible, id: \.uniqueId) { track in
-                TrackRow(
-                    track: track,
-                    query: "",
-                    hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                    palette: palette,
-                    isCurrent: player.current?.uniqueId == track.uniqueId,
-                    isPlaying: player.current?.uniqueId == track.uniqueId && player.isPlaying,
-                    headline: track.headline,
-                    isFavorite: keptIds.contains(track.uniqueId),
-                    artwork: artwork
-                ) {
-                    play(visible, startingAt: track)
-                }
-                .trackActions(track, library: library)
-                .transition(.offset(y: 6).combined(with: .opacity))
-                .task(id: track.uniqueId) {
-                    await artwork.load(track: track, via: session.covers())
-                }
-            }
-            footer(visible.isEmpty, failure: indexer.failureLine)
+    /// The chips the "Nhạc" segment has: the groups this store keeps, then the performers that recur
+    /// in it. MeloX's chips are Netease's playlist categories (`ExploreView.swift:24-27`); what a
+    /// Telegram channel repeats is the nearest thing this app has to a category. Five performers is
+    /// where the row stops being browsable, and a song one artist sang once is not an artist chip.
+    private var facets: [HomeFacet] {
+        var list = [HomeFacet(title: "Tất cả", tracks: cut(visible))]
+        if !keptAll.isEmpty {
+            list.append(HomeFacet(title: "Yêu thích", tracks: cut(keptAll)))
         }
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
+        if !offlineAll.isEmpty {
+            list.append(HomeFacet(title: "Trên máy", tracks: cut(offlineAll)))
+        }
+        for artist in visible.searchArtists.prefix(5) where artist.tracks.count > 1 {
+            list.append(HomeFacet(title: artist.name, tracks: cut(artist.tracks)))
+        }
+        return list
+    }
+
+    private func cut(_ list: [any Playable]) -> [any Playable] {
+        Array(list.prefix(Self.facetLimit))
     }
 
     // MARK: Content
@@ -198,10 +224,6 @@ struct LibraryView: View {
 
     private var keptAll: [any Playable] {
         library.favorites.map { $0.track }
-    }
-
-    private var keptIds: Set<String> {
-        Set(keptAll.map(\.uniqueId))
     }
 
     private var offlineAll: [any Playable] {
@@ -279,10 +301,11 @@ struct LibraryView: View {
         player.play(track, in: list)
     }
 
-    // MARK: End of the list
+    // MARK: While the channel is being read
 
-    /// Telegram's list ends in blank white, so what the end of this list says is Doni's own —
-    /// but it says it in the list's own fonts and greys.
+    /// What the feed says when there is nothing shelved yet, or the read did not finish. It used to
+    /// hang under the full-library list; with the list gone it stands on its own, in the same fonts
+    /// and greys.
     @ViewBuilder
     private func footer(_ isEmpty: Bool, failure: String?) -> some View {
         if isEmpty {

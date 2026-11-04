@@ -111,6 +111,58 @@ public enum MusicFeedMetrics {
     public static let gridSpacing: CGFloat = 16
 }
 
+/// The Home tab's second segment, which is the reference's discover screen embedded under the
+/// picker rather than standing on its own (`ExploreView.swift`, `ExplorePlaylistComponents.swift`).
+public enum MusicExploreMetrics {
+    /// `LazyVStack(alignment: .leading, spacing: 26)` — chips to content (`ExploreView.swift:45`).
+    public static let sectionSpacing: CGFloat = 26
+    /// `.padding(.horizontal)` and `.padding(.bottom, 28)` on that stack (`:54-55`).
+    public static let gutter: CGFloat = 16
+    public static let bottom: CGFloat = 28
+    /// `LazyHStack(spacing: 8)` of `.borderedProminent` capsule chips, `.small`, the selected one in
+    /// the accent and the rest on `Color.secondary.opacity(0.14)`
+    /// (`ExplorePlaylistComponents.swift:10-19`).
+    public static let chipGap: CGFloat = 8
+    public static let chipIdleInk: Double = 0.14
+    /// The hero: artwork at `aspectRatio: 1.55` and `cornerRadius: 22` under a gradient that runs
+    /// clear to `black.opacity(0.78)`, its copy padded 20 with 6 pt between the lines
+    /// (`:44-81`, `ArtworkImage.swift` through `:45-49`).
+    public static let heroAspect: CGFloat = 1.55
+    public static let heroRadius: CGFloat = 22
+    public static let heroScrim: Double = 0.78
+    public static let heroPadding: CGFloat = 20
+    public static let heroTextGap: CGFloat = 6
+    public static let heroBadgeInk: Double = 0.78
+    public static let heroMetaInk: Double = 0.76
+    public static let heroMetaGap: CGFloat = 8
+    /// `GridItem(.adaptive(minimum: 148, maximum: 220), spacing: 16)` and the 22 pt between its rows
+    /// (`ExploreView.swift:21-23`, `:102`).
+    public static let columnMin: CGFloat = 148
+    public static let columnMax: CGFloat = 220
+    public static let columnSpacing: CGFloat = 16
+    public static let rowSpacing: CGFloat = 22
+    /// The heading over the grid: `.title2.bold()` and a `.caption` secondary count on the baseline,
+    /// 16 pt above the grid (`:90-100`).
+    public static let headingGap: CGFloat = 16
+    /// A grid card: artwork at `cornerRadius: 12`, 8 pt to two lines of words
+    /// (`ExplorePlaylistComponents.swift:103-125`).
+    public static let cardRadius: CGFloat = 12
+    public static let cardTextGap: CGFloat = 8
+    /// The play-count pill: `.caption2.weight(.semibold)` white on `black.opacity(0.48)` in a
+    /// capsule, 7 × 5 of padding, 8 pt from the artwork's corner (`:105-114`).
+    public static let pillHorizontal: CGFloat = 7
+    public static let pillVertical: CGFloat = 5
+    public static let pillInk: Double = 0.48
+    public static let pillMargin: CGFloat = 8
+    /// The column's own width is only known once the grid has laid out, so a card asks the cache at
+    /// 168 pt — the middle of the reference's `148…220` range minus what a 16 pt gutter and a second
+    /// column take off a 402 pt screen — and draws it into whatever width the column turned out to
+    /// be. 168 pt is 504 px, which is the 512 tier rather than the 768 one, and a grid of sixty of
+    /// them is the difference between a feed that fits in the cache and one that pushes its own rows
+    /// out of it.
+    public static let cardAsk: CGFloat = 168
+}
+
 /// The row of gradient tiles at the head of the feed. `HomeQuickActionsView.swift`,
 /// `HomeComponents.swift`.
 public enum MusicQuickActionMetrics {

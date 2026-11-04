@@ -19,7 +19,7 @@ struct RootView: View {
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
 
-    @State private var selection = DoniTab.library
+    @State private var selection = DoniTab.home
 
     /// The strip disappears while the panel is up, the way the reference suppresses its accessory
     /// (`ContentView.swift:40`, `:337`).
@@ -72,8 +72,8 @@ struct RootView: View {
 
     private var tabs: some View {
         TabView(selection: $selection) {
-            Tab(DoniTab.library.title, systemImage: DoniTab.library.symbol,
-                value: DoniTab.library) {
+            Tab(DoniTab.home.title, systemImage: DoniTab.home.symbol,
+                value: DoniTab.home) {
                 NavigationStack {
                     LibraryView(session: session, indexer: indexer, player: player,
                                 artwork: artwork, library: library,
@@ -118,7 +118,7 @@ struct RootView: View {
 /// (`NavigationPreferences.swift:22-60`). One outline glyph each: the glass selection is what says
 /// which tab is current, so a filled variant would only fight it.
 enum DoniTab: String, CaseIterable, Identifiable {
-    case library
+    case home
     case likes
     case playlists
     case settings
@@ -128,7 +128,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .library: return "Thư viện"
+        case .home: return "Trang chủ"
         case .likes: return "Yêu thích"
         case .playlists: return "Danh sách"
         case .settings: return "Cài đặt"
@@ -138,7 +138,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .library: return "music.note.list"
+        case .home: return "house"
         case .likes: return "heart"
         case .playlists: return "music.quarternote.3"
         case .settings: return "gearshape"
