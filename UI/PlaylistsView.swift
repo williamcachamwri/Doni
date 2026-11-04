@@ -3,13 +3,9 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The lists tab: playlists the user made.
-///
-/// Telegram has no counterpart — its music player only has saved music on the server
-/// (`TelegramCore/Sources/TelegramEngine/Peers/SavedMusic.swift`), not a list you name yourself —
-/// so the screen is Doni's own, and it spends what it has on chrome the reference *does* measure:
-/// the same 68 pt row, the same 60 pt circular icon column, the same 86 pt text inset, the same
-/// one-pixel rule inset to where the text begins.
+/// The playlists tab, after MeloX: a plain list of 54 pt covers at radius 7, the name over
+/// "n bài" in `caption` secondary, a swipe to delete and a "+" that opens a medium sheet
+/// (`LibraryPlaylistsView.swift:14-167`, `PlaylistCreationSheet.swift`).
 struct PlaylistsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
@@ -23,19 +19,44 @@ struct PlaylistsView: View {
     /// open whatever list the store last said exists.
     @State private var path: [Int64] = []
     @State private var naming: Naming?
-    @State private var name = ""
+    /// The cover each list wears, read once per row rather than on every redraw.
+    @State private var covers: [Int64: StoreTrack] = [:]
+    /// The reference does not throw a list away on a swipe: it asks, with the name in the message
+    /// (`LibraryPlaylistsView.swift:63-78`).
+    @State private var pendingDeletion: StoredPlaylist?
 
     private let palette = TelegramPalette.dark
 
     /// What the naming sheet is doing: a list being made, or an existing one being renamed.
-    private enum Naming: Equatable {
+    private enum Naming: Equatable, Identifiable {
         case create
         case rename(Int64, String)
+
+        var id: String {
+            switch self {
+            case .create: return "create"
+            case let .rename(id, _): return "rename-\(id)"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .create: return "Danh sách mới"
+            case .rename: return "Đổi tên danh sách"
+            }
+        }
 
         var verb: String {
             switch self {
             case .create: return "Tạo"
             case .rename: return "Lưu"
+            }
+        }
+
+        var initial: String {
+            switch self {
+            case .create: return ""
+            case let .rename(_, name): return name
             }
         }
     }
@@ -46,7 +67,6 @@ struct PlaylistsView: View {
                 rows
                 LargeTitleHeader(title: "Danh sách", actions: [
                     HeaderAction(symbol: "plus", label: "Danh sách mới") {
-                        name = ""
                         naming = .create
                     },
                 ])
@@ -58,146 +78,131 @@ struct PlaylistsView: View {
                                    artwork: artwork, library: library)
             }
         }
-        .alert(titleForAlert, isPresented: nameBeingEntered, presenting: naming) { kind in
-            TextField("Tên danh sách", text: $name)
-            Button(kind.verb) { commit(kind) }
+        .sheet(item: $naming) { kind in
+            PlaylistNameSheet(title: kind.title, verb: kind.verb, initial: kind.initial) { text in
+                commit(kind, text)
+            }
+        }
+        .confirmationDialog(
+            "Xoá danh sách này?",
+            isPresented: deletionPresented,
+            titleVisibility: .visible,
+            presenting: pendingDeletion
+        ) { list in
+            Button("Xoá \(list.name)", role: .destructive) {
+                library.deletePlaylist(id: list.id)
+            }
             Button("Huỷ", role: .cancel) {}
+        } message: { list in
+            Text("“\(list.name)” có \(list.trackCount) bài.")
         }
     }
 
-    private var titleForAlert: String {
-        naming == .create ? "Danh sách mới" : "Đổi tên danh sách"
+    private var deletionPresented: Binding<Bool> {
+        Binding(get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } })
     }
 
-    private var nameBeingEntered: Binding<Bool> {
-        Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
-    }
-
-    private func commit(_ kind: Naming) {
+    private func commit(_ kind: Naming, _ text: String) {
         switch kind {
         case .create:
-            _ = library.createPlaylist(named: name)
+            _ = library.createPlaylist(named: text)
         case let .rename(id, _):
-            library.renamePlaylist(id: id, name: name)
+            library.renamePlaylist(id: id, name: text)
         }
-        naming = nil
     }
 
     // MARK: List
 
     private var rows: some View {
-        let lists = library.playlists
-        return ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(lists) { list in
-                    Button {
-                        path.append(list.id)
-                    } label: {
-                        PlaylistRow(
-                            playlist: list,
-                            hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                            palette: palette
-                        )
+        List {
+            Section {
+                ForEach(library.playlists) { list in
+                    NavigationLink(value: list.id) {
+                        PlaylistRow(playlist: list, cover: covers[list.id], artwork: artwork)
+                            .task(id: list.id) {
+                                let cover = library.firstTrack(in: list.id)
+                                covers[list.id] = cover
+                                if let cover {
+                                    await artwork.load(track: cover, via: session.covers())
+                                }
+                            }
                     }
-                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            pendingDeletion = list
+                        } label: {
+                            Label("Xoá", systemImage: "trash")
+                        }
+                    }
                     .contextMenu {
                         Button {
-                            name = list.name
                             naming = .rename(list.id, list.name)
                         } label: {
                             Label("Đổi tên", systemImage: "pencil")
                         }
-                        Button(role: .destructive) {
-                            library.deletePlaylist(id: list.id)
-                        } label: {
-                            Label("Xoá danh sách", systemImage: "trash")
-                        }
                     }
-                }
-                if lists.isEmpty {
-                    Text("Chưa có danh sách nào. Nhấn + ở trên, hoặc nhấn giữ một bài trong Thư viện "
-                         + "rồi chọn Danh sách mới.")
-                        .font(TelegramLibraryTypography.preview)
-                        .foregroundStyle(palette.chatListMessageText)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                        .padding(.top, 72)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    // The count the bar no longer has room to carry.
-                    Text("\(lists.count.formatted()) danh sách")
-                        .font(TelegramLibraryTypography.preview)
-                        .foregroundStyle(palette.chatListMessageText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: lists.map(\.name))
+        .overlay {
+            if library.playlists.isEmpty {
+                ContentUnavailableView(
+                    "Chưa có danh sách nào",
+                    systemImage: "music.note.list",
+                    description: Text("Nhấn + ở trên, hoặc nhấn giữ một bài trong Thư viện rồi "
+                        + "chọn Danh sách mới.")
+                )
+                .allowsHitTesting(false)
+            }
+        }
     }
 }
 
-/// A playlist in the chat list's clothing, with the list's own artwork column empty of artwork:
-/// the gradient Telegram gives a photoless peer, and the note glyph it gives audio.
+/// A playlist row, the way the reference builds one: a 54 pt cover at radius 7, 12 pt to a name
+/// with the song count under it in `caption` at secondary (`LibraryPlaylistsView.swift:151-167`).
+///
+/// A Netease list carries its own artwork; Doni's carry the first song's, which is the only picture
+/// a list here has. A list still empty wears the coverless gradient with the list glyph in it, the
+/// way `TrackCover` dresses a song with no artwork.
 private struct PlaylistRow: View {
     let playlist: StoredPlaylist
-    let hairline: CGFloat
-    let palette: TelegramPalette
+    let cover: StoreTrack?
+    let artwork: CoverArtwork
 
     var body: some View {
-        HStack(alignment: .top, spacing: TelegramLibraryMetrics.artToText) {
-            ZStack {
-                TelegramTrackGradient.linear(playlist.id)
-                Image(systemName: "music.note.list")
-                    .font(.system(size: TelegramLibraryMetrics.artGlyph, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
+        HStack(spacing: MusicPlaylistMetrics.rowSpacing) {
+            if let cover {
+                TrackCover(track: cover, side: MusicPlaylistMetrics.rowArt,
+                           radius: MusicPlaylistMetrics.rowArtRadius, artwork: artwork)
+            } else {
+                ZStack {
+                    TelegramTrackGradient.linear(playlist.id)
+                    Image(systemName: "music.note.list")
+                        .font(MusicArtworkMetrics.placeholderGlyph)
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+                .frame(width: MusicPlaylistMetrics.rowArt, height: MusicPlaylistMetrics.rowArt)
+                .clipShape(RoundedRectangle(cornerRadius: MusicPlaylistMetrics.rowArtRadius,
+                                            style: .continuous))
             }
-            .frame(width: TelegramLibraryMetrics.artSide, height: TelegramLibraryMetrics.artSide)
-            .clipShape(Circle())
-            .padding(.top, TelegramLibraryMetrics.artTop)
 
-            VStack(alignment: .leading, spacing: TelegramLibraryMetrics.titleToPreview) {
+            VStack(alignment: .leading, spacing: MusicPlaylistMetrics.rowTextGap) {
                 Text(playlist.name)
-                    .font(TelegramLibraryTypography.title)
-                    .foregroundStyle(palette.chatListTitle)
                     .lineLimit(1)
-                    .truncationMode(.middle)
                 Text(playlist.trackCount == 0
                     ? "Chưa có bài nào"
                     : "\(playlist.trackCount.formatted()) bài")
-                    .font(TelegramLibraryTypography.preview)
-                    .foregroundStyle(palette.chatListMessageText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            .padding(.top, TelegramLibraryMetrics.titleTop)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // The slot every other row in the app has. A list has no duration to print there, so
-            // the chevron that says it opens takes the place the unread bubble would, at the same
-            // absolute y; the 18 pt gutter before it is the one the rows share.
-            Image(systemName: "chevron.right")
-                .font(.system(size: TelegramLibraryMetrics.stateGlyph, weight: .semibold))
-                .foregroundStyle(palette.navSeparator)
-                .padding(.leading, TelegramLibraryMetrics.minGapToTimestamp)
-                .padding(.top, TelegramLibraryMetrics.stateTop)
-                .frame(width: TelegramLibraryMetrics.stateSide + 4, alignment: .trailing)
         }
-        .padding(.leading, TelegramLibraryMetrics.leading)
-        .padding(.trailing, TelegramLibraryMetrics.trailing)
-        .frame(maxWidth: .infinity)
-        .frame(height: TelegramLibraryMetrics.rowHeight)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(palette.chatListSeparator)
-                .frame(height: hairline)
-                .padding(.leading, TelegramLibraryMetrics.leading
-                    + TelegramLibraryMetrics.artSide
-                    + TelegramLibraryMetrics.artToText)
-                .padding(.trailing, TelegramLibraryMetrics.trailing)
-        }
-        .contentShape(Rectangle())
+        .contentShape(.rect)
     }
 }
 

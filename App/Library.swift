@@ -120,6 +120,13 @@ final class Library: ObservableObject {
         verified(store.playlistTracks(playlistId: playlistId))
     }
 
+    /// The head of a list, which is the only artwork a list here has. Unverified on purpose: a
+    /// cover does not care whether the file is still on the device, and the caller draws this one
+    /// per row rather than once per screen.
+    func firstTrack(in playlistId: Int64) -> StoreTrack? {
+        store.playlistTracks(playlistId: playlistId).first
+    }
+
     /// Putting a song in a list writes the song too — `LibraryStore.add` upserts it first, because a
     /// playlist outlives the walk that found the song inside it.
     func add(_ track: any Playable, to playlistId: Int64) {
