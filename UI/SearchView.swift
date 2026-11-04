@@ -130,8 +130,7 @@ struct SearchView: View {
         List {
             ForEach(library.playlists.filter { matches($0.name) }, id: \.id) { list in
                 NavigationLink(value: list.id) {
-                    SearchMediaRow(title: list.name, subtitle: "\(list.trackCount) bài",
-                                   circular: false) {
+                    SearchMediaRow(title: list.name, subtitle: "\(list.trackCount) bài") {
                         PlaylistArt(listId: list.id, coverPath: list.coverPath,
                                     cover: library.firstTrack(in: list.id),
                                     side: MusicSearchMetrics.mediaArt,
@@ -149,18 +148,19 @@ struct SearchView: View {
         .listStyle(.plain)
     }
 
-    /// An artist has no picture of its own here, so it wears a song it is on, cut to a circle the way
-    /// MeloX cuts an artist (`SearchView.swift:180-191`, `:394`).
+    /// An artist has no picture of its own here, so it wears a song it is on. The reference cuts that
+    /// one to a circle (`SearchView.swift:180-191`, `:394`); this app squares it instead, because an
+    /// artist's tile here is a cover rather than an avatar and every cover in the app is a rounded
+    /// square.
     private var artistResults: some View {
         List {
             ForEach(artistMatches) { artist in
                 Button {
                     search(artist.name)
                 } label: {
-                    SearchMediaRow(title: artist.name, subtitle: "\(artist.tracks.count) bài",
-                                   circular: true) {
+                    SearchMediaRow(title: artist.name, subtitle: "\(artist.tracks.count) bài") {
                         TrackCover(track: artist.sample, side: MusicSearchMetrics.mediaArt,
-                                   radius: MusicSearchMetrics.mediaArt / 2, artwork: artwork)
+                                   radius: MusicSearchMetrics.mediaArtRadius, artwork: artwork)
                             .task(id: artist.sample.uniqueId) {
                                 await artwork.load(track: artist.sample, via: session.covers(),
                                                    side: MusicSearchMetrics.mediaArt)
@@ -283,20 +283,18 @@ private struct SearchTrackRow: View {
     }
 }
 
-/// MeloX's media row: 54 pt of artwork — a circle for an artist, r7 for anything else — then the
-/// name and one line of secondary text (`SearchView.swift:386-408`).
+/// MeloX's media row: 54 pt of artwork at r7, then the name and one line of secondary text
+/// (`SearchView.swift:386-408`).
 private struct SearchMediaRow<Artwork: View>: View {
     let title: String
     let subtitle: String?
-    let circular: Bool
     @ViewBuilder let artwork: () -> Artwork
 
     var body: some View {
         HStack(spacing: MusicSearchMetrics.mediaGap) {
             artwork()
                 .frame(width: MusicSearchMetrics.mediaArt, height: MusicSearchMetrics.mediaArt)
-                .clipShape(.rect(cornerRadius: circular ? MusicSearchMetrics.mediaArt / 2
-                                                        : MusicSearchMetrics.mediaArtRadius))
+                .clipShape(.rect(cornerRadius: MusicSearchMetrics.mediaArtRadius))
 
             VStack(alignment: .leading, spacing: MusicSearchMetrics.mediaTextGap) {
                 Text(title)

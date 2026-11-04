@@ -104,7 +104,11 @@ struct TrackRow: View {
 
 /// The icon column: the sharp cover when TDLib has fetched it, the minithumbnail the message
 /// carried until then, Telegram's avatar gradient when the post has no artwork at all — always
-/// clipped as a `.roundedRect` so the column reads as one shape.
+/// clipped as a rounded square.
+///
+/// The column used to be a circle, which is what a chat list puts its avatars in. A song's cover is
+/// not an avatar: the reference draws every piece of artwork in the app as the same rounded square,
+/// at `cornerRadius: 10` (`ArtworkImage.swift:7`), and so does every other surface here.
 struct ArtworkTile: View {
     let track: any Playable
     let artwork: CoverArtwork
@@ -137,11 +141,11 @@ struct ArtworkTile: View {
             width: TelegramLibraryMetrics.artSide,
             height: TelegramLibraryMetrics.artSide
         )
-        .clipShape(Circle())
+        .clipShape(.rect(cornerRadius: MusicArtworkMetrics.radius))
         .overlay {
             // A pale cover on a black list needs an edge; the list already draws its rules one
             // physical pixel wide.
-            Circle()
+            RoundedRectangle(cornerRadius: MusicArtworkMetrics.radius)
                 .strokeBorder(palette.chatListSeparator, lineWidth: hairline)
         }
     }
