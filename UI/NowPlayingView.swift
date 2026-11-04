@@ -4,10 +4,11 @@ import SwiftUI
 import TelegramDesignSystem
 import TdSession
 
-/// Which page the panel is on. MeloX has three (`NowPlayingMotionSpec.swift:3-7`); Doni has the two
-/// it can fill — the cover and the queue — because nothing in a Telegram channel carries lyrics.
+/// Which page the panel is on. MeloX has three (`NowPlayingMotionSpec.swift:3-7`) and so is Doni:
+/// the cover, the words and the queue — the words because lrclib has them whether Telegram does or
+/// not.
 enum NowPlayingPage: Equatable {
-    case artwork, queue
+    case artwork, lyrics, queue
 }
 
 /// The player's panel, page for page as MeloX builds it.
@@ -26,6 +27,11 @@ struct NowPlayingView: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
+    /// The words are a page of this panel, so this panel owns the clock that moves them: the player
+    /// already publishes a position four times a second, and a second timer would only disagree
+    /// with the first.
+    @ObservedObject private var lyrics = Lyrics.shared
+    @ObservedObject private var lyricPrefs = LyricsPreferences.shared
     /// The panel is presented by a zoom from the strip's cover, so the shell owns that transition
     /// source and this view only has to be the destination (`ContentView.swift:105-110`).
     let close: () -> Void
@@ -53,7 +59,11 @@ struct NowPlayingView: View {
             if let track = player.current {
                 await artwork.load(track: track, via: session.covers(),
                                    side: MusicArtworkMetrics.heroSide)
+                lyrics.load(track)
             }
+        }
+        .onChange(of: player.elapsed) { _, seconds in
+            lyrics.update(seconds: seconds)
         }
     }
 
@@ -100,10 +110,16 @@ struct NowPlayingView: View {
         VStack(spacing: 0) {
             handle
             ZStack(alignment: .top) {
-                if page == .artwork {
+                switch page {
+                case .artwork:
                     ArtworkPage(track: track, player: player, artwork: artwork, library: library)
                         .transition(pageTransition(for: .artwork))
-                } else {
+                case .lyrics:
+                    LyricsView(lyrics: lyrics, prefs: lyricPrefs,
+                               seek: { player.seek(to: $0) },
+                               close: { withAnimation(MusicMotion.pageSelection) { page = .artwork } })
+                        .transition(pageTransition(for: .lyrics))
+                case .queue:
                     NowPlayingQueuePage(track: track, session: session, player: player,
                                         artwork: artwork, library: library)
                         .transition(pageTransition(for: .queue))
@@ -154,7 +170,9 @@ struct NowPlayingView: View {
                     .combined(with: .opacity)
                     .animation(MusicMotion.pageOutgoing)
             )
-        case .queue:
+        case .queue, .lyrics:
+            // Neither of them travels: they are columns of text, and a page of words that slides
+            // in reads as a page of words being pushed around.
             return .opacity.animation(MusicMotion.pageSelection)
         }
     }
@@ -607,6 +625,14 @@ private struct SelectorRow: View {
 
     var body: some View {
         HStack {
+            // The bubble first, where the reference puts its lyrics control: it is the one page
+            // that is about the song rather than about the playing of it.
+            mode(system: "text.bubble", on: page == .lyrics, label: "Lời bài hát") {
+                withAnimation(reduceMotion ? nil : MusicMotion.pageSelection) {
+                    page = page == .lyrics ? .artwork : .lyrics
+                }
+            }
+            Spacer()
             mode(system: "shuffle", on: player.isShuffled,
                  label: player.isShuffled ? "Tắt phát ngẫu nhiên" : "Phát ngẫu nhiên") {
                 withAnimation(reduceMotion ? nil : MusicQueueMetrics.pillToggle) {
