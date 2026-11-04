@@ -595,6 +595,18 @@ public enum MusicNowPlayingMetrics {
     /// The star MeloX only shows outside the artwork page is the same disc on white 0.13 (`:46-58`).
     public static let starDiscFill: Double = 0.13
 
+    /// The lyrics page's own header — a 72 pt cover, 12 apart from two lines of text, the name
+    /// `.title3.semibold` over the artist `.title3` at 0.64 (`NowPlayingSongHeader.swift:43`,
+    /// `:66-89`, `:104`, `:118`). It is the artwork page's title row moved to the top and given a
+    /// thumbnail, because the words need the room the big cover would take.
+    public static let lyricsHeaderSide: CGFloat = 72
+    public static let lyricsHeaderRadius: CGFloat = 12
+    public static let lyricsHeaderGap: CGFloat = 12
+    /// 16 between that header and the column, 12 below the column (`NowPlayingLyricsPage.swift:145`,
+    /// `:132-137`).
+    public static let lyricsColumnGap: CGFloat = 16
+    public static let lyricsBottomInset: CGFloat = 12
+
     /// The progress block's two lines are 2 apart, and its times are white 0.5
     /// (`NowPlayingControls.swift:10`, `:49-50`).
     public static let progressLabelGap: CGFloat = 2

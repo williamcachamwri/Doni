@@ -111,7 +111,8 @@ struct NowPlayingView: View {
                     ArtworkPage(track: track, player: player, artwork: artwork, library: library)
                         .transition(pageTransition(for: .artwork))
                 case .lyrics:
-                    LyricsView(player: player, lyrics: lyrics)
+                    LyricsPage(track: track, session: session, player: player,
+                               artwork: artwork, library: library, lyrics: lyrics)
                         .transition(pageTransition(for: .lyrics))
                 case .queue:
                     NowPlayingQueuePage(track: track, session: session, player: player,
