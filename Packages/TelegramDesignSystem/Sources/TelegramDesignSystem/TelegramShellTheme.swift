@@ -15,46 +15,23 @@ extension EnvironmentValues {
 }
 
 /// The shell around the list: a tab bar, a strip of player above it, and the chips Doni uses to
-/// pick a channel. Everything the reference draws is quoted from it; the few numbers it does not
-/// have are marked Doni's own. `Docs/design-tokens.md`, "Tab bar and the mini player".
-///
-/// The motion is the one exception that is not Doni's: it is `ChatListBadgeNode.swift`'s own
-/// timing, the closest thing in the reference to a state bubble appearing and going away.
+/// pick a channel. The strip and the tab bar now wear the numbers of the Apple Music kit the user
+/// pointed at (`AMToolbarView.swift`, `AMTabBarController.swift`); the chips stay Telegram's.
 public enum TelegramShellMetrics {
-    /// Doni's own height: 46 pt of measured artwork with 9 pt of padding above and below.
-    /// Telegram's own music panel is 190 (`OverlayAudioPlayerControlsNode.swift:806`) because it
-    /// carries the scrubber and the button row as well.
-    public static let miniPlayerHeight: CGFloat = 64
-    /// `albumArtSize = CGSize(width: 46.0, height: 46.0)` (`:855`).
-    public static let miniPlayerArt: CGFloat = 46
-    /// `ImageCorners(radius: 10.0)` on that art (`:857`) — a tenth of the side, not the chat
-    /// list's quarter, because the tile is smaller.
-    public static let miniPlayerArtRadius: CGFloat = 10
-    /// `sideInset = 16.0` in the same layout (`:846`).
-    public static let miniPlayerSideInset: CGFloat = 16
-    /// Doni's own: the strip floats as a capsule in this build, so its content keeps 12 pt of glass
-    /// on each side rather than the full-bleed panel's 16.
-    public static let miniPlayerFloatInset: CGFloat = 12
-    /// Doni's own: the strip is a way back to the player rather than the player, so the progress
-    /// keeps the hairline weight the rest of the shell uses.
-    public static let progressBarHeight: CGFloat = 2
+    /// The toolbar is a 40 pt artwork inset 8 into its 56 pt bar (`AMToolbarView.swift:109-114`).
+    public static let miniPlayerHeight: CGFloat = 56
+    public static let miniPlayerArt: CGFloat = 40
+    /// `imageView.layer.cornerRadius = 6` (`AMToolbarView.swift:101`).
+    public static let miniPlayerArtRadius: CGFloat = 6
 
     /// `buttonSize = CGSize(width: 64.0, height: 64.0)` for the transport row (`:887`); the glyph
     /// inside it is a 76 pt asset box (`:899`), which an SF Symbol cannot be sized from, so the
     /// point sizes live with the screen that draws them.
     public static let transportButton: CGFloat = 64
 
-    /// `tabBarHeight = 49.0 + bottomInset` (`TabBarController.swift:206`), the band the list
-    /// scrolls under. Doni's bar floats instead — see `TelegramFloatingBarMetrics` — so this is the
-    /// height the *content* is inset by, not the height of anything drawn.
+    /// The standard tab bar's own band (`TabBarController.swift:206` measured it at 49 + inset;
+    /// the kit's is the same UITabBar). The kit's items are the system's: an icon over a label.
     public static let tabBarHeight: CGFloat = 49
-    /// The item block inside that band, icon over label (`TabBarNode.swift:45`).
-    public static let tabItemHeight: CGFloat = 45
-    /// `horizontalSpacing = 4.0` — the only gap in the item (`:35`).
-    public static let tabIconToLabel: CGFloat = 4
-    /// Doni's own: the reference tints bundled PNGs whose box never appears in source, and an SF
-    /// Symbol has to be given one. 24 keeps the glyph clear of the 45 pt block's label.
-    public static let tabGlyphSide: CGFloat = 24
 
     /// Doni's own — the channel strip above the search pill, wearing the search bar's own fill.
     public static let chipHeight: CGFloat = 30
@@ -123,52 +100,21 @@ public enum TelegramHeaderMetrics {
     public static var searchClearance: CGFloat { topClearance + actionGap + fieldHeight }
 }
 
-/// The tab bar the photo shows: nothing is full-bleed — the capsule and a separate search circle
-/// float 20 pt clear of the screen's edges and the list scrolls under them.
-/// `Docs/design-tokens.md`, "The floating tab bar, as photographed".
+/// The bottom chrome after the Apple Music kit: a full-width toolbar 6 pt above the standard tab
+/// bar, both sitting on one backdrop that runs from the toolbar's top to the screen's bottom — no
+/// capsule, no separate search circle. `AMTabBarController.swift`, `AMToolbarView.swift`.
 public enum TelegramFloatingBarMetrics {
-    /// The gap from the left edge, the right edge and the *physical* bottom of the screen
-    /// (`hedges 2380`: 60 px; `vedges 600`: the capsule ends at 2472 px = 824 pt of 844).
-    public static let margin: CGFloat = 20
-    /// Capsule top 2262 px, bottom 2472 px → 67.3 pt (`vedges 400`).
-    public static let height: CGFloat = 67.3
-    /// Three items in the photo's 278 pt capsule (`hedges 2380`: 60 → 894 px). Doni puts four in the
-    /// same width, which is its own decision rather than a measurement.
-    public static let itemPitch: CGFloat = 92.7
-    /// The capsule itself: 278 pt, which is what is left between the two margins once the search
-    /// circle and its gap have taken theirs (390 − 40 − 64 − 8).
-    public static let capsuleWidth: CGFloat = 278
-    /// Doni's own: four tabs in the photo's three-item capsule, so each item is a quarter of it.
-    public static let itemWidth: CGFloat = capsuleWidth / 4
-    /// Doni's own box for the glyph — the reference's tab icons are bundled PNGs — sized so the
-    /// ink lands on the measured 19.3 pt.
-    public static let iconBox: CGFloat = 24
-    /// The box's top, so the glyph's centre is the measured 25.1 pt below the band's.
-    public static let iconTop: CGFloat = iconCentre - iconBox / 2
-    /// One line of `medium(10)`, which is what the label is drawn with.
-    public static let labelBox: CGFloat = 12
-    public static let labelTop: CGFloat = labelCentre - labelBox / 2
-    /// Search is not a field in the bar: it is a 64 pt glass circle 8 pt after the capsule
-    /// (`hedges 2380`: 918 → 1110 px; `vedges 1014`: 2280 → 2472 px).
-    public static let searchCircle: CGFloat = 64
-    public static let searchCircleGap: CGFloat = 8
-    /// Doni's own: the point size that puts the loupe's ink on the 21.0 pt the circle measures
-    /// (`bands 918 1110 2280 2472`: 2344 → 2406 px, centred in the circle).
-    public static let searchGlyph: CGFloat = 24
-    /// The item's two rows, measured from the band's top: icon ink centre 25.1 pt
-    /// (`bands 300 480 2270 2472`: 2320 → 2371 px) and label ink centre 50.3 pt (2410 → 2435 px).
-    public static let iconCentre: CGFloat = 25.1
-    public static let labelCentre: CGFloat = 50.3
+    /// `toolbarView` insets 12 pt from each edge (`AMTabBarController.swift:48-49`).
+    public static let toolbarMargin: CGFloat = 12
+    /// `toolbarView.bottomAnchor.constraint(equalTo: tabBar.topAnchor, constant: -6)` (`:50`).
+    public static let toolbarToTabBar: CGFloat = 6
 
-    /// Doni's own: the gap between the strip and the bar, both of which float, so the two
-    /// capsules read as one stack rather than as two unrelated pills.
-    public static let stripGap: CGFloat = 8
-
-    /// How far a list has to run before its last row clears the floating chrome. The reference
-    /// scrolls its list *under* the bar (`ChatListUI` insets the collection, it does not shrink
-    /// it), so this is content margin rather than a layout row.
+    /// How far a list has to run before its last row clears the chrome. The kit scrolls its lists
+    /// *under* the toolbar and tab bar — the backdrop blurs them as they pass — so this is content
+    /// margin rather than a layout row.
     public static func clearance(stripVisible: Bool) -> CGFloat {
-        margin + height + (stripVisible ? TelegramShellMetrics.miniPlayerHeight + stripGap : 0)
+        TelegramShellMetrics.tabBarHeight
+            + (stripVisible ? TelegramShellMetrics.miniPlayerHeight + toolbarToTabBar : 0)
     }
 }
 
@@ -194,9 +140,6 @@ public enum TelegramShellTypography {
     /// Doni's own: the tab screens' large title, `bold(34)` after the Apple Music set the user
     /// pointed at.
     public static let largeTitle = Font.system(size: 34, weight: .bold)
-    /// Doni's own: the expanded player's words, after the same set — `bold(22)` over `regular(18)`.
-    public static let playingTitle = Font.system(size: 22, weight: .bold)
-    public static let playingArtist = Font.system(size: 18, weight: .regular)
 }
 
 /// Motion lifted from `ChatListBadgeNode.swift` — the bubble Telegram animates into the

@@ -2,19 +2,21 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The shell: four tabs, the strip of player above the band, one instance of each screen kept
-/// alive once visited.
+/// The shell: four tabs under the kit's toolbar-and-bar, one instance of each screen kept alive
+/// once visited.
 ///
 /// A tab is not a `TabView` page. The reference swaps instantly — `TabBarNode` reloads the list
-/// it points at and nothing fades — and a `TabView` cannot be made to draw this band, only to hide
-/// its own. So the four screens are stacked, the one that is selected is opaque and takes the
-/// touches, and the rest keep their scroll position, their queue and their artwork the way
+/// it points at and nothing fades — and a `TabView` cannot be made to draw this chrome, only to
+/// hide its own. So the four screens are stacked, the one that is selected is opaque and takes
+/// the touches, and the rest keep their scroll position, their queue and their artwork the way
 /// Telegram's own controllers do when you come back to a tab.
 ///
-/// The chrome floats: the bar and the strip are glass capsules 20 pt clear of the phone's edges and
-/// the lists run under them to the physical bottom of the screen, which is what the photo shows and
-/// what `Docs/design-tokens.md`, "The floating tab bar, as photographed" measures. Search is not a
-/// field in a list but the circle beside the bar, so it opens its own screen.
+/// The player is not a cover but a layer of the same hierarchy, because that is the only way to
+/// run the kit's transition: the shell drops to 0.85 behind the panel with a 30 pt corner
+/// (`AMNowPlayingAnimationController.swift:88-89`), the strip's artwork morphs into the cover,
+/// and a drag down slides the panel after the finger while the shell rises back
+/// (`:224-236`). The chrome sits on one backdrop that runs from the toolbar's top to the
+/// physical bottom, blurred and darkening downward (`AMTabBarBackdropView.swift`).
 struct RootView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -30,9 +32,50 @@ struct RootView: View {
 
     @State private var showsSearch = false
     @State private var showsPlayer = false
+    /// How far down the player is being dragged, 0…1 — read back from the panel so the shell can
+    /// rise while the finger pulls.
+    @State private var dragProgress: CGFloat = 0
+
+    @Namespace private var playerSpace
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            GeometryReader { edge in
+                shell(homeInset: edge.safeAreaInsets.bottom)
+            }
+            // The lists reach the physical bottom so their rows can pass under the chrome's blur;
+            // the reader reads the home indicator's own inset out of the expanded frame.
+            .ignoresSafeArea(edges: .bottom)
+
+            if showsPlayer {
+                NowPlayingView(player: player, artwork: artwork, library: library,
+                               namespace: playerSpace, dragProgress: $dragProgress,
+                               close: { showsPlayer = false })
+                    .zIndex(3)
+                    .transition(.opacity)
+            }
+
+            if showsSearch {
+                SearchView(session: session, indexer: indexer, player: player,
+                           artwork: artwork, library: library) {
+                    showsSearch = false
+                }
+                .zIndex(4)
+                .transition(.opacity)
+            }
+        }
+        // The kit runs its morph on `UIViewPropertyAnimator(duration: 0.5, dampingRatio: 1)`
+        // (`AMNowPlayingAnimationController.swift:75`) — a critical spring, no overshoot.
+        .animation(.spring(response: 0.5, dampingFraction: 1.0), value: showsPlayer)
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: showsSearch)
+        .preferredColorScheme(.dark)
+    }
+
+    private func shell(homeInset: CGFloat) -> some View {
+        let lift = min(max(dragProgress, 0), 1)
+        return ZStack(alignment: .bottom) {
             ForEach(DoniTab.allCases) { tab in
                 if visited.contains(tab) {
                     screen(tab)
@@ -42,50 +85,38 @@ struct RootView: View {
             }
 
             chrome
+                .padding(.bottom, homeInset)
+                .background { ChromeBackdrop() }
         }
-        // The lists reach the physical bottom so their rows can pass under the glass; the top safe
-        // area still belongs to the bar.
-        .ignoresSafeArea(edges: .bottom)
         .environment(\.telegramFloatingClearance,
-                     TelegramFloatingBarMetrics.clearance(stripVisible: player.current != nil))
-        .fullScreenCover(isPresented: $showsPlayer) {
-            NowPlayingView(player: player, artwork: artwork, library: library)
-        }
-        .overlay {
-            if showsSearch {
-                SearchView(session: session, indexer: indexer, player: player,
-                           artwork: artwork, library: library) {
-                    showsSearch = false
-                }
-                .transition(.opacity)
-            }
-        }
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: showsSearch)
-        .preferredColorScheme(.dark)
+                     homeInset + TelegramFloatingBarMetrics
+                         .clearance(stripVisible: player.current != nil))
+        .scaleEffect(0.85 + 0.15 * lift)
+        .clipShape(RoundedRectangle(cornerRadius: 30 + 14 * lift, style: .continuous))
     }
 
-    /// The strip over the bar, both floating, both 20 pt clear of the edges — the two capsules read
-    /// as one stack because they keep the same margin and one gap between them.
+    /// The toolbar over the bar, on the kit's own gap of 6 (`AMTabBarController.swift:50`), the
+    /// toolbar inset 12 from each edge (`:48-49`).
     @ViewBuilder
     private var chrome: some View {
-        VStack(spacing: TelegramFloatingBarMetrics.stripGap) {
+        VStack(spacing: TelegramFloatingBarMetrics.toolbarToTabBar) {
             if player.current != nil {
-                MiniPlayerBar(player: player, artwork: artwork) { showsPlayer = true }
-                    .transition(.offset(y: TelegramShellMetrics.miniPlayerHeight)
-                        .combined(with: .opacity))
-            }
-            TelegramTabBar(selection: binding) { $0.title }
-                symbol: { tab, isSelected in tab.symbol(selected: isSelected) }
-                badge: { tab in
-                    // The count the bar used to carry in its subtitle, in the slot the photo puts a
-                    // badge: only while the channel is actually being read.
-                    guard tab == .library, indexer.isReading else { return nil }
-                    return indexer.tracks.count.formatted()
+                MiniPlayerBar(player: player, artwork: artwork,
+                              namespace: playerSpace, isSource: !showsPlayer) {
+                    showsPlayer = true
                 }
-                onSearch: { showsSearch = true }
+                .padding(.horizontal, TelegramFloatingBarMetrics.toolbarMargin)
+                .opacity(showsPlayer ? 0 : 1)
+                .transition(.offset(y: TelegramShellMetrics.miniPlayerHeight)
+                    .combined(with: .opacity))
+            }
+            AMTabBar(selection: binding, badge: { tab in
+                // The count the bar used to carry in its subtitle, in the slot a system badge
+                // occupies: only while the channel is actually being read.
+                guard tab == .library, indexer.isReading else { return nil }
+                return indexer.tracks.count.formatted()
+            }, onSearch: { showsSearch = true })
         }
-        .padding(.horizontal, TelegramFloatingBarMetrics.margin)
-        .padding(.bottom, TelegramFloatingBarMetrics.margin)
         .animation(TelegramShellMotion.appear, value: player.current?.uniqueId)
     }
 
@@ -112,6 +143,29 @@ struct RootView: View {
                 selection = tab
             }
         )
+    }
+}
+
+/// The kit's backdrop: one blur under the whole chrome, darkening downward, its top edge fading
+/// in over a sliver so rows melt under it (`AMTabBarBackdropView.swift`: blur 30 behind a mask
+/// that is near-opaque, and a gradient overlay that runs black 0 → 0.8 by 40% down —
+/// `Tab-Bar-Backdrop-Overlay`, dark appearance).
+private struct ChromeBackdrop: View {
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .mask {
+                LinearGradient(stops: [
+                    .init(color: .black.opacity(0), location: 0),
+                    .init(color: .black, location: 0.05),
+                ], startPoint: .top, endPoint: .bottom)
+            }
+            .overlay {
+                LinearGradient(stops: [
+                    .init(color: .black.opacity(0), location: 0),
+                    .init(color: .black.opacity(0.8), location: 0.4),
+                ], startPoint: .top, endPoint: .bottom)
+            }
     }
 }
 

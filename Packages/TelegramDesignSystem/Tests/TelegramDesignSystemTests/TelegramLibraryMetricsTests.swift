@@ -68,42 +68,25 @@ struct TelegramBarMetricsTests {
         #expect(TelegramBarMetrics.topClearance == 72)
     }
 
-    @Test("the floating bar keeps its 20 pt of screen clear on three sides")
+    @Test("the bottom chrome is the kit's toolbar over its tab bar")
     func floating() {
-        #expect(TelegramFloatingBarMetrics.margin == 20)
-        // 2262 → 2472 px (`vedges 400`).
-        #expect(TelegramFloatingBarMetrics.height == 67.3)
-        // The search circle is its own glass item: 918 → 1110 px, 8 pt after the capsule.
-        #expect(TelegramFloatingBarMetrics.searchCircle == 64)
-        #expect(TelegramFloatingBarMetrics.searchCircleGap == 8)
-        // Icon ink centred 25.1 pt below the band's top, label ink 50.3.
-        #expect(TelegramFloatingBarMetrics.iconCentre < TelegramFloatingBarMetrics.labelCentre)
-        #expect(TelegramFloatingBarMetrics.labelCentre < TelegramFloatingBarMetrics.height)
-        // The capsule is 278 because the margins and the circle take the rest of the phone.
-        #expect(TelegramFloatingBarMetrics.capsuleWidth
-            + TelegramFloatingBarMetrics.searchCircleGap
-            + TelegramFloatingBarMetrics.searchCircle
-            + 2 * TelegramFloatingBarMetrics.margin == 390)
-        // Doni's four tabs share the photo's three-item capsule.
-        #expect(TelegramFloatingBarMetrics.itemWidth * 4
-            == TelegramFloatingBarMetrics.capsuleWidth)
-        // The two rows sit on their measured ink centres: the box is centred on each, so the
-        // distance from the band's top is the centre minus half the box.
-        #expect(abs(TelegramFloatingBarMetrics.iconTop
-            - (TelegramFloatingBarMetrics.iconCentre
-                - TelegramFloatingBarMetrics.iconBox / 2)) < 0.001)
-        #expect(abs(TelegramFloatingBarMetrics.labelTop
-            - (TelegramFloatingBarMetrics.labelCentre
-                - TelegramFloatingBarMetrics.labelBox / 2)) < 0.001)
-        #expect(TelegramFloatingBarMetrics.iconTop
-            < TelegramFloatingBarMetrics.labelTop)
+        // The toolbar insets 12 from each edge (`AMTabBarController.swift:48-49`) and hangs 6
+        // above the tab bar (`:50`).
+        #expect(TelegramFloatingBarMetrics.toolbarMargin == 12)
+        #expect(TelegramFloatingBarMetrics.toolbarToTabBar == 6)
+        // The toolbar is the 56 pt bar whose artwork arithmetic is tested above; the tab bar is
+        // the system's 49.
+        #expect(TelegramShellMetrics.miniPlayerHeight == 56)
+        #expect(TelegramShellMetrics.miniPlayerHeight
+            == TelegramShellMetrics.miniPlayerArt + 2 * 8)
+        #expect(TelegramShellMetrics.tabBarHeight == 49)
     }
 
     @Test("a list ends above the glass it scrolls under")
     func clearance() {
-        // 20 of margin plus 67.3 of band, and 64 + 8 more once the strip is up.
-        #expect(abs(TelegramFloatingBarMetrics.clearance(stripVisible: false) - 87.3) < 0.001)
-        #expect(abs(TelegramFloatingBarMetrics.clearance(stripVisible: true) - 159.3) < 0.001)
+        // The tab bar's 49 alone, plus toolbar and gap once the strip is up: 49 + 56 + 6.
+        #expect(TelegramFloatingBarMetrics.clearance(stripVisible: false) == 49)
+        #expect(TelegramFloatingBarMetrics.clearance(stripVisible: true) == 111)
     }
 }
 
