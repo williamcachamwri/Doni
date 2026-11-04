@@ -1,6 +1,7 @@
 import AVFoundation
 import MediaPlayer
 import SwiftUI
+import TelegramDesignSystem
 import TdSession
 
 /// The one thing that makes noise.
@@ -247,7 +248,7 @@ final class Player: ObservableObject {
             // The lock screen runs its own clock from this rate, so 0 is what holds it still.
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
         ]
-        if let artwork = CoverArtwork.shared.image(for: shown) {
+        if let artwork = CoverArtwork.shared.image(for: shown, side: MusicArtworkMetrics.heroSide) {
             // The lock screen asks for the artwork at whatever size it has; the bitmap we
             // already decoded for the row is the one it gets back.
             let size = artwork.size

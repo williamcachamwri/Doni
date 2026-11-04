@@ -74,6 +74,7 @@ final class TelegramSession: ObservableObject {
         client = nil
         flow = nil
         downloader = nil
+        CoverArtwork.shared.downloader = nil
         step = nil
         isWaiting = false
         start()
@@ -90,11 +91,16 @@ final class TelegramSession: ObservableObject {
 
     /// One downloader per client, because the waiters it holds are per-instance: a logout closes
     /// the client and every file that was in flight with it.
+    ///
+    /// The artwork cache keeps a reference for the surfaces that hold no session of their own —
+    /// the player's hero and the lock screen both want a cover too big for any row to have asked
+    /// for, and neither can reach this object.
     func covers() -> TdFileDownloader? {
         if let downloader { return downloader }
         guard let flow else { return nil }
         let downloader = TdFileDownloader(flow: flow)
         self.downloader = downloader
+        CoverArtwork.shared.downloader = downloader
         return downloader
     }
 

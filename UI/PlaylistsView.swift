@@ -124,7 +124,8 @@ struct PlaylistsView: View {
                                 let cover = library.firstTrack(in: list.id)
                                 covers[list.id] = cover
                                 if let cover {
-                                    await artwork.load(track: cover, via: session.covers())
+                                    await artwork.load(track: cover, via: session.covers(),
+                                                       side: MusicPlaylistMetrics.rowArt)
                                 }
                             }
                     }

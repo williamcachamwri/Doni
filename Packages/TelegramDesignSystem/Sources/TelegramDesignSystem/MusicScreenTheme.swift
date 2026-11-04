@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// The music app's own numbers, transcribed from MeloX — the reference the user pointed at on
-/// 2026-11-04. Every value cites the file and line that states it; where MeloX leans on an API
-/// iOS 17 does not have (`.tabViewBottomAccessory`, `matchedTransitionSource`,
-/// `GlassEffectContainer`, `MeshGradient`) the substitution is Doni's own and marked as such.
+/// 2026-11-04. Every value cites the file and line that states it. Doni's floor is iOS 26, so the
+/// APIs the reference leans on (`.tabViewBottomAccessory`, `matchedTransitionSource`,
+/// `GlassEffectContainer`, `MeshGradient`) are the ones Doni uses too; where a value is marked
+/// "Doni's own" it is a number the reference never states, not a workaround.
 ///
 /// The Telegram-derived chrome the earlier milestones measured (`TelegramBarMetrics`,
 /// `TelegramHeaderMetrics`, `TelegramLibraryMetrics`) keeps its own numbers; these govern the
@@ -30,6 +31,11 @@ public enum MusicArtworkMetrics {
     public static let placeholderGlyph = Font.title2
     /// `.easeOut(duration: 0.18)` on the transaction an image loads through (`:46`).
     public static let loadFade = Animation.easeOut(duration: 0.18)
+    /// The widest a cover is drawn anywhere in the app: MeloX's playlist hero is
+    /// `min(width × 0.68, 300)` (`PlaylistDetailContent.swift:191-193`) and the player's own cover
+    /// is about as wide as the screen, which on an iPhone is the same number. Surfaces that hold
+    /// only the artwork object — the player, the lock screen — ask for a cover at this width.
+    public static let heroSide: CGFloat = 300
 }
 
 /// The home feed's vertical rhythm and the cards that fill it. `HomeRecommendedView.swift`,

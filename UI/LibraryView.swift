@@ -115,7 +115,8 @@ struct LibraryView: View {
                              subtitle: track.displayPerformer,
                              side: MusicFeedMetrics.songCard, artwork: artwork)
                         .task(id: track.uniqueId) {
-                            await artwork.load(track: track, via: session.covers())
+                            await artwork.load(track: track, via: session.covers(),
+                                               side: MusicFeedMetrics.songCard)
                         }
                 }
                 .buttonStyle(.plain)
@@ -133,7 +134,8 @@ struct LibraryView: View {
                              subtitle: "\(shelf.count) bài",
                              side: MusicFeedMetrics.playlistCard, artwork: artwork)
                         .task(id: shelf.cover.uniqueId) {
-                            await artwork.load(track: shelf.cover, via: session.covers())
+                            await artwork.load(track: shelf.cover, via: session.covers(),
+                                               side: MusicFeedMetrics.playlistCard)
                         }
                 }
                 .buttonStyle(.plain)

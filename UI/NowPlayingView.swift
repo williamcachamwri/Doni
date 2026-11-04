@@ -64,7 +64,14 @@ struct NowPlayingView: View {
             .gesture(pan(height: edge.size.height))
         }
         .preferredColorScheme(.dark)
-        .task(id: player.current?.uniqueId) { refreshBackdrop() }
+        .task(id: player.current?.uniqueId) {
+            // The panel wants a cover the size of the screen, which is a tier no row ever asked
+            // for; without this order the hero is drawn from the 192 px a row fetched.
+            if let track = player.current {
+                await artwork.load(track: track, side: MusicArtworkMetrics.heroSide)
+            }
+            refreshBackdrop()
+        }
         .onReceive(artwork.objectWillChange) { _ in
             Task { @MainActor in refreshBackdrop() }
         }
@@ -137,7 +144,7 @@ struct NowPlayingView: View {
         if let track = player.current {
             ZStack {
                 TelegramTrackGradient.linear(track.messageId)
-                if let image = artwork.image(for: track) {
+                if let image = artwork.image(for: track, side: MusicArtworkMetrics.heroSide) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
