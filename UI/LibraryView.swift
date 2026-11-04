@@ -94,7 +94,7 @@ struct LibraryView: View {
                 Button {
                     showsSettings = true
                 } label: {
-                    AccountAvatar(account: session.account)
+                    AccountAvatar(account: session.account, photo: session.accountPhoto)
                 }
                 .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" }
                     ?? "Cài đặt")
@@ -414,26 +414,34 @@ struct LibraryView: View {
 /// `.quaternary` disc, clipped to a circle, and the person glyph for the accounts that never chose
 /// a picture.
 ///
-/// The picture is the ~100 px JPEG TDLib sends inside `getMe`, so this button asks the network for
-/// nothing; an account whose photo has not come back yet is drawn with the outline glyph, which is
-/// the same thing the reference does while it is still loading.
+/// The picture is the file behind it rather than the thumbnail `getMe` sends inside the user object:
+/// the inline JPEG is around a hundred pixels wide and 28 pt on a 3× screen asks for 84 of them,
+/// which is the blur the account's own Telegram does not have. The inline one is what shows first —
+/// it arrives with the session and needs no download — and the file replaces it when it lands.
 private struct AccountAvatar: View {
     let account: TdAccount?
+    let photo: UIImage?
 
     var body: some View {
-        if let data = account?.avatarData, let image = UIImage(data: data) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(width: Self.side, height: Self.side)
-                .background(.quaternary, in: .circle)
-                .clipShape(.circle)
+        if let photo {
+            disc(photo)
+        } else if let data = account?.avatarData, let inline = UIImage(data: data) {
+            disc(inline)
         } else {
             Image(systemName: account == nil
                 ? "person.crop.circle"
                 : "person.crop.circle.fill")
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func disc(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: Self.side, height: Self.side)
+            .background(.quaternary, in: .circle)
+            .clipShape(.circle)
     }
 
     /// `ContentView.swift:487-488` — 28 pt, on both edges.

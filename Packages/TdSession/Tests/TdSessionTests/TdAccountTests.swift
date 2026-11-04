@@ -11,8 +11,8 @@ private func user(_ fields: [String: TdJSON]) -> TdJSON {
 }
 
 /// `profilePhoto` (`:776`) carries a `minithumbnail` (`:361`) whose `bytes` field TDLib serialises
-/// as base64, which is what lets the header's avatar draw the account's picture without ordering a
-/// file download — the same encoding `TdTrack` reads an album cover out of.
+/// as base64 — the same encoding `TdTrack` reads an album cover out of — so the header has a picture
+/// to draw the instant `getMe` lands, before any file has been asked for.
 @Test func accountReadsItsProfilePhotoOutOfGetMe() throws {
     let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0, 0xFF, 0xD9])
     let account = try #require(TdAccount(user: user([
@@ -33,6 +33,7 @@ private func user(_ fields: [String: TdJSON]) -> TdJSON {
 @Test func accountWithoutAPhotoCarriesNoAvatar() throws {
     let photoless = try #require(TdAccount(user: user([:])))
     #expect(photoless.avatarData == nil)
+    #expect(photoless.avatarFileId == nil)
 
     let unread = try #require(TdAccount(user: user([
         "profile_photo": .object([
@@ -41,4 +42,28 @@ private func user(_ fields: [String: TdJSON]) -> TdJSON {
         ]),
     ])))
     #expect(unread.avatarData == nil)
+    #expect(unread.avatarFileId == nil)
+}
+
+/// The sharp version of the same picture is a file, not the bytes inside `getMe`:
+/// `profile_photo.small` is the 160 px one (`td_api.tl:776`), and a photo TDLib holds only in the
+/// large size is still a photo.
+@Test func accountNamesTheFileBehindItsProfilePhoto() throws {
+    let both = try #require(TdAccount(user: user([
+        "profile_photo": .object([
+            "@type": .string("profilePhoto"), "id": .int(9),
+            "small": .object(["@type": .string("file"), "id": .int(42)]),
+            "big": .object(["@type": .string("file"), "id": .int(43)]),
+        ]),
+    ])))
+    #expect(both.avatarFileId == 42)
+
+    let bigOnly = try #require(TdAccount(user: user([
+        "profile_photo": .object([
+            "@type": .string("profilePhoto"), "id": .int(9),
+            "small": .object(["@type": .string("file"), "id": .int(0)]),
+            "big": .object(["@type": .string("file"), "id": .int(43)]),
+        ]),
+    ])))
+    #expect(bigOnly.avatarFileId == 43)
 }

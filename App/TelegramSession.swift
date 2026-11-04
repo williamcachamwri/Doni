@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import TdBridge
 import TdSession
+import UIKit
 
 /// The four C functions behind the seam `TdSession` is tested against. The
 /// conformance lives here rather than in TdBridge so that package keeps no
@@ -27,9 +28,13 @@ final class TelegramSession: ObservableObject {
     @Published private(set) var step: TdAuthorizationStep?
     @Published private(set) var isWaiting = false
     @Published private(set) var lastError: String?
-    /// Whose Telegram this is, once TDLib has said. The settings screen's account card is the only
-    /// place it is shown, so it stays nil until the session is ready.
+    /// Whose Telegram this is, once TDLib has said — the header's avatar and the account card are
+    /// the two places that say it out loud, so both stay empty until the session is ready.
     @Published private(set) var account: TdAccount?
+    /// The account's picture at 160 px instead of the ~100 px one `getMe` sends inline, which is
+    /// what the header's 28 pt circle needs to stop being blurry. Nil until the file is on the
+    /// device; the inline thumbnail is drawn under it until then.
+    @Published private(set) var accountPhoto: UIImage?
 
     var isAuthorized: Bool { step == .ready }
 
@@ -83,6 +88,7 @@ final class TelegramSession: ObservableObject {
         CoverArtwork.shared.downloader = nil
         step = nil
         account = nil
+        accountPhoto = nil
         isWaiting = false
         start()
     }
@@ -116,9 +122,20 @@ final class TelegramSession: ObservableObject {
     /// the user cannot act on.
     private func readAccount(_ flow: TdLoginFlow) async {
         guard account == nil else { return }
-        if let me = try? await flow.request("getMe") {
-            account = TdAccount(user: me)
-        }
+        guard let me = try? await flow.request("getMe") else { return }
+        let account = TdAccount(user: me)
+        self.account = account
+        await loadPhoto(account)
+    }
+
+    /// The photo asked for once, here, rather than by each surface that draws it: the header and the
+    /// account card want the same file, and TDLib answers a file it already has on the device
+    /// without a round trip, so a relaunch costs nothing.
+    private func loadPhoto(_ account: TdAccount?) async {
+        guard let fileId = account?.avatarFileId, let files = covers() else { return }
+        guard let path = await files.path(fileId: fileId,
+                                         priority: TdFileDownloader.coverPriority) else { return }
+        accountPhoto = UIImage(contentsOfFile: path)
     }
 
     func submitPhoneNumber(_ number: String, then: (() -> Void)? = nil) {
