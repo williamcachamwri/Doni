@@ -28,7 +28,6 @@ struct LibraryView: View {
     let onOpenPlayer: () -> Void
 
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.telegramFloatingClearance) private var floatingClearance
 
     @State private var showsAccountMenu = false
 
@@ -39,25 +38,32 @@ struct LibraryView: View {
     private static let shelfLimit = 20
 
     var body: some View {
-        ZStack(alignment: .top) {
-            feed
-            LargeTitleHeader(title: "Thư viện", actions: [
-                HeaderAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
-                    shuffleAll()
-                },
-                HeaderAction(symbol: "arrow.clockwise", label: "Đọc lại kênh") {
-                    indexer.run(session, library: library)
-                },
-                HeaderAction(symbol: "ellipsis", label: "Kênh và tài khoản") {
-                    showsAccountMenu = true
-                },
-            ])
-        }
-        .background(palette.chatListBackground.ignoresSafeArea())
-        .task {
-            player.bind(session.covers())
-            indexer.run(session, library: library)
-        }
+        feed
+            // The system's own bar: a large title and three glass circles, which is what MeloX
+            // asks for and what iOS 26 draws (`ContentView.swift:377-379`, `:429-460`).
+            .navigationTitle("Thư viện")
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: shuffleAll) {
+                        Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
+                    }
+                    Button {
+                        indexer.run(session, library: library)
+                    } label: {
+                        Label("Đọc lại kênh", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
+                    }
+                    Button {
+                        showsAccountMenu = true
+                    } label: {
+                        Label("Kênh và tài khoản", systemImage: "ellipsis").labelStyle(.iconOnly)
+                    }
+                }
+            }
+            .background(palette.chatListBackground.ignoresSafeArea())
+            .task {
+                player.bind(session.covers())
+                indexer.run(session, library: library)
+            }
         .confirmationDialog(
             "Tài khoản",
             isPresented: $showsAccountMenu,
@@ -98,8 +104,6 @@ struct LibraryView: View {
             .padding(.top, MusicFeedMetrics.feedTop)
             .padding(.bottom, MusicFeedMetrics.feedBottom)
         }
-        .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
-        .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .refreshable { await indexer.reload(session, library: library) }
     }
 

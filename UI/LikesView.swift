@@ -3,7 +3,9 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The hearts: what the user kept, in the row the library wears.
+/// The hearts, in the shape MeloX gives its favourite songs: a plain `List`, a "play everything"
+/// row at its head, one row per kept song, a swipe that puts the heart back
+/// (`LibrarySongsView.swift:22-108`).
 ///
 /// A favourite is keyed by MTProto's `unique_id` rather than by the post it came from, so a song
 /// stays here after the channel is re-read or the message is deleted, and the one thing the store
@@ -17,71 +19,124 @@ struct LikesView: View {
     @ObservedObject var library: Library
 
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.telegramFloatingClearance) private var floatingClearance
+
+    @State private var query = ""
 
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        ZStack(alignment: .top) {
-            rows
-            LargeTitleHeader(title: "Yêu thích", actions: [
-                HeaderAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
-                    shuffleAll()
-                },
-            ])
+        List {
+            if !visible.isEmpty {
+                Button(action: playAll) {
+                    HStack {
+                        Label("Phát tất cả", systemImage: "play.fill")
+                        Spacer()
+                    }
+                }
+            }
+            ForEach(visible) { favorite in
+                TrackRow(
+                    track: favorite.track,
+                    query: query,
+                    hairline: TelegramGeometry.hairline(displayScale: displayScale),
+                    palette: palette,
+                    isCurrent: player.current?.uniqueId == favorite.track.uniqueId,
+                    isPlaying: player.current?.uniqueId == favorite.track.uniqueId
+                        && player.isPlaying,
+                    headline: headline(of: favorite),
+                    isFavorite: true,
+                    artwork: artwork
+                ) {
+                    player.play(favorite.track, in: visible.map { $0.track as any Playable })
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        library.toggleFavorite(favorite.track)
+                    } label: {
+                        Label("Bỏ yêu thích", systemImage: "heart.slash")
+                    }
+                }
+                .trackActions(favorite.track, library: library) {
+                    if let segment = favorite.segment {
+                        Button("Chỉ phát đoạn đã lưu") {
+                            player.play(
+                                segment: Double(segment.lowerBound)...Double(segment.upperBound),
+                                of: favorite.track
+                            )
+                        }
+                    }
+                }
+                .task(id: favorite.track.uniqueId) {
+                    await artwork.load(track: favorite.track, via: session.covers())
+                }
+            }
+            if !visible.isEmpty {
+                countLine
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+            }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(palette.chatListBackground.ignoresSafeArea())
+        .navigationTitle("Yêu thích")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "Tìm trong Yêu thích")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(action: shuffleAll) {
+                    Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
+                }
+                .disabled(visible.isEmpty)
+            }
+        }
+        .refreshable { library.refresh() }
+        .overlay {
+            if visible.isEmpty {
+                if query.isEmpty {
+                    ContentUnavailableView(
+                        "Chưa giữ bài nào",
+                        systemImage: "heart",
+                        description: Text("Nhấn giữ một bài trong Thư viện rồi chọn Yêu thích. "
+                            + "Giữ cả bài, hoặc giữ lại đoạn bạn muốn nghe — đoạn đã giữ sẽ lặp lại "
+                            + "khi phát.")
+                    )
+                } else {
+                    ContentUnavailableView.search(text: query)
+                }
+            }
+        }
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.id))
     }
 
-    /// The shuffle the bar's trailing group runs, over the whole kept list.
+    /// The store's hearts, with the same toneless fold the library's search uses: "tinh yeu" finds
+    /// "Tình yêu". Both sides are normalised, which is what `LibraryIndexer.matches(of:)` does for
+    /// the whole library; here the haystack is one row's three name fields.
+    private var visible: [StoredFavorite] {
+        let key = SearchTextFold.normalized(query)
+        guard !key.isEmpty else { return library.favorites }
+        return library.favorites.filter {
+            SearchTextFold.normalized(
+                "\($0.track.displayTitle) \($0.track.displayPerformer) \($0.track.fileName)"
+            ).contains(key)
+        }
+    }
+
+    private func playAll() {
+        guard let first = visible.first else { return }
+        player.play(first.track, in: visible.map { $0.track as any Playable })
+    }
+
+    /// The shuffle the bar's trailing group runs, over the list currently on screen.
     private func shuffleAll() {
-        var list = library.favorites.map { $0.track as any Playable }
+        var list = visible.map { $0.track as any Playable }
         guard !list.isEmpty else { return }
         list.shuffle()
         player.play(list[0], in: list)
-    }
-
-    // MARK: List
-
-    private var rows: some View {
-        let kept = library.favorites
-        return ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(kept) { favorite in
-                    TrackRow(
-                        track: favorite.track,
-                        query: "",
-                        hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                        palette: palette,
-                        isCurrent: player.current?.uniqueId == favorite.track.uniqueId,
-                        isPlaying: player.current?.uniqueId == favorite.track.uniqueId
-                            && player.isPlaying,
-                        headline: headline(of: favorite),
-                        isFavorite: true,
-                        artwork: artwork
-                    ) {
-                        player.play(favorite.track, in: kept.map { $0.track as any Playable })
-                    }
-                    .trackActions(favorite.track, library: library) {
-                        if let segment = favorite.segment {
-                            Button("Chỉ phát đoạn đã lưu") {
-                                player.play(
-                                    segment: Double(segment.lowerBound)...Double(segment.upperBound),
-                                    of: favorite.track
-                                )
-                            }
-                        }
-                    }
-                    .task(id: favorite.track.uniqueId) {
-                        await artwork.load(track: favorite.track, via: session.covers())
-                    }
-                }
-                footer(kept)
-            }
-        }
-        .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
-        .contentMargins(.bottom, floatingClearance, for: .scrollContent)
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: kept.map(\.id))
     }
 
     /// A marked slice is the more useful number on this screen: the whole song's length is already
@@ -95,45 +150,23 @@ struct LikesView: View {
         return "\(from)–\(to)"
     }
 
-    @ViewBuilder
-    private func footer(_ kept: [StoredFavorite]) -> some View {
-        if library.favorites.isEmpty {
-            VStack(spacing: 12) {
-                Text("Chưa giữ bài nào")
-                    .font(TelegramLibraryTypography.barTitle)
-                    .foregroundStyle(palette.chatListTitle)
-                Text("Nhấn giữ một bài trong Thư viện rồi chọn Yêu thích. Giữ cả bài, hoặc giữ lại đoạn bạn muốn nghe — đoạn đã giữ sẽ lặp lại khi phát.")
-                    .font(TelegramLibraryTypography.preview)
-                    .foregroundStyle(palette.chatListMessageText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 32)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 72)
-        } else {
-            // The count the bar no longer has room to carry: what is kept, and how much of it is
-            // a slice rather than a whole song.
-            Text(countLine(kept))
-                .font(TelegramLibraryTypography.preview)
-                .foregroundStyle(palette.chatListMessageText)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-        }
-    }
-
-    private func countLine(_ kept: [StoredFavorite]) -> String {
+    /// The count the bar no longer has room to carry: what is kept, and how much of it is a slice
+    /// rather than a whole song.
+    private var countLine: Text {
+        let kept = visible
         let slices = kept.filter { $0.segment != nil }.count
-        guard slices > 0 else { return "\(kept.count.formatted()) bài" }
-        return "\(kept.count.formatted()) bài · \(slices.formatted()) đoạn"
+        guard slices > 0 else { return Text("\(kept.count.formatted()) bài") }
+        return Text("\(kept.count.formatted()) bài · \(slices.formatted()) đoạn")
     }
 }
 
 #Preview {
-    LikesView(
-        session: TelegramSession(),
-        player: Player(),
-        artwork: CoverArtwork.shared,
-        library: Library.shared
-    )
+    NavigationStack {
+        LikesView(
+            session: TelegramSession(),
+            player: Player(),
+            artwork: CoverArtwork.shared,
+            library: Library.shared
+        )
+    }
 }

@@ -22,11 +22,8 @@ struct NowPlayingView: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    /// The artwork morphs out of the strip's 40 pt corner, so this panel owns the geometry
-    /// source while it is up.
-    let namespace: Namespace.ID
-    /// How far down the panel is being dragged, 0…1, read by the shell to rise underneath.
-    @Binding var dragProgress: CGFloat
+    /// The panel is presented by a zoom from the strip's cover, so the shell owns the transition
+    /// source and this view only has to be the destination (`ContentView.swift:105-110`).
     let close: () -> Void
 
     /// Where the finger is holding the scrubber, which is not where the song is.
@@ -45,24 +42,22 @@ struct NowPlayingView: View {
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        GeometryReader { edge in
-            ZStack {
-                backdrop
-                VStack(spacing: 0) {
-                    grip
-                        .padding(.top, 6)
-                    art
-                        .padding(.top, 30)
-                        .padding(.horizontal, 24)
-                    controls
-                        .padding(.top, 52.66)
-                        .padding(.horizontal, 32)
-                        .padding(.bottom, 18)
-                }
+        ZStack {
+            backdrop
+            VStack(spacing: 0) {
+                grip
+                    .padding(.top, 6)
+                art
+                    .padding(.top, 30)
+                    .padding(.horizontal, 24)
+                controls
+                    .padding(.top, 52.66)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 18)
             }
-            .offset(y: max(0, panOffset))
-            .gesture(pan(height: edge.size.height))
         }
+        .offset(y: max(0, panOffset))
+        .gesture(pan)
         .preferredColorScheme(.dark)
         .task(id: player.current?.uniqueId) {
             // The panel wants a cover the size of the screen, which is a tier no row ever asked
@@ -155,7 +150,6 @@ struct NowPlayingView: View {
             .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .shadow(color: .black.opacity(0.5), radius: 100)
-            .matchedGeometryEffect(id: "player-art", in: namespace, isSource: true)
             .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
         }
     }
@@ -412,14 +406,17 @@ struct NowPlayingView: View {
     /// shell — which reads `dragProgress` — rises underneath, and past 120 pt it goes
     /// (`AMNowPlayingAnimationController.swift:224-238`), otherwise it springs home in 0.4 s
     /// (`:267`).
-    private func pan(height: CGFloat) -> some Gesture {
+    /// Dismissal by hand, the way the kit does it: the panel follows the finger down one to one
+    /// and past 120 pt it goes (`AMNowPlayingAnimationController.swift:224-238`), otherwise it
+    /// springs home in 0.4 s (`:267`). The shell has nothing to rise with now — the system's own
+    /// zoom puts the strip back.
+    private var pan: some Gesture {
         DragGesture(minimumDistance: 15)
             .onChanged { value in
                 let translation = value.translation
                 guard translation.height > 0,
                       translation.height > abs(translation.width) else { return }
                 panOffset = translation.height
-                dragProgress = min(translation.height / max(height, 1), 1)
             }
             .onEnded { value in
                 let translation = value.translation
@@ -428,7 +425,6 @@ struct NowPlayingView: View {
                 } else {
                     withAnimation(.spring(response: 0.4, dampingFraction: 1.0)) {
                         panOffset = 0
-                        dragProgress = 0
                     }
                 }
             }

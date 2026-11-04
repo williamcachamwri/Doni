@@ -124,14 +124,14 @@ public enum MusicMiniPlayerMetrics {
     public static let textSpacing: CGFloat = 1
     /// Both bar buttons are `.frame(width: 36, height: 36).contentShape(.circle)` (`:47`, `:68`, `:85`).
     public static let button: CGFloat = 36
-    /// `.padding(.horizontal, 12).padding(.vertical, 6)` around the row (`:92-93`).
+    /// `.padding(.horizontal, 12).padding(.vertical, 6)` around the row, and
+    /// `isInline ? 8 : 12` / `isInline ? 3 : 6` on each of them (`:92-93`).
     public static let horizontalPadding: CGFloat = 12
     public static let verticalPadding: CGFloat = 6
+    public static let horizontalPaddingInline: CGFloat = 8
+    public static let verticalPaddingInline: CGFloat = 3
     /// `.font(.title3.weight(.semibold))` on both bar glyphs (`:53`, `:84`).
     public static let glyph = Font.title3.weight(.semibold)
-    /// Doni's own: the reference hangs this row in the tab bar's glass accessory, which iOS 17 has
-    /// no equivalent of, so Doni floats it as a card and has to give the card a corner.
-    public static let cardRadius: CGFloat = 14
     /// The row's own height — Doni's own, the number the kit's bar measured and MeloX leaves to
     /// its accessory container: artwork plus both vertical pads.
     public static var height: CGFloat { art + 2 * verticalPadding }
@@ -209,8 +209,14 @@ public enum MusicQueueMetrics {
     public static let rowArtRadius: CGFloat = 6
 }
 
-/// The settings cards. `SettingsHomeComponents.swift`.
+/// The settings cards. `SettingsHomeComponents.swift`, `SettingsView.swift`.
 public enum MusicSettingsMetrics {
+    /// `VStack(spacing: 32)` down the screen and `.padding(.horizontal, 16)` around it, 14 above
+    /// and 88 below (`SettingsView.swift:27-32`).
+    public static let sectionSpacing: CGFloat = 32
+    public static let sidePadding: CGFloat = 16
+    public static let contentTop: CGFloat = 14
+    public static let contentBottom: CGFloat = 88
     /// `VStack(alignment: .leading, spacing: 10)` under each card's header (`:23`).
     public static let headerToCard: CGFloat = 10
     /// The header is a `.headline` in `.secondary` with 14 pt of side padding (`:24-27`).

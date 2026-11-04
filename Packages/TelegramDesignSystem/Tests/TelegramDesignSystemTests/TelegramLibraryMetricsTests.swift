@@ -53,35 +53,14 @@ struct TelegramLibraryMetricsTests {
     }
 }
 
-@Suite("TelegramBarMetrics")
-struct TelegramBarMetricsTests {
-    @Test("the bar is the pill the device asked for, wrapping the capsule the photo measures")
-    func band() {
-        // 44 pt of controls (`vedges 100`: 172 → 302 px) with 4 pt of glass above and below.
-        #expect(TelegramBarMetrics.contentHeight == 44)
-        #expect(TelegramBarMetrics.height == 52)
-        #expect(TelegramBarMetrics.sideInset == 16)
-        // The pill floats 8 under the safe area and the first row starts 12 under it.
-        #expect(TelegramBarMetrics.topClearance
-            == TelegramBarMetrics.topGap + TelegramBarMetrics.height
-                + TelegramBarMetrics.belowGap)
-        #expect(TelegramBarMetrics.topClearance == 72)
-    }
-
-    @Test("the bottom chrome keeps the seam the kit measured")
-    func floating() {
-        // The strip insets 12 from each edge and hangs 6 above the tab bar; the strip's own height
-        // is MeloX's now, so it is asserted in `MusicScreenThemeTests`.
-        #expect(TelegramFloatingBarMetrics.toolbarMargin == 12)
-        #expect(TelegramFloatingBarMetrics.toolbarToTabBar == 6)
-        #expect(TelegramShellMetrics.tabBarHeight == 49)
-    }
-
-    @Test("a list ends above the glass it scrolls under")
-    func clearance() {
-        // The tab bar's 49 alone, plus strip and seam once it is up: 49 + 52 + 6.
-        #expect(TelegramFloatingBarMetrics.clearance(stripVisible: false) == 49)
-        #expect(TelegramFloatingBarMetrics.clearance(stripVisible: true) == 107)
+@Suite("TelegramShellMetrics")
+struct TelegramShellMetricsTests {
+    @Test("the player's transport buttons are the kit's own 64 pt boxes")
+    func transport() {
+        // Everything else the shell used to measure — a floating bar, a header, the clearance a
+        // list kept above the tab bar — is the system's now, so only the transport box is Doni's
+        // number to hold.
+        #expect(TelegramShellMetrics.transportButton == 64)
     }
 }
 

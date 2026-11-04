@@ -664,23 +664,24 @@ because the pill itself is now the vessel the band was.
 
 **Superseded, 2026-11-04.** MeloX replaced this oracle (see the next section), and the bar it wears is
 the iOS system bar: five full-width items, home first and search last, each a 24 pt glyph over a
-`medium(10)` label on the system's own 49 pt height, the selected item in the scene's red tint and no
-badge anywhere (`UI/AMTabBar.swift`, `DoniTab`). The strip is MeloX's mini player — a 52 pt row, a 40 pt
-cover at radius 6 and two 36 pt circles, inset 12 from each edge and floating 6 pt above the bar.
+`medium(10)` label, the selected item in the scene's red tint and no badge anywhere. Since the shell
+overhaul the same day, the bar *is* `TabView` — Doni no longer draws it, so the 67.3 pt band, the 92.7
+pt pitch and the 64 pt search circle above are history, not tokens.
 
-**The clearance the floating chrome needs.** A list that scrolls under the glass still has to end
-above it, so the scroll content is inset by `TelegramFloatingBarMetrics.clearance(stripVisible:)` =
-`49`, or `49 + 52 + 6 = 107` with a song loaded. The shell owns that number and hands it down through
-`\.telegramFloatingClearance`, because only the shell knows whether the strip is up.
+**The clearance the floating chrome needed.** A hand-built bar has to be told where the content ends,
+so the shell used to hand `TelegramFloatingBarMetrics.clearance(stripVisible:)` down through
+`\.telegramFloatingClearance`. `.tabViewBottomAccessory` reserves its own space in the bar's safe area
+instead, so the environment key, the metrics and every `.contentMargins(.bottom:)` that read them are
+gone.
 
 ## MeloX — the music shell Doni now wears (2026-11-04)
 
 The user replaced the oracle: *"lấy toàn bộ giao diện home, playlist, tạo playlist, settings, thêm
 nhạc vào playlist, queue hàng chờ nhạc tiếp theo, tab bar và cả now playing và animation giao diện
 của app… https://github.com/youshen2/MeloX"*. MeloX is SwiftUI, GPL-3.0, deployment target **iOS 26**,
-and leans on system Liquid Glass. Doni stays on iOS 17, so these are *transcriptions* of its numbers
-into Doni's own views — no file, type or asset is copied. Provenance is `file:line` in
-`/tmp/MeloX/MeloX`, and the tokens live in `MusicScreenTheme.swift`.
+and leans on system Liquid Glass. Doni's floor is iOS 26 too, so the shell calls the same APIs; only
+the *numbers* are transcribed into `MusicScreenTheme.swift` — no file, type or asset is copied.
+Provenance is `file:line` in `/tmp/MeloX/MeloX`.
 
 **Global.** The accent is `.tint(.red)` (`App/MeloXApp.swift:95`); Doni forces the dark scheme, where
 system red is `#ff453a` → `MusicTint.accent`.
@@ -743,17 +744,25 @@ Interface auto-hide 5 s.
 against a critical 2√350 ≈ 37.4 is overdamped, roots −12.9289 and −27.0711, y(0) = −1 with y′(0) = 0
 gives A = −1.91421, and −ln(0.001 ÷ 1.91421) ÷ 12.9289 ≈ **0.5845 s** → `MusicMotion.pageSpringSettling`.
 
-**API substitutions.** MeloX's chrome is iOS 26 system plumbing; Doni reproduces the *look* on iOS 17:
+**API substitutions — all resolved 2026-11-04.** The shell overhaul lifted Doni's floor to iOS 26, so
+every chrome MeloX asks the system for, Doni now asks the system for too. There is nothing left to
+substitute:
 
-| MeloX | Doni |
+| MeloX | Doni, now |
 | --- | --- |
-| `TabView` + `.tabViewBottomAccessory { MiniPlayerView }` + `.tabBarMinimizeBehavior(.onScrollDown)` | hand-built `AMTabBar` + `MiniPlayerBar` in one floating chrome |
-| `matchedTransitionSource` + `.navigationTransition(.zoom)` | the existing `matchedGeometryEffect` morph |
-| `GlassEffectContainer`, `.buttonStyle(.glass)` / `.glassProminent` | `telegramGlass(_:fallback:)` |
-| `MeshGradient` / Metal `layerEffect` backdrop | blurred-artwork backdrop at the same 1.35 / 90 numbers |
+| `TabView` + `.tabViewBottomAccessory { MiniPlayerView }` + `.tabBarMinimizeBehavior(.onScrollDown)` | the same three calls, in `UI/RootView.swift`; `AMTabBar` deleted |
+| `matchedTransitionSource` + `.navigationTransition(.zoom)` | the same pair on the strip's cover and the panel; the `matchedGeometryEffect` morph is gone |
+| `GlassEffectContainer`, `.buttonStyle(.glass)` / `.glassProminent` | the same, on the playlist hero; `telegramGlass(_:fallback:)` and its iOS 17 blur fallback deleted |
+| `MeshGradient` / Metal `layerEffect` backdrop | blurred-artwork backdrop at the same 1.35 / 90 numbers — the one MeloX surface Doni still draws |
 | `Picker(.segmented)` in the nav bar for home sections | Doni has one home feed; no picker |
-| `Tab(role: .search)` | search is a real tab in the bar, last, with no separate circle |
+| `Tab(role: .search)` | the search tab's own role, with `.searchable(placement: .navigationBarDrawer(displayMode: .always))` inside it |
 | Nuke `LazyImage` thumbnails | `TrackCover` + `CoverArtwork` |
+
+What replaced the drawn chrome is the system's: `.navigationTitle` for the large title (so
+`LargeTitleHeader` and the `bold(34)` it measured are gone), `.searchable` for the field
+(`SearchField` gone), the navigation bar for the detail pill (`GlassBar` gone), and the accessory's own
+safe area for the bottom clearance (`TelegramBarMetrics`, `TelegramHeaderMetrics` and
+`TelegramFloatingBarMetrics` gone).
 
 Two structural notes the transcription keeps. First, MeloX's queue is **not a sheet** — it is the third
 page of the player's own `ZStack`, with the artwork pinned to a 72 pt header while it slides up. Second,

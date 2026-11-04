@@ -2,20 +2,16 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The shell: five tabs under the strip-and-bar, one instance of each screen kept alive once
-/// visited.
+/// The shell, the way the reference builds it: a system `TabView`, the mini player hung in the tab
+/// bar's own glass accessory, and the player a cover the artwork zooms into
+/// (`ContentView.swift:332-394`).
 ///
-/// A tab is not a `TabView` page. MeloX does use one (`ContentView.swift:365`), but only because
-/// iOS 26 lets a `TabView` host the mini player through `.tabViewBottomAccessory` and minimise the
-/// bar on scroll; Doni's floor is iOS 17, where neither exists, and a `TabView` cannot be made to
-/// draw this chrome, only to hide its own. So the screens are stacked, the one that is selected is
-/// opaque and takes the touches, and the rest keep their scroll position, their queue and their
-/// artwork — which is also what a `TabView` gives each tab, by keeping its own state alive.
-///
-/// The player is not a cover but a layer of the same hierarchy, because that is the only way to run
-/// the morph: the strip's artwork becomes the cover's, and a drag down slides the panel after the
-/// finger while the shell rises back. The chrome sits on one backdrop that runs from the strip's top
-/// to the physical bottom, blurred and darkening downward.
+/// Every part of this chrome is the system's now. What Doni used to hand-build — a bar of five
+/// buttons, a strip floating on a blurred backdrop, a header drawn from measured numbers — was a
+/// substitute for APIs the old deployment target did not have. On iOS 26 they are simply there:
+/// the bar is glass and tints the selected tab, the accessory slot is where a mini player lives,
+/// the bar gets out of the way when the list scrolls, and a `matchedTransitionSource` hands the
+/// cover to the zoom instead of a geometry effect pretending to.
 struct RootView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -25,141 +21,102 @@ struct RootView: View {
 
     @State private var selection = DoniTab.library
 
-    /// Tabs opened at least once. A tab that has never been picked is not built, so the five lists
-    /// do not each ask the network for artwork the user has not looked at.
-    @State private var visited: Set<DoniTab> = [.library]
-
+    /// The strip disappears while the panel is up, the way the reference suppresses its accessory
+    /// (`ContentView.swift:40`, `:337`).
     @State private var showsPlayer = false
-    /// How far down the player is being dragged, 0…1 — read back from the panel so the shell can
-    /// rise while the finger pulls.
-    @State private var dragProgress: CGFloat = 0
 
+    /// One namespace for the cover's trip between the strip and the panel
+    /// (`ContentView.swift:44-47`).
     @Namespace private var playerSpace
 
+    private let transitionID = "player-art"
+
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            GeometryReader { edge in
-                shell(homeInset: edge.safeAreaInsets.bottom)
-            }
-            // The lists reach the physical bottom so their rows can pass under the chrome's blur;
-            // the reader reads the home indicator's own inset out of the expanded frame.
-            .ignoresSafeArea(edges: .bottom)
-
-            if showsPlayer {
+        playerAwareTabs
+            .fullScreenCover(isPresented: $showsPlayer) {
                 NowPlayingView(player: player, artwork: artwork, library: library,
-                               namespace: playerSpace, dragProgress: $dragProgress,
                                close: { showsPlayer = false })
-                    .zIndex(3)
-                    .transition(.opacity)
+                    // The panel paints its own backdrop from the cover's average colour, so the
+                    // system's sheet chrome has to be transparent for it to show (`:103`), and the
+                    // strip's glass resizes with it rather than sitting rigid under the drag (`:104`).
+                    .presentationBackground(.clear)
+                    .presentationContentInteraction(.resizes)
+                    .navigationTransition(.zoom(sourceID: transitionID, in: playerSpace))
             }
-        }
-        // The kit runs its morph on `UIViewPropertyAnimator(duration: 0.5, dampingRatio: 1)`
-        // (`AMNowPlayingAnimationController.swift:75`) — a critical spring, no overshoot.
-        .animation(.spring(response: 0.5, dampingFraction: 1.0), value: showsPlayer)
-        .preferredColorScheme(.dark)
+            .tint(MusicTint.accent)
+            .preferredColorScheme(.dark)
     }
 
-    private func shell(homeInset: CGFloat) -> some View {
-        let lift = min(max(dragProgress, 0), 1)
-        return ZStack(alignment: .bottom) {
-            ForEach(DoniTab.allCases) { tab in
-                if visited.contains(tab) {
-                    screen(tab)
-                        .opacity(selection == tab ? 1 : 0)
-                        .allowsHitTesting(selection == tab)
+    /// The 26.0 form of the accessory has no `isEnabled:`, so the content itself is what comes and
+    /// goes — MeloX makes exactly the same split (`ContentView.swift:334-348`).
+    @ViewBuilder
+    private var playerAwareTabs: some View {
+        if player.current != nil {
+            if #available(iOS 26.1, *) {
+                tabs.tabViewBottomAccessory(isEnabled: !showsPlayer) { miniPlayer }
+            } else {
+                tabs.tabViewBottomAccessory {
+                    if !showsPlayer { miniPlayer }
                 }
             }
-
-            chrome
-                .padding(.bottom, homeInset)
-                .background { ChromeBackdrop() }
+        } else {
+            tabs
         }
-        .environment(\.telegramFloatingClearance,
-                     homeInset + TelegramFloatingBarMetrics
-                         .clearance(stripVisible: player.current != nil))
-        .scaleEffect(0.85 + 0.15 * lift)
-        .clipShape(RoundedRectangle(cornerRadius: 30 + 14 * lift, style: .continuous))
     }
 
-    /// The strip over the bar, on Doni's own gap of 6, the strip inset 12 from each edge
-    /// (`MiniPlayerView.swift:92`).
-    @ViewBuilder
-    private var chrome: some View {
-        VStack(spacing: TelegramFloatingBarMetrics.toolbarToTabBar) {
-            if player.current != nil {
-                MiniPlayerBar(player: player, artwork: artwork,
-                              namespace: playerSpace, isSource: !showsPlayer) {
-                    showsPlayer = true
+    private var miniPlayer: some View {
+        MiniPlayerBar(player: player, artwork: artwork,
+                      transitionID: transitionID, namespace: playerSpace,
+                      open: { showsPlayer = true })
+    }
+
+    private var tabs: some View {
+        TabView(selection: $selection) {
+            Tab(DoniTab.library.title, systemImage: DoniTab.library.symbol,
+                value: DoniTab.library) {
+                NavigationStack {
+                    LibraryView(session: session, indexer: indexer, player: player,
+                                artwork: artwork, library: library,
+                                onOpenTab: { selection = $0 },
+                                onOpenPlayer: { showsPlayer = true })
                 }
-                .padding(.horizontal, TelegramFloatingBarMetrics.toolbarMargin)
-                .opacity(showsPlayer ? 0 : 1)
-                .transition(.offset(y: MusicMiniPlayerMetrics.height)
-                    .combined(with: .opacity))
             }
-            AMTabBar(selection: binding)
-        }
-        .animation(TelegramShellMotion.appear, value: player.current?.uniqueId)
-    }
-
-    @ViewBuilder
-    private func screen(_ tab: DoniTab) -> some View {
-        switch tab {
-        case .library:
-            LibraryView(session: session, indexer: indexer, player: player,
-                        artwork: artwork, library: library,
-                        onOpenTab: { tab in binding.wrappedValue = tab },
-                        onOpenPlayer: { showsPlayer = true })
-        case .likes:
-            LikesView(session: session, player: player, artwork: artwork, library: library)
-        case .playlists:
-            PlaylistsView(session: session, player: player, artwork: artwork, library: library)
-        case .settings:
-            SettingsView(session: session, library: library)
-        case .search:
-            SearchView(session: session, indexer: indexer, player: player,
-                       artwork: artwork, library: library)
-        }
-    }
-
-    private var binding: Binding<DoniTab> {
-        Binding(
-            get: { selection },
-            set: { tab in
-                visited.insert(tab)
-                selection = tab
+            Tab(DoniTab.likes.title, systemImage: DoniTab.likes.symbol, value: DoniTab.likes) {
+                NavigationStack {
+                    LikesView(session: session, player: player, artwork: artwork,
+                              library: library)
+                }
             }
-        )
+            Tab(DoniTab.playlists.title, systemImage: DoniTab.playlists.symbol,
+                value: DoniTab.playlists) {
+                NavigationStack {
+                    PlaylistsView(session: session, player: player, artwork: artwork,
+                                  library: library)
+                }
+            }
+            Tab(DoniTab.settings.title, systemImage: DoniTab.settings.symbol,
+                value: DoniTab.settings) {
+                NavigationStack {
+                    SettingsView(session: session, library: library)
+                }
+            }
+            // The reference's own search tab: a `Tab` with the search role, whose content is a
+            // `.searchable` list rather than a field drawn by hand (`ContentView.swift:371`).
+            Tab(DoniTab.search.title, systemImage: DoniTab.search.symbol,
+                value: DoniTab.search, role: .search) {
+                    NavigationStack {
+                        SearchView(session: session, indexer: indexer, player: player,
+                                   artwork: artwork, library: library)
+                    }
+                }
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
     }
 }
 
-/// The kit's backdrop: one blur under the whole chrome, darkening downward, its top edge fading
-/// in over a sliver so rows melt under it (`AMTabBarBackdropView.swift`: blur 30 behind a mask
-/// that is near-opaque, and a gradient overlay that runs black 0 → 0.8 by 40% down —
-/// `Tab-Bar-Backdrop-Overlay`, dark appearance).
-private struct ChromeBackdrop: View {
-    var body: some View {
-        Rectangle()
-            .fill(.ultraThinMaterial)
-            .mask {
-                LinearGradient(stops: [
-                    .init(color: .black.opacity(0), location: 0),
-                    .init(color: .black, location: 0.05),
-                ], startPoint: .top, endPoint: .bottom)
-            }
-            .overlay {
-                LinearGradient(stops: [
-                    .init(color: .black.opacity(0), location: 0),
-                    .init(color: .black.opacity(0.8), location: 0.4),
-                ], startPoint: .top, endPoint: .bottom)
-            }
-    }
-}
-
-/// The five tabs, named and dressed the way MeloX names them
-/// (`NavigationPreferences.swift:22-60`; home first, search last, and neither end movable —
-/// `AppSettings.swift:1901-1914`, `TabLayoutSettingsView.swift:88`).
+/// The five tabs, named and dressed the way the reference names them
+/// (`NavigationPreferences.swift:22-60`). One outline glyph each: the glass selection is what says
+/// which tab is current, so a filled variant would only fight it.
 enum DoniTab: String, CaseIterable, Identifiable {
     case library
     case likes
@@ -179,15 +136,12 @@ enum DoniTab: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Filled when lit, outline when not — the reference's own way of saying which tab is current
-    /// without changing a colour (`DefaultDarkPresentationTheme.swift:362-365`). Three of the five
-    /// have no outline form, and those are told apart by the lit glass and by the glyph's weight.
-    func symbol(selected: Bool) -> String {
+    var symbol: String {
         switch self {
         case .library: return "music.note.list"
-        case .likes: return selected ? "heart.fill" : "heart"
+        case .likes: return "heart"
         case .playlists: return "music.quarternote.3"
-        case .settings: return selected ? "gearshape.fill" : "gearshape"
+        case .settings: return "gearshape"
         case .search: return "magnifyingglass"
         }
     }

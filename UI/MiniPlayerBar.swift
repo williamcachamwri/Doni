@@ -2,37 +2,51 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The strip of player that rides above the tab bar, as MeloX builds it: a 40 pt cover at radius 6,
-/// the title in `subheadline.semibold` over the artist in `caption` at secondary, then play/pause and
-/// next as 36 pt circles — no progress line, which the reference leaves to the panel. A flick of 28 pt
-/// across the strip skips a track. `MiniPlayerView.swift` measures all of it.
+/// The strip of player that rides in the tab bar's own glass accessory, as MeloX builds it: a 40 pt
+/// cover at radius 6, the title in `subheadline.semibold` over the artist in `caption` at secondary,
+/// then play/pause and next as 36 pt circles — no progress line, which the reference leaves to the
+/// panel. A flick of 28 pt across the strip skips a track. `MiniPlayerView.swift` measures all of it.
 ///
-/// Doni's own part is the vessel: MeloX hangs this row in the iOS 26 tab bar's accessory slot, which
-/// iOS 17 has no equivalent of, so it floats as a card on the chrome backdrop instead.
+/// The container is the system's, so the strip adds no background of its own: it is the accessory's
+/// glass that is being looked through. What the strip does watch is its `placement`, because the
+/// reference shrinks it when the tab bar minimises — a 30 pt cover, one line of text, no next
+/// button (`MiniPlayerView.swift:106-112`).
 struct MiniPlayerBar: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The artwork morphs into the player's cover, so the strip holds the geometry while the player
-    /// is away and hands it over while the player is up.
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    /// The id the panel's cover zooms out of, shared with the shell's transition.
+    let transitionID: String
     let namespace: Namespace.ID
-    let isSource: Bool
     let open: () -> Void
+
+    /// Inline is the minimised bar: less room, so the second line and the third button go.
+    private var isInline: Bool { placement == .inline }
+    private var spacing: CGFloat {
+        isInline ? MusicMiniPlayerMetrics.spacingInline : MusicMiniPlayerMetrics.spacing
+    }
+    private var artSide: CGFloat {
+        isInline ? MusicMiniPlayerMetrics.artInline : MusicMiniPlayerMetrics.art
+    }
 
     var body: some View {
         if let track = player.current {
-            HStack(spacing: MusicMiniPlayerMetrics.spacing) {
+            HStack(spacing: spacing) {
                 opener(track: track)
 
                 transport
 
-                nextButton
+                if !isInline {
+                    nextButton
+                }
             }
-            .padding(.horizontal, MusicMiniPlayerMetrics.horizontalPadding)
-            .padding(.vertical, MusicMiniPlayerMetrics.verticalPadding)
+            .padding(.horizontal, isInline ? MusicMiniPlayerMetrics.horizontalPaddingInline
+                                           : MusicMiniPlayerMetrics.horizontalPadding)
+            .padding(.vertical, isInline ? MusicMiniPlayerMetrics.verticalPaddingInline
+                                         : MusicMiniPlayerMetrics.verticalPadding)
             .frame(maxWidth: .infinity)
             .contentShape(.rect)
-            .background { card }
             .simultaneousGesture(swipe)
             .accessibilityAction(named: "Bài trước") { player.previous() }
             .accessibilityAction(named: "Bài tiếp theo") { player.next() }
@@ -43,20 +57,20 @@ struct MiniPlayerBar: View {
     /// way into the panel.
     private func opener(track: any Playable) -> some View {
         Button(action: open) {
-            HStack(spacing: MusicMiniPlayerMetrics.spacing) {
-                TrackCover(track: track,
-                           side: MusicMiniPlayerMetrics.art,
-                           radius: MusicMiniPlayerMetrics.artRadius,
-                           artwork: artwork)
-                    .matchedGeometryEffect(id: "player-art", in: namespace, isSource: isSource)
+            HStack(spacing: spacing) {
+                TrackCover(track: track, side: artSide,
+                           radius: MusicMiniPlayerMetrics.artRadius, artwork: artwork)
+                    .matchedTransitionSource(id: transitionID, in: namespace)
                 VStack(alignment: .leading, spacing: MusicMiniPlayerMetrics.textSpacing) {
                     Text(track.displayTitle)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
-                    Text(track.displayPerformer)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if !isInline {
+                        Text(track.displayPerformer)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -118,11 +132,5 @@ struct MiniPlayerBar: View {
 
     private var glyphAnimation: Animation? {
         reduceMotion ? nil : MusicMotion.symbolSwap
-    }
-
-    private var card: some View {
-        RoundedRectangle(cornerRadius: MusicMiniPlayerMetrics.cardRadius, style: .continuous)
-            .fill(.thickMaterial)
-            .shadow(color: .black.opacity(0.2), radius: 10)
     }
 }
