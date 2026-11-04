@@ -47,10 +47,6 @@ final class LibraryIndexer: ObservableObject {
     /// Folded haystacks, so a keystroke re-folds only what the last page brought in.
     private var haystacks: [String: String] = [:]
 
-    /// The channel Doni was built around, and the one key that says its free offer was already made.
-    static let defaultUsername = "VNMusicRemix"
-    private static let seededDefaultKey = "library.seededDefaultChannel"
-
     var isReading: Bool {
         switch phase {
         case .reading:
@@ -179,7 +175,6 @@ final class LibraryIndexer: ObservableObject {
     }
 
     private func index(_ reader: TdChannelReader, library: Library) async {
-        await seedDefaultChannel(reader, library: library)
         let targets = library.indexedChannels
         guard !targets.isEmpty else {
             phase = .finished(.init(trackCount: tracks.count, messageCount: 0, pageCount: 0))
@@ -239,19 +234,6 @@ final class LibraryIndexer: ObservableObject {
         } else {
             phase = .finished(.init(trackCount: collected.count, messageCount: messages,
                                     pageCount: pages))
-        }
-    }
-
-    /// The first walk of an install gets the channel Doni was built around, because a library with
-    /// no channels and no songs is a screen that does nothing. Offered once: a list the user emptied
-    /// by hand is not a list to refill.
-    private func seedDefaultChannel(_ reader: TdChannelReader, library: Library) async {
-        guard library.channels.isEmpty,
-              !UserDefaults.standard.bool(forKey: Self.seededDefaultKey)
-        else { return }
-        UserDefaults.standard.set(true, forKey: Self.seededDefaultKey)
-        if let channel = try? await reader.channel(username: Self.defaultUsername) {
-            library.add(channel)
         }
     }
 

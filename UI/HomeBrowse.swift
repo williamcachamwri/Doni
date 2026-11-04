@@ -43,16 +43,20 @@ struct HomeBrowse: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     let facets: [HomeFacet]
+    /// The door the empty screen opens, which is the Home tab's sheet rather than this segment's own.
+    let addChannel: () -> Void
     let reload: () async -> Void
 
     @State private var selected: String
 
     init(session: TelegramSession, player: Player, artwork: CoverArtwork,
-         facets: [HomeFacet], reload: @escaping () async -> Void) {
+         facets: [HomeFacet], addChannel: @escaping () -> Void,
+         reload: @escaping () async -> Void) {
         self.session = session
         self.player = player
         self.artwork = artwork
         self.facets = facets
+        self.addChannel = addChannel
         self.reload = reload
         _selected = State(initialValue: facets.first?.title ?? "")
     }
@@ -101,8 +105,15 @@ struct HomeBrowse: View {
     @ViewBuilder
     private func content(_ facet: HomeFacet) -> some View {
         if facet.tracks.isEmpty {
-            ContentUnavailableView("Chưa có bài nào ở đây", systemImage: "music.note.list")
-                .frame(maxWidth: .infinity, minHeight: 320)
+            // One chip with nothing in it is a chip to leave; nothing anywhere is a library that has
+            // never been pointed at a channel, and that has exactly one answer.
+            if facets.allSatisfy({ $0.tracks.isEmpty }) {
+                AddChannelPrompt("Thư viện đang trống", action: addChannel)
+                    .padding(.top, 60)
+            } else {
+                ContentUnavailableView("Chưa có bài nào ở đây", systemImage: "music.note.list")
+                    .frame(maxWidth: .infinity, minHeight: 320)
+            }
         } else {
             hero(facet)
             collection(facet)

@@ -1,4 +1,5 @@
 import SwiftUI
+import TelegramDesignSystem
 import TdSession
 
 /// The screen the channel allow-list grows from: paste a channel's link and see what is in it
@@ -31,6 +32,9 @@ struct AddChannelSheet: View {
     @State private var joined: [TdChannel] = []
     @State private var isListingJoined = false
     @State private var joinedFailure: String?
+    /// The chat list is the account's whole list, which on a busy account is hundreds of rows, so it
+    /// gets a filter rather than a scroll.
+    @State private var query = ""
 
     /// The rows take the reference's song row: 12 between the mark and the text, 3 between the two
     /// lines (`Shared/Media/TrackRowView.swift:3-197`).
@@ -77,11 +81,13 @@ struct AddChannelSheet: View {
                         Text(joinedFailure)
                             .font(.footnote)
                             .foregroundStyle(.red)
-                    } else if joined.isEmpty {
-                        Text("Không có cuộc trò chuyện nào.")
+                    } else if visibleJoined.isEmpty {
+                        Text(joined.isEmpty
+                             ? "Không có cuộc trò chuyện nào."
+                             : "Không có cuộc trò chuyện nào khớp “\(query.trimmingCharacters(in: .whitespaces))”.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(joined, id: \.chatId) { channel in
+                        ForEach(visibleJoined, id: \.chatId) { channel in
                             joinedRow(channel)
                         }
                     }
@@ -90,6 +96,8 @@ struct AddChannelSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: "Tìm cuộc trò chuyện")
             .navigationTitle("Thêm kênh nhạc")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -100,6 +108,21 @@ struct AddChannelSheet: View {
         }
         .presentationDetents([.large])
         .task { await listJoined() }
+    }
+
+    // MARK: Filter
+
+    /// The chat list under the query — every word has to turn up in the row's own name or handle,
+    /// which is the rule the settings screen filters its rows by too.
+    private var visibleJoined: [TdChannel] {
+        let words = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .split(whereSeparator: \.isWhitespace)
+        guard !words.isEmpty else { return joined }
+        return joined.filter { channel in
+            let text = "\(channel.title) @\(channel.username)".lowercased()
+            return words.allSatisfy(text.contains)
+        }
     }
 
     // MARK: Rows
@@ -215,5 +238,50 @@ struct AddChannelSheet: View {
             // that was wrong here said "you are in no chats".
             joinedFailure = LibraryIndexer.describe(error)
         }
+    }
+}
+
+/// The one thing a library with no songs can ask for: a channel to read.
+///
+/// Drawn as a button the finger can see rather than a line of grey text that happens to be tappable,
+/// because it is the only door on the screen — the account's own chat list, a link to probe, and a
+/// search over both. Both of the Home tab's segments hand out this one.
+struct AddChannelPrompt: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+                .font(.system(size: 38, weight: .thin))
+                .foregroundStyle(.tertiary)
+
+            Text(title)
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+
+            Button(action: action) {
+                Label("Thêm kênh nhạc", systemImage: "plus")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(MusicTint.accent)
+            .padding(.top, 6)
+
+            Text("Chọn từ danh sách trò chuyện Telegram, hoặc dán link kênh, nhóm, bot, chat riêng.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 36)
     }
 }

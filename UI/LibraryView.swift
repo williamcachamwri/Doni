@@ -140,7 +140,8 @@ struct LibraryView: View {
         case .forYou:
             feed
         case .music:
-            HomeBrowse(session: session, player: player, artwork: artwork, facets: facets) {
+            HomeBrowse(session: session, player: player, artwork: artwork, facets: facets,
+                       addChannel: { showsAddChannel = true }) {
                 await indexer.reload(session, library: library)
             }
         }
@@ -376,25 +377,14 @@ struct LibraryView: View {
                 .padding(.top, 72)
                 .padding(.horizontal, 40)
             } else {
-                // Nothing on the allow-list is a different empty from a channel with no songs in it,
-                // and only the first one has something to tap.
-                VStack(spacing: 14) {
-                    Text(library.channels.isEmpty
-                         ? "Chưa có kênh nhạc nào"
-                         : "Chưa có bài nào trong kênh")
-                        .font(TelegramLibraryTypography.preview)
-                        .foregroundStyle(palette.chatListMessageText)
-                        .multilineTextAlignment(.center)
-                    if library.channels.isEmpty {
-                        Button("Thêm kênh nhạc") { showsAddChannel = true }
-                            .font(TelegramLibraryTypography.barTitle)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 20)
-                            .frame(height: 40)
-                            .background(Capsule().fill(palette.highlight))
-                    }
+                // Nothing on the allow-list and a channel that holds no audio are two ways of ending
+                // up with an empty feed, and both are answered by the same screen — the one that
+                // picks a chat. It is a button, because that is the only thing this screen can do.
+                AddChannelPrompt(library.channels.isEmpty
+                                 ? "Chưa có kênh nhạc nào"
+                                 : "Chưa có bài nào trong kênh") {
+                    showsAddChannel = true
                 }
-                .frame(maxWidth: .infinity)
                 .padding(.top, 72)
             }
         } else if let failure {
