@@ -265,7 +265,14 @@ final class Player: ObservableObject {
     }
 
     func resume() {
-        guard engine != nil else { return }
+        // Pressing play on a row that has no engine behind it and no fetch in flight means it: the
+        // load is asked for again rather than being a silent no-op. A fetch that is still running
+        // needs no second one — TDLib would be told to stop and start over on the same file.
+        if engine == nil {
+            guard current != nil, !isFetchingFile else { return }
+            startCurrent()
+            return
+        }
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
@@ -351,29 +358,37 @@ final class Player: ObservableObject {
         let fileId = track.fileId
         let downloader = self.downloader
         loading = Task {
-            let onDisk: String?
-            if let path {
-                onDisk = path
-            } else {
-                onDisk = await downloader?.path(fileId: fileId,
-                                                priority: TdFileDownloader.audioPriority)
+            // A stored path is a note that the file was once on the phone, not proof it is still
+            // there: TDLib empties its own cache when the device runs short, and a one-hour set at
+            // a hundred and forty megabytes is the first thing it throws away. The note used to be
+            // trusted blindly and the `try?` in `open` answered a missing file with silence — which
+            // is what "an hour-long song never plays, it just waits" turns out to be.
+            if let path, FileManager.default.fileExists(atPath: path),
+               open(path: path, track: track) {
+                return
             }
-            guard !Task.isCancelled, let onDisk else {
+            isFetchingFile = true
+            guard !Task.isCancelled, let onDisk = await downloader?.path(
+                fileId: fileId, priority: TdFileDownloader.audioPriority
+            ), !Task.isCancelled else {
                 isFetchingFile = false
                 return
             }
-            // The path that played is the one written back: a stored path that turned out to be
-            // stale is corrected here rather than left to fail again next time.
+            // The path that was asked for is the one written down: a stored path that turned out to
+            // be stale is corrected here rather than left to fail again next time.
             library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
-            open(path: onDisk, track: track)
+            _ = open(path: onDisk, track: track)
         }
     }
 
-    private func open(path: String, track: any Playable) {
+    /// Hands the file to `AVAudioPlayer` and starts it. False means the row goes back to its play
+    /// glyph instead of spinning — a second chance is the caller's, not this function's.
+    @discardableResult
+    private func open(path: String, track: any Playable) -> Bool {
         let url = URL(fileURLWithPath: path)
         guard let engine = try? AVAudioPlayer(contentsOf: url) else {
             isFetchingFile = false
-            return
+            return false
         }
         self.engine = engine
         self.duration = engine.duration
@@ -390,6 +405,7 @@ final class Player: ObservableObject {
         isPlaying = true
         startTicker()
         publishNowPlaying(elapsed: engine.currentTime, track: track)
+        return true
     }
 
     /// A timer rather than the delegate: `AVAudioPlayerDelegate` methods are nonisolated, and
