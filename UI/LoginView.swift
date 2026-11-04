@@ -280,6 +280,13 @@ struct LoginView: View {
             )
             .opacity(isGhost ? 0 : 1)
         }
+        // The block has to be told to take the width it is offered. A VStack sizes itself to its
+        // widest child's ideal width, and a subtitle like "Chúng tôi đã gửi mã 5 chữ số cho
+        // +84562106190." asks for more than the screen, so the block grew past the canvas and the
+        // ZStack centred it — which pulled every other row, including the country name and the
+        // dial code, off the left edge. Clamped here, the text wraps and the absolute insets below
+        // (`dialCodeLeading`, `countryLeading`) land where they are measured to land.
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, TelegramLoginMetrics.horizontalInset)
         .padding(.bottom, TelegramLoginMetrics.buttonToBottom)
     }

@@ -188,6 +188,12 @@ struct CodeBoxes: View {
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
                 .focused($isEditing)
+                // One per cent still paints the digits and the caret: at 23 pt on a black canvas a
+                // hundredth of white is a legible ghost of the code, sitting outside the boxes. The
+                // text and the tint go clear and the opacity stays, because it is the opacity that
+                // keeps the field hit-testable and first responder.
+                .foregroundStyle(.clear)
+                .tint(.clear)
                 // Filling the row is what makes a tap anywhere in the boxes land on the field;
                 // at its intrinsic height it would only cover a band through their middle.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
