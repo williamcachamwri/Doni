@@ -458,8 +458,21 @@ final class Player: ObservableObject {
         if let held = artworkItem, held.uniqueId == track.uniqueId, held.image === image {
             return held.item
         }
-        let item = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        let item = Self.mediaArtwork(image)
         artworkItem = (track.uniqueId, image, item)
         return item
+    }
+
+    /// The artwork, built away from the main actor on purpose.
+    ///
+    /// MediaPlayer does not ask for the picture on the thread that handed it the dictionary: it
+    /// calls the handler from its own queue, inside `_onQueue_pushNowPlayingInfoAndRetry:` →
+    /// `jpegDataWithSize:`. A closure written in a `@MainActor` function carries that isolation, so
+    /// the call trips `dispatch_assert_queue` and the process dies of a `SIGTRAP` — which is what
+    /// every one of today's crash reports says, and why it was only ever songs *with* a cover that
+    /// died: a song without one never puts an artwork slot in the dictionary at all. The SDK does not
+    /// catch it because `requestHandler:` is not declared `@Sendable`.
+    private nonisolated static func mediaArtwork(_ image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 }
