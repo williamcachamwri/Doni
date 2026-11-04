@@ -73,7 +73,7 @@ final class TelegramSession: ObservableObject {
                     await readAccount(flow)
                 }
                 if step == .closed {
-                    self.restart()
+                    await self.restart()
                     return
                 }
             }
@@ -89,7 +89,11 @@ final class TelegramSession: ObservableObject {
 
     /// TDLib cannot reopen a client it has closed, so the logout path throws this one away and
     /// builds a fresh client + flow, which is what puts the login screen back on stage.
-    private func restart() {
+    ///
+    /// The erase is awaited, not fired off: a new client opens its database and files directories on
+    /// the way in, and a delete still running behind it would be taking back the space of the session
+    /// that has just started.
+    private func restart() async {
         client?.close()
         client = nil
         flow = nil
@@ -99,7 +103,7 @@ final class TelegramSession: ObservableObject {
         account = nil
         accountPhoto = nil
         isWaiting = false
-        Self.eraseStorage()
+        await Self.eraseStorage()
         start()
     }
 
@@ -111,9 +115,13 @@ final class TelegramSession: ObservableObject {
     /// afterwards — and `file_id` is TDLib's row number inside its own database (`td_api.tl:326`), so
     /// the ids the new session hands out can point at any of those files. The Keychain key goes with
     /// the database it opened; a new session makes its own.
-    private nonisolated static func eraseStorage() {
-        try? FileManager.default.removeItem(at: telegramDirectory)
-        KeychainDatabaseKey().erase()
+    ///
+    /// Several hundred megabytes of files, so it is not something to unlink on the main thread.
+    private nonisolated static func eraseStorage() async {
+        await Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: telegramDirectory)
+            KeychainDatabaseKey().erase()
+        }.value
     }
 
     /// `then` runs only when the server accepted the number. TDLib does not always announce the
