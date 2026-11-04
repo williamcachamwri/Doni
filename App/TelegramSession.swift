@@ -27,6 +27,9 @@ final class TelegramSession: ObservableObject {
     @Published private(set) var step: TdAuthorizationStep?
     @Published private(set) var isWaiting = false
     @Published private(set) var lastError: String?
+    /// Whose Telegram this is, once TDLib has said. The settings screen's account card is the only
+    /// place it is shown, so it stays nil until the session is ready.
+    @Published private(set) var account: TdAccount?
 
     var isAuthorized: Bool { step == .ready }
 
@@ -52,6 +55,9 @@ final class TelegramSession: ObservableObject {
         Task {
             for await step in flow.steps {
                 self.step = step
+                if step == .ready {
+                    await readAccount(flow)
+                }
                 if step == .closed {
                     self.restart()
                     return
@@ -76,6 +82,7 @@ final class TelegramSession: ObservableObject {
         downloader = nil
         CoverArtwork.shared.downloader = nil
         step = nil
+        account = nil
         isWaiting = false
         start()
     }
@@ -102,6 +109,16 @@ final class TelegramSession: ObservableObject {
         self.downloader = downloader
         CoverArtwork.shared.downloader = downloader
         return downloader
+    }
+
+    /// One `getMe` on the way into the session: the account card needs a name, and TDLib is the only
+    /// thing that has one. A failure leaves the card on its fallback rather than reporting an error
+    /// the user cannot act on.
+    private func readAccount(_ flow: TdLoginFlow) async {
+        guard account == nil else { return }
+        if let me = try? await flow.request("getMe") {
+            account = TdAccount(user: me)
+        }
     }
 
     func submitPhoneNumber(_ number: String, then: (() -> Void)? = nil) {

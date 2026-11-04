@@ -444,6 +444,31 @@ public enum MusicSettingsMetrics {
     public static let rowMinHeight: CGFloat = 68
     /// The chevron is a `.caption.weight(.semibold)` in `.tertiary` (`:81-83`).
     public static let chevronFont = Font.caption.weight(.semibold)
+
+    /// The navigation bar's mark: a 28 pt image clipped at 7, 8 pt from a `.headline`
+    /// (`SettingsHomeComponents.swift:5-14`).
+    public static let logoSide: CGFloat = 28
+    public static let logoRadius: CGFloat = 7
+    public static let logoGap: CGFloat = 8
+
+    /// The account card: `HStack(spacing: 16)` with a 60 pt avatar on `.quaternary` in a circle,
+    /// 5 pt between a `.title3.weight(.semibold)` name held to one line and a `.subheadline`
+    /// `.secondary` held to two (`SettingsAccountSection.swift:64-76`, `:114-115`, `:213-214`),
+    /// inside 18 × 16 of padding on a 100 pt minimum height at radius 28 (`:142-151`).
+    public static let accountGap: CGFloat = 16
+    public static let accountAvatar: CGFloat = 60
+    public static let accountTextGap: CGFloat = 5
+    public static let accountPaddingH: CGFloat = 18
+    public static let accountPaddingV: CGFloat = 16
+    public static let accountMinHeight: CGFloat = 100
+    public static let accountRadius: CGFloat = 28
+
+    /// The sign-out card is the account section's own, which — unlike the reset card — has no
+    /// header and no footnote: 14 between a 30 pt glyph and a `.body.weight(.medium)` title,
+    /// 18 × 14 of padding, 60 pt tall, and the whole label in `.red`
+    /// (`SettingsAccountSection.swift:166-184`).
+    public static let logoutPaddingV: CGFloat = 14
+    public static let logoutMinHeight: CGFloat = 60
 }
 
 /// The player's own portrait geometry. Every control sits inside a fixed 279 pt core plus a 62 pt

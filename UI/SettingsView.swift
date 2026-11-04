@@ -1,16 +1,27 @@
 import SwiftUI
 import Support
 import TelegramDesignSystem
+import TdSession
 
-/// What is on the phone, and the one button that takes it away — in MeloX's settings cards:
-/// a `VStack(spacing: 32)` on the grouped background, each card a 26 pt continuous rectangle of
-/// `secondarySystemGroupedBackground` under a `.headline` in `.secondary`, each row a 30 pt tinted
-/// glyph, a `body.weight(.semibold)` title and a `caption` line under it, 18 × 13 pt of padding in a
-/// 68 pt minimum height, separated by a divider that starts 58 pt in
-/// (`SettingsHomeComponents.swift:19-92`, `SettingsView.swift:26-41`).
+/// The screen MeloX builds its settings root out of: a `VStack(spacing: 32)` of cards on
+/// `systemGroupedBackground`, 16 pt on the sides, 14 above and 88 below, the app's mark in the
+/// navigation bar's principal slot and a search field under it that prunes the cards
+/// (`SettingsView.swift:27-45`, `:38`).
 ///
-/// MeloX's `.searchable` on this screen filters fourteen destinations; Doni has three cards, so the
-/// field would search a list shorter than the field's own prompt and it is left off.
+/// Every card is a `.headline` in `.secondary` over one 26 pt continuous rectangle of
+/// `secondarySystemGroupedBackground`; every row in it is a 30 pt tinted glyph, a
+/// `body.weight(.semibold)` title with a `caption` line under it and 18 × 13 pt of padding in a 68 pt
+/// minimum height, separated by a divider that starts 58 pt in (`SettingsHomeComponents.swift:19-92`).
+///
+/// First on the screen is the account block — the identity card and, 32 pt under it, the red
+/// sign-out, neither of them carrying a header (`SettingsAccountSection.swift:17-31`, `:142-153`,
+/// `:163-196`). The one round thing here is the account mark, which is MeloX's own
+/// (`SettingsAccountSection.swift:213-214`) and stands for a person rather than a cover; the rule
+/// that made every artwork a rounded square never reaches it.
+///
+/// The search field is the reference's behaviour, not its decoration: a query is split on whitespace
+/// and a row survives only when every piece of it turns up in that row's own text, and a card with
+/// nothing left in it goes away (`SettingsCatalog.swift:120-148`, `SettingsView.swift:99-106`).
 ///
 /// Logout is the screen's reason to exist. `file_id` is TDLib's number inside its own database
 /// (`td_api.tl:326`), so rows written against one session point at nothing once another starts —
@@ -20,45 +31,63 @@ struct SettingsView: View {
     @ObservedObject var library: Library
 
     @State private var confirmingLogout = false
+    @State private var searchText = ""
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: MusicSettingsMetrics.sectionSpacing) {
-                card("Thư viện") {
-                    row("doc.text", "Bài đã chỉ mục",
-                        value: library.trackCount.formatted())
-                    divider
-                    row("arrow.down.circle", "Đã tải về máy",
-                        value: "\(library.downloadedCount.formatted()) bài")
-                    divider
-                    row("internalfolder", "Dung lượng đã tải",
-                        value: DataSize.string(library.downloadedBytes))
+            VStack(spacing: MusicSettingsMetrics.sectionSpacing) {
+                if showsAccount {
+                    accountCard
+                    if session.isAuthorized { logoutCard }
                 }
 
-                card("Kênh nhạc") {
-                    if library.channels.isEmpty {
-                        row("antenna.radiowaves.left.and.right", "Chưa thêm kênh nào")
-                    } else {
-                        ForEach(library.channels) { channel in
-                            if channel.id != library.channels.first?.id { divider }
-                            row("person.2", channel.title,
-                                subtitle: channel.username.isEmpty ? nil : "@\(channel.username)",
-                                selected: channel.isSelected) {
-                                library.select(channel: channel.chatId)
+                if !lines.isEmpty {
+                    card("Thư viện") {
+                        ForEach(lines) { line in
+                            if line.id != lines.first?.id { divider }
+                            row(line.symbol, line.title,
+                                subtitle: line.subtitle, value: line.value)
+                        }
+                    }
+                }
+
+                if showsChannels {
+                    card("Kênh nhạc") {
+                        if visibleChannels.isEmpty {
+                            row("antenna.radiowaves.left.and.right", "Chưa thêm kênh nào")
+                        } else {
+                            ForEach(visibleChannels) { channel in
+                                if channel.id != visibleChannels.first?.id { divider }
+                                row("person.2", channel.title,
+                                    subtitle: channel.username.isEmpty
+                                        ? nil : "@\(channel.username)",
+                                    selected: channel.isSelected) {
+                                    library.select(channel: channel.chatId)
+                                }
                             }
                         }
                     }
                 }
 
-                signOutCard
+                if !showsAccount && lines.isEmpty && !showsChannels {
+                    ContentUnavailableView("Không tìm thấy", systemImage: "magnifyingglass",
+                                           description: Text("Thử từ khoá khác."))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 48)
+                }
             }
             .padding(.horizontal, MusicSettingsMetrics.sidePadding)
             .padding(.top, MusicSettingsMetrics.contentTop)
             .padding(.bottom, MusicSettingsMetrics.contentBottom)
         }
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
-        .navigationTitle("Cài đặt")
+        .scrollDismissesKeyboard(.interactively)
+        .navigationTitle("Doni")
         .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $searchText, prompt: "Tìm kiếm cài đặt")
+        .toolbar {
+            ToolbarItem(placement: .principal) { brandMark }
+        }
         .confirmationDialog("Đăng xuất khỏi Telegram?", isPresented: $confirmingLogout,
                             titleVisibility: .visible) {
             Button("Đăng xuất", role: .destructive) { signOut() }
@@ -66,6 +95,117 @@ struct SettingsView: View {
         } message: {
             Text("Thư viện, các bài đã yêu thích và danh sách phát trên máy sẽ bị xoá. "
                 + "Phiên đăng nhập sẽ bị đóng.")
+        }
+    }
+
+    // MARK: Header
+
+    /// The reference's title is the app's mark — 28 pt at a 7 pt clip, 8 from a `.headline` name
+    /// (`SettingsHomeComponents.swift:5-14`). Doni ships no asset catalog, so the mark is drawn from
+    /// the accent in the same box rather than left out.
+    private var brandMark: some View {
+        HStack(spacing: MusicSettingsMetrics.logoGap) {
+            RoundedRectangle(cornerRadius: MusicSettingsMetrics.logoRadius, style: .continuous)
+                .fill(MusicTint.accent)
+                .frame(width: MusicSettingsMetrics.logoSide,
+                       height: MusicSettingsMetrics.logoSide)
+                .overlay {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .accessibilityHidden(true)
+            Text("Doni")
+                .font(.headline)
+        }
+    }
+
+    // MARK: Account
+
+    /// A 60 pt mark, the name in `.title3.weight(.semibold)` on one line and a `.subheadline` in
+    /// `.secondary` on two under it, in 18 × 16 of padding on a 100 pt minimum height at radius 28
+    /// (`SettingsAccountSection.swift:64-76`, `:142-153`). While `getMe` is still in flight the card
+    /// wears the reference's loading branch (`:91-99`).
+    private var accountCard: some View {
+        Group {
+            if let account = session.account {
+                HStack(spacing: MusicSettingsMetrics.accountGap) {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                        .frame(width: MusicSettingsMetrics.accountAvatar,
+                               height: MusicSettingsMetrics.accountAvatar)
+                        .background(.quaternary, in: .circle)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: MusicSettingsMetrics.accountTextGap) {
+                        Text(account.name)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(detail(account))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    .layoutPriority(1)
+
+                    Spacer(minLength: 8)
+                }
+            } else {
+                HStack(spacing: MusicSettingsMetrics.accountGap) {
+                    ProgressView()
+                        .frame(width: MusicSettingsMetrics.accountAvatar,
+                               height: MusicSettingsMetrics.accountAvatar)
+                    VStack(alignment: .leading, spacing: MusicSettingsMetrics.accountTextGap) {
+                        Text("Tài khoản Telegram")
+                            .font(.title3.weight(.semibold))
+                        Text("Đang đọc thông tin…")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, MusicSettingsMetrics.accountPaddingH)
+        .padding(.vertical, MusicSettingsMetrics.accountPaddingV)
+        .frame(maxWidth: .infinity, minHeight: MusicSettingsMetrics.accountMinHeight,
+               alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: MusicSettingsMetrics.accountRadius, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+        }
+    }
+
+    /// The reference puts the account's own number under its name; Doni also has the handle its
+    /// channels are read by, so that comes first.
+    private func detail(_ account: TdAccount) -> String {
+        account.username.isEmpty ? "ID \(account.id)" : "@\(account.username) · ID \(account.id)"
+    }
+
+    /// Sign-out, in the account section's own card: no header and no footnote, the whole label in
+    /// red, a 30 pt glyph 14 from a `.body.weight(.medium)` title in 18 × 14 of padding 60 pt tall
+    /// at the usual 26 pt radius (`SettingsAccountSection.swift:163-196`).
+    private var logoutCard: some View {
+        Button(role: .destructive) { confirmingLogout = true } label: {
+            HStack(spacing: MusicSettingsMetrics.rowIconGap) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.title3.weight(.medium))
+                    .frame(width: MusicSettingsMetrics.rowIconWidth)
+                Text("Đăng xuất")
+                    .font(.body.weight(.medium))
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, MusicSettingsMetrics.rowPaddingH)
+            .padding(.vertical, MusicSettingsMetrics.logoutPaddingV)
+            .frame(minHeight: MusicSettingsMetrics.logoutMinHeight)
+            .contentShape(.rect)
+            .foregroundStyle(.red)
+        }
+        .buttonStyle(.plain)
+        .background {
+            RoundedRectangle(cornerRadius: MusicSettingsMetrics.cardRadius, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
         }
     }
 
@@ -145,38 +285,46 @@ struct SettingsView: View {
         }
     }
 
-    /// The reset card MeloX puts at the foot of the screen: the destructive row in its own box, and
-    /// the consequence spelled out under it (`SettingsHomeComponents.swift:94-145`).
-    private var signOutCard: some View {
-        VStack(alignment: .leading, spacing: MusicSettingsMetrics.headerToCard) {
-            Text("Tài khoản")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, MusicSettingsMetrics.headerPadding)
-            Button(role: .destructive, action: { confirmingLogout = true }) {
-                HStack(spacing: MusicSettingsMetrics.rowIconGap) {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.title3.weight(.medium))
-                        .frame(width: MusicSettingsMetrics.rowIconWidth)
-                    Text("Đăng xuất")
-                        .font(.body.weight(.semibold))
-                    Spacer(minLength: 8)
-                }
-                .padding(.horizontal, MusicSettingsMetrics.rowPaddingH)
-                .padding(.vertical, MusicSettingsMetrics.rowPaddingV)
-                .frame(minHeight: MusicSettingsMetrics.rowMinHeight)
-                .contentShape(.rect)
-                .background {
-                    RoundedRectangle(cornerRadius: MusicSettingsMetrics.cardRadius, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                }
-            }
-            .buttonStyle(.plain)
-            Text("Xoá thư viện trên máy và đóng phiên đăng nhập. Đã tải về sẽ mất; kênh vẫn còn trên Telegram.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, MusicSettingsMetrics.headerPadding)
+    // MARK: What is on the phone
+
+    /// The library's three numbers, in the two-line shape every other row on the screen wears. They
+    /// carry a value rather than a chevron because none of them has somewhere to go: the songs
+    /// themselves live on the home tab.
+    private var lines: [SettingLine] {
+        [
+            SettingLine(symbol: "doc.text", title: "Bài đã chỉ mục",
+                        subtitle: "Lấy từ các kênh đã chọn",
+                        value: library.trackCount.formatted(),
+                        keywords: "thư viện nhạc bài hát index"),
+            SettingLine(symbol: "arrow.down.circle", title: "Đã tải về máy",
+                        subtitle: "Nghe được khi không có mạng",
+                        value: "\(library.downloadedCount.formatted()) bài",
+                        keywords: "tải offline file"),
+            SettingLine(symbol: "internalfolder", title: "Dung lượng đã tải",
+                        subtitle: "Bị xoá khi đăng xuất",
+                        value: DataSize.string(library.downloadedBytes),
+                        keywords: "dung lượng bộ nhớ cache"),
+        ].filter { $0.matches(searchText) }
+    }
+
+    private var visibleChannels: [StoreChannel] {
+        library.channels.filter {
+            SettingsSearch.matches(searchText,
+                                   in: [$0.title, $0.username, "kênh channel nhạc"])
         }
+    }
+
+    /// The empty card stays while the field is blank and goes once something is typed into it: a row
+    /// that says there are no channels is not an answer to a search.
+    private var showsChannels: Bool {
+        !visibleChannels.isEmpty || (library.channels.isEmpty
+            && !SettingsSearch.isActive(searchText))
+    }
+
+    private var showsAccount: Bool {
+        SettingsSearch.matches(searchText, in: ["tài khoản", "telegram", "đăng xuất", "hồ sơ",
+                                                session.account?.name ?? "",
+                                                session.account?.username ?? ""])
     }
 
     /// The rows go first, then the session: a database emptied under a live client would be read
@@ -184,6 +332,42 @@ struct SettingsView: View {
     private func signOut() {
         library.wipe()
         session.logOut()
+    }
+}
+
+/// One row of a card that carries a value instead of a destination.
+private struct SettingLine: Identifiable {
+    let symbol: String
+    let title: String
+    let subtitle: String
+    let value: String
+    let keywords: String
+
+    var id: String { title }
+
+    func matches(_ query: String) -> Bool {
+        SettingsSearch.matches(query, in: [title, subtitle, value, keywords])
+    }
+}
+
+/// MeloX's filter: trim, lower-case, split on whitespace, and keep the row only when every piece
+/// turns up somewhere in its text (`SettingsCatalog.swift:120-148`).
+private enum SettingsSearch {
+    static func matches(_ query: String, in values: [String]) -> Bool {
+        let text = values.joined(separator: " ").lowercased()
+        let words = words(query)
+        guard !words.isEmpty else { return true }
+        return words.allSatisfy { text.contains($0) }
+    }
+
+    static func isActive(_ query: String) -> Bool {
+        !words(query).isEmpty
+    }
+
+    private static func words(_ query: String) -> [Substring] {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .split(whereSeparator: \.isWhitespace)
     }
 }
 
