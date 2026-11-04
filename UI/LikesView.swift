@@ -3,26 +3,27 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The hearts, in the shape MeloX gives its favourite songs: a plain `List`, a "play everything"
-/// row at its head, one row per kept song, a swipe that puts the heart back
-/// (`LibrarySongsView.swift:22-108`).
+/// The hearts, in the shape MeloX gives its favourite songs: a plain `List`, a "play everything" row
+/// at its head, the reference's own song row under it, and a swipe that puts the heart back
+/// (`LibrarySongsView.swift:22-68`, `TrackRowView.swift:17-59`).
 ///
-/// A favourite is keyed by MTProto's `unique_id` rather than by the post it came from, so a song
-/// stays here after the channel is re-read or the message is deleted, and the one thing the store
-/// can keep that a chat list cannot is the slice of it that was worth keeping — which is why a row
-/// here can read `1:20–4:05` where the library reads a duration. The order is the store's: newest
-/// heart first, not newest post.
+/// The chrome is the system's — default insets, default separators, no background of its own. What
+/// this screen wore before was Telegram's chat list, which is a different app's screen: two tones of
+/// surface, a hairline drawn by hand, and a play state in the row. The reference puts none of that in
+/// front of a song list, so neither does this.
+///
+/// A favourite is keyed by MTProto's `unique_id` rather than by the post it came from, so a song stays
+/// here after the channel is re-read or the message is deleted, and the one thing the store can keep
+/// that a chat list cannot is the slice of it that was worth keeping. That goes in the row's second
+/// line, which is the slot the reference reserves for one extra fact; the trailing column stays the
+/// song's length. The order is the store's: newest heart first, not newest post.
 struct LikesView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
 
-    @Environment(\.displayScale) private var displayScale
-
     @State private var query = ""
-
-    private let palette = TelegramPalette.dark
 
     var body: some View {
         List {
@@ -35,22 +36,17 @@ struct LikesView: View {
                 }
             }
             ForEach(visible) { favorite in
-                TrackRow(
-                    track: favorite.track,
-                    query: query,
-                    hairline: TelegramGeometry.hairline(displayScale: displayScale),
-                    palette: palette,
-                    isCurrent: player.current?.uniqueId == favorite.track.uniqueId,
-                    isPlaying: player.current?.uniqueId == favorite.track.uniqueId
-                        && player.isPlaying,
-                    headline: headline(of: favorite),
-                    isFavorite: true,
-                    artwork: artwork
-                ) {
+                Button {
                     player.play(favorite.track, in: visible.map { $0.track as any Playable })
+                } label: {
+                    MusicTrackRow(track: favorite.track, secondary: kept(of: favorite),
+                                  artwork: artwork)
+                        .task(id: favorite.track.uniqueId) {
+                            await artwork.load(track: favorite.track, via: session.covers(),
+                                               side: MusicSearchMetrics.songArt)
+                        }
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
+                .buttonStyle(.plain)
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         library.toggleFavorite(favorite.track)
@@ -68,9 +64,6 @@ struct LikesView: View {
                         }
                     }
                 }
-                .task(id: favorite.track.uniqueId) {
-                    await artwork.load(track: favorite.track, via: session.covers())
-                }
             }
             if !visible.isEmpty {
                 countLine
@@ -81,8 +74,6 @@ struct LikesView: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(palette.chatListBackground.ignoresSafeArea())
         .navigationTitle("Yêu thích")
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Tìm trong Yêu thích")
@@ -110,7 +101,6 @@ struct LikesView: View {
                 }
             }
         }
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.id))
     }
 
     /// The store's hearts, with the same toneless fold the library's search uses: "tinh yeu" finds
@@ -139,14 +129,13 @@ struct LikesView: View {
         player.play(list[0], in: list)
     }
 
-    /// A marked slice is the more useful number on this screen: the whole song's length is already
-    /// in the row's artwork tap. The dash is an en dash, because a hyphen in a range reads as a
-    /// subtraction.
-    private func headline(of favorite: StoredFavorite) -> String {
+    /// The range of the kept slice, or nothing at all for a whole song. The dash is an en dash,
+    /// because a hyphen in a range reads as a subtraction.
+    private func kept(of favorite: StoredFavorite) -> String? {
         guard let segment = favorite.segment,
               let from = MediaClock.duration(segment.lowerBound),
               let to = MediaClock.duration(segment.upperBound)
-        else { return favorite.track.headline }
+        else { return nil }
         return "\(from)–\(to)"
     }
 
