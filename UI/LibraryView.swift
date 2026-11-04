@@ -87,6 +87,9 @@ struct LibraryView: View {
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
             player.bind(session.covers())
+            // The bind comes first: the restored song may need TDLib for its file, and a player
+            // without a downloader would leave the row spinning.
+            player.restore()
             indexer.run(session, library: library)
         }
         .confirmationDialog(

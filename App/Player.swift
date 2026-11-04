@@ -14,7 +14,10 @@ import UIKit
 @MainActor
 final class Player: ObservableObject {
     /// What the end of the queue is: an ending, a loop of the whole list, or a loop of this song.
-    enum RepeatMode: Equatable, Sendable {
+    ///
+    /// A `String` raw value because the mode is written into the resume snapshot, where the
+    /// reference keeps it as text (`PlaybackQueue.swift:3`, `PlaybackPersistence.swift:7`).
+    enum RepeatMode: String, Equatable, Sendable, Codable {
         case off, all, one
     }
 
@@ -42,6 +45,7 @@ final class Player: ObservableObject {
         didSet {
             engine?.volume = volume
             publishNowPlaying(elapsed: elapsed)
+            persist()
         }
     }
 
@@ -50,6 +54,15 @@ final class Player: ObservableObject {
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
     private var loading: Task<Void, Never>?
+    /// The second last written into the resume snapshot, so the clock saves once per second of
+    /// listening and not four times (`PlayerStore.swift:190, 1231-1235`).
+    private var lastPersistedSecond = -1
+    /// `restore()` runs once per launch, however many views ask for it
+    /// (`PlayerStore.swift:184, 277-278`).
+    private var hasRestoredPlayback = false
+    /// A play press that arrived while the file was still being fetched: the load honours it when
+    /// it lands, because the press meant it and the row was only too early.
+    private var wantsPlayWhenReady = false
     /// The lock screen's cover, and the bitmap it was made from. See `artwork(for:)`.
     private var artworkItem: (uniqueId: String, image: UIImage, item: MPMediaItemArtwork)?
     /// Set once the session is authorized: a song is a `file_id` until TDLib puts it on the phone.
@@ -133,6 +146,7 @@ final class Player: ObservableObject {
             queue = source
             if let held { index = queue.firstIndex { $0.uniqueId == held } ?? index }
         }
+        persist()
     }
 
     /// The repeat pill walks the three states in the order the reference draws them.
@@ -142,6 +156,7 @@ final class Player: ObservableObject {
         case .all: repeatMode = .one
         case .one: repeatMode = .off
         }
+        persist()
     }
 
     // MARK: The queue page
@@ -195,6 +210,7 @@ final class Player: ObservableObject {
         } else {
             index = min(index, max(order.count - 1, 0))
         }
+        persist()
     }
 
     /// The rows still ahead of the playhead — what the up-next page lists. MeloX's
@@ -251,6 +267,9 @@ final class Player: ObservableObject {
         isFetchingFile = false
         elapsed = 0
         duration = 0
+        wantsPlayWhenReady = false
+        lastPersistedSecond = -1
+        PlaybackPersistence.clear()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
@@ -262,15 +281,17 @@ final class Player: ObservableObject {
         engine?.pause()
         isPlaying = false
         publishNowPlaying(elapsed: elapsed)
+        persist()
     }
 
     func resume() {
         // Pressing play on a row that has no engine behind it and no fetch in flight means it: the
         // load is asked for again rather than being a silent no-op. A fetch that is still running
-        // needs no second one — TDLib would be told to stop and start over on the same file.
+        // needs no second one — TDLib would be told to stop and start over on the same file — but
+        // it does need the press remembered, or the play that arrived early is never answered.
         if engine == nil {
-            guard current != nil, !isFetchingFile else { return }
-            startCurrent()
+            guard current != nil else { return }
+            if isFetchingFile { wantsPlayWhenReady = true } else { startCurrent() }
             return
         }
         do {
@@ -309,7 +330,9 @@ final class Player: ObservableObject {
         let clamped = min(max(seconds, floor), ceiling)
         engine?.currentTime = clamped
         elapsed = clamped
+        lastPersistedSecond = Int(clamped)
         publishNowPlaying(elapsed: clamped)
+        persist()
     }
 
     // MARK: Cutting
@@ -333,11 +356,78 @@ final class Player: ObservableObject {
         markIn = nil
     }
 
+    // MARK: Restarting where the listening left off
+
+    /// Writing the plan down, in the reference's shape (`PlayerStore.swift:1591-1610`).
+    ///
+    /// An empty player clears the note only once it has actually been running: a volume slider on
+    /// the Settings sheet can move before `restore()` has read the snapshot, and clearing then
+    /// would throw away the very song the launch was supposed to bring back.
+    private func persist() {
+        guard !queue.isEmpty else {
+            if hasRestoredPlayback { PlaybackPersistence.clear() }
+            return
+        }
+        PlaybackPersistence.save(PlaybackSnapshot(
+            queue: queue.map(\.uniqueId),
+            source: source.map(\.uniqueId),
+            currentIndex: index,
+            progress: elapsed,
+            isShuffled: isShuffled,
+            repeatMode: repeatMode,
+            volume: volume
+        ))
+    }
+
+    /// Reloading the last session — the same rows in the same order, at the second the song had
+    /// reached, loaded and left paused (`PlayerStore.swift:276-312`, which ends with
+    /// `loadCurrentSong(autoplay: false, startAt: progress)`).
+    ///
+    /// The snapshot holds `unique_id`s rather than whole songs on purpose: a row re-read from the
+    /// store carries the `file_id` that is true *now*, and a song the walk has since deleted drops
+    /// out of the restored queue instead of becoming a row that cannot play.
+    func restore() {
+        guard !hasRestoredPlayback else { return }
+        hasRestoredPlayback = true
+        guard let snapshot = PlaybackPersistence.load() else { return }
+        let tracks = snapshot.queue.compactMap { library.store.track(uniqueId: $0) }
+        guard !tracks.isEmpty else {
+            PlaybackPersistence.clear()
+            return
+        }
+        // Turning shuffle off goes back to the order the list was opened in, and that is not the
+        // order it plays in — so both lists are read back, not just the one under the finger.
+        let opened = snapshot.source.compactMap { library.store.track(uniqueId: $0) }
+        source = opened.isEmpty ? tracks : opened
+        queue = tracks
+        // The playhead follows the song it was on rather than the number it was at: rows that left
+        // the library shift the index, and the id is the only thing that survives that.
+        let held = snapshot.queue.indices.contains(snapshot.currentIndex)
+            ? snapshot.queue[snapshot.currentIndex]
+            : nil
+        index = held.flatMap { left in tracks.firstIndex { $0.uniqueId == left } }
+            ?? min(max(snapshot.currentIndex, 0), tracks.count - 1)
+        isShuffled = snapshot.isShuffled
+        repeatMode = snapshot.repeatMode
+        current = tracks[index]
+        duration = Double(tracks[index].duration ?? 0)
+        elapsed = min(max(snapshot.progress, 0), duration)
+        volume = min(max(snapshot.volume, 0), 1)
+        lastPersistedSecond = Int(elapsed)
+        startCurrent(autoplay: false, startAt: elapsed)
+    }
+
     // MARK: Loading
 
-    private func startCurrent() {
+    /// Loading the row under the playhead. `autoplay: false` is the relaunch case: the song is
+    /// fetched and wound to `startAt` but left still, because an app that starts making noise by
+    /// itself is an app that has just insulted everyone in the room.
+    private func startCurrent(autoplay: Bool = true, startAt: TimeInterval? = nil) {
         guard index >= 0, index < queue.count else { return }
         let track = queue[index]
+        let held = current?.uniqueId
+        // An early play press belonged to the song before this one.
+        wantsPlayWhenReady = false
         loading?.cancel()
         // The song before this one is put down now rather than when the next arrives: an
         // `AVAudioPlayer` holds its file open, a one-hour mix is a hundred and forty megabytes, and
@@ -350,9 +440,13 @@ final class Player: ObservableObject {
         segment = nil
         markIn = nil
         current = track
-        elapsed = 0
+        // The row keeps its place when the same song is asked for again — that is the press that
+        // retries a fetch — and starts at zero when the queue has moved on.
+        elapsed = startAt ?? (held == track.uniqueId ? elapsed : 0)
         duration = Double(track.duration ?? 0)
         isFetchingFile = track.localPath == nil
+        lastPersistedSecond = Int(elapsed)
+        persist()
 
         let path = track.localPath
         let fileId = track.fileId
@@ -364,7 +458,7 @@ final class Player: ObservableObject {
             // trusted blindly and the `try?` in `open` answered a missing file with silence — which
             // is what "an hour-long song never plays, it just waits" turns out to be.
             if let path, FileManager.default.fileExists(atPath: path),
-               open(path: path, track: track) {
+               open(path: path, track: track, startAt: startAt, play: autoplay) {
                 return
             }
             isFetchingFile = true
@@ -377,14 +471,15 @@ final class Player: ObservableObject {
             // The path that was asked for is the one written down: a stored path that turned out to
             // be stale is corrected here rather than left to fail again next time.
             library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
-            _ = open(path: onDisk, track: track)
+            _ = open(path: onDisk, track: track, startAt: startAt, play: autoplay)
         }
     }
 
     /// Hands the file to `AVAudioPlayer` and starts it. False means the row goes back to its play
     /// glyph instead of spinning — a second chance is the caller's, not this function's.
     @discardableResult
-    private func open(path: String, track: any Playable) -> Bool {
+    private func open(path: String, track: any Playable,
+                      startAt: TimeInterval? = nil, play: Bool = true) -> Bool {
         let url = URL(fileURLWithPath: path)
         guard let engine = try? AVAudioPlayer(contentsOf: url) else {
             isFetchingFile = false
@@ -396,11 +491,25 @@ final class Player: ObservableObject {
         // A fresh `AVAudioPlayer` starts at full, so the slider's position has to be written into
         // it before the first sample goes out — otherwise the second song of a queue jumps louder.
         engine.volume = volume
-        if let segment {
+        // A restored position wins over a cut: the cut was the last thing the player did to a
+        // different song, and a slice does not travel across a launch.
+        if let startAt {
+            engine.currentTime = min(startAt, engine.duration)
+            elapsed = engine.currentTime
+        } else if let segment {
             engine.currentTime = segment.lowerBound
             elapsed = segment.lowerBound
         }
         engine.prepareToPlay()
+        let wantsEarlyPress = wantsPlayWhenReady
+        wantsPlayWhenReady = false
+        guard play || wantsEarlyPress else {
+            // The relaunch leaves the row wound up and quiet: the clock never starts, so nothing
+            // advances the bar until the user presses play.
+            isPlaying = false
+            publishNowPlaying(elapsed: engine.currentTime, track: track)
+            return true
+        }
         engine.play()
         isPlaying = true
         startTicker()
@@ -436,6 +545,11 @@ final class Player: ObservableObject {
             }
         }
         elapsed = engine.currentTime
+        let second = Int(elapsed)
+        if second != lastPersistedSecond {
+            lastPersistedSecond = second
+            persist()
+        }
         if isPlaying { publishNowPlaying(elapsed: engine.currentTime) }
     }
 
