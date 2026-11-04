@@ -36,6 +36,8 @@ public final class TdClient: @unchecked Sendable {
     private let yield: AsyncStream<TdJSON>.Continuation
     private let fileStream: AsyncStream<TdJSON>
     private let fileYield: AsyncStream<TdJSON>.Continuation
+    private let messageStream: AsyncStream<TdJSON>
+    private let messageYield: AsyncStream<TdJSON>.Continuation
 
     /// Updates and unsolicited responses, in arrival order. `AsyncStream` has
     /// one consumer; the session layer fans out from here.
@@ -47,6 +49,14 @@ public final class TdClient: @unchecked Sendable {
     /// is exactly the kind of update a download has to be watched for without disturbing
     /// anything else, so the receive loop copies it out here instead.
     public var files: AsyncStream<TdJSON> { fileStream }
+
+    /// The `message` inside every `updateNewMessage` (`td_api.tl:11196`), on a stream of its own.
+    ///
+    /// Same reason as `files`: the post a live index is waiting for has to reach it without taking
+    /// anything away from the login loop, and TDLib sends the posts of every chat the account is in,
+    /// so the copy is the message object rather than the update around it — which is the one shape
+    /// `TdTrack(message:)` already reads out of a history page.
+    public var messages: AsyncStream<TdJSON> { messageStream }
 
     public init(transport: any TdTransporting, clientId: Int32) {
         self.transport = transport
@@ -61,6 +71,11 @@ public final class TdClient: @unchecked Sendable {
         )
         self.fileStream = fileStream
         self.fileYield = fileContinuation
+        let (messageStream, messageContinuation) = AsyncStream<TdJSON>.makeStream(
+            bufferingPolicy: .unbounded
+        )
+        self.messageStream = messageStream
+        self.messageYield = messageContinuation
     }
 
     /// Starts the receive loop, once per instance: TDLib forbids two
@@ -130,6 +145,7 @@ public final class TdClient: @unchecked Sendable {
         }
         yield.finish()
         fileYield.finish()
+        messageYield.finish()
     }
 
     private func nextExtra() -> String {
@@ -147,6 +163,9 @@ public final class TdClient: @unchecked Sendable {
 
     private func route(_ json: TdJSON) {
         if json.type == "updateFile", let file = json["file"] { fileYield.yield(file) }
+        if json.type == "updateNewMessage", let message = json["message"] {
+            messageYield.yield(message)
+        }
         if let extra = json["@extra"]?.string {
             lock.lock()
             let continuation = pending.removeValue(forKey: extra)

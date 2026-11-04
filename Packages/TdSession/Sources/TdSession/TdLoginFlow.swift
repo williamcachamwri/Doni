@@ -22,6 +22,10 @@ public actor TdLoginFlow {
     /// authorisation states out of `updates`, which has exactly one consumer.
     nonisolated public var files: AsyncStream<TdJSON> { client.files }
 
+    /// New posts, on the client's own third stream: the live index watches for a song a channel has
+    /// just published, and `updates` has exactly one consumer — the login loop below.
+    nonisolated public var messages: AsyncStream<TdJSON> { client.messages }
+
     public init(
         client: TdClient,
         parameters: TdParameters,

@@ -61,6 +61,62 @@ func unmatchedMessagesBecomeOrderedUpdates() async throws {
     #expect(seen == [1, 2, 3])
 }
 
+@Test("A new post is copied onto the message stream as the message itself, in arrival order")
+func postsHaveAStreamOfTheirOwn() async throws {
+    let transport = FakeTransport()
+    let client = TdClient(transport: transport, clientId: 7)
+    client.start()
+    defer { client.close() }
+
+    // A file update in between, because the receive loop copies that one out too: neither copy is
+    // allowed to feed the other's stream.
+    transport.queue(#"{"@type":"updateFile","file":{"@type":"file","id":42}}"#)
+    transport.queue(post(id: 5, title: "Em ơi"))
+    transport.queue(post(id: 6, title: "Ngày mai"))
+
+    var posts: [TdJSON] = []
+    for await post in client.messages {
+        posts.append(post)
+        if posts.count == 2 { break }
+    }
+    #expect(posts.compactMap { $0["id"]?.int } == [5, 6])
+    // The shape the live index needs: what is streamed is a `message`, so the same parser a history
+    // page uses reads a post straight off it.
+    let track = posts.first.flatMap(TdTrack.init(message:))
+    #expect(track?.uniqueId == "AAA=")
+    #expect(track?.chatId == -1001)
+    #expect(track?.displayTitle == "Em ơi")
+    #expect(track?.isAudio == true)
+}
+
+@Test("Copying a post out leaves it on the update stream the login loop reads")
+func postsStayOnTheUpdateStream() async throws {
+    let transport = FakeTransport()
+    let client = TdClient(transport: transport, clientId: 7)
+    client.start()
+    defer { client.close() }
+
+    transport.queue(post(id: 5, title: "Em ơi"))
+
+    var seen: [String] = []
+    for await update in client.updates {
+        if let type = update.type { seen.append(type) }
+        if seen.count == 1 { break }
+    }
+    #expect(seen == ["updateNewMessage"])
+}
+
+/// An `updateNewMessage` carrying one audio post, in the shape TDLib sends it.
+private func post(id: Int, title: String) -> String {
+    """
+    {"@type":"updateNewMessage","message":{"@type":"message","id":\(id),"chat_id":-1001,
+     "date":1730000000,"content":{"@type":"messageAudio","audio":{"@type":"audio",
+     "duration":210,"title":"\(title)","performer":"Sơn Tùng M-TP",
+     "file_name":"\(id).mp3","audio":{"@type":"file","id":\(id + 40),"size":5000000,
+     "remote":{"@type":"fileRemotePersistent","unique_id":"AAA="}}}}}}
+    """
+}
+
 @Test("Closing terminates the loop and every request still waiting on it")
 func closeReleasesPendingRequests() async throws {
     let transport = FakeTransport()

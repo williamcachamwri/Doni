@@ -117,6 +117,14 @@ final class TelegramSession: ObservableObject {
         return downloader
     }
 
+    /// Every post the account's chats make while the app is open, for the live index.
+    ///
+    /// Nil before a flow exists. After a logout the stream is finished by the client that closed, so
+    /// whoever was reading it ends by itself and this hands out the new session's stream instead.
+    func newMessages() -> AsyncStream<TdJSON>? {
+        flow?.messages
+    }
+
     /// One `getMe` on the way into the session: the account card needs a name, and TDLib is the only
     /// thing that has one. A failure leaves the card on its fallback rather than reporting an error
     /// the user cannot act on.

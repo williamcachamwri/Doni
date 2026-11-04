@@ -85,6 +85,38 @@ final class Library: ObservableObject {
         store.appendTracks(page.map { stored($0, chatId: chatId) })
     }
 
+    /// One song a channel posted while the app was open, written down and put on the published rows.
+    ///
+    /// `remember(page:)` says nothing about the published list because a walk publishes its own pages
+    /// as it goes; a post that lands with no walk running has nobody else to report it. Patched the
+    /// way a finished download is: `refresh()` would re-stat every file on the phone to prove that one
+    /// row appeared.
+    ///
+    /// It is also timed, when the post did not say how long it is. A channel's MP3s arrive as
+    /// documents and a document carries no duration (`td_api.tl:594`), so without this the newest row
+    /// on the screen — the one the user came here to look at — would be the one row with no timestamp.
+    func ingest(_ track: TdTrack, with files: TdFileDownloader?) {
+        let fresh = stored(track, chatId: track.chatId)
+        store.appendTracks([fresh])
+        trackCount = store.trackCount()
+        var written = fresh
+        if let index = storedTracks.firstIndex(where: { $0.uniqueId == fresh.uniqueId }) {
+            // A song the phone already knew keeps what it knew, which is exactly what the upsert
+            // underneath did to its columns: `duration` and `local_path` are COALESCE'd, never
+            // cleared, and the published row has to agree with the stored one.
+            written.duration = fresh.duration ?? storedTracks[index].duration
+            written.localPath = fresh.localPath ?? storedTracks[index].localPath
+            storedTracks[index] = written
+        } else {
+            // The store's own order is newest first, and a post that has just landed is the newest.
+            storedTracks.insert(written, at: 0)
+        }
+        guard written.duration == nil, written.fileId > 0, let files else { return }
+        Task { [weak self] in
+            await self?.probe(written, with: files)
+        }
+    }
+
     // MARK: Downloads
 
     /// Where TDLib put the file. Recorded so the row shows as downloaded and a second play of the

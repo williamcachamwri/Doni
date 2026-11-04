@@ -36,6 +36,10 @@ final class LibraryIndexer: ObservableObject {
 
     private var task: Task<Void, Never>?
 
+    /// The live feed. One task drinks the post stream for the whole app, because the stream behind it
+    /// has exactly one consumer.
+    private var liveTask: Task<Void, Never>?
+
     /// Bumped by every walk that starts, so a cancelled walk can recognise that the handle it
     /// is about to clear is not its own.
     private var generation = 0
@@ -86,9 +90,53 @@ final class LibraryIndexer: ObservableObject {
 
     /// Puts the stored library on screen first, then starts the walk if nothing is walking.
     /// `.task` on first appearance uses this.
+    ///
+    /// Arming the live feed is part of asking for the library: a screen that wants the songs wants the
+    /// ones that arrive after it opened too.
     func run(_ session: TelegramSession, library: Library) {
+        watch(session, library: library)
         if tracks.isEmpty { tracks = library.storedTracks }
         startWalk(session, library: library, replacing: false)
+    }
+
+    /// Starts watching for the posts the allow-listed channels make while the app is open, so a new
+    /// song is in the library the moment Telegram delivers it rather than at the next pull-to-refresh.
+    ///
+    /// Idempotent: every screen that calls `run` calls this, and one reader is what the stream allows.
+    /// A logout closes the client, which finishes the stream, which ends the loop and lets the next
+    /// session's posts be watched by a fresh one.
+    func watch(_ session: TelegramSession, library: Library) {
+        guard liveTask == nil, let messages = session.newMessages() else { return }
+        let files = session.covers()
+        let feed = Task {
+            for await message in messages {
+                guard let track = TdTrack(message: message), track.isAudio else { continue }
+                ingest(track, library: library, with: files)
+            }
+            liveTask = nil
+        }
+        liveTask = feed
+    }
+
+    /// One post that has just landed, put in the library and on the screen.
+    ///
+    /// The allow-list is checked here rather than by the feed because TDLib sends the posts of every
+    /// chat the account is in, and this library only grows with the channels the user agreed to have
+    /// read.
+    private func ingest(_ track: TdTrack, library: Library, with files: TdFileDownloader?) {
+        guard library.indexedChannels.contains(where: { $0.chatId == track.chatId }),
+              !tracks.contains(where: { $0.uniqueId == track.uniqueId })
+        else { return }
+        library.ingest(track, with: files)
+        // A walk owns the list while it runs — it publishes the store when it ends, and the store has
+        // the new row by then, so handing the list over now would only jump the rows around under a
+        // walk that is about to reorder them anyway.
+        guard !isReading else { return }
+        tracks = library.storedTracks
+        if case let .finished(snapshot) = phase {
+            phase = .finished(.init(trackCount: tracks.count, messageCount: snapshot.messageCount,
+                                    pageCount: snapshot.pageCount))
+        }
     }
 
     /// Pull-to-refresh: the walk starts again from the newest message and the spinner is held
