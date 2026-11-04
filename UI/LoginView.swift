@@ -6,15 +6,18 @@ import TdSession
 /// counter, so a session that resumes at the code step or at the password step shows the right
 /// field without extra bookkeeping.
 ///
-/// The layout follows `Docs/design-tokens.md`, "Login (authorization sequence)": white canvas,
-/// measured type, ruled fields, a capsule button 24 pt above the keyboard, content hanging from
-/// the top with its gaps stretching to their maxima, which is how `layoutAuthorizationItems`
-/// distributes the space a screen leaves over.
+/// The layout follows `Docs/design-tokens.md`, "Login (authorization sequence)": measured type,
+/// ruled fields, a capsule button 24 pt above the keyboard, content hanging from the top with its
+/// gaps stretching to their maxima, which is how `layoutAuthorizationItems` distributes the space a
+/// screen leaves over. What it does not follow is the reference's white canvas: this is the front
+/// door of a dark music app, so it wears the shell's black, the shell's accent and a backdrop that
+/// moves, and the mark sits in the slot the reference keeps for its 100×100 intro sticker.
 ///
 /// The hand-over between two screens is Telegram's snapshot choreography: the outgoing screen is
 /// kept on stage as a frozen copy, thrown 100–140 pt up while the field block shrinks to 30 % and
-/// both fade out, and the incoming screen fades up over it. The button is the one element that
-/// belongs to no screen, so it is hidden in the copy and never fades.
+/// both fade out, and the incoming screen fades up over it — growing its own mark from 30 % the way
+/// the incoming sticker does. The button is the one element that belongs to no screen, so it is
+/// hidden in the copy and never fades.
 struct LoginView: View {
     @ObservedObject var session: TelegramSession
 
@@ -37,18 +40,24 @@ struct LoginView: View {
     @State private var ghostFieldScale: CGFloat = 1
     @State private var ghostAlpha: Double = 1
     @State private var liveAlpha = 0.0
+    /// The incoming screen's mark grows from 30 % in the same 0.3 s its nodes fade up, which is the
+    /// reference's own rule for the sticker that stands in this slot.
+    @State private var liveCrestScale = 1.0
 
     @State private var shakeOffsets: [CGFloat] = []
     @State private var shakeProgress = 0.0
     @State private var isCodeFailed = false
 
-    private let list = TelegramListPalette.day
+    private let list = TelegramListPalette.night
 
     /// The screen that just left the stage, with everything it was showing.
     private struct Ghost {
         let step: TdAuthorizationStep?
         let entry: String
         let country: DialCountry
+        /// The mark's size at the moment the copy was taken. A ghost is a frozen screen, so it keeps
+        /// the side it was drawn at rather than tucking with a keyboard that has since come up.
+        let crestSide: CGFloat
     }
 
     /// Where the frozen copy is in its flight.
@@ -57,6 +66,8 @@ struct LoginView: View {
         var fieldOffset: CGFloat = 0
         var fieldScale: CGFloat = 1
         var alpha: Double = 1
+        var crestSide: CGFloat = TelegramLoginMetrics.crestSide
+        var crestScale: CGFloat = 1
     }
 
     /// Two updates of the same screen must not replay the hand-over — TDLib resends the code
@@ -67,7 +78,7 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            list.background.ignoresSafeArea()
+            LoginBackdrop(canvas: list.background)
 
             GeometryReader { proxy in
                 ZStack {
@@ -81,7 +92,8 @@ struct LoginView: View {
                                 textOffset: ghostTextOffset,
                                 fieldOffset: ghostFieldOffset,
                                 fieldScale: ghostFieldScale,
-                                alpha: ghostAlpha
+                                alpha: ghostAlpha,
+                                crestSide: ghost.crestSide
                             ),
                             isGhost: true
                         )
@@ -93,7 +105,9 @@ struct LoginView: View {
                         entry: $entry,
                         country: $country,
                         screenWidth: proxy.size.width,
-                        motion: HandOver(alpha: liveAlpha),
+                        motion: HandOver(alpha: liveAlpha,
+                                         crestSide: liveCrestSide,
+                                         crestScale: liveCrestScale),
                         isGhost: false
                     )
                 }
@@ -104,8 +118,15 @@ struct LoginView: View {
                 }
             }
         }
-        .on(UIApplication.keyboardWillShowNotification) { isKeyboardVisible = true }
-        .on(UIApplication.keyboardWillHideNotification) { isKeyboardVisible = false }
+        // The sequence is a screen of the app, so it forces the appearance the rest of the app is
+        // rendered in — including the keyboard, which would otherwise come up white over black.
+        .preferredColorScheme(.dark)
+        .on(UIApplication.keyboardWillShowNotification) {
+            withAnimation(TelegramLoginMotion.presentation) { isKeyboardVisible = true }
+        }
+        .on(UIApplication.keyboardWillHideNotification) {
+            withAnimation(TelegramLoginMotion.presentation) { isKeyboardVisible = false }
+        }
         .task { session.start() }
         .onAppear { fadeLiveIn() }
         .alert(
@@ -181,6 +202,12 @@ struct LoginView: View {
             gap(TelegramLoginMetrics.topInset + navBand)
 
             VStack(spacing: 0) {
+                // The mark travels with the title block, so a hand-over throws both of them up and
+                // the incoming one grows back from 30 % — the sticker's own rule in the reference.
+                LoginCrest(side: motion.crestSide)
+                    .scaleEffect(motion.crestScale)
+                    .padding(.bottom, TelegramLoginMetrics.crestToTitle)
+
                 Text(title(for: step))
                     .font(titleFont(for: step))
                     .multilineTextAlignment(.center)
@@ -270,7 +297,8 @@ struct LoginView: View {
             savedCountry = country
         }
 
-        let outgoing = Ghost(step: previous, entry: entry, country: country)
+        let outgoing = Ghost(step: previous, entry: entry, country: country,
+                             crestSide: liveCrestSide)
         withoutAnimation {
             entry = ""
             isCodeFailed = false
@@ -309,14 +337,28 @@ struct LoginView: View {
     }
 
     private func fadeLiveIn() {
-        withoutAnimation { liveAlpha = 0 }
-        withAnimation(TelegramLoginMotion.fadeIn) { liveAlpha = 1 }
+        withoutAnimation {
+            liveAlpha = 0
+            liveCrestScale = TelegramLoginMotion.crestFrom
+        }
+        withAnimation(TelegramLoginMotion.fadeIn) {
+            liveAlpha = 1
+            liveCrestScale = 1
+        }
+    }
+
+    /// The mark keeps the sticker's slot and gives up height when the keyboard takes the lower half
+    /// of the screen — the same trade the phone screen makes by swapping 30 pt light type for 28 pt
+    /// bold, made here without moving anything the eye is following.
+    private var liveCrestSide: CGFloat {
+        isKeyboardVisible ? TelegramLoginMetrics.crestTuckedSide : TelegramLoginMetrics.crestSide
     }
 
     /// The code screen flies up exactly as it did on the way forward — nothing is sent anywhere,
     /// the number screen is simply put back on stage with the number it was left with.
     private func stopAndGoBack() {
-        let outgoing = Ghost(step: session.step, entry: entry, country: country)
+        let outgoing = Ghost(step: session.step, entry: entry, country: country,
+                             crestSide: liveCrestSide)
         withoutAnimation {
             isPickingANewNumber = true
             entry = savedNumber
@@ -334,7 +376,8 @@ struct LoginView: View {
     private func returnToCode() {
         savedNumber = entry
         savedCountry = country
-        let outgoing = Ghost(step: .waitPhoneNumber, entry: entry, country: country)
+        let outgoing = Ghost(step: .waitPhoneNumber, entry: entry, country: country,
+                             crestSide: liveCrestSide)
         withoutAnimation {
             isPickingANewNumber = false
             entry = ""
@@ -560,6 +603,66 @@ struct LoginView: View {
 
     private func gap(_ height: CGFloat, maximum: CGFloat? = nil) -> some View {
         Color.clear.frame(minHeight: height, maxHeight: maximum ?? height)
+    }
+}
+
+/// The app's mark, standing in the slot the reference keeps for its 100×100 intro sticker. Doni
+/// ships no Lottie and no asset catalog, so this is drawn from the same accent tile the settings
+/// header wears — which is also the one thing on this screen that says whose app the login opens.
+private struct LoginCrest: View {
+    let side: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: side * TelegramLoginMetrics.crestRadiusRatio,
+                         style: .continuous)
+            .fill(MusicTint.accent)
+            .overlay {
+                Image(systemName: "music.note")
+                    .font(.system(size: side * 0.42, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: side, height: side)
+            .accessibilityHidden(true)
+    }
+}
+
+/// The canvas the sequence is read on: the shell's black, and two soft colours drifting slowly
+/// behind the words.
+///
+/// They move because nothing here sits under the content as a panel — a light that never travels is
+/// a background card, and the fields already have their own rules to stand on. Two radial gradients
+/// rather than blurred discs for the same reason: they are soft by construction, so an eleven-second
+/// drift costs a fill instead of a Gaussian pass every frame.
+private struct LoginBackdrop: View {
+    let canvas: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            canvas
+
+            glow(MusicTint.accent, opacity: 0.34, side: 460)
+                .offset(x: drift ? -86 : 74, y: drift ? -168 : -104)
+
+            glow(Color(rgb: 0x3e88f7), opacity: 0.20, side: 520)
+                .offset(x: drift ? 92 : -70, y: drift ? 176 : 108)
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 11).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func glow(_ color: Color, opacity: Double, side: CGFloat) -> some View {
+        RadialGradient(colors: [color.opacity(opacity), color.opacity(0)],
+                       center: .center, startRadius: 0, endRadius: side / 2)
+            .frame(width: side, height: side)
     }
 }
 

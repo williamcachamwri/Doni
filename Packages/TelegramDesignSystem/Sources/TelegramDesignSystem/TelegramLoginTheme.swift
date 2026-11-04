@@ -66,6 +66,33 @@ public struct TelegramListPalette: Sendable {
         disabledCheckFill: Color(rgb: 0xeeeeee),
         constructive: Color(rgb: 0x00c900)
     )
+
+    /// The same block in the appearance Doni actually ships in.
+    ///
+    /// The authorization sequence was never meant to be a screen of its own app: it is the front
+    /// door of the music one, so it wears the shell's black (`chatListBackground`,
+    /// `TelegramPalette.dark`) and the shell's accent (`MusicTint.accent`, MeloX's `.tint(.red)`
+    /// resolved in dark), with white type on top. Every other value is the dark counterpart of the
+    /// day one above, taken from `TelegramPalette.dark` where it has a sibling there — the
+    /// separator, the secondary text, the placeholder and the destructive red are all numbers this
+    /// file already owned in the other palette rather than new guesses.
+    ///
+    /// `disabledCheckFill` is derived the way the day one is: background mixed with disabled text
+    /// at 0.15, which on black is 0·0.85 + 141·0.15 ≈ 21 per channel.
+    public static let night = TelegramListPalette(
+        background: Color(rgb: 0x000000),
+        primaryText: Color(rgb: 0xffffff),
+        secondaryText: Color(rgb: 0x98989e),
+        disabledText: Color(rgb: 0x8d8e93),
+        accent: MusicTint.accent,
+        destructive: Color(rgb: 0xeb5545),
+        placeholder: Color(rgb: 0x8f8f8f),
+        separator: Color(rgb: 0x545458, alpha: 0.55),
+        checkFill: MusicTint.accent,
+        checkForeground: Color(rgb: 0xffffff),
+        disabledCheckFill: Color(rgb: 0x151516),
+        constructive: Color(rgb: 0x30d15b)
+    )
 }
 
 /// Typography of the authorization screens, in Telegram's own weights.
@@ -92,6 +119,20 @@ public enum TelegramLoginTypography {
 public enum TelegramLoginMetrics {
     public static let horizontalInset: CGFloat = 24
     public static let topInset: CGFloat = 18
+    /// Where the reference stands its 100×100 `IntroPhone` sticker
+    /// (`AuthorizationSequencePhoneEntryControllerNode.swift:627`, read into
+    /// `Docs/design-tokens.md:204`). Doni ships no Lottie, so the app's own mark wears that slot —
+    /// which is also what makes the sequence a screen of this app rather than a gate in front of it.
+    public static let crestSide: CGFloat = 100
+    /// Doni's own: the phone screen swaps 30 pt light type for 28 pt bold when the keyboard comes
+    /// up, which is the reference reclaiming the same band. The mark tucks down instead, so the
+    /// field block never has to move.
+    public static let crestTuckedSide: CGFloat = 64
+    /// The sequence's own 32 pt rhythm (`subtitleToField` is 30, the password gap 32).
+    public static let crestToTitle: CGFloat = 32
+    /// A logo tile is rounder than a cover — `MusicArtworkMetrics.radius` is 10 at 154 pt — so the
+    /// clip is carried as a ratio and stays the same shape while the mark tucks.
+    public static let crestRadiusRatio: CGFloat = 0.22
     public static let titleToSubtitle: CGFloat = 18
     public static let subtitleToField: CGFloat = 30
     public static let fieldToResend: CGFloat = 50
@@ -164,6 +205,16 @@ public enum TelegramLoginMotion {
     /// The incoming screen's nodes fade in over 0.3 s (`:569`), as does the first screen
     /// when the sequence opens (`AuthorizationSequenceController.swift:1367`).
     public static let fadeIn = easeInOut(0.3)
+
+    /// …and the incoming sticker grows from 30 % of its size through the same 0.3 s
+    /// (`Docs/design-tokens.md:261`), which is why the mark arrives rather than appearing.
+    public static let crestFrom: CGFloat = 0.3
+
+    /// Doni's own: the sequence does not end with a root swap. The last screen lifts off the shell
+    /// that has already appeared under it, growing a fifth on the way out so the hand-over reads as
+    /// a door rather than a cross-fade. The curve is the reference's `presentation` spring, which is
+    /// what a 0.5 s animation of this kind is routed through (`CAAnimationUtils.swift:119-204`).
+    public static let leaveScale: CGFloat = 1.18
 
     /// Wrong code: the boxes shake. `addShakeAnimation` (`ShakeAnimation.swift:9-39`) builds
     /// a keyframe animation on `position.x` — 0, then `amplitude · sign · 1/(i+1)` for `count`

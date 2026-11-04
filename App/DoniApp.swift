@@ -1,4 +1,5 @@
 import SwiftUI
+import TelegramDesignSystem
 
 @main
 struct DoniApp: App {
@@ -13,12 +14,23 @@ struct DoniApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if session.isAuthorized {
-                RootView(session: session, indexer: indexer, player: player,
-                         artwork: artwork, library: library)
-            } else {
-                LoginView(session: session)
+            // One ZStack, not one root per state: the shell is put up underneath and the sequence
+            // lifts off it on the reference's own spring, which is what makes signing in feel like
+            // opening the app rather than switching to another one.
+            ZStack {
+                if session.isAuthorized {
+                    RootView(session: session, indexer: indexer, player: player,
+                             artwork: artwork, library: library)
+                } else {
+                    LoginView(session: session)
+                        .transition(.asymmetric(
+                            insertion: .identity,
+                            removal: .scale(scale: TelegramLoginMotion.leaveScale)
+                                .combined(with: .opacity)
+                        ))
+                }
             }
+            .animation(TelegramLoginMotion.presentation, value: session.isAuthorized)
         }
     }
 }
