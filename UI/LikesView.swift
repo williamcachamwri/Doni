@@ -24,14 +24,11 @@ struct LikesView: View {
     var body: some View {
         ZStack(alignment: .top) {
             rows
-            GlassBar(
-                title: "Yêu thích",
-                actions: [
-                    GlassBarAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
-                        shuffleAll()
-                    },
-                ]
-            )
+            LargeTitleHeader(title: "Yêu thích", actions: [
+                HeaderAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
+                    shuffleAll()
+                },
+            ])
         }
         .background(palette.chatListBackground.ignoresSafeArea())
     }
@@ -82,7 +79,7 @@ struct LikesView: View {
                 footer(kept)
             }
         }
-        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
+        .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .animation(TelegramLoginMotion.easeInOut(0.2), value: kept.map(\.id))
     }

@@ -26,7 +26,7 @@ struct SettingsView: View {
     var body: some View {
         ZStack(alignment: .top) {
             list
-            GlassBar(title: "Cài đặt")
+            LargeTitleHeader(title: "Cài đặt")
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .confirmationDialog("Đăng xuất khỏi Telegram?", isPresented: $confirmingLogout,
@@ -70,7 +70,7 @@ struct SettingsView: View {
             // A plain list closes its last section with 22 (`ItemListItem.swift:90`).
             .padding(.bottom, TelegramSettingsMetrics.plainSectionEnd)
         }
-        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
+        .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
     }
 

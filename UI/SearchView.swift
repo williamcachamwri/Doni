@@ -3,12 +3,12 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The screen the tab bar's search circle opens.
+/// The screen the tab bar's search circle opens, after the Apple Music set: the title set left in
+/// `bold(34)`, a full-width rounded field under it, and Huỷ stepping in only while the field holds
+/// the keyboard.
 ///
-/// The photo's list has no field in it — search is the circle, not a pill under the bar — so the
-/// field lives here, wearing the bar's own vessel: a floating glass pill with a "Huỷ" beside it,
-/// over a list the results scroll under. What it searches is the whole library, and the fold it
-/// searches with is `SearchTextFold`'s, so "tinh yeu" finds "Tình yêu" the way the list always did.
+/// What it searches is the whole library, and the fold it searches with is `SearchTextFold`'s, so
+/// "tinh yeu" finds "Tình yêu" the way the list always did.
 struct SearchView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -21,22 +21,39 @@ struct SearchView: View {
     @Environment(\.telegramFloatingClearance) private var floatingClearance
 
     @State private var query = ""
+    @State private var editing = false
 
     private let palette = TelegramPalette.dark
 
     var body: some View {
         ZStack(alignment: .top) {
             rows
-            HStack(spacing: 10) {
-                SearchField(query: $query, placeholder: "Tìm bài hát", autoFocus: true)
-                Button("Huỷ", action: close)
-                    .font(TelegramShellTypography.barAction)
-                    .foregroundStyle(palette.navPrimaryText)
-            }
-            .padding(.horizontal, TelegramBarMetrics.sideInset)
-            .padding(.top, TelegramBarMetrics.topGap)
+            header
+                .background(palette.chatListBackground)
         }
         .background(palette.chatListBackground.ignoresSafeArea())
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: TelegramHeaderMetrics.actionGap) {
+            Text("Tìm kiếm")
+                .font(TelegramShellTypography.largeTitle)
+                .foregroundStyle(palette.navPrimaryText)
+            HStack(spacing: TelegramHeaderMetrics.actionGap) {
+                SearchField(query: $query, placeholder: "Tìm bài hát",
+                            autoFocus: true, isEditing: $editing)
+                if editing {
+                    Button("Huỷ", action: close)
+                        .font(TelegramShellTypography.barAction)
+                        .foregroundStyle(palette.highlight)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+        }
+        .padding(.horizontal, TelegramHeaderMetrics.sideInset)
+        .padding(.top, TelegramHeaderMetrics.topPadding)
+        .padding(.bottom, TelegramHeaderMetrics.bottomPadding)
+        .animation(TelegramLoginMotion.easeInOut(0.2), value: editing)
     }
 
     private var visible: [any Playable] {
@@ -76,7 +93,7 @@ struct SearchView: View {
                 }
             }
         }
-        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
+        .contentMargins(.top, TelegramHeaderMetrics.searchClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
     }

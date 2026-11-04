@@ -1,14 +1,20 @@
 import SwiftUI
+import MediaPlayer
 import Support
 import TelegramDesignSystem
 
-/// The full player the strip opens.
+/// The full player the strip opens, after the Apple Music set: the cover fills the screen behind
+/// a blur and a scrim, the words and the transport sit on top of it, and a system volume slider
+/// closes the stack.
 ///
-/// The reference has no such screen — Telegram expands its 190 pt panel in place
-/// (`OverlayAudioPlayerControlsNode.swift:806`) — so the layout is Doni's while the numbers are
-/// still the ones in `Docs/design-tokens.md`: the art's 10 pt corner, the bar's `semibold(17)` and
-/// `regular(15)`, `medium(12)` timestamps, a 7 pt round-capped scrubber in the reference's own
-/// colours, and 64 pt buttons. The two glyph sizes and the 360 pt art cap are marked Doni's own.
+/// Telegram has no such screen — it expands its 190 pt panel in place
+/// (`OverlayAudioPlayerControlsNode.swift:806`) — so the layout is the mockup's while the motion
+/// is Telegram's: the 0.15 s crossfade (`TelegramShellMotion`) on every track change, the
+/// badge node's `pop` easing on the play/pause glyph and the timestamps, a spring press-scale on
+/// every button, and the symbols themselves swapping with `replace.downUp`. The song's own words
+/// slide up from the bottom on a change, the way the reference swaps a row's content under a
+/// finger. The heart and the cut moved into the words' row as round glass buttons, because the
+/// mockup's transport is exactly three buttons wide.
 struct NowPlayingView: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
@@ -24,95 +30,166 @@ struct NowPlayingView: View {
     private let palette = TelegramPalette.dark
 
     var body: some View {
-        GeometryReader { edge in
-            VStack(spacing: 0) {
-                closeButton
-                    .frame(height: TelegramLibraryMetrics.navigationBarHeight)
-                Spacer(minLength: 24)
-                art(edge.size.width)
-                Spacer(minLength: 24)
-                words
-                scrubber
-                    .padding(.top, 22)
-                transport
-                    .padding(.top, 14)
-                sliceCaption
-                Spacer(minLength: 8)
+        ZStack {
+            backdrop
+            GeometryReader { edge in
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer(minLength: 20)
+                    art(edge.size.width - 48)
+                    Spacer(minLength: 20)
+                    words
+                    scrubber
+                        .padding(.top, 18)
+                    transport
+                        .padding(.top, 10)
+                    volume
+                        .padding(.top, 16)
+                    sliceCaption
+                    Spacer(minLength: 12)
+                }
+                .padding(.bottom, 16)
+                .animation(TelegramShellMotion.pop, value: player.current?.uniqueId)
             }
-            .padding(.bottom, 20)
         }
-        .background(palette.chatListBackground.ignoresSafeArea())
         .preferredColorScheme(.dark)
     }
 
-    /// Art takes the width the phone has, less the shell's own inset, and stops at 360: a cover
-    /// stretched across a Max is a blurry square, not a record sleeve.
-    private func art(_ width: CGFloat) -> some View {
-        let side = min(width - 2 * TelegramShellMetrics.miniPlayerSideInset, 360)
-        return Group {
-            if let track = player.current {
-                TrackCover(track: track,
-                           side: side,
-                           radius: TelegramShellMetrics.miniPlayerArtRadius,
-                           artwork: artwork)
-                    .frame(maxWidth: .infinity)
+    /// The cover drawn twice: once as the screen itself — blurred hard, scaled to hide the blur's
+    /// edge, dimmed so white text always wins — and once as the square the mockup puts in the
+    /// middle. Both crossfade on the 0.15 s Telegram easing when the song changes.
+    private var backdrop: some View {
+        ZStack {
+            if let track = player.current, let image = artwork.image(for: track) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .blur(radius: 64)
+                    .scaleEffect(1.25)
+                    .overlay(Color.black.opacity(0.45))
+            } else {
+                palette.chatListBackground
             }
         }
+        .ignoresSafeArea()
         .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
     }
 
-    private var closeButton: some View {
+    private var topBar: some View {
         HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(palette.navControl)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Đóng")
+            circleButton("chevron.down", label: "Đóng") { dismiss() }
             Spacer()
             Text("Đang phát")
-                .font(TelegramLibraryTypography.barTitle)
-                .foregroundStyle(palette.navPrimaryText)
+                .font(TelegramShellTypography.barAction)
+                .foregroundStyle(palette.navSecondaryText)
             Spacer()
             // The bar's own symmetry: the title sits centred because both slots exist.
-            Color.clear.frame(width: 44, height: 44)
+            Color.clear.frame(width: 36, height: 36)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 20)
+        .frame(height: 44)
     }
 
-    private var words: some View {
+    /// The mockup's art: the width the screen has less 2 × 24, with a soft drop so the square
+    /// lifts off its own blurred copy behind it.
+    private func art(_ width: CGFloat) -> some View {
         Group {
             if let track = player.current {
-                VStack(spacing: 2) {
+                TrackCover(track: track, side: width, radius: 12, artwork: artwork)
+            } else {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(palette.glassFallback)
+            }
+        }
+        .frame(width: width, height: width)
+        .frame(maxWidth: .infinity)
+        .shadow(color: .black.opacity(0.35), radius: 20, y: 12)
+        .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
+    }
+
+    /// The words at the left, the heart and the cut at the right, all on one row. The cut lives in
+    /// a menu because the mockup's transport has no room for a fourth button — and a cut is a
+    /// three-step choice (start, end, or let go), which a menu states better than a toggle does.
+    @ViewBuilder
+    private var words: some View {
+        if let track = player.current {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(track.displayTitle)
-                        .font(TelegramShellTypography.title)
+                        .font(TelegramShellTypography.playingTitle)
                         .foregroundStyle(palette.navPrimaryText)
                         .lineLimit(2)
-                        .multilineTextAlignment(.center)
                     Text(track.displayPerformer.isEmpty ? "Doni" : track.displayPerformer)
-                        .font(TelegramShellTypography.artist)
+                        .font(TelegramShellTypography.playingArtist)
                         .foregroundStyle(palette.navSecondaryText)
                         .lineLimit(1)
                 }
-                .padding(.horizontal, TelegramShellMetrics.miniPlayerSideInset)
+                Spacer(minLength: 0)
+                heartButton(track)
+                cutMenu
             }
+            .padding(.horizontal, 24)
+            .id(track.uniqueId)
+            .transition(.push(from: .bottom))
         }
     }
 
-    /// `scrubberThickness = 7.0` with round caps, the fill in `itemPrimaryTextColor` over a track
-    /// of `controlSecondaryColor` at half (`:266`, `:716`). A drag is held locally and handed to
-    /// the player once, when the finger lifts — seeking on every change would fight the tick.
+    private func heartButton(_ track: any Playable) -> some View {
+        let kept = library.favorites.contains { $0.id == track.uniqueId }
+        return Button {
+            library.toggleFavorite(track)
+        } label: {
+            Image(systemName: kept ? "heart.fill" : "heart")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(kept ? palette.highlight : palette.navPrimaryText)
+                .frame(width: 36, height: 36)
+                .contentShape(Circle())
+        }
+        .buttonStyle(PlayerButtonStyle())
+        .telegramGlass(.circle, fallback: palette.glassFallback)
+        .symbolEffect(.bounce, value: kept)
+        .accessibilityLabel(kept ? "Bỏ yêu thích" : "Yêu thích")
+    }
+
+    private var cutMenu: some View {
+        Menu {
+            if let started = markIn {
+                Button("Kết thúc cắt tại \(clock(player.elapsed))") {
+                    guard player.elapsed > started else { return }
+                    player.segment = started...player.elapsed
+                    markIn = nil
+                }
+            } else if player.segment == nil {
+                Button("Bắt đầu cắt tại \(clock(player.elapsed))") {
+                    markIn = player.elapsed
+                }
+            }
+            if player.segment != nil {
+                Button("Bỏ cắt", role: .destructive) {
+                    player.segment = nil
+                    markIn = nil
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(markIn == nil && player.segment == nil
+                    ? palette.navPrimaryText : palette.highlight)
+                .frame(width: 36, height: 36)
+                .contentShape(Circle())
+        }
+        .telegramGlass(.circle, fallback: palette.glassFallback)
+        .accessibilityLabel("Cắt đoạn")
+    }
+
+    /// The mockup's 4 pt line with round caps, in the track's own colours — white over white at
+    /// a third. A drag is held locally and handed to the player once, when the finger lifts.
     private var scrubber: some View {
         VStack(spacing: 6) {
             lane
             timestamps
         }
-        .padding(.horizontal, TelegramShellMetrics.miniPlayerSideInset)
+        .padding(.horizontal, 24)
     }
 
     private var lane: some View {
@@ -122,15 +199,14 @@ struct NowPlayingView: View {
             let width = max(edge.size.width, 1)
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(palette.navSecondaryText.opacity(0.5))
-                    .frame(width: width, height: TelegramShellMetrics.scrubberHeight)
+                    .fill(palette.navPrimaryText.opacity(0.3))
+                    .frame(width: width, height: 4)
                 Capsule()
                     .fill(palette.navPrimaryText)
-                    .frame(width: width * shown, height: TelegramShellMetrics.scrubberHeight)
+                    .frame(width: width * shown, height: 4)
                     .animation(.linear(duration: 0.25), value: player.elapsed)
             }
-            // 26 pt of band around a 7 pt line — the height the reference gives the scrubber, not
-            // the thickness of the line (`:867`): a scrubber you cannot hit is not a scrubber.
+            // 22 pt of band around a 4 pt line: a scrubber you cannot hit is not a scrubber.
             .frame(width: edge.size.width, height: edge.size.height)
             .contentShape(Rectangle())
             .gesture(
@@ -143,104 +219,64 @@ struct NowPlayingView: View {
                     }
             )
         }
-        .frame(height: TelegramShellMetrics.scrubberBand)
+        .frame(height: 22)
     }
 
+    /// Elapsed at the left, what is left of the song at the right with its minus sign, the way the
+    /// mockup prints it. Both run on `numericText`, so a second ticks in rather than blinks in.
     private var timestamps: some View {
         HStack {
             Text(MediaClock.duration(Int(player.elapsed.rounded())) ?? "0:00")
             Spacer()
-            Text(MediaClock.duration(Int(player.duration.rounded())) ?? "0:00")
+            Text(remaining)
         }
         .font(TelegramShellTypography.timestamp)
         .foregroundStyle(palette.navSecondaryText)
         .monospacedDigit()
+        .contentTransition(.numericText())
+        .animation(.linear(duration: 0.25), value: player.elapsed)
     }
 
-    /// 64 pt of touch area, the way the reference sizes its transport buttons (`:887`), spread
-    /// across the 320 pt band its three centre buttons keep (`:888`) with a side slot on each flank
-    /// (`:891`, `:892`). The reference's flanks are an order button and a looping one; Doni keeps
-    /// the loop and spends the other slot on a heart. The glyph sizes are Doni's own — the
-    /// reference's are bundled assets in a 76 pt box (`:899`).
+    private var remaining: String {
+        let left = max(Int((player.duration - player.elapsed).rounded()), 0)
+        guard let text = MediaClock.duration(left) else { return "-0:00" }
+        return "-\(text)"
+    }
+
+    /// Three buttons and nothing else: the mockup's transport. The centre glyph swaps through
+    /// `replace.downUp` so the pause drops in from above, the way Telegram's own player swaps its
+    /// button images in place.
     private var transport: some View {
         HStack(spacing: 0) {
-            if let track = player.current {
-                keepButton(track)
-            } else {
-                Color.clear
-                    .frame(width: TelegramShellMetrics.transportButton,
-                           height: TelegramShellMetrics.transportButton)
-            }
+            step(system: "backward.fill", size: 32, enabled: player.hasPrevious,
+                 action: player.previous)
             Spacer(minLength: 0)
-            HStack(spacing: 0) {
-                step(system: "backward.fill", size: 26, enabled: player.hasPrevious,
-                     action: player.previous)
-                Spacer(minLength: 0)
-                step(system: player.isPlaying ? "pause.fill" : "play.fill", size: 40,
-                     enabled: true, action: player.toggle)
-                Spacer(minLength: 0)
-                step(system: "forward.fill", size: 26, enabled: player.hasNext, action: player.next)
-            }
-            .frame(maxWidth: TelegramShellMetrics.transportCentreBand)
+            step(system: player.isPlaying ? "pause.fill" : "play.fill", size: 44,
+                 enabled: player.current != nil, action: player.toggle)
             Spacer(minLength: 0)
-            loopButton
+            step(system: "forward.fill", size: 32, enabled: player.hasNext, action: player.next)
         }
-        .padding(.leading, TelegramShellMetrics.transportSlotInset)
-        .padding(.trailing, TelegramShellMetrics.transportSlotInset)
+        .padding(.horizontal, 40)
     }
 
-    private func keepButton(_ track: any Playable) -> some View {
-        let kept = library.favorites.contains { $0.id == track.uniqueId }
-        return Button {
-            library.toggleFavorite(track)
-        } label: {
-            Image(systemName: kept ? "heart.fill" : "heart")
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(kept ? palette.highlight : palette.navPrimaryText)
-                .frame(width: TelegramShellMetrics.transportButton,
-                       height: TelegramShellMetrics.transportButton)
-                .contentShape(Rectangle())
+    /// The system volume, wearing the mockup's own clothes: a speaker at each end and the slider
+    /// between them. `MPVolumeView` is the one public way to move the device's volume from an app.
+    private var volume: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "speaker.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(palette.navSecondaryText)
+            SystemVolumeSlider()
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(palette.navPrimaryText)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(kept ? "Bỏ yêu thích" : "Yêu thích")
+        .padding(.horizontal, 24)
     }
 
-    /// The loop, which here is a cut: press it at the start of the part worth keeping, press it
-    /// again at the end, and the player holds itself inside that while the song plays. A third
-    /// press lets go of it.
-    private var loopButton: some View {
-        let looping = player.segment != nil
-        return Button(action: mark) {
-            Image(systemName: looping ? "repeat.1.fill" : (markIn == nil ? "repeat" : "repeat.1"))
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(looping || markIn != nil
-                    ? palette.highlight : palette.navPrimaryText)
-                .frame(width: TelegramShellMetrics.transportButton,
-                       height: TelegramShellMetrics.transportButton)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Cắt đoạn")
-    }
-
-    private func mark() {
-        if player.segment != nil {
-            player.segment = nil
-            markIn = nil
-            return
-        }
-        guard let started = markIn else {
-            markIn = player.elapsed
-            return
-        }
-        guard player.elapsed > started else { return }
-        player.segment = started...player.elapsed
-        markIn = nil
-    }
-
-    /// What the cut currently is, said in the panel's own `medium(12)` (`:267`), with the button
-    /// that writes it down beside it. The height is held whether or not there is a cut, so marking
-    /// one never moves the transport under the finger.
+    /// What the cut currently is, said in the panel's `medium(12)`, with the button that writes it
+    /// down beside it. The height is held whether or not there is a cut, so marking one never
+    /// moves the transport under the finger.
     @ViewBuilder
     private var sliceCaption: some View {
         VStack(spacing: 0) {
@@ -251,14 +287,14 @@ struct NowPlayingView: View {
                     keepSliceButton(segment)
                 }
             } else if let started = markIn {
-                Text("Cắt từ \(clock(started)) · nhấn ⟳ để dừng cắt")
+                Text("Bắt đầu cắt từ \(clock(started))")
                     .foregroundStyle(palette.navSecondaryText)
             }
         }
         .font(TelegramShellTypography.timestamp)
         .monospacedDigit()
         .frame(height: TelegramShellMetrics.sliceCaptionHeight)
-        .padding(.top, 8)
+        .padding(.top, 14)
     }
 
     /// `setFavoriteSegment` writes onto a heart that already exists, so this never has to know
@@ -275,21 +311,76 @@ struct NowPlayingView: View {
         .foregroundStyle(kept ? palette.navSecondaryText : palette.highlight)
     }
 
-    private func clock(_ seconds: Double) -> String {
-        MediaClock.duration(Int(seconds.rounded())) ?? "0:00"
+    /// A 36 pt glass circle, the size the words' row's buttons wear.
+    private func circleButton(_ symbol: String, label: String,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(palette.navPrimaryText)
+                .frame(width: 36, height: 36)
+                .contentShape(Circle())
+        }
+        .buttonStyle(PlayerButtonStyle())
+        .telegramGlass(.circle, fallback: palette.glassFallback)
+        .accessibilityLabel(label)
     }
 
     private func step(system: String, size: CGFloat, enabled: Bool,
                       action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: size, weight: .semibold))
-                .foregroundStyle(enabled ? palette.navPrimaryText : palette.navSecondaryText.opacity(0.5))
-                .frame(width: TelegramShellMetrics.transportButton,
-                       height: TelegramShellMetrics.transportButton)
+                .font(.system(size: size, weight: .bold))
+                .foregroundStyle(enabled ? palette.navPrimaryText
+                                         : palette.navSecondaryText.opacity(0.5))
+                .frame(width: 64, height: 64)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PlayerButtonStyle())
         .disabled(!enabled)
+    }
+
+    private func clock(_ seconds: Double) -> String {
+        MediaClock.duration(Int(seconds.rounded())) ?? "0:00"
+    }
+}
+
+/// Telegram's press state: the button dips to 0.82 on a spring that overshoots a little on the
+/// way back up, the way `ChatListBadgeNode`'s own scale eases.
+struct PlayerButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.82 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+/// `MPVolumeView` stripped of its route button, tinted to the panel: white ink on a third-white
+/// track, found by walking the view's own tree once it has laid out.
+private struct SystemVolumeSlider: UIViewRepresentable {
+    func makeUIView(context: Context) -> MPVolumeView {
+        let view = MPVolumeView()
+        view.tintColor = .white
+        return view
+    }
+
+    func updateUIView(_ view: MPVolumeView, context: Context) {
+        Task { Self.tint(view) }
+    }
+
+    private static func tint(_ root: UIView) {
+        for subview in root.subviews {
+            if let slider = subview as? UISlider {
+                slider.minimumTrackTintColor = .white
+                slider.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.3)
+            } else if let button = subview as? UIButton {
+                // The route button is deprecated but still drawn by default; hiding it here is
+                // the panel's own decision, the mockup's volume row has no route button.
+                button.isHidden = true
+            } else {
+                tint(subview)
+            }
+        }
     }
 }

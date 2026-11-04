@@ -9,9 +9,9 @@ import TelegramDesignSystem
 /// items sit on a measured pitch, and the icon and label take the two centres the photo gives
 /// them (`Docs/design-tokens.md`, "The floating tab bar, as photographed").
 ///
-/// Selection is not a colour change alone: the chosen item's glass reads blue where the rest reads
-/// `#1c1c1d`, and its glyph and label go white on that glass — on the device, an accent label over
-/// accent glass disappeared into it.
+/// Selection is the tab's own Liquid Glass, untouched by a tint: the chosen item gets the same
+/// glass the rest of the bar wears, and reads as selected only through its glyph and label, the
+/// way iOS 26's own tab bars do. An accent tint behind it drew a blue blob the glyph sank into.
 struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where Tab.AllCases == [Tab] {
     @Binding var selection: Tab
     let title: (Tab) -> String
@@ -64,14 +64,15 @@ struct TelegramTabBar<Tab: Hashable & CaseIterable & Identifiable>: View where T
                     .padding(.top, TelegramFloatingBarMetrics.labelTop)
             }
             .frame(width: TelegramFloatingBarMetrics.itemWidth)
-            // The lit glass goes *behind* the item, never over it: as an overlay it frosted the
-            // glyph and the label into an unreadable blue blob, which is what the device showed.
+            // The selected tab's glass goes *behind* the item, exactly as the bar's own glass
+            // does: as an overlay it frosted the glyph and the label into an unreadable blue
+            // blob, which is what the device showed. Untinted, it reads as the item being on
+            // its own pane of glass.
             .background {
                 if isSelected {
                     Capsule()
                         .fill(palette.highlight.opacity(0.001))
-                        .telegramGlass(.tintedCapsule(palette.highlight),
-                                       fallback: palette.highlight.opacity(0.22))
+                        .telegramGlass(.capsule, fallback: palette.glassFallback)
                         .padding(.horizontal, 3)
                         .padding(.vertical, 5)
                 }

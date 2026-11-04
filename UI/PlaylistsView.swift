@@ -44,8 +44,8 @@ struct PlaylistsView: View {
         NavigationStack(path: $path) {
             ZStack(alignment: .top) {
                 rows
-                GlassBar(title: "Danh sách", actions: [
-                    GlassBarAction(symbol: "plus", label: "Danh sách mới") {
+                LargeTitleHeader(title: "Danh sách", actions: [
+                    HeaderAction(symbol: "plus", label: "Danh sách mới") {
                         name = ""
                         naming = .create
                     },
@@ -133,7 +133,7 @@ struct PlaylistsView: View {
                 }
             }
         }
-        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
+        .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .animation(TelegramLoginMotion.easeInOut(0.2), value: lists.map(\.name))
     }

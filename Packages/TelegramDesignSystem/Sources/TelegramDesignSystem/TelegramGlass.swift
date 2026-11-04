@@ -7,15 +7,11 @@ import SwiftUI
 /// (`rootNav.blurredBackground`, `#1d1d1d` at 0.9 by dark) over a thin material, which is the
 /// nearest thing to what the reference actually draws.
 public enum TelegramGlassStyle: Sendable {
-    /// A plain capsule — a tab-bar selection, a chip.
+    /// A plain capsule — a tab-bar selection, a chip, the bar pill itself.
     case capsule
-    /// A capsule lit by a colour, i.e. the row that is playing or the chip that is on.
-    case tintedCapsule(Color)
     /// A plain circle — the photo's search control, which is a glass item of 64 pt rather than a
     /// slot inside the bar.
     case circle
-    /// A circle lit by a colour: the tab that is chosen, whose glass reads blue (`#304562`).
-    case tintedCircle(Color)
     /// The pill a search field sits in.
     case field
 }
@@ -26,35 +22,22 @@ extension View {
     public func telegramGlass(_ style: TelegramGlassStyle, fallback: Color) -> some View {
         switch style {
         case .capsule:
-            glassed(in: Capsule(), tint: nil, fallback: fallback)
-        case let .tintedCapsule(tint):
-            glassed(in: Capsule(), tint: tint, fallback: fallback)
+            glassed(in: Capsule(), fallback: fallback)
         case .circle:
-            glassed(in: Circle(), tint: nil, fallback: fallback)
-        case let .tintedCircle(tint):
-            glassed(in: Circle(), tint: tint, fallback: fallback)
+            glassed(in: Circle(), fallback: fallback)
         case .field:
             glassed(
                 in: RoundedRectangle(cornerRadius: TelegramLibraryMetrics.searchCornerRadius,
                                      style: .continuous),
-                tint: nil,
                 fallback: fallback
             )
         }
     }
 
     @ViewBuilder
-    private func glassed<S: Shape>(in shape: S, tint: Color?, fallback: Color) -> some View {
+    private func glassed<S: Shape>(in shape: S, fallback: Color) -> some View {
         if #available(iOS 26.0, macOS 26.0, *) {
-            if let tint {
-                // A tinted capsule is also the one you can press, so it gets `interactive`, which
-                // is what makes Apple's glass brighten under a finger. The tint goes in at 0.45:
-                // `#3e88f7` at 0.6 over the dark glass read as a solid blue blob on the device,
-                // and 0.45 lands on the `#304562` the photo's selection measures.
-                glassEffect(.regular.interactive().tint(tint.opacity(0.45)), in: shape)
-            } else {
-                glassEffect(.regular, in: shape)
-            }
+            glassEffect(.regular.interactive(), in: shape)
         } else {
             self.background(fallback, in: shape)
                 .background(.ultraThinMaterial, in: shape)

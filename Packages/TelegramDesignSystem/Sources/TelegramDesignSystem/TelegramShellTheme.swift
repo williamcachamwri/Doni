@@ -106,9 +106,6 @@ public enum TelegramBarMetrics {
     /// What a list insets its content by so it begins below the floating pill and scrolls under it.
     public static var topClearance: CGFloat { topGap + height + belowGap }
 
-    /// The leading action is a *text* action, and the word has 12 pt of glass on each side
-    /// (`hedges 225`: ink 47 → 211 px inside a capsule starting at 16 pt).
-    public static let textPadding: CGFloat = 12
     /// The trailing actions sit on the photo's 38.9 pt pitch (`hedges 225`: 773 → 1123 px).
     public static let actionPitch: CGFloat = 38.9
     /// Doni's own: the reference's bar icons are PNG assets whose boxes never appear in source, so
@@ -118,6 +115,28 @@ public enum TelegramBarMetrics {
     /// padded by the photo's *three*-icon group whatever the screen actually had, and "Thư viện"
     /// drew as "Thứ v…" on the device.
     public static let titleGuard: CGFloat = 12
+}
+
+/// The tab screens' header, after the Apple Music set the user pointed at: the title set left in
+/// `bold(34)` with round glass actions beside it and the list scrolling under the pair. Every
+/// number here is Doni's own — the source the shell was measured against has no such header.
+public enum TelegramHeaderMetrics {
+    /// One line of `bold(34)`.
+    public static let titleBox: CGFloat = 41
+    /// Air between the safe area and the title, and under the header's one row.
+    public static let topPadding: CGFloat = 6
+    public static let bottomPadding: CGFloat = 8
+    public static let sideInset: CGFloat = TelegramBarMetrics.sideInset
+    /// The round glass actions the header carries, one per action.
+    public static let actionCircle: CGFloat = 40
+    public static let actionGlyph: CGFloat = 17
+    public static let actionGap: CGFloat = 10
+    /// What a list insets its content by to begin below the header and scroll under it.
+    public static var topClearance: CGFloat { topPadding + titleBox + bottomPadding }
+    /// The search field's own height — the header's second row.
+    public static let fieldHeight: CGFloat = 40
+    /// The search screen's header is the title plus a field row under it.
+    public static var searchClearance: CGFloat { topClearance + actionGap + fieldHeight }
 }
 
 /// The tab bar the photo shows: nothing is full-bleed — the capsule and a separate search circle
@@ -156,10 +175,6 @@ public enum TelegramFloatingBarMetrics {
     /// (`bands 300 480 2270 2472`: 2320 → 2371 px) and label ink centre 50.3 pt (2410 → 2435 px).
     public static let iconCentre: CGFloat = 25.1
     public static let labelCentre: CGFloat = 50.3
-    /// Selection is tinted glass, not a filled disc: behind the chosen item the glass reads
-    /// `#304562` where the others read `#1c1c1d` (`hedges 2320`). `#3e88f7` at 0.45 over that dark
-    /// glass lands on it; at 0.6 the first build drew a blue blob the glyph disappeared into.
-    public static let selectionTint: Double = 0.45
 
     /// Doni's own: the gap between the strip and the bar, both of which float, so the two
     /// capsules read as one stack rather than as two unrelated pills.
@@ -192,6 +207,12 @@ public enum TelegramShellTypography {
     /// Doni's own: on a floating pill the leading word is an iOS bar button, which is `regular(17)`
     /// — the measured `semibold(14)` belonged to the band's capsule and went with it.
     public static let barAction = Font.system(size: 17, weight: .regular)
+    /// Doni's own: the tab screens' large title, `bold(34)` after the Apple Music set the user
+    /// pointed at.
+    public static let largeTitle = Font.system(size: 34, weight: .bold)
+    /// Doni's own: the expanded player's words, after the same set — `bold(22)` over `regular(18)`.
+    public static let playingTitle = Font.system(size: 22, weight: .bold)
+    public static let playingArtist = Font.system(size: 18, weight: .regular)
 }
 
 /// Motion lifted from `ChatListBadgeNode.swift` — the bubble Telegram animates into the

@@ -1,18 +1,18 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// The search field as its own floating glass pill, the height of the bar it replaces.
+/// The search field the Apple Music set wears: a rounded grey glass field, not a capsule.
 ///
-/// The list screen has no pill under the bar any more — the tab bar's circle opens this screen —
-/// so the field takes the bar's own vessel: a 52 pt capsule holding the loupe, the text and the
-/// clear button. The loupe is 20 pt and the text the list's own `regular(17)`; everything else is
-/// the field `SearchBarNode` measures, kept where it still applies (the clear button scales
-/// instead of fading).
+/// The loupe is 20 pt and the text the list's own `regular(17)`; everything else is the field
+/// `SearchBarNode` measures, kept where it still applies (the clear button scales instead of
+/// fading). `isEditing` is written on focus so the search screen can show its Huỷ only while the
+/// field actually holds the keyboard.
 struct SearchField: View {
     @Binding var query: String
     let placeholder: String
     /// The search screen wants the keyboard before anything is typed.
     var autoFocus = false
+    var isEditing: Binding<Bool>? = nil
 
     @FocusState private var focused: Bool
 
@@ -32,10 +32,13 @@ struct SearchField: View {
                 .submitLabel(.done)
             clearButton
         }
-        .frame(height: TelegramBarMetrics.height)
-        .telegramGlass(.capsule, fallback: palette.glassFallback)
+        .frame(height: TelegramHeaderMetrics.fieldHeight)
+        .telegramGlass(.field, fallback: palette.glassFallback)
         .onAppear {
             if autoFocus { focused = true }
+        }
+        .onChange(of: focused) { _, newValue in
+            isEditing?.wrappedValue = newValue
         }
     }
 
@@ -47,7 +50,7 @@ struct SearchField: View {
             Image(systemName: "xmark.circle.fill")
                 .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(palette.searchClearButton)
-                .frame(width: 40, height: TelegramBarMetrics.height)
+                .frame(width: 40, height: TelegramHeaderMetrics.fieldHeight)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

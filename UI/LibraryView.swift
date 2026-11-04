@@ -34,19 +34,17 @@ struct LibraryView: View {
     var body: some View {
         ZStack(alignment: .top) {
             rows
-            GlassBar(
-                title: "Thư viện",
-                leading: "Kênh",
-                onLeading: { showsAccountMenu = true },
-                actions: [
-                    GlassBarAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
-                        shuffleAll()
-                    },
-                    GlassBarAction(symbol: "arrow.clockwise", label: "Đọc lại kênh") {
-                        indexer.run(session, library: library)
-                    },
-                ]
-            )
+            LargeTitleHeader(title: "Thư viện", actions: [
+                HeaderAction(symbol: "shuffle", label: "Phát ngẫu nhiên") {
+                    shuffleAll()
+                },
+                HeaderAction(symbol: "arrow.clockwise", label: "Đọc lại kênh") {
+                    indexer.run(session, library: library)
+                },
+                HeaderAction(symbol: "ellipsis", label: "Kênh và tài khoản") {
+                    showsAccountMenu = true
+                },
+            ])
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
@@ -112,10 +110,10 @@ struct LibraryView: View {
                 footer()
             }
         }
-        // The list runs under the floating pill, the way the reference's collection does; the
-        // clearance is what the first row needs to start below the glass and what the last row
-        // needs to finish above the tab bar.
-        .contentMargins(.top, TelegramBarMetrics.topClearance, for: .scrollContent)
+        // The list runs under the header, the way the reference's collection does under its bar;
+        // the clearance is what the first row needs to start below the title and what the last
+        // row needs to finish above the tab bar.
+        .contentMargins(.top, TelegramHeaderMetrics.topClearance, for: .scrollContent)
         .contentMargins(.bottom, floatingClearance, for: .scrollContent)
         .refreshable { await indexer.reload(session, library: library) }
         .animation(TelegramLoginMotion.easeInOut(0.2), value: visible.map(\.uniqueId))
