@@ -30,6 +30,10 @@ packages:
     path: Packages/Support
   TelegramDesignSystem:
     path: Packages/TelegramDesignSystem
+  # The lyrics screen, transcribed from the reference app's sources. It is a package rather
+  # than a folder of UI because the transcription is Swift 5 and the app is Swift 6.
+  DoniLyrics:
+    path: Packages/DoniLyrics
   TdSession:
     path: Packages/TdSession
   TdBridge:
@@ -65,6 +69,7 @@ targets:
     dependencies:
       - package: Support
       - package: TelegramDesignSystem
+      - package: DoniLyrics
       - package: TdSession
       - package: TdBridge
 

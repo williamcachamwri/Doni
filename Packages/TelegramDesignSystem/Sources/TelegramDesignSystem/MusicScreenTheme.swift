@@ -737,22 +737,3 @@ public enum MusicStorageMetrics {
     /// the number's place while the work runs (`:405`).
     public static let valueFloor: CGFloat = 8
 }
-
-/// The numbers the lyrics column is drawn with, read off the reference's own skyline style: the
-/// active line is a step and a half bigger than the ones it has passed, the passed lines keep
-/// their size and lose their sharpness instead, and the column sits a third of the way down the
-/// screen so the line being sung is where the eye already is.
-public enum MusicLyricsMetrics {
-    public static let activeFont: CGFloat = 28
-    public static let inactiveFont: CGFloat = 24
-    public static let lineSpacing: CGFloat = 26
-    /// Where the active line is held, as a fraction of the column's height.
-    public static let focusAnchor: CGFloat = 0.32
-    public static let inactiveOpacity: Double = 0.38
-    public static let inactiveBlur: CGFloat = 7
-    public static let sidePadding: CGFloat = 24
-    /// The run of empty space below the last line, so the final line can still reach the focus
-    /// band instead of stopping short of it.
-    public static let tailFraction: CGFloat = 0.55
-    public static let timeFade: Double = 0.45
-}

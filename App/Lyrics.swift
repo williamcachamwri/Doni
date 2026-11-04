@@ -1,13 +1,11 @@
 import CryptoKit
+import DoniLyrics
 import Foundation
 import Support
 import SwiftUI
 
-/// How the lyrics screen behaves, and how much of the phone it is allowed to use.
-///
-/// Held in `UserDefaults` rather than in the library: these are opinions about reading words on a
-/// screen, not data about songs, and they have to be readable by the view without a database
-/// round trip while the lines are already moving.
+/// The three things Doni decides about words for itself, as opposed to the fifty-odd
+/// typography and motion numbers that belong to the screen and live in its own settings.
 @MainActor
 final class LyricsPreferences: ObservableObject {
     static let shared = LyricsPreferences()
@@ -15,33 +13,16 @@ final class LyricsPreferences: ObservableObject {
     /// Whether words may be fetched from lrclib at all. Off, the screen shows only what is already
     /// on the phone — a `.lrc` beside the song, or nothing.
     @Published var networkAllowed = true { didSet { write("network", networkAllowed) } }
-    /// The size every line is drawn at, multiplied against the reference's own metrics.
-    @Published var scale = 1.0 { didSet { write("scale", scale) } }
-    /// Inactive lines go soft rather than small, which is what keeps the next line readable.
-    @Published var blurInactive = true { didSet { write("blur", blurInactive) } }
-    /// The centre column, or the leading edge — Apple Music centres, MeloX's floating style does not.
-    @Published var centred = true { didSet { write("centred", centred) } }
-    /// Tapping a line takes the song there.
-    @Published var tapToSeek = true { didSet { write("seek", tapToSeek) } }
-    /// Whether the scroll follows the song, or stays where the finger left it.
-    @Published var autoFollow = true { didSet { write("follow", autoFollow) } }
     /// Seconds added to every stamp, for a file whose lyrics were timed against another mastering.
     @Published var offset = 0.0 { didSet { write("offset", offset) } }
-    /// Words with no timestamps: shown as a block, or left out until something timed is found.
+    /// Words with no timestamps: spread across the song, or left out until something timed is found.
     @Published var showPlain = true { didSet { write("plain", showPlain) } }
 
     private let defaults = UserDefaults.standard
 
     private init() {
-        // Read back what was written, because the first frame of the lyrics screen should already
-        // be in the user's own settings rather than the default ones for a moment.
         if defaults.object(forKey: "lyrics.network") != nil {
             networkAllowed = defaults.bool(forKey: "lyrics.network")
-            scale = defaults.double(forKey: "lyrics.scale")
-            blurInactive = defaults.bool(forKey: "lyrics.blur")
-            centred = defaults.bool(forKey: "lyrics.centred")
-            tapToSeek = defaults.bool(forKey: "lyrics.seek")
-            autoFollow = defaults.bool(forKey: "lyrics.follow")
             offset = defaults.double(forKey: "lyrics.offset")
             showPlain = defaults.bool(forKey: "lyrics.plain")
         }
@@ -52,25 +33,32 @@ final class LyricsPreferences: ObservableObject {
     }
 }
 
-/// The words of the song that is playing, and which of them is being sung.
+/// The words of the song that is playing.
 ///
 /// Three sources, in order of what they cost the user: a file beside the song, the phone's own
 /// cache, and only then lrclib. The cache keeps its misses too — a song with no lyric anywhere is
 /// asked about once, not on every trip back to the Now Playing screen, because the site rate
 /// limits a client that forgets.
+///
+/// What it hands the screen is the reference's own line model, parsed by the reference's own LRC
+/// parser. Which line is being sung is not this object's business: the screen reads the player's
+/// clock and works that out for itself.
 @MainActor
 final class Lyrics: ObservableObject {
     static let shared = Lyrics()
 
-    @Published private(set) var text: LyricText = .none
-    /// The line under the playhead, and how far into it the song has got — the two numbers the
-    /// view animates from.
-    @Published private(set) var index: Int?
-    @Published private(set) var progress = 0.0
+    @Published private(set) var lines: [LyricLine] = []
+    /// Why there are no words, when there are none — the screen shows this instead of a blank
+    /// column, so a refused network and a song nobody has ever typed out look different.
+    @Published private(set) var errorMessage: String?
     @Published private(set) var isLoading = false
     /// Which song the published state belongs to. Without it a lookup still in flight for the song
     /// the user skipped would answer for the one now playing.
     @Published private(set) var key: String?
+
+    /// The settings the copied screen reads. One instance for the whole app: it is the user's
+    /// typography, not a per-song opinion, and the screen animates against it.
+    static let settings = AppSettings()
 
     private var task: Task<Void, Never>?
     private let prefs = LyricsPreferences.shared
@@ -87,59 +75,75 @@ final class Lyrics: ObservableObject {
         task?.cancel()
         if let stored = Self.read(song) {
             isLoading = false
-            apply(stored)
+            apply(stored, track: track)
             return
         }
         guard prefs.networkAllowed else {
-            apply(.none)
+            apply(.none, track: track)
             return
         }
         isLoading = true
-        apply(.none)
+        // Nothing on screen yet and no reason said: while the site is thinking the screen shows
+        // it is working, not that the song has no words.
+        lines = []
+        errorMessage = nil
         task = Task {
             let found = await Self.fetch(query: Self.query(track))
             // The song moved on, or the screen went away, while the site was thinking.
             guard !Task.isCancelled, self.key == song else { return }
             Self.write(found, for: song)
             isLoading = false
-            apply(found)
+            apply(found, track: track)
         }
     }
 
-    /// Where the playhead is. Called from the view's own clock rather than from a timer of its own,
-    /// because the player already publishes the position four times a second and a second clock
-    /// would only disagree with the first.
-    func update(seconds: TimeInterval) {
-        let shifted = seconds - prefs.offset
-        switch text {
-        case .none, .plain:
-            index = nil
-            progress = 0
-        case .synced(let lines):
-            guard let found = lines.firstIndex(where: { $0.contains(shifted) }) else {
-                // Before the first line, and after the last one, the screen keeps showing something:
-                // the song has not stopped, only the words have.
-                index = shifted < lines.first?.start ?? 0 ? nil : lines.count - 1
-                progress = 0
+    private func apply(_ found: LyricText, track: any Playable) {
+        switch found {
+        case .none:
+            lines = []
+            errorMessage = prefs.networkAllowed ? "Chưa tìm được lời cho bài này" : "Việc tải lời đang tắt"
+        case .plain(let text):
+            guard prefs.showPlain else {
+                lines = []
+                errorMessage = "Chỉ có lời không khớp thời gian"
                 return
             }
-            index = found
-            let line = lines[found]
-            let span = line.end - line.start
-            progress = span > 0 ? min(max((shifted - line.start) / span, 0), 1) : 1
+            lines = Self.spread(text, over: Double(track.duration ?? 0))
+            errorMessage = nil
+        case .synced:
+            lines = Self.parse(found)
+            errorMessage = lines.isEmpty ? "Lời không đọc được" : nil
         }
     }
 
-    private func apply(_ found: LyricText) {
-        // An untimed block is only shown if the user asked for it; otherwise the screen says it is
-        // looking for something better rather than pretending a wall of text is a lyric.
-        if case .plain = found, !prefs.showPlain {
-            text = .none
-        } else {
-            text = found
+    // MARK: Lines
+
+    /// The reference's parser, on the LRC text that was cached or found.
+    private nonisolated static func parse(_ found: LyricText) -> [LyricLine] {
+        guard let text = lrc(found) else { return [] }
+        return LyricParser.parseLRC(text)
+    }
+
+    /// Words that arrived without a single timestamp.
+    ///
+    /// The screen only knows how to follow a line that has a time, so an untimed block gets the
+    /// one thing that can be said about it honestly: the lines are in order, and the song is the
+    /// length it is. Each line therefore owns an equal slice of it, which is the reference's own
+    /// "line synchronized" kind rather than a claim that anyone timed them.
+    private nonisolated static func spread(_ text: String, over duration: TimeInterval) -> [LyricLine] {
+        let lines = text.split(whereSeparator: \.isNewline)
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty, duration > 0 else { return [] }
+        let slice = duration / Double(lines.count)
+        return lines.enumerated().map { offset, line in
+            LyricLine(
+                time: Double(offset) * slice,
+                duration: slice,
+                timingKind: .lineSynchronized,
+                text: line
+            )
         }
-        index = nil
-        progress = 0
     }
 
     // MARK: What goes out, and what stays
@@ -176,8 +180,8 @@ final class Lyrics: ObservableObject {
     private nonisolated static func read(_ key: String) -> LyricText? {
         guard let text = try? String(contentsOf: file(key), encoding: .utf8) else { return nil }
         switch text.first {
-        case "S": return LRCParser.parse(String(text.dropFirst()))
-        case "P": return LRCParser.parse(String(text.dropFirst()))
+        case "S": return .synced(String(text.dropFirst()))
+        case "P": return .plain(String(text.dropFirst()))
         case "N": return LyricText.none
         default: return nil
         }
@@ -193,12 +197,11 @@ final class Lyrics: ObservableObject {
         try? body.write(to: file(key), atomically: true, encoding: .utf8)
     }
 
+    /// The LRC text behind a result. Synced words are stored as the stamps they arrived with, so
+    /// reading them back is a parse and not a reconstruction.
     private nonisolated static func lrc(_ found: LyricText) -> String? {
         switch found {
-        case .synced(let lines):
-            return lines.map { String(format: "[%02d:%05.2f]%@",
-                                      Int($0.start) / 60, $0.start - (Double(Int($0.start) / 60) * 60),
-                                      $0.text) }.joined(separator: "\n")
+        case .synced(let text): return text
         case .plain(let text): return text
         case .none: return nil
         }

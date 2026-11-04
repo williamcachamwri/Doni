@@ -76,13 +76,19 @@ public enum LRClib {
     /// answer in turn so the first entry that actually has words wins.
     public static func text(of entries: [Entry]) -> LyricText {
         for entry in entries {
-            if let synced = filled(entry.syncedLyrics),
-               case .synced = LRCParser.parse(synced) { return LRCParser.parse(synced) }
+            if let synced = filled(entry.syncedLyrics), stamped(synced) { return .synced(synced) }
         }
         for entry in entries {
-            if let plain = filled(entry.plainLyrics) { return LRCParser.parse(plain) }
+            if let plain = filled(entry.plainLyrics) { return .plain(plain) }
         }
         return .none
+    }
+
+    /// Whether the field actually carries `[mm:ss.xx]` stamps. lrclib labels a lyric "synced" and
+    /// then serves a line of plain text under that field, and treating that as timed words is how
+    /// every line ends up stacked on second zero.
+    private static func stamped(_ text: String) -> Bool {
+        text.split(whereSeparator: \.isNewline).contains { $0.firstMatch(of: /^\s*\[\d{1,2}:\d\d/) != nil }
     }
 
     /// `""` is lrclib for "not here", and treating it as a lyric is how an empty scroll happens.

@@ -58,7 +58,8 @@ struct LRClibTests {
     @Test("synced beats plain, and an empty field is not a lyric")
     func preference() {
         let both = [LRClib.Entry(syncedLyrics: "[00:01.00]one", plainLyrics: "unone")]
-        #expect(LRClib.text(of: both) == .synced(LRCParser.lines("[00:01.00]one")))
+        // The text is handed over unparsed: reading stamps is the lyrics screen's job.
+        #expect(LRClib.text(of: both) == .synced("[00:01.00]one"))
 
         // lrclib sends "" for a field the lyric does not have — the trap this whole file exists for.
         let onlyPlain = [LRClib.Entry(syncedLyrics: "", plainLyrics: "just words")]
@@ -70,10 +71,6 @@ struct LRClibTests {
         // A first answer with no timed line must not hide the second one's.
         let two = [LRClib.Entry(syncedLyrics: "", plainLyrics: "a"),
                    LRClib.Entry(syncedLyrics: "[00:05.00]b", plainLyrics: "c")]
-        if case .synced(let lines) = LRClib.text(of: two) {
-            #expect(lines.first?.start == 5)
-        } else {
-            Issue.record("the second entry's synced lyric won")
-        }
+        #expect(LRClib.text(of: two) == .synced("[00:05.00]b"))
     }
 }

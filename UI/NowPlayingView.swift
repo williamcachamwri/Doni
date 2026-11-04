@@ -27,11 +27,10 @@ struct NowPlayingView: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    /// The words are a page of this panel, so this panel owns the clock that moves them: the player
-    /// already publishes a position four times a second, and a second timer would only disagree
-    /// with the first.
+    /// The words are a page of this panel. The panel's job stops at asking for them for the song it
+    /// is showing; reading the player's clock and deciding which line is being sung is the screen's
+    /// own, and it does both far more finely than a tick of this timer could.
     @ObservedObject private var lyrics = Lyrics.shared
-    @ObservedObject private var lyricPrefs = LyricsPreferences.shared
     /// The panel is presented by a zoom from the strip's cover, so the shell owns that transition
     /// source and this view only has to be the destination (`ContentView.swift:105-110`).
     let close: () -> Void
@@ -61,9 +60,6 @@ struct NowPlayingView: View {
                                    side: MusicArtworkMetrics.heroSide)
                 lyrics.load(track)
             }
-        }
-        .onChange(of: player.elapsed) { _, seconds in
-            lyrics.update(seconds: seconds)
         }
     }
 
@@ -115,9 +111,7 @@ struct NowPlayingView: View {
                     ArtworkPage(track: track, player: player, artwork: artwork, library: library)
                         .transition(pageTransition(for: .artwork))
                 case .lyrics:
-                    LyricsView(lyrics: lyrics, prefs: lyricPrefs,
-                               seek: { player.seek(to: $0) },
-                               close: { withAnimation(MusicMotion.pageSelection) { page = .artwork } })
+                    LyricsView(player: player, lyrics: lyrics)
                         .transition(pageTransition(for: .lyrics))
                 case .queue:
                     NowPlayingQueuePage(track: track, session: session, player: player,
