@@ -363,8 +363,6 @@ public enum MusicSearchMetrics {
     public static let mediaArtRadius: CGFloat = 7
     public static let mediaGap: CGFloat = 12
     public static let mediaTextGap: CGFloat = 4
-    /// Suggestions are asked for 300 ms after the field last changed (`SearchView.swift:113-126`).
-    public static let suggestionDebounce: Duration = .milliseconds(300)
     /// The swipe-to-favourite action wears the reference's pink (`SearchView.swift:165`).
     public static let favoriteInk: Color = .pink
 }

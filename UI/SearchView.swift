@@ -23,16 +23,18 @@ enum DoniSearchScope: String, CaseIterable, Identifiable {
 
 /// The search tab, worn the way the reference wears it (`SearchView.swift:25-111`).
 ///
-/// The chrome is all the system's: `.navigationTitle` and a `.searchable` field in the nav drawer,
-/// `.searchScopes` for the facets and `.searchSuggestions` for the completions under the keyboard —
-/// and because this tab is the one with `role: .search`, iOS 26 puts the field in the tab bar's own
-/// search circle, takes the keyboard the moment the tab is tapped, and shrinks the bar away as the
-/// results scroll. An empty field is not an empty screen: it is the discovery view
-/// (`SearchDiscoveryView.swift:16-45`).
+/// The chrome is all the system's: `.navigationTitle`, a `.searchable` field in the nav drawer and
+/// `.searchScopes` for the facets — and because this tab is the one with `role: .search`, iOS 26 puts
+/// the field in the tab bar's own search circle, takes the keyboard the moment the tab is tapped, and
+/// shrinks the bar away as the results scroll. An empty field is not an empty screen: it is the
+/// discovery view (`SearchDiscoveryView.swift:16-45`).
 ///
-/// What differs is only where the answers come from. MeloX asks a network and waits 350 ms for it, so
-/// it needs a loading row and a result cache; Doni asks its own index, which already has the answer,
-/// so it shows results immediately and keeps only the suggestion debounce (`:113-126`).
+/// What differs is where the answers come from, and that is why there are no completions here. MeloX
+/// asks a network and waits 350 ms on it, so a list of suggested strings is what fills the gap
+/// (`SearchView.swift:113-126`); Doni asks its own index, which already holds the rows. A
+/// `.searchSuggestions` list therefore covers the results with a text-only copy of them, and typing
+/// shows suggestions instead of music — so the field answers with the artwork rows themselves, one
+/// keystroke at a time.
 struct SearchView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -42,7 +44,6 @@ struct SearchView: View {
 
     @State private var query = ""
     @State private var scope: DoniSearchScope = .songs
-    @State private var suggestions: [String] = []
 
     var body: some View {
         Group {
@@ -60,16 +61,6 @@ struct SearchView: View {
         .navigationTitle("Tìm kiếm")
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Tìm bài hát")
-        .searchSuggestions {
-            ForEach(suggestions, id: \.self) { suggestion in
-                Label {
-                    Text(verbatim: suggestion)
-                } icon: {
-                    Image(systemName: "magnifyingglass")
-                }
-                .searchCompletion(suggestion)
-            }
-        }
         .searchScopes($scope) {
             ForEach(DoniSearchScope.allCases) { kind in
                 Text(kind.title).tag(kind)
@@ -80,7 +71,6 @@ struct SearchView: View {
                 ContentUnavailableView.search(text: query)
             }
         }
-        .task(id: trimmed) { await suggest() }
     }
 
     private var trimmed: String { query.trimmedSearchName }
@@ -104,8 +94,7 @@ struct SearchView: View {
                 Button {
                     player.play(track, in: songMatches)
                 } label: {
-                    SearchTrackRow(track: track, performer: track.displayPerformer,
-                                   artwork: artwork)
+                    MusicTrackRow(track: track, artwork: artwork)
                         .task(id: track.uniqueId) {
                             await artwork.load(track: track, via: session.covers(),
                                                side: MusicSearchMetrics.songArt)
@@ -207,79 +196,11 @@ struct SearchView: View {
         SearchTextFold.normalized(text).contains(SearchTextFold.normalized(trimmed))
     }
 
-    /// Completions out of the index itself, 300 ms after the field last changed — the same wait the
-    /// reference puts in front of its network call (`SearchView.swift:113-126`).
-    private func suggest() async {
-        suggestions = []
-        guard !trimmed.isEmpty else { return }
-        do {
-            try await Task.sleep(for: MusicSearchMetrics.suggestionDebounce)
-        } catch {
-            return
-        }
-        guard !Task.isCancelled, trimmed == query.trimmedSearchName else { return }
-        suggestions = Self.suggestionsFor(trimmed, in: indexer.tracks)
-    }
-
-    /// Titles and performer names that contain the fragment, in the order the library holds them,
-    /// capped at eight.
-    private static func suggestionsFor(_ fragment: String, in tracks: [any Playable]) -> [String] {
-        let needle = SearchTextFold.normalized(fragment)
-        var seen = Set<String>()
-        var found: [String] = []
-        for track in tracks {
-            for candidate in [track.displayTitle, track.displayPerformer.trimmedSearchName]
-            where !candidate.isEmpty && seen.insert(candidate).inserted
-                && SearchTextFold.normalized(candidate).contains(needle) {
-                found.append(candidate)
-                if found.count == 8 { return found }
-            }
-        }
-        return found
-    }
-
     /// Tapping a tile or an artist row puts that name in the field, which is what MeloX's tile does
     /// with a genre.
     private func search(_ text: String) {
         scope = .songs
         query = text
-    }
-}
-
-/// The song row the reference's search uses: `TrackRowView` with the artwork on — 44 pt cover at r6,
-/// 12 to the text, 3 between the two lines, and the duration in `.caption.monospacedDigit()` at the
-/// trailing edge (`TrackRowView.swift:17-58`).
-private struct SearchTrackRow: View {
-    let track: any Playable
-    let performer: String
-    let artwork: CoverArtwork
-
-    var body: some View {
-        HStack(spacing: MusicSearchMetrics.songGap) {
-            TrackCover(track: track, side: MusicSearchMetrics.songArt,
-                       radius: MusicSearchMetrics.songArtRadius, artwork: artwork)
-
-            VStack(alignment: .leading, spacing: MusicSearchMetrics.songTextGap) {
-                Text(track.displayTitle)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(performer.trimmedSearchName.isEmpty ? "Doni" : performer.trimmedSearchName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: MusicSearchMetrics.songTrailingGap)
-
-            if let text = MediaClock.duration(track.duration) {
-                Text(text)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .contentShape(.rect)
-        .accessibilityElement(children: .combine)
     }
 }
 
