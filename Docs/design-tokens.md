@@ -354,7 +354,7 @@ to a file anyone else can read.
 | Fact | What it decides | Source |
 |---|---|---|
 | `audio.album_cover_minithumbnail` on **112/168** — 40×30 (57 of them) or 40×22 (55), 716–850 JPEG bytes, inline | the list shows real cover art without asking for a file, because TDLib serialises `bytes` as base64 inside the message | `td_api.tl:583`, `:361` |
-| `album_cover_thumbnail` on the same 112 — 320×240 (57) or 320×180 (55) JPEG, as a `File`; `external_album_covers` on **168/168**, two entries each: 100×100 *and* 600×600, `expected_size` 0 on every one of them | the sharp tile is the **widest `external_album_covers` entry**, fetched for every track rather than only the 112 that carry `album_cover_thumbnail` — see the cover pipeline | `td_api.tl:583`, `:393` |
+| `album_cover_thumbnail` on the same 112 — 320×240 (57) or 320×180 (55) JPEG, 6,635–31,205 bytes, a real `remote.id` and `unique_id`; `external_album_covers` on **168/168**, two entries each: 100×100 *and* 600×600, `size` **and** `expected_size` 0 on all 336 of them | the sized thumbnail is the cover worth fetching, and the generated pair only gets a turn when a track has no sized one — see the cover pipeline | `td_api.tl:583`, `:393`, measured |
 | a document's `minithumbnail` is the file icon Telegram draws for it | documents get the gradient tile; their minithumbnail is never read as artwork | `td_api.tl:594` |
 | the covers come in two shapes — 40×30 over 4:3 (320×240) and 40×22 over 16:9 (320×180) | the square tile fills and crops the sides of a 16:9 cover; letterboxing it would leave white bars in an icon column that Telegram never shows | measured |
 | `performer` on 168/168, tag `title` on 168/168 | the preview line is the artist's name; nobody has to parse a caption to say who sang | `td_api.tl:583` |
@@ -405,21 +405,37 @@ are native assets (`Media/Message Audio Play`), not point sizes in a file.
 
 ### The cover pipeline
 
-The blurry tile was the row's one real defect: a 40×30 minithumbnail scaled to 54 pt is a 4.5× upscale,
-and it only exists on 112 of 168 tracks. The fix is measured in the same dump — `external_album_covers` is
-on **168/168** with a 600×600 entry — so the list downloads instead of upscaling.
+The blurry tile was the row's one real defect, and the first fix for it did not work, because it
+assumed the biggest announced cover was the sharpest one. It is not: `external_album_covers` — the
+pair every audio carries — is a **generated** file. TDLib builds its location out of the strings in
+the tag (`FileManager.cpp:4345-4365`: `"#audio_t#" << title << '#' << performer << '#' << (is_small ?
+'1' : '0') << '#'`) and registers it as a generate job (`AudiosManager.cpp:53-72`), which is why all
+336 of the measured entries answer `size` 0 / `expected_size` 0: there are no bytes until the server
+has made a picture, and for a channel's own tags there never will be. Asking for it first, and then
+reading `is_downloading_active == false` as "TDLib gave up", meant every cover was abandoned the
+moment it was asked for and the list fell back to a 40×30 tile stretched 4.5×.
 
 | Value | What | Source |
 |---|---|---|
-| widest of the two `external_album_covers` entries → 600×600 | the file to fetch, chosen by `width` rather than by position, because the pair's order is a habit of the posting bots and not a guarantee | `TdTrack.coverFileId`, `td_api.tl:583`, `:393` |
+| **1.** the cover inside the song — `APIC` in an MP3, `covr` in an M4A | the biggest picture Telegram ever had, since the bot uploaded it with the audio, and it needs no download: for a track the phone holds, this is the artwork. Read through `AVFoundation` (`commonIdentifierArtwork`) because the two formats the channel posts keep it in two different places | `CoverArtwork.embeddedCover`, measured mime split `audio/mpeg` 117 + `audio/mp4` 51 |
+| **2.** `album_cover_thumbnail`, when it reports bytes | 320×240 / 320×180 JPEG of 6.6–31 KB on 112 of 168 — the one server thumbnail that can actually be fetched, which is why a thumbnail with a size beats a wider one without: `TdTrack.bestCover` sorts by bytes first, then by width | `td_api.tl:583`, measured |
+| **3.** the widest `external_album_covers` entry, only when the post has no sized cover | the generated 600×600 is still what Telegram has to offer a tagless track, so it is asked for — just never over a real thumbnail | `td_api.tl:583`, `:393` |
+| **4.** the inline `minithumbnail`, and **only** on surfaces at or below the first tier | 40×30 is a placeholder, not artwork: rows, bubbles and the strip forgive it, a card or a hero must not, and shows the gradient instead of an upscale | `td_api.tl:361`, `CoverArtwork.miniCeiling` |
+| tiers **192 / 512 / 768** px, a surface picking the smallest that covers `points × 3` | 54 pt at @3x wants 162, so a row gets 192; the 154/166 pt cards get 512; a hero gets 768. One `NSCache` holds every tier, keyed by it, costed by bytes at **64 MB** | `CoverArtwork.tiers` / `.pixels(forSide:)` |
+| `min(tier, the source's own longest side)` in `kCGImageSourceThumbnailMaxPixelSize`, handed to `CGImageSourceCreateThumbnailAtIndex` | the key only means anything to *that* call — the pipeline used to hand it to `CGImageSourceCreateImageAtIndex`, which ignores it and decoded every cover whole. Clamping to the source matters just as much: asking a 320 px thumbnail for 512 buys the same picture with more of it smeared | `CoverArtwork.downsampled(source:side:)` |
+| `can_be_downloaded == false` **and** not complete → unavailable; `is_downloading_active == false` → still waiting | `is_downloading_active` is "the file is *currently* being downloaded" (`td_api.tl:301`) and TDLib only sets it once the job has a priority it has started (`FileManager.cpp:1031-1033`, `:4128-4134`); `downloadFile` answers "immediately, just after the download has been started" (`:15000`), so the first thing it says about a cover is that it is not active yet. The tiles were never missing — they were queued | `TdFileDownloader.isUnavailable` |
 | `priority 1` for a cover, `16` for the song the user pressed play on | TDLib's priority is 1-32 and the higher wins; 168 covers must never queue ahead of audio | `td_api.tl:15001`, `TdFileDownloader.coverPriority` / `.audioPriority` |
-| `synchronous: false` | the request answers with a `file` that is still in flight; the completion is a later `updateFile`, which is why `TdClient` mirrors those onto `files` | `td_api.tl:15001`, `:11596` |
-| **20 s** patience | a file TDLib neither completes nor keeps talking about must not pin a row on its placeholder forever — the row falls back to the gradient | `TdFileDownloader.patience` |
-| downsample to **162 px** | 54 pt at @3x is the largest the tile can ever be drawn; decoding 600×600 into memory 11× bigger for a list is the mistake this line exists to prevent | `ImageIO` `thumbnailPixelWidth`, `TelegramLibraryTheme.artSide` |
+| `cancelDownloadFile` when the **last** waiter walks away, and not when another remains | a row that scrolled off should stop a fetch, but two rows on one file must not cancel each other's | `TdFileDownloader.abandon` / `.stop` |
+| **20 s** patience, then a **4 s** poll of `getFile` | a file TDLib neither completes nor keeps talking about must not pin a row on its placeholder forever — the row falls back to the gradient | `TdFileDownloader.patience` |
 | tiers: sharp cover → minithumbnail → gradient | the row is never empty: art arrives when it arrives, and the gradient Telegram gives a photoless peer is the floor | measured, `AvatarNode.swift:322-330` |
 | alpha `0 → 1` in **0.15 s** when the sharp cover lands | the chat list fades a badge's text in over exactly that, so a tile changing underneath a scrolling list is not a pop | `ChatListBadgeNode.swift:205` |
 | 20 pt bubble on **every** row | chosen over hiding an idle bubble: a straight right-hand column scans better, and the column is Telegram's own second slot | `ChatListItem.swift:2578` |
 | matched run in **`#3e88f7`**, not in the accent | dark Telegram's accent is white and so is the title, so a white highlight is invisible; `#3e88f7` is the colour the accent-customised dark theme uses | `DefaultDarkPresentationTheme.swift:7` |
+
+**The lock screen is a cover consumer too.** `MPMediaItemArtwork` is handed a block that can be called
+repeatedly, and rebuilding one per metadata write was part of what killed the app after an hour of
+listening: `Player.artwork(for:)` keeps the item for the track it was made for and only rebuilds it
+when the bitmap behind it actually changes.
 
 **Why the second stream exists.** `TdClient.updates` has exactly one consumer — `TdLoginFlow.begin()` drains
 it to read authorization states. A download watcher taking turns on that stream with the login loop would
