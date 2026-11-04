@@ -2,7 +2,10 @@ name: Doni
 options:
   bundleIdPrefix: local.doni
   deploymentTarget:
-    iOS: "17.0"
+    # MeloX's chrome is the system's own Liquid Glass — `TabView` with
+    # `.tabViewBottomAccessory`, `GlassEffectContainer`, `.buttonStyle(.glass)`, zoom
+    # transitions. None of it exists before iOS 26, and the device this runs on is iOS 27.
+    iOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: vi
   generationTag: M0

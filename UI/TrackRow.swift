@@ -209,20 +209,20 @@ struct HighlightedText: View {
     let accent: Color
 
     var body: some View {
-        runs.font(font)
+        Text(runs).font(font)
     }
 
-    private var runs: Text {
-        let segments = SearchHighlight.segments(of: query, in: text)
-        guard segments.count > 1 else {
-            return Text(text).foregroundColor(color)
+    /// The line with its matched runs lit, carried as attributes rather than built by adding
+    /// `Text` to `Text`: that operator is deprecated on iOS 26, and one attributed string is what
+    /// the SDK points at instead — same two colours, and the row still wraps.
+    private var runs: AttributedString {
+        var line = AttributedString()
+        for segment in SearchHighlight.segments(of: query, in: text) {
+            var run = AttributedString(segment.text)
+            run.foregroundColor = segment.isMatch ? accent : color
+            line.append(run)
         }
-        var result = Text(verbatim: "")
-        for segment in segments {
-            result = result + Text(verbatim: segment.text)
-                .foregroundColor(segment.isMatch ? accent : color)
-        }
-        return result
+        return line
     }
 }
 
