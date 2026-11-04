@@ -200,13 +200,47 @@ public enum MusicPlaylistMetrics {
 public enum MusicQueueMetrics {
     /// `Text(…).font(.title2.bold())` for the "Next up" heading (`:53`).
     public static let headingFont = Font.title2.bold()
-    /// The four mode pills: `.frame(height: 44)` inside `.rect(cornerRadius: 22)`
+    /// The mode pills: `.frame(height: 44)` inside `.rect(cornerRadius: 22)`
     /// (`:289`, `:297`).
     public static let pillHeight: CGFloat = 44
     public static let pillRadius: CGFloat = 22
     /// A queued row: 48 pt cover at radius 6 (`:343`).
     public static let rowArt: CGFloat = 48
     public static let rowArtRadius: CGFloat = 6
+
+    /// `HStack(spacing: 14)` of pills in a row `.frame(height: 60)` with `.padding(.vertical, 8)`
+    /// (`:225-232`, `:100-107`).
+    public static let pillGap: CGFloat = 14
+    public static let pillRowHeight: CGFloat = 60
+    public static let pillRowPadding: CGFloat = 8
+    /// `.font(.title3.weight(.semibold))` on white 0.12, and black 0.62 ink on white 0.7 when the
+    /// mode is on (`:283-299`).
+    public static let pillGlyph = Font.title3.weight(.semibold)
+    public static let pillIdleFill: Double = 0.12
+    public static let pillIdleInk: Double = 0.86
+    public static let pillOnFill: Double = 0.7
+    public static let pillOnInk: Double = 0.62
+    /// A mode change animates on `.smooth(duration: 0.34)` (`:307-325`).
+    public static let pillToggle = Animation.smooth(duration: 0.34)
+
+    /// The heading's own 14 above and 10 below (`:52-58`).
+    public static let headingTop: CGFloat = 14
+    public static let headingBottom: CGFloat = 10
+
+    /// A row: `HStack(spacing: 12)`, the name in `.body` over the artist in `.subheadline` at
+    /// white 0.58, 2 pt apart, with 4 pt of row inset above and below (`:331-378`).
+    public static let rowGap: CGFloat = 12
+    public static let rowTextGap: CGFloat = 2
+    public static let rowArtistOpacity: Double = 0.58
+    public static let rowInset: CGFloat = 4
+    /// A drag that lands a row somewhere else animates at `.smooth(duration: 0.28)` (`:212-222`).
+    public static let reorder = Animation.smooth(duration: 0.28)
+
+    /// The blank row that reserves the pinned header's space is the header plus 60 — the pills' own
+    /// band — so pinning the overlay never resizes the list (`:44-49`).
+    public static let headerReserveExtra: CGFloat = 60
+    /// An empty queue's placeholder gets 24 pt of row inset top and bottom (`:67-74`).
+    public static let emptyRowInset: CGFloat = 24
 }
 
 /// The settings cards. `SettingsHomeComponents.swift`, `SettingsView.swift`.
@@ -316,24 +350,64 @@ public enum MusicNowPlayingMetrics {
     public static let badgeGlyph: CGFloat = 7
     public static let badgeOffset: CGSize = CGSize(width: 3, height: 1)
 
-    /// The title line: `title3.weight(.semibold)` over a `title3` artist at 0.64 white, 2 pt
-    /// apart, 8 pt to the badges and 14 pt to the action group
-    /// (`NowPlayingArtworkPage.swift:130-153`).
+    /// The title line: `title3.weight(.semibold)` over a `title3` artist at 0.64 white, 2 pt apart
+    /// (`NowPlayingArtworkPage.swift:130-153`). The row's own gaps are `titleGap` and `badgeGap`.
     public static let titleSpacing: CGFloat = 2
-    public static let titleToBadges: CGFloat = 8
     public static let artistOpacity: Double = 0.64
-    public static let titleToActions: CGFloat = 14
 
     /// The pinned song header on the other two pages: 72 pt, artwork radius 12, entering from
     /// 40 pt below (`NowPlayingSongHeader.swift:43`, `:104`; `NowPlayingMotionSpec.swift:528`).
     public static let songHeaderHeight: CGFloat = 72
     public static let songHeaderArtRadius: CGFloat = 12
     public static let songHeaderTravel: CGFloat = 40
+    /// The header's own row is `HStack(spacing: 12)` — tighter than the artwork page's title row
+    /// because its art is 72 rather than the page's screen width (`NowPlayingSongHeader.swift:66`).
+    public static let songHeaderGap: CGFloat = 12
 
     /// The backdrop MeloX blurs when it has no Metal field: the artwork scaled 1.35 under a 90 pt
     /// blur (`NowPlayingBackground.swift:127-128`, `AppSettings.swift:2007`).
     public static let backdropScale: CGFloat = 1.35
     public static let backdropBlur: CGFloat = 90
+    /// The same style's own veil and legibility wash — black 0.10 over the whole screen, then a
+    /// vertical gradient that darkens toward the controls (`NowPlayingBackground.swift:142-173`).
+    public static let veilOpacity: Double = 0.10
+    public static let legibilityStops: [Double] = [0.04, 0.12, 0.48]
+    /// A background style change cross-fades at 0.55 (`:58-63`).
+    public static let backdropFade = Animation.easeInOut(duration: 0.55)
+
+    /// The artwork page's own two spacers: 8 above the cover, 22 below it, and the title block
+    /// pushed off the bottom by the 279 pt core (`NowPlayingArtworkPage.swift:60`, `:128`, `:155`).
+    public static let artworkTopSpacer: CGFloat = 8
+    public static let artworkBottomSpacer: CGFloat = 22
+
+    /// The title row is `HStack(spacing: 14)` with the name and its badges `HStack(spacing: 8)`
+    /// apart (`NowPlayingArtworkPage.swift:130-140`).
+    public static let titleGap: CGFloat = 14
+    public static let badgeGap: CGFloat = 8
+
+    /// The header's action discs: 40 pt circles, 10 apart, the ellipsis on white 0.15
+    /// (`NowPlayingSongActions.swift:15`, `:215-221`).
+    public static let actionDisc: CGFloat = 40
+    public static let actionDiscGap: CGFloat = 10
+    public static let menuDiscFill: Double = 0.15
+    /// The star MeloX only shows outside the artwork page is the same disc on white 0.13 (`:46-58`).
+    public static let starDiscFill: Double = 0.13
+
+    /// The progress block's two lines are 2 apart, and its times are white 0.5
+    /// (`NowPlayingControls.swift:10`, `:49-50`).
+    public static let progressLabelGap: CGFloat = 2
+    public static let progressLabelOpacity: Double = 0.5
+
+    /// The volume row's two speaker glyphs: `caption2` at the quiet end, `caption` at the loud
+    /// (`NowPlayingControls.swift:325-334`).
+    public static let volumeGlyphLow = Font.caption2
+    public static let volumeGlyphHigh = Font.caption
+
+    /// The transport's glyphs are `.system(size:weight:)` at 34/48/34 `.medium` (`:224`, `:248`,
+    /// `:286`) — a weight, not the semibold the rest of the app uses.
+    public static func transportGlyph(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .medium)
+    }
 }
 
 /// MeloX's motion, at the values `NowPlayingMotionSpec.appleMusic26` states. `.smooth` and
@@ -363,6 +437,10 @@ public enum MusicMotion {
     public static let pageDirectAlternate = Animation.smooth(duration: 0.44)
     public static let pageOutgoing = Animation.smooth(duration: 0.24)
     public static let pageIncoming = Animation.smooth(duration: 0.22).delay(0.07)
+    /// The artwork page is the only one that travels: 300 pt, in from above and out again above
+    /// (`:527`, `NowPlayingPageTransition.swift:38-53`). The queue and lyrics pages state a travel
+    /// of 0 (`:525-526`), so their transition is the opacity half of the same modifier.
+    public static let artworkTravel: CGFloat = -300
     /// The pinned song header comes in at 0.40 + 0.08, a delayed resident at 0.34 + 0.11, and a
     /// paused/playing artwork resize at 0.48 (`:431-440`, `:516-519`).
     public static let songHeaderIncoming = Animation.smooth(duration: 0.40).delay(0.08)

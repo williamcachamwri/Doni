@@ -34,8 +34,8 @@ struct RootView: View {
     var body: some View {
         playerAwareTabs
             .fullScreenCover(isPresented: $showsPlayer) {
-                NowPlayingView(player: player, artwork: artwork, library: library,
-                               close: { showsPlayer = false })
+                NowPlayingView(session: session, player: player, artwork: artwork,
+                               library: library, close: { showsPlayer = false })
                     // The panel paints its own backdrop from the cover's average colour, so the
                     // system's sheet chrome has to be transparent for it to show (`:103`), and the
                     // strip's glass resizes with it rather than sitting rigid under the drag (`:104`).

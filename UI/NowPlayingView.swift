@@ -1,59 +1,46 @@
-import SwiftUI
 import AVFoundation
-import MediaPlayer
 import Support
+import SwiftUI
 import TelegramDesignSystem
+import TdSession
 
-/// The full player the strip opens, drawn to the Apple Music kit the user pointed at —
-/// `AMNowPlayingViewController.swift` and its `ControlsView`, number for number: a 36×5 grip
-/// 6 pt under the safe area, the cover a width less 2 × 24 with a 10 pt corner and a 100 pt
-/// shadow hanging 30 under the grip, and the controls inset 32, starting 52.66 under the cover
-/// and ending 18 above the safe bottom, their rows 32.66 apart.
+/// Which page the panel is on. MeloX has three (`NowPlayingMotionSpec.swift:3-7`); Doni has the two
+/// it can fill — the cover and the queue — because nothing in a Telegram channel carries lyrics.
+enum NowPlayingPage: Equatable {
+    case artwork, queue
+}
+
+/// The player's panel, page for page as MeloX builds it.
 ///
-/// What the kit does not have is Doni's: the star, the cut menu, the times under the scrubber,
-/// and a lower slider that actually moves the device's volume — the kit's is a prop, so Doni's
-/// drives a hidden `MPVolumeView` and reads it back twice a second for the hardware keys.
+/// The reference's portrait shell is a 34 pt handle over a page stack with the controls hung on its
+/// bottom edge as a 341 pt overlay — a 62 pt utility band and a 279 pt core of progress, transport,
+/// volume and page selector — and the cover is sized from whatever height that leaves
+/// (`NowPlayingView.swift:317-329`, `NowPlayingBottomControls.swift:4-6`,
+/// `NowPlayingArtworkPage.swift:39-50`). Every number here is that file's, transcribed.
 ///
-/// The motion is still Telegram's (`TelegramShellMotion`) where the kit is silent: the 0.15 s
-/// crossfade on a track change, the words pushing up from the bottom, `replace.downUp` on the
-/// play glyph, and the badge spring under every button. The screen closes the way the kit's
-/// does — a tap on the grip, or a drag down that the shell rises with.
+/// What Doni adds is only what a Telegram library forces: the cover is fetched through TDLib rather
+/// than an HTTP URL, the volume bar moves `AVAudioPlayer`'s own volume instead of the
+/// `MPVolumeView` the reference had to settle for, and the verbs inside the ⋯ disc are Doni's.
 struct NowPlayingView: View {
+    @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    /// The panel is presented by a zoom from the strip's cover, so the shell owns the transition
+    /// The panel is presented by a zoom from the strip's cover, so the shell owns that transition
     /// source and this view only has to be the destination (`ContentView.swift:105-110`).
     let close: () -> Void
 
-    /// Where the finger is holding the scrubber, which is not where the song is.
-    @GestureState private var scrubProgress: Double?
-    /// The start of a cut the user is marking, before they have reached its end.
-    @State private var markIn: Double?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var page = NowPlayingPage.artwork
     /// The panel's own offset while a drag down is in progress; zero when it rests.
     @State private var panOffset: CGFloat = 0
-    /// The device's volume, 0…1 — written by the visible bar, read back from the hardware.
-    @State private var volumeLevel = Double(AVAudioSession.sharedInstance().outputVolume)
-    /// The backdrop's two stops, taken from the artwork the way the kit's gradient takes its own
-    /// (`AMNowPlayingViewController.swift:46`).
-    @State private var backdropTop = Color(rgb: 0x3e3e40)
-    @State private var backdropBottom = Color.black
-
-    private let palette = TelegramPalette.dark
 
     var body: some View {
         ZStack {
             backdrop
-            VStack(spacing: 0) {
-                grip
-                    .padding(.top, 6)
-                art
-                    .padding(.top, 30)
-                    .padding(.horizontal, 24)
-                controls
-                    .padding(.top, 52.66)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 18)
+            if let track = player.current {
+                content(track)
             }
         }
         .offset(y: max(0, panOffset))
@@ -61,355 +48,105 @@ struct NowPlayingView: View {
         .preferredColorScheme(.dark)
         .task(id: player.current?.uniqueId) {
             // The panel wants a cover the size of the screen, which is a tier no row ever asked
-            // for; without this order the hero is drawn from the 192 px a row fetched.
+            // for; without this order the hero and the blurred backdrop are drawn from the 192 px
+            // a row fetched.
             if let track = player.current {
-                await artwork.load(track: track, side: MusicArtworkMetrics.heroSide)
+                await artwork.load(track: track, via: session.covers(),
+                                   side: MusicArtworkMetrics.heroSide)
             }
-            refreshBackdrop()
-        }
-        .onReceive(artwork.objectWillChange) { _ in
-            Task { @MainActor in refreshBackdrop() }
-        }
-        .background {
-            VolumeSurface(level: $volumeLevel)
-                .frame(width: 0, height: 0)
-                .accessibilityHidden(true)
         }
     }
 
-    /// The kit's gradient: the artwork's average colour at the top and a third-and-a-bit of it
-    /// at the bottom (`AMNowPlayingViewController.swift:46` feeds two stops to a vertical
-    /// `CAGradientLayer`).
+    /// The reference's blurred-artwork style: the cover scaled 1.35 under a 90 pt blur, a 0.10 veil
+    /// over the pair, and a wash that darkens toward the controls so white text stays legible
+    /// (`NowPlayingBackground.swift:34-56`, `:113-173`).
     private var backdrop: some View {
-        LinearGradient(colors: [backdropTop, backdropBottom],
-                       startPoint: .top, endPoint: .bottom)
-            .ignoresSafeArea()
-            .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
-    }
-
-    /// Reads the current artwork's average and re-tints the two stops; a track with no artwork
-    /// keeps the placeholder pair it opened with.
-    private func refreshBackdrop() {
-        guard let track = player.current,
-              let colours = Self.gradientColours(artwork.image(for: track)) else { return }
-        backdropTop = colours.top
-        backdropBottom = colours.bottom
-    }
-
-    /// One pixel of CIAreaAverage over the artwork, in sRGB.
-    private static func gradientColours(_ image: UIImage?) -> (top: Color, bottom: Color)? {
-        guard let image, let cgImage = image.cgImage else { return nil }
-        let input = CIImage(cgImage: cgImage)
-        guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
-            kCIInputImageKey: input,
-            kCIInputExtentKey: CIVector(cgRect: input.extent),
-        ]), let output = filter.outputImage else { return nil }
-        var pixel = [UInt8](repeating: 0, count: 4)
-        let context = CIContext(options: [.workingColorSpace: NSNull()])
-        context.render(output, toBitmap: &pixel, rowBytes: 4,
-                       bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-                       format: .RGBA8,
-                       colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
-        let red = Double(pixel[0]) / 255
-        let green = Double(pixel[1]) / 255
-        let blue = Double(pixel[2]) / 255
-        return (Color(.sRGB, red: red, green: green, blue: blue),
-                Color(.sRGB, red: red * 0.35, green: green * 0.35, blue: blue * 0.35))
-    }
-
-    /// The kit's only chrome: a 36×5 white-at-a-half handle 6 pt under the safe area
-    /// (`AMGripView.swift`), which dismisses on a tap the way the kit's does
-    /// (`AMNowPlayingViewController.swift:73-75`).
-    private var grip: some View {
-        Capsule()
-            .fill(Color.white.opacity(0.5))
-            .frame(width: 36, height: 5)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: close)
-            .accessibilityLabel("Đóng")
-    }
-
-    /// The kit's cover: a square the width of the screen less 2 × 24, a 10 pt continuous corner,
-    /// and a 100 pt shadow at half black that lifts it off its own gradient
-    /// (`AMNowPlayingViewController.swift:85-88`, `AMArtworkView.swift`). The strip's 40 pt
-    /// corner morphs into this.
-    @ViewBuilder
-    private var art: some View {
-        if let track = player.current {
-            ZStack {
-                TelegramTrackGradient.linear(track.messageId)
-                if let image = artwork.image(for: track, side: MusicArtworkMetrics.heroSide) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .transition(.opacity)
-                }
+        ZStack {
+            Color.black
+            if let track = player.current,
+               let image = artwork.image(for: track, side: MusicArtworkMetrics.heroSide) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(MusicNowPlayingMetrics.backdropScale)
+                    .blur(radius: MusicNowPlayingMetrics.backdropBlur)
             }
-            .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .shadow(color: .black.opacity(0.5), radius: 100)
-            .animation(TelegramShellMotion.crossfade, value: player.current?.uniqueId)
+            Color.black.opacity(MusicNowPlayingMetrics.veilOpacity)
+            LinearGradient(colors: MusicNowPlayingMetrics.legibilityStops.map {
+                Color.black.opacity($0)
+            }, startPoint: .top, endPoint: .bottom)
         }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+        .animation(reduceMotion ? nil : MusicNowPlayingMetrics.backdropFade,
+                   value: player.current?.uniqueId)
     }
 
-    private var controls: some View {
-        VStack(spacing: 32.66) {
-            words
-            middle
-                .frame(maxHeight: .infinity)
-            bottomRow
-        }
-    }
-
-    /// The kit's title row — `.title3` semibold over plain `.title3`, white, leading — with
-    /// Doni's star and cut menu at the trailing edge, dressed as plainly as the kit dresses its
-    /// own buttons.
-    @ViewBuilder
-    private var words: some View {
-        if let track = player.current {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(track.displayTitle)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    Text(track.displayPerformer.isEmpty ? "Doni" : track.displayPerformer)
-                        .font(.title3)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 12)
-                favoriteButton(track)
-                cutMenu
-            }
-            .id(track.uniqueId)
-            .transition(.push(from: .bottom))
-        }
-    }
-
-    /// The star: white outline while a song is only playing, filled once it is kept.
-    private func favoriteButton(_ track: any Playable) -> some View {
-        let kept = library.favorites.contains { $0.id == track.uniqueId }
-        return Button {
-            library.toggleFavorite(track)
-        } label: {
-            Image(systemName: kept ? "star.fill" : "star")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PlayerButtonStyle())
-        .symbolEffect(.bounce, value: kept)
-        .accessibilityLabel(kept ? "Bỏ yêu thích" : "Yêu thích")
-    }
-
-    /// The cut lives in a menu because the kit's layout has no room for a fourth control, and a
-    /// cut is a three-step choice (start, end, keep, or let go), which a menu states better than
-    /// a toggle does.
-    private var cutMenu: some View {
-        Menu {
-            if let started = markIn {
-                Button("Kết thúc cắt tại \(clock(player.elapsed))") {
-                    guard player.elapsed > started else { return }
-                    player.segment = started...player.elapsed
-                    markIn = nil
-                }
-            } else if player.segment == nil {
-                Button("Bắt đầu cắt tại \(clock(player.elapsed))") {
-                    markIn = player.elapsed
-                }
-            }
-            if let segment = player.segment {
-                Button("Giữ đoạn này") {
-                    if let uniqueId = player.current?.uniqueId {
-                        library.setSegment(
-                            Int(segment.lowerBound)...Int(segment.upperBound),
-                            uniqueId: uniqueId)
-                    }
-                }
-                Button("Bỏ cắt", role: .destructive) {
-                    player.segment = nil
-                    markIn = nil
-                }
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(markIn == nil && player.segment == nil
-                    ? .white : palette.highlight)
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Cắt đoạn")
-    }
-
-    /// The kit's middle block — slider, air, transport, air, slider
-    /// (`AMControlsView+ControlsView.swift:28-62`) — with Doni's times tucked under the first
-    /// slider.
-    private var middle: some View {
+    private func content(_ track: any Playable) -> some View {
         VStack(spacing: 0) {
-            progressSlider
-            times
-                .padding(.top, 8)
-            Spacer(minLength: 16)
-            transport
-            Spacer(minLength: 16)
-            volumeSlider
-        }
-    }
-
-    /// The kit's scrubber, `AMSliderView` transcribed: a 7 pt band of thin material with the
-    /// played share drawn over it in white at a half, both clipped to a 3.5 pt rectangle —
-    /// square ends, no thumb. A drag is held locally and handed to the player once, on lift.
-    private var progressSlider: some View {
-        GeometryReader { edge in
-            let total = max(player.duration, 1)
-            let shown = min(max(scrubProgress ?? player.elapsed / total, 0), 1)
-            let width = max(edge.size.width, 1)
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                Rectangle()
-                    .fill(Color.white.opacity(0.5))
-                    .frame(width: width * shown)
-                    .animation(.linear(duration: 0.25), value: player.elapsed)
+            handle
+            ZStack(alignment: .top) {
+                if page == .artwork {
+                    ArtworkPage(track: track, player: player, artwork: artwork, library: library)
+                        .transition(pageTransition(for: .artwork))
+                } else {
+                    NowPlayingQueuePage(track: track, session: session, player: player,
+                                        artwork: artwork, library: library)
+                        .transition(pageTransition(for: .queue))
+                }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
-            .frame(width: edge.size.width, height: edge.size.height)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($scrubProgress) { value, state, _ in
-                        state = min(max(value.location.x / width, 0), 1)
-                    }
-                    .onEnded { value in
-                        player.seek(to: min(max(value.location.x / width, 0), 1) * total)
-                    }
-            )
-        }
-        .frame(height: 7)
-    }
-
-    /// Elapsed at the left, what is left of the song at the right with its minus sign. The
-    /// centre slot carries the cut instead: its range while it is held, the moment it starts
-    /// from while it is being marked. Both times run on `numericText`, so a second ticks in
-    /// rather than blinks in.
-    private var times: some View {
-        HStack {
-            Text(MediaClock.duration(Int(player.elapsed.rounded())) ?? "0:00")
-            Spacer()
-            cutState
-            Spacer()
-            Text(remaining)
-        }
-        .font(TelegramShellTypography.timestamp)
-        .foregroundStyle(palette.navSecondaryText)
-        .monospacedDigit()
-        .contentTransition(.numericText())
-        .animation(.linear(duration: 0.25), value: player.elapsed)
-    }
-
-    /// The centre slot only ever holds text, so the two times stay pinned to their edges whether
-    /// or not there is a cut — marking one never moves them under the finger.
-    @ViewBuilder
-    private var cutState: some View {
-        if let segment = player.segment {
-            Text("\(clock(segment.lowerBound)) – \(clock(segment.upperBound))")
-        } else if let started = markIn {
-            Text("cắt từ \(clock(started))")
-        }
-    }
-
-    private var remaining: String {
-        let left = max(Int((player.duration - player.elapsed).rounded()), 0)
-        guard let text = MediaClock.duration(left) else { return "-0:00" }
-        return "-\(text)"
-    }
-
-    /// The kit's transport: 30, 50, 30, plain weight, white
-    /// (`AMControlsView+ControlsView.swift:36-53`), each on its 64 pt stop. The centre glyph
-    /// swaps through `replace.downUp` so the pause drops in from above.
-    private var transport: some View {
-        HStack(spacing: 0) {
-            step(system: "backward.fill", size: 30, enabled: player.hasPrevious,
-                 action: player.previous)
-            Spacer(minLength: 0)
-            step(system: player.isPlaying ? "pause.fill" : "play.fill", size: 50,
-                 enabled: player.current != nil, action: player.toggle)
-            Spacer(minLength: 0)
-            step(system: "forward.fill", size: 30, enabled: player.hasNext, action: player.next)
-        }
-        .animation(TelegramShellMotion.pop, value: player.isPlaying)
-    }
-
-    private func step(system: String, size: CGFloat, enabled: Bool,
-                      action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: size))
-                .foregroundStyle(enabled ? .white : Color.white.opacity(0.3))
-                .frame(width: TelegramShellMetrics.transportButton,
-                       height: TelegramShellMetrics.transportButton)
-                .contentShape(Rectangle())
-                .contentTransition(.symbolEffect(.replace.downUp))
-        }
-        .buttonStyle(PlayerButtonStyle())
-        .disabled(!enabled)
-    }
-
-    /// The kit's lower slider, made real: the same 7 pt band as the scrubber, dragging it moves
-    /// the device's volume through the hidden `MPVolumeView` behind this view.
-    private var volumeSlider: some View {
-        GeometryReader { edge in
-            let width = max(edge.size.width, 1)
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                Rectangle()
-                    .fill(Color.white.opacity(0.5))
-                    .frame(width: width * min(max(volumeLevel, 0), 1))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .bottom) {
+                BottomControls(player: player, page: $page)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
-            .frame(width: edge.size.width, height: edge.size.height)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        volumeLevel = min(max(value.location.x / width, 0), 1)
-                    }
+        }
+        .padding(.horizontal, MusicNowPlayingMetrics.horizontal)
+        .safeAreaPadding(.bottom, 3)
+        .animation(reduceMotion ? nil : MusicMotion.pageSelection, value: page)
+    }
+
+    /// The reference's 34 pt box with a 60 × 5 capsule 8 into it, which dismisses on a tap
+    /// (`NowPlayingView.swift:465-484`).
+    private var handle: some View {
+        ZStack(alignment: .top) {
+            Capsule()
+                .fill(Color.white.opacity(MusicNowPlayingMetrics.gripOpacity))
+                .frame(width: MusicNowPlayingMetrics.gripWidth,
+                       height: MusicNowPlayingMetrics.gripHeight)
+                .padding(.top, MusicNowPlayingMetrics.gripTop)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: MusicNowPlayingMetrics.gripBox)
+        .contentShape(.rect)
+        .onTapGesture(perform: close)
+        .accessibilityElement()
+        .accessibilityLabel("Đóng")
+        .accessibilityHint("Thu nhỏ về thanh dưới cùng")
+        .accessibilityAction { close() }
+    }
+
+    /// The artwork page is the only one that travels, and it travels from above; the queue page's
+    /// own travel is stated as 0, which leaves it the opacity half
+    /// (`NowPlayingPageTransition.swift:38-53`, `NowPlayingMotionSpec.swift:525-527`).
+    private func pageTransition(for destination: NowPlayingPage) -> AnyTransition {
+        if reduceMotion { return .opacity }
+        switch destination {
+        case .artwork:
+            return .asymmetric(
+                insertion: .offset(y: MusicMotion.artworkTravel)
+                    .combined(with: .opacity)
+                    .animation(MusicMotion.pageIncoming),
+                removal: .offset(y: MusicMotion.artworkTravel)
+                    .combined(with: .opacity)
+                    .animation(MusicMotion.pageOutgoing)
             )
+        case .queue:
+            return .opacity.animation(MusicMotion.pageSelection)
         }
-        .frame(height: 7)
     }
 
-    /// The kit's three resting glyphs along the bottom — `.title3` semibold, white, inset 52
-    /// (`AMControlsView+ControlsView.swift:64-84`). Doni has no lyrics, AirPlay screen or queue
-    /// screen behind them yet, so they sit as the kit draws them — at rest.
-    private var bottomRow: some View {
-        HStack(spacing: 0) {
-            Image(systemName: "quote.bubble")
-                .frame(maxWidth: .infinity)
-            Image(systemName: "airplayaudio")
-                .frame(maxWidth: .infinity)
-            Image(systemName: "list.bullet")
-                .frame(maxWidth: .infinity)
-        }
-        .font(.title3.weight(.semibold))
-        .foregroundStyle(.white)
-        .padding(.horizontal, 52)
-    }
-
-    /// The kit's dismissal by hand: the panel follows the finger down one to one while the
-    /// shell — which reads `dragProgress` — rises underneath, and past 120 pt it goes
-    /// (`AMNowPlayingAnimationController.swift:224-238`), otherwise it springs home in 0.4 s
-    /// (`:267`).
-    /// Dismissal by hand, the way the kit does it: the panel follows the finger down one to one
-    /// and past 120 pt it goes (`AMNowPlayingAnimationController.swift:224-238`), otherwise it
-    /// springs home in 0.4 s (`:267`). The shell has nothing to rise with now — the system's own
-    /// zoom puts the strip back.
+    /// The panel follows the finger down one to one and past 120 pt it goes; otherwise it springs
+    /// home. The system's own zoom puts the strip back.
     private var pan: some Gesture {
         DragGesture(minimumDistance: 15)
             .onChanged { value in
@@ -429,85 +166,546 @@ struct NowPlayingView: View {
                 }
             }
     }
+}
 
-    private func clock(_ seconds: Double) -> String {
+/// The cover page: the artwork at whatever height the controls leave, and the title block under it
+/// (`NowPlayingArtworkPage.swift`).
+///
+/// The size is the reference's own expression, `max(1, min(width + 16, max(170, height − 279 − 92)))`
+/// (`:39-50`), and on a phone the height term is the one that binds — which is why the cover in the
+/// reference's screenshot is about two thirds of the screen rather than all of it.
+private struct ArtworkPage: View {
+    let track: any Playable
+    @ObservedObject var player: Player
+    @ObservedObject var artwork: CoverArtwork
+    @ObservedObject var library: Library
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bounce: CGFloat = 1
+
+    /// Paused shrinks the cover to 0.74 (`NowPlayingArtworkPage.swift:33-35`, `:51-57`).
+    private var isExpanded: Bool { player.isPlaying }
+
+    var body: some View {
+        GeometryReader { edge in
+            let side = max(1, min(edge.size.width + MusicNowPlayingMetrics.artworkSideLeeway,
+                                  max(MusicNowPlayingMetrics.artworkMin,
+                                      edge.size.height
+                                          - MusicNowPlayingMetrics.coreHeight
+                                          - MusicNowPlayingMetrics.artworkReserve)))
+            let shown = side * (isExpanded ? 1 : MusicNowPlayingMetrics.pausedArtworkScale)
+            VStack(spacing: 0) {
+                Spacer(minLength: MusicNowPlayingMetrics.artworkTopSpacer)
+
+                ZStack {
+                    TelegramTrackGradient.linear(track.messageId)
+                    if let image = artwork.image(for: track,
+                                                 side: MusicArtworkMetrics.heroSide) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .transition(.opacity)
+                    }
+                }
+                .frame(width: shown, height: shown)
+                .clipShape(RoundedRectangle(cornerRadius: MusicNowPlayingMetrics.artworkRadius,
+                                            style: .continuous))
+                .scaleEffect(bounce)
+                .shadow(color: .black.opacity(player.isPlaying
+                                                ? MusicNowPlayingMetrics.playingShadowOpacity
+                                                : MusicNowPlayingMetrics.pausedShadowOpacity),
+                        radius: player.isPlaying ? MusicNowPlayingMetrics.playingShadowRadius
+                                                 : MusicNowPlayingMetrics.pausedShadowRadius,
+                        y: player.isPlaying ? MusicNowPlayingMetrics.playingShadowY
+                                            : MusicNowPlayingMetrics.pausedShadowY)
+                .frame(width: side, height: side)
+                .animation(reduceMotion ? nil : MusicMotion.artworkResize, value: isExpanded)
+                .animation(reduceMotion ? nil : MusicMotion.artworkShadow, value: player.isPlaying)
+                .accessibilityElement()
+                .accessibilityLabel(track.displayTitle)
+                .task(id: player.isPlaying) { await bounceIn() }
+
+                Spacer(minLength: MusicNowPlayingMetrics.artworkBottomSpacer)
+
+                HStack(spacing: MusicNowPlayingMetrics.titleGap) {
+                    VStack(alignment: .leading, spacing: MusicNowPlayingMetrics.titleSpacing) {
+                        Text(track.displayTitle)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text(track.displayPerformer.isEmpty ? "Doni" : track.displayPerformer)
+                            .font(.title3)
+                            .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.artistOpacity))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    SongActions(track: track, player: player, library: library)
+                }
+                .padding(.bottom, MusicNowPlayingMetrics.coreHeight)
+            }
+            .frame(width: edge.size.width, height: edge.size.height)
+        }
+    }
+
+    /// The beat a play starts: 1.055 over 0.17 s ease-out, held 170 ms, home on a 0.42 s spring
+    /// with 0.24 bounce (`NowPlayingPortraitArtwork.swift:60-80`).
+    private func bounceIn() async {
+        bounce = 1
+        guard player.isPlaying, !reduceMotion else { return }
+        await Task.yield()
+        withAnimation(MusicMotion.bounceRise) { bounce = MusicMotion.bounceScale }
+        do {
+            try await Task.sleep(for: .milliseconds(Int(MusicMotion.bounceHold * 1000)))
+        } catch {
+            return
+        }
+        withAnimation(MusicMotion.bounceSettle) { bounce = 1 }
+    }
+}
+
+/// The ⋯ disc, and everything a song answers to from the panel: keep it, queue it, list it, share
+/// the file, and cut a slice of it.
+///
+/// MeloX puts the same pair of discs in this corner — a star on white 0.13 and an ellipsis on 0.15,
+/// 10 apart (`NowPlayingSongActions.swift:15`, `:46-58`, `:215-221`) — and hides the star on the
+/// artwork page (`NowPlayingArtworkPage.swift:149-152`), so Doni's artwork page has the ellipsis
+/// alone and the star is the first verb inside it.
+struct SongActions: View {
+    let track: any Playable
+    @ObservedObject var player: Player
+    @ObservedObject var library: Library
+
+    var body: some View {
+        Menu {
+            let kept = library.isFavorite(track.uniqueId)
+            Button {
+                library.toggleFavorite(track)
+            } label: {
+                Label(kept ? "Bỏ yêu thích" : "Yêu thích",
+                      systemImage: kept ? "star.fill" : "star")
+            }
+            Button {
+                player.playNext(track)
+            } label: {
+                Label("Nghe tiếp theo", systemImage: "text.badge.plus")
+            }
+            Divider()
+            ForEach(library.playlists) { list in
+                Button("Thêm vào “\(list.name)”") {
+                    library.add(track, to: list.id)
+                }
+            }
+            Divider()
+            cutButtons
+            if let path = track.localPath {
+                Divider()
+                ShareLink(item: URL(fileURLWithPath: path)) {
+                    Label("Chia sẻ tệp", systemImage: "square.and.arrow.up")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: MusicNowPlayingMetrics.actionDisc,
+                       height: MusicNowPlayingMetrics.actionDisc)
+                .background(Color.white.opacity(MusicNowPlayingMetrics.menuDiscFill), in: .circle)
+                .contentShape(.circle)
+        }
+        .tint(.white)
+        .menuOrder(.fixed)
+        .accessibilityLabel("Khác")
+    }
+
+    /// A cut is a three-step choice — mark, reach the end, keep or let go — which a menu states
+    /// better than a toggle does. Keeping one writes it into the favourite, which is where Doni
+    /// stores the slice the loop plays back.
+    @ViewBuilder
+    private var cutButtons: some View {
+        if player.markIn != nil {
+            Button("Kết thúc cắt tại \(clock(player.elapsed))") {
+                player.markEnd()
+            }
+        } else if player.segment == nil {
+            Button("Bắt đầu cắt tại \(clock(player.elapsed))") {
+                player.markStart()
+            }
+        }
+        if let segment = player.segment {
+            Button("Giữ đoạn \(clock(segment.lowerBound)) – \(clock(segment.upperBound))") {
+                library.setSegment(Int(segment.lowerBound)...Int(segment.upperBound),
+                                   uniqueId: track.uniqueId)
+            }
+            Button("Bỏ cắt", role: .destructive) {
+                player.clearCut()
+            }
+        }
+    }
+
+    private func clock(_ seconds: TimeInterval) -> String {
         MediaClock.duration(Int(seconds.rounded())) ?? "0:00"
     }
 }
 
-/// Telegram's press state: the button dips to 0.82 on a spring that overshoots a little on the
-/// way back up, the way `ChatListBadgeNode`'s own scale eases.
-struct PlayerButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.82 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+/// The bottom overlay: the reference's empty 62 pt utility band over its 279 pt core
+/// (`NowPlayingBottomControls.swift:18-67`).
+///
+/// The utility band only ever holds lyrics buttons, so Doni reserves it and draws nothing in it —
+/// the number is part of the overlay the reference's geometry is stated against.
+private struct BottomControls: View {
+    @ObservedObject var player: Player
+    @Binding var page: NowPlayingPage
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: MusicNowPlayingMetrics.utilityHeight, alignment: .top)
+            VStack(spacing: 0) {
+                ProgressRow(player: player)
+                gap(MusicNowPlayingMetrics.progressToTransport)
+                TransportRow(player: player)
+                gap(MusicNowPlayingMetrics.transportToVolume)
+                VolumeRow(player: player)
+                gap(MusicNowPlayingMetrics.volumeToSelector)
+                SelectorRow(player: player, page: $page)
+            }
+            .frame(height: MusicNowPlayingMetrics.coreHeight)
+        }
+        .frame(height: MusicNowPlayingMetrics.overlayHeight)
+    }
+
+    private func gap(_ height: CGFloat) -> some View {
+        Color.clear.frame(height: height)
     }
 }
 
-/// The hidden half of the volume bar: an `MPVolumeView` parked off screen, whose slider is the
-/// one public handle on the device's volume. The visible bar writes into it through
-/// `updateUIView`; a twice-a-second read brings hardware-key changes back out.
-private struct VolumeSurface: UIViewRepresentable {
-    @Binding var level: Double
+/// The scrubber and its two times, with the cut in the chip between them
+/// (`NowPlayingControls.swift:4-63`).
+///
+/// MeloX's centre chip is a playback-quality menu; a Telegram file has one quality, so the same chip
+/// carries the cut — where it stands, and the buttons that finish or drop it.
+private struct ProgressRow: View {
+    @ObservedObject var player: Player
 
-    func makeUIView(context: Context) -> MPVolumeView {
-        let view = MPVolumeView(frame: CGRect(x: -400, y: -400, width: 100, height: 40))
-        context.coordinator.poll(view)
-        return view
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Where the finger is holding the slider, which is not where the song is. The value goes to
+    /// the player once, on release, so a drag across a three-minute file is one seek and not
+    /// several hundred.
+    @State private var scrubbing = false
+    @State private var scrubSeconds: TimeInterval = 0
+
+    private var total: TimeInterval {
+        max(player.duration, Double(player.current?.duration ?? 0), 1)
     }
 
-    func updateUIView(_ view: MPVolumeView, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.level = level
-        coordinator.binding = $level
-        coordinator.push(view)
-    }
+    var body: some View {
+        VStack(spacing: MusicNowPlayingMetrics.progressLabelGap) {
+            Slider(
+                value: Binding(
+                    get: { scrubbing ? scrubSeconds : min(player.elapsed, total) },
+                    set: { scrubSeconds = min(max($0, 0), total) }
+                ),
+                in: 0...total,
+                onEditingChanged: { editing in
+                    scrubbing = editing
+                    if !editing { player.seek(to: scrubSeconds) }
+                }
+            )
+            .sliderThumbVisibility(.hidden)
+            .tint(.white)
+            .accessibilityLabel("Tiến trình")
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    @MainActor
-    final class Coordinator {
-        var level: Double = 0
-        var binding: Binding<Double>?
-        /// The last value this side wrote, so the poll can tell its own echo from the
-        /// hardware's hand.
-        private var lastWritten: Double = -1
-
-        /// Push the visible bar's value into the system slider.
-        func push(_ view: MPVolumeView) {
-            guard let slider = Self.slider(in: view) else { return }
-            if abs(Double(slider.value) - level) > 0.001,
-               abs(level - lastWritten) > 0.001 {
-                slider.setValue(Float(level), animated: false)
-                lastWritten = level
+            HStack {
+                Text(clock(player.elapsed))
+                Spacer()
+                Text("−\(clock(max(total - player.elapsed, 0)))")
             }
+            .overlay {
+                if player.segment != nil || player.markIn != nil {
+                    cutChip
+                        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: cutStateKey)
+                }
+            }
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.progressLabelOpacity))
         }
+        .frame(height: MusicNowPlayingMetrics.progressHeight)
+    }
 
-        /// Read the system slider twice a second; a value that neither the bar wrote nor this
-        /// side echoed came from the hardware keys.
-        func poll(_ view: MPVolumeView) {
-            Task { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    guard let self, let slider = Self.slider(in: view) else { continue }
-                    let read = Double(slider.value)
-                    if abs(read - level) > 0.001, abs(read - lastWritten) > 0.001 {
-                        level = read
-                        lastWritten = read
-                        binding?.wrappedValue = read
-                    }
+    /// What the chip is holding, so a change of cut state — and only that — animates it.
+    private var cutStateKey: String {
+        if let segment = player.segment { return "\(segment)" }
+        return "marking-\(Int(player.markIn ?? -1))"
+    }
+
+    /// The chip is the cut's read-out and its way out at the same time: whatever it is saying, one
+    /// tap drops it. Marking and keeping live in the ⋯ disc, which is where the verbs are.
+    private var cutChip: some View {
+        Menu {
+            Button("Bỏ cắt", role: .destructive) {
+                player.clearCut()
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "waveform")
+                    .font(.system(size: MusicNowPlayingMetrics.chipGlyph, weight: .semibold))
+                Text(chipText)
+            }
+            .padding(.horizontal, MusicNowPlayingMetrics.chipPaddingH)
+            .padding(.vertical, MusicNowPlayingMetrics.chipPaddingV)
+            .background(Color.white.opacity(MusicNowPlayingMetrics.chipFill),
+                        in: .rect(cornerRadius: MusicNowPlayingMetrics.chipRadius))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .tint(.white)
+        .accessibilityLabel("Đoạn đang phát")
+    }
+
+    private var chipText: String {
+        if let segment = player.segment {
+            return "\(clock(segment.lowerBound)) – \(clock(segment.upperBound))"
+        }
+        return "cắt từ \(clock(player.markIn ?? 0))"
+    }
+
+    private func clock(_ seconds: TimeInterval) -> String {
+        MediaClock.duration(Int(seconds.rounded())) ?? "0:00"
+    }
+}
+
+/// Backward, play, forward — 34, 48, 34 at `.medium`, each on a 64 pt stop in an 82 pt row
+/// (`NowPlayingControls.swift:199-314`).
+private struct TransportRow: View {
+    @ObservedObject var player: Player
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 0) {
+            step("backward.fill", MusicNowPlayingMetrics.transportSkipGlyph,
+                 enabled: player.hasPrevious, label: "Bài trước", action: player.previous)
+            Spacer(minLength: 0)
+            if player.isFetchingFile {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .frame(width: MusicNowPlayingMetrics.transportCircle,
+                           height: MusicNowPlayingMetrics.transportCircle)
+            } else {
+                Button(action: player.toggle) {
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                        .font(MusicNowPlayingMetrics.transportGlyph(
+                            MusicNowPlayingMetrics.transportPlayGlyph))
+                        .contentTransition(reduceMotion ? .identity
+                            : .symbolEffect(.replace.downUp.wholeSymbol, options: .speed(1.6)))
+                        .frame(width: MusicNowPlayingMetrics.transportCircle,
+                               height: MusicNowPlayingMetrics.transportCircle)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(PlayerTransportButtonStyle(reducesMotion: reduceMotion))
+                .accessibilityLabel(player.isPlaying ? "Tạm dừng" : "Phát")
+            }
+            Spacer(minLength: 0)
+            step("forward.fill", MusicNowPlayingMetrics.transportSkipGlyph,
+                 enabled: player.hasNext, label: "Bài tiếp theo", action: player.next)
+        }
+        .frame(height: MusicNowPlayingMetrics.transportRowHeight)
+        .animation(reduceMotion ? nil : MusicMotion.symbolSwap, value: player.isPlaying)
+    }
+
+    private func step(_ system: String, _ size: CGFloat, enabled: Bool,
+                      label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(MusicNowPlayingMetrics.transportGlyph(size))
+                .foregroundStyle(enabled ? .white : Color.white.opacity(0.3))
+                .frame(width: MusicNowPlayingMetrics.transportCircle,
+                       height: MusicNowPlayingMetrics.transportCircle)
+                .contentShape(.circle)
+        }
+        .buttonStyle(PlayerTransportButtonStyle(reducesMotion: reduceMotion))
+        .disabled(!enabled)
+        .accessibilityLabel(label)
+    }
+}
+
+/// The volume row, which in Doni moves sound: `AVAudioPlayer` has a real per-player volume, so the
+/// reference's `MPVolumeView` workaround is not needed.
+///
+/// Same 42 pt row, same 32 pt slider, same two speaker glyphs 10 apart on white 0.62
+/// (`NowPlayingControls.swift:317-361`).
+private struct VolumeRow: View {
+    @ObservedObject var player: Player
+
+    var body: some View {
+        HStack(spacing: MusicNowPlayingMetrics.volumeGlyphGap) {
+            Image(systemName: "speaker.fill")
+                .font(MusicNowPlayingMetrics.volumeGlyphLow)
+            Slider(value: $player.volume, in: 0...1)
+                .tint(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: MusicNowPlayingMetrics.volumeSliderHeight)
+                .layoutPriority(1)
+            Image(systemName: "speaker.wave.3.fill")
+                .font(MusicNowPlayingMetrics.volumeGlyphHigh)
+        }
+        .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.volumeOpacity))
+        .frame(height: MusicNowPlayingMetrics.volumeHeight)
+    }
+}
+
+/// The row of three 44 pt discs at the very bottom.
+///
+/// MeloX spends it on pages (`NowPlayingControls.swift:400-518`). Doni has two pages and two modes
+/// worth reaching without opening the queue, so the slots carry shuffle, repeat and the queue
+/// itself — the same controls the queue page's pills state, in the same chrome: 0.72 white at rest,
+/// a 0.68 white disc with 0.68 black ink when on, and the queue button wearing the mode badge while
+/// it is not the page shown.
+private struct SelectorRow: View {
+    @ObservedObject var player: Player
+    @Binding var page: NowPlayingPage
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack {
+            mode(system: "shuffle", on: player.isShuffled,
+                 label: player.isShuffled ? "Tắt phát ngẫu nhiên" : "Phát ngẫu nhiên") {
+                withAnimation(reduceMotion ? nil : MusicQueueMetrics.pillToggle) {
+                    player.setShuffled(!player.isShuffled)
+                }
+            }
+            Spacer()
+            mode(system: player.repeatSystemImage, on: player.repeatMode != .off,
+                 label: repeatLabel) {
+                withAnimation(reduceMotion ? nil : MusicQueueMetrics.pillToggle) {
+                    player.cycleRepeatMode()
+                }
+            }
+            Spacer()
+            mode(system: "list.bullet", on: page == .queue, label: "Hàng chờ",
+                 badge: page == .queue ? nil : player.queueModeBadgeSystemImage) {
+                withAnimation(reduceMotion ? nil : MusicMotion.pageSelection) {
+                    page = page == .queue ? .artwork : .queue
                 }
             }
         }
+        .padding(.horizontal, MusicNowPlayingMetrics.horizontal)
+        .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.selectorOpacity))
+        .frame(height: MusicNowPlayingMetrics.selectorHeight)
+    }
 
-        private static func slider(in root: UIView) -> UISlider? {
-            for subview in root.subviews {
-                if let slider = subview as? UISlider { return slider }
-                if let found = slider(in: subview) { return found }
-            }
-            return nil
+    private var repeatLabel: String {
+        switch player.repeatMode {
+        case .off: return "Lặp lại toàn bộ"
+        case .all: return "Lặp lại một bài"
+        case .one: return "Tắt lặp lại"
         }
     }
+
+    private func mode(system: String, on: Bool, label: String, badge: String? = nil,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: system)
+                    .symbolVariant(on ? .fill : .none)
+                    .font(.title3)
+                    .frame(width: MusicNowPlayingMetrics.selectorButton,
+                           height: MusicNowPlayingMetrics.selectorButton)
+                    .foregroundStyle(on ? .black.opacity(MusicNowPlayingMetrics.selectorDiscInk)
+                                        : .white.opacity(MusicNowPlayingMetrics.selectorOpacity))
+                    .background(Color.white.opacity(on ? MusicNowPlayingMetrics.selectorDiscFill
+                                                        : 0), in: .circle)
+
+                if let badge {
+                    Image(systemName: badge)
+                        .font(.system(size: MusicNowPlayingMetrics.badgeGlyph, weight: .bold))
+                        .foregroundStyle(.black.opacity(0.74))
+                        .frame(width: MusicNowPlayingMetrics.badgeSize,
+                               height: MusicNowPlayingMetrics.badgeSize)
+                        .background(Color.white.opacity(0.82), in: .circle)
+                        .offset(MusicNowPlayingMetrics.badgeOffset)
+                }
+            }
+            .frame(width: MusicNowPlayingMetrics.selectorButton,
+                   height: MusicNowPlayingMetrics.selectorButton)
+            .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// The reference's press state: the glyph to 0.8 while the finger is down, and a 0.1 white disc
+/// expanding from 0.86 over 0.18 s, both released over 0.4 s
+/// (`NowPlayingTransportButtonStyle.swift:59-132`).
+struct PlayerTransportButtonStyle: ButtonStyle {
+    let reducesMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        Body(label: configuration.label, isPressed: configuration.isPressed,
+             reducesMotion: reducesMotion)
+    }
+
+    private struct Body<Label: View>: View {
+        let label: Label
+        let isPressed: Bool
+        let reducesMotion: Bool
+
+        @State private var iconScale: CGFloat = 1
+        @State private var highlightScale = MusicMotion.pressedHighlightScale
+        @State private var highlightOpacity = 0.0
+
+        var body: some View {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(MusicMotion.highlightOpacity))
+                    .scaleEffect(highlightScale)
+                    .opacity(highlightOpacity)
+                label
+                    .scaleEffect(iconScale)
+            }
+            .contentShape(.circle)
+            .onAppear { update(to: isPressed, animated: false) }
+            .onChange(of: isPressed) { _, pressed in update(to: pressed, animated: true) }
+        }
+
+        private func update(to pressed: Bool, animated: Bool) {
+            guard animated, !reducesMotion else {
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    iconScale = pressed && !reducesMotion ? MusicMotion.pressedIconScale : 1
+                    highlightScale = pressed ? MusicMotion.pressedHighlightScale : 1
+                    highlightOpacity = pressed ? 1 : 0
+                }
+                return
+            }
+            if pressed {
+                // The disc starts small and unanimated, so it grows from there rather than fading
+                // in at full size.
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    highlightScale = MusicMotion.pressedHighlightScale
+                }
+                withAnimation(MusicMotion.press) {
+                    iconScale = MusicMotion.pressedIconScale
+                    highlightOpacity = 1
+                }
+            } else {
+                withAnimation(MusicMotion.release) { iconScale = 1 }
+                withAnimation(MusicMotion.highlightExpansion) { highlightScale = 1 }
+                withAnimation(.easeIn(duration: 0.4)) { highlightOpacity = 0 }
+            }
+        }
+    }
+}
+
+#Preview {
+    NowPlayingView(session: TelegramSession(), player: Player(), artwork: CoverArtwork.shared,
+                   library: Library.shared, close: {})
 }
