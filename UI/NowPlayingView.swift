@@ -1,15 +1,9 @@
 import AVFoundation
+import DoniLyrics
 import Support
 import SwiftUI
 import TelegramDesignSystem
 import TdSession
-
-/// Which page the panel is on. MeloX has three (`NowPlayingMotionSpec.swift:3-7`) and so is Doni:
-/// the cover, the words and the queue — the words because lrclib has them whether Telegram does or
-/// not.
-enum NowPlayingPage: Equatable {
-    case artwork, lyrics, queue
-}
 
 /// The player's panel, page for page as MeloX builds it.
 ///
@@ -36,8 +30,18 @@ struct NowPlayingView: View {
     let close: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
     @State private var page = NowPlayingPage.artwork
+    /// Where the artwork page's cover slot landed, in the page's own coordinate space. The cover is
+    /// not drawn by the page any more, so this is the only way the panel knows where to put it
+    /// (`NowPlayingView.swift:614-630`).
+    @State private var artworkPageFrame: CGRect = .zero
+    /// Whether the transport row is on screen while the words are. The reference drops it after a
+    /// few seconds of reading and brings it back on a tap or a scroll (`NowPlayingView.swift:18`).
+    @State private var showsLyricsControls = true
+    /// Bumped to restart that wait, rather than a timer that would have to be cancelled by hand.
+    @State private var lyricsControlsActivity = 0
     /// The panel's own offset while a drag down is in progress; zero when it rests.
     @State private var panOffset: CGFloat = 0
 
@@ -60,6 +64,77 @@ struct NowPlayingView: View {
                                    side: MusicArtworkMetrics.heroSide)
                 lyrics.load(track)
             }
+        }
+        .task(id: lyricsControlsActivity) {
+            guard hidesLyricsControlsApplies, showsLyricsControls, !voiceOver else { return }
+            do {
+                try await Task.sleep(
+                    for: .seconds(Lyrics.settings.appleMusicLyricsInterfaceAutoHideDelay)
+                )
+            } catch {
+                return
+            }
+            guard hidesLyricsControlsApplies else { return }
+            withAnimation(NowPlayingInterfaceTransition.interfaceAnimation(
+                isVisible: false, reducesMotion: reduceMotion)) {
+                showsLyricsControls = false
+            }
+        }
+        .onChange(of: page) { _, newPage in
+            if newPage == .lyrics {
+                registerLyricsControlsActivity()
+            } else {
+                cancelLyricsControlsAutoHide()
+                showsLyricsControls = true
+            }
+        }
+        .onChange(of: voiceOver) { _, spoken in
+            guard hidesLyricsControlsApplies else { return }
+            if spoken {
+                cancelLyricsControlsAutoHide()
+                showsLyricsControls = true
+            } else {
+                registerLyricsControlsActivity()
+            }
+        }
+    }
+
+    /// The words page, and only it: the reference hides nothing on the artwork page, where the
+    /// controls are the content (`NowPlayingView.swift:412-416`).
+    private var hidesLyricsControlsApplies: Bool { page == .lyrics }
+
+    private var hidesLyricsControls: Bool { hidesLyricsControlsApplies && !showsLyricsControls }
+
+    /// A touch on the words. It does not toggle — it says "I am still here", shows the controls if
+    /// they had gone, and starts the wait again (`NowPlayingView.swift:966-981`).
+    private func registerLyricsControlsActivity() {
+        guard hidesLyricsControlsApplies else { return }
+        lyricsControlsActivity &+= 1
+        guard !showsLyricsControls else { return }
+        withAnimation(NowPlayingInterfaceTransition.interfaceAnimation(
+            isVisible: true, reducesMotion: reduceMotion)) {
+            showsLyricsControls = true
+        }
+    }
+
+    private func cancelLyricsControlsAutoHide() {
+        lyricsControlsActivity &+= 1
+    }
+
+    /// The column's own report: it hides the interface when the finger scrolls past the reference's
+    /// 200 pt, and asks for it back when the user reaches for the top (`NowPlayingView.swift:983-1000`,
+    /// `AppSettings.swift:55-56`).
+    private func setLyricsControlsVisible(_ visible: Bool) {
+        guard hidesLyricsControlsApplies else { return }
+        if visible {
+            registerLyricsControlsActivity()
+            return
+        }
+        guard showsLyricsControls, !voiceOver else { return }
+        cancelLyricsControlsAutoHide()
+        withAnimation(NowPlayingInterfaceTransition.interfaceAnimation(
+            isVisible: false, reducesMotion: reduceMotion)) {
+            showsLyricsControls = false
         }
     }
 
@@ -105,29 +180,110 @@ struct NowPlayingView: View {
     private func content(_ track: any Playable) -> some View {
         VStack(spacing: 0) {
             handle
-            ZStack(alignment: .top) {
-                switch page {
-                case .artwork:
-                    ArtworkPage(track: track, player: player, artwork: artwork, library: library)
-                        .transition(pageTransition(for: .artwork))
-                case .lyrics:
-                    LyricsPage(track: track, session: session, player: player,
-                               artwork: artwork, library: library, lyrics: lyrics)
-                        .transition(pageTransition(for: .lyrics))
-                case .queue:
-                    NowPlayingQueuePage(track: track, session: session, player: player,
-                                        artwork: artwork, library: library)
-                        .transition(pageTransition(for: .queue))
+            pageContent(track)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottom) {
+                    BottomControls(player: player, page: $page,
+                                   isInterfaceHidden: hidesLyricsControls)
+                        .allowsHitTesting(!hidesLyricsControls)
+                        .accessibilityHidden(hidesLyricsControls)
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay(alignment: .bottom) {
-                BottomControls(player: player, page: $page)
-            }
         }
         .padding(.horizontal, MusicNowPlayingMetrics.horizontal)
         .safeAreaPadding(.bottom, 3)
-        .animation(reduceMotion ? nil : MusicMotion.pageSelection, value: page)
+        .animation(reduceMotion ? nil : NowPlayingPageTransition.animation, value: page)
+    }
+
+    /// The reference's stack (`NowPlayingView.swift:486-559`): the page, then the song header over
+    /// it when the page is not the cover's own, then the cover over everything.
+    ///
+    /// The cover is hoisted out of both pages because the two of them want it at different sizes —
+    /// the hero on the artwork page, a 72 pt thumb in the header — and one view whose frame is
+    /// measured from the page underneath is what makes it travel between them instead of being
+    /// replaced there.
+    private func pageContent(_ track: any Playable) -> some View {
+        ZStack(alignment: .top) {
+            switch page {
+            case .artwork:
+                ArtworkPage(track: track, player: player, artwork: artwork, library: library,
+                            onArtworkFrameChange: recordArtworkPageFrame)
+                    .transition(pageTransition(for: .artwork))
+            case .lyrics:
+                LyricsPage(player: player, lyrics: lyrics,
+                           isInterfaceHidden: hidesLyricsControls,
+                           onInterfaceInteraction: registerLyricsControlsActivity,
+                           onInterfaceVisibilityChange: setLyricsControlsVisible)
+                    .transition(pageTransition(for: .lyrics))
+            case .queue:
+                NowPlayingQueuePage(track: track, session: session, player: player,
+                                    artwork: artwork, library: library)
+                    .transition(pageTransition(for: .queue))
+            }
+
+            if page == .lyrics {
+                SharedSongHeader(track: track, player: player, artwork: artwork,
+                                 library: library)
+                    .clipped()
+                    .transition(NowPlayingPageTransition.songHeader(reducesMotion: reduceMotion))
+            }
+        }
+        .overlay {
+            GeometryReader { _ in
+                if artworkPageFrame.width > 0 {
+                    PortraitArtwork(track: track, player: player, artwork: artwork,
+                                    isArtworkPage: page == .artwork)
+                        .frame(width: portraitArtworkFrame.width,
+                               height: portraitArtworkFrame.height)
+                        .position(x: portraitArtworkFrame.midX
+                                    + MusicNowPlayingMetrics.horizontal,
+                                  y: portraitArtworkFrame.midY)
+                        .animation(reduceMotion ? nil
+                                                : NowPlayingPageTransition.artworkResizeAnimation,
+                                   value: player.isPlaying)
+                        .allowsHitTesting(false)
+                }
+            }
+            // Clipped against the page so a travelling cover is cut off vertically by the panel,
+            // while the horizontal margin is given back so it can still be wider than the text
+            // (`NowPlayingView.swift:543-556`).
+            .clipped()
+            .padding(.horizontal, -MusicNowPlayingMetrics.horizontal)
+        }
+        .coordinateSpace(name: NowPlayingPortraitCoordinateSpace.name)
+    }
+
+    /// Where the cover goes. On the artwork page it is the measured slot, shrunk in place while the
+    /// song is paused; everywhere else it is the header's own 72 pt box
+    /// (`NowPlayingView.swift:760-788`).
+    private var portraitArtworkFrame: CGRect {
+        guard page != .artwork else { return displayedArtworkPageFrame }
+        return CGRect(x: 0, y: 0,
+                      width: MusicNowPlayingMetrics.lyricsHeaderSide,
+                      height: MusicNowPlayingMetrics.lyricsHeaderSide)
+    }
+
+    private var displayedArtworkPageFrame: CGRect {
+        guard !player.isPlaying else { return artworkPageFrame }
+        let scale = MusicNowPlayingMetrics.pausedArtworkScale
+        return artworkPageFrame.insetBy(
+            dx: artworkPageFrame.width * (1 - scale) / 2,
+            dy: artworkPageFrame.height * (1 - scale) / 2
+        )
+    }
+
+    /// The page's own geometry is only trusted once the transition has settled, because the artwork
+    /// page enters with an offset and would otherwise report where it is on its way in
+    /// (`NowPlayingView.swift:600-612`).
+    private func recordArtworkPageFrame(_ frame: CGRect) {
+        guard frame.width.isFinite, frame.height.isFinite,
+              frame.minX.isFinite, frame.minY.isFinite,
+              frame.width > 0, frame.height > 0 else { return }
+        let tolerance: CGFloat = 0.5
+        guard abs(artworkPageFrame.minX - frame.minX) > tolerance
+                || abs(artworkPageFrame.minY - frame.minY) > tolerance
+                || abs(artworkPageFrame.width - frame.width) > tolerance
+                || abs(artworkPageFrame.height - frame.height) > tolerance else { return }
+        artworkPageFrame = frame
     }
 
     /// The reference's 34 pt box with a 60 × 5 capsule 8 into it, which dismisses on a tap
@@ -150,26 +306,16 @@ struct NowPlayingView: View {
         .accessibilityAction { close() }
     }
 
-    /// The artwork page is the only one that travels, and it travels from above; the queue page's
-    /// own travel is stated as 0, which leaves it the opacity half
-    /// (`NowPlayingPageTransition.swift:38-53`, `NowPlayingMotionSpec.swift:525-527`).
+    /// The reference's own page transitions: the artwork page travels by `artworkDetailsTravel`,
+    /// the words fade in and travel out by `lyricsTravel`, the queue arrives in stages
+    /// (`NowPlayingPageTransition.swift:22-54`).`entersFromHiddenQueue` is the queue's own
+    /// handover and Doni has no hidden queue to come back from, so it is always false here.
     private func pageTransition(for destination: NowPlayingPage) -> AnyTransition {
-        if reduceMotion { return .opacity }
-        switch destination {
-        case .artwork:
-            return .asymmetric(
-                insertion: .offset(y: MusicMotion.artworkTravel)
-                    .combined(with: .opacity)
-                    .animation(MusicMotion.pageIncoming),
-                removal: .offset(y: MusicMotion.artworkTravel)
-                    .combined(with: .opacity)
-                    .animation(MusicMotion.pageOutgoing)
-            )
-        case .queue, .lyrics:
-            // Neither of them travels: they are columns of text, and a page of words that slides
-            // in reads as a page of words being pushed around.
-            return .opacity.animation(MusicMotion.pageSelection)
-        }
+        NowPlayingPageTransition.content(
+            for: destination,
+            entersFromHiddenQueue: false,
+            reducesMotion: reduceMotion
+        )
     }
 
     /// The panel follows the finger down one to one and past 120 pt it goes; otherwise it springs
@@ -206,12 +352,7 @@ private struct ArtworkPage: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var bounce: CGFloat = 1
-
-    /// Paused shrinks the cover to 0.74 (`NowPlayingArtworkPage.swift:33-35`, `:51-57`).
-    private var isExpanded: Bool { player.isPlaying }
+    let onArtworkFrameChange: (CGRect) -> Void
 
     var body: some View {
         GeometryReader { edge in
@@ -220,47 +361,19 @@ private struct ArtworkPage: View {
                                       edge.size.height
                                           - MusicNowPlayingMetrics.coreHeight
                                           - MusicNowPlayingMetrics.artworkReserve)))
-            let shown = side * (isExpanded ? 1 : MusicNowPlayingMetrics.pausedArtworkScale)
             VStack(spacing: 0) {
                 Spacer(minLength: MusicNowPlayingMetrics.artworkTopSpacer)
 
-                ZStack {
-                    TelegramTrackGradient.linear(track.messageId)
-                    if let image = artwork.image(for: track,
-                                                 side: MusicArtworkMetrics.heroSide) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .transition(.opacity)
-                            .id(track.uniqueId)
+                // The slot the cover flies out of. The picture itself is drawn by the panel, over
+                // every page, so this only has to say where it would have been
+                // (`NowPlayingArtworkPage.swift:86-104`).
+                Color.clear
+                    .frame(width: side, height: side)
+                    .onGeometryChange(for: CGRect.self) { geometry in
+                        geometry.frame(in: .named(NowPlayingPortraitCoordinateSpace.name))
+                    } action: { frame in
+                        onArtworkFrameChange(frame)
                     }
-                }
-                .frame(width: shown, height: shown)
-                .clipShape(RoundedRectangle(cornerRadius: MusicNowPlayingMetrics.artworkRadius,
-                                            style: .continuous))
-                .scaleEffect(bounce)
-                .shadow(color: .black.opacity(player.isPlaying
-                                                ? MusicNowPlayingMetrics.playingShadowOpacity
-                                                : MusicNowPlayingMetrics.pausedShadowOpacity),
-                        radius: player.isPlaying ? MusicNowPlayingMetrics.playingShadowRadius
-                                                 : MusicNowPlayingMetrics.pausedShadowRadius,
-                        y: player.isPlaying ? MusicNowPlayingMetrics.playingShadowY
-                                            : MusicNowPlayingMetrics.pausedShadowY)
-                .frame(width: side, height: side)
-                .animation(reduceMotion ? nil : MusicMotion.artworkResize, value: isExpanded)
-                .animation(reduceMotion ? nil : MusicMotion.artworkShadow, value: player.isPlaying)
-                // Two fades, because a cover arrives two ways: a song the phone already has the art
-                // for swaps identities, and one it does not inserts the picture when the bytes land.
-                // The reference gets both from one mechanism — Nuke empties its own image while the
-                // new URL loads, so the placeholder is always re-inserted — and Doni needs the
-                // second key because its cache is a disk tier the row has usually already warmed
-                // (`ArtworkImage.swift:14-16`, `:45-55`).
-                .animation(reduceMotion ? nil : MusicArtworkMetrics.loadFade, value: track.uniqueId)
-                .animation(reduceMotion ? nil : MusicArtworkMetrics.loadFade,
-                           value: artwork.revision)
-                .accessibilityElement()
-                .accessibilityLabel(track.displayTitle)
-                .task(id: player.isPlaying) { await bounceIn() }
 
                 Spacer(minLength: MusicNowPlayingMetrics.artworkBottomSpacer)
 
@@ -284,12 +397,79 @@ private struct ArtworkPage: View {
             .frame(width: edge.size.width, height: edge.size.height)
         }
     }
+}
+
+/// The name the cover slot and the cover itself agree on, so the measurement one reports is in the
+/// space the other is drawn in (`NowPlayingPortraitArtwork.swift:3-5`).
+enum NowPlayingPortraitCoordinateSpace {
+    static let name = "nowPlayingPortraitPageContent"
+}
+
+/// The one cover of the panel, wherever the page wants it
+/// (`NowPlayingPortraitArtwork.swift:8-81`).
+///
+/// It carries the shadow and the play-start bounce only while it is on the artwork page: on the way
+/// into the header it is a picture flying, and a flying picture that still casts the hero's
+/// 26 pt shadow reads as two objects.
+private struct PortraitArtwork: View {
+    let track: any Playable
+    @ObservedObject var player: Player
+    @ObservedObject var artwork: CoverArtwork
+    let isArtworkPage: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bounce: CGFloat = 1
+
+    var body: some View {
+        ZStack {
+            TelegramTrackGradient.linear(track.messageId)
+            if let image = artwork.image(for: track, side: MusicArtworkMetrics.heroSide) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity)
+                    .id(track.uniqueId)
+            }
+        }
+        .scaleEffect(bounce)
+        .shadow(color: .black.opacity(shadowOpacity), radius: shadowRadius, y: shadowY)
+        .clipShape(RoundedRectangle(cornerRadius: MusicNowPlayingMetrics.artworkRadius,
+                                    style: .continuous))
+        .animation(reduceMotion ? nil : MusicMotion.artworkShadow, value: player.isPlaying)
+        // Two fades, because a cover arrives two ways: a song the phone already has the art for
+        // swaps identities, and one it does not inserts the picture when the bytes land.
+        .animation(reduceMotion ? nil : MusicArtworkMetrics.loadFade, value: track.uniqueId)
+        .animation(reduceMotion ? nil : MusicArtworkMetrics.loadFade, value: artwork.revision)
+        .accessibilityElement()
+        .accessibilityLabel(track.displayTitle)
+        .task(id: shouldBounce) { await bounceIn() }
+    }
+
+    private var shouldBounce: Bool { isArtworkPage && player.isPlaying }
+
+    private var shadowOpacity: Double {
+        guard isArtworkPage else { return 0 }
+        return player.isPlaying ? MusicNowPlayingMetrics.playingShadowOpacity
+                                : MusicNowPlayingMetrics.pausedShadowOpacity
+    }
+
+    private var shadowRadius: CGFloat {
+        guard isArtworkPage else { return 0 }
+        return player.isPlaying ? MusicNowPlayingMetrics.playingShadowRadius
+                                : MusicNowPlayingMetrics.pausedShadowRadius
+    }
+
+    private var shadowY: CGFloat {
+        guard isArtworkPage else { return 0 }
+        return player.isPlaying ? MusicNowPlayingMetrics.playingShadowY
+                                : MusicNowPlayingMetrics.pausedShadowY
+    }
 
     /// The beat a play starts: 1.055 over 0.17 s ease-out, held 170 ms, home on a 0.42 s spring
-    /// with 0.24 bounce (`NowPlayingPortraitArtwork.swift:60-80`).
+    /// with 0.24 bounce (`NowPlayingPortraitArtwork.swift:62-81`).
     private func bounceIn() async {
         bounce = 1
-        guard player.isPlaying, !reduceMotion else { return }
+        guard shouldBounce, !reduceMotion else { return }
         await Task.yield()
         withAnimation(MusicMotion.bounceRise) { bounce = MusicMotion.bounceScale }
         do {
@@ -298,6 +478,40 @@ private struct ArtworkPage: View {
             return
         }
         withAnimation(MusicMotion.bounceSettle) { bounce = 1 }
+    }
+}
+
+/// The header the words page and the queue page share (`NowPlayingSongHeader.swift:65-97`).
+///
+/// Its artwork slot is empty on purpose: the panel draws the cover there itself, which is what lets
+/// the same picture be the hero on one page and this thumb on the other.
+private struct SharedSongHeader: View {
+    let track: any Playable
+    @ObservedObject var player: Player
+    @ObservedObject var artwork: CoverArtwork
+    @ObservedObject var library: Library
+
+    var body: some View {
+        HStack(spacing: MusicNowPlayingMetrics.lyricsHeaderGap) {
+            Color.clear
+                .frame(width: MusicNowPlayingMetrics.lyricsHeaderSide,
+                       height: MusicNowPlayingMetrics.lyricsHeaderSide)
+
+            VStack(alignment: .leading, spacing: MusicNowPlayingMetrics.titleSpacing) {
+                Text(track.displayTitle)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Text(track.displayPerformer.isEmpty ? "Doni" : track.displayPerformer)
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.artistOpacity))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            SongActions(track: track, player: player, artwork: artwork, library: library)
+        }
     }
 }
 
@@ -405,19 +619,22 @@ struct SongActions: View {
 private struct BottomControls: View {
     @ObservedObject var player: Player
     @Binding var page: NowPlayingPage
+    let isInterfaceHidden: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
             Color.clear
                 .frame(height: MusicNowPlayingMetrics.utilityHeight, alignment: .top)
             VStack(spacing: 0) {
-                ProgressRow(player: player)
+                interfaceLayer(.progress) { ProgressRow(player: player) }
                 gap(MusicNowPlayingMetrics.progressToTransport)
-                TransportRow(player: player)
+                interfaceLayer(.transport) { TransportRow(player: player) }
                 gap(MusicNowPlayingMetrics.transportToVolume)
-                VolumeRow(player: player)
+                interfaceLayer(.volume) { VolumeRow(player: player) }
                 gap(MusicNowPlayingMetrics.volumeToSelector)
-                SelectorRow(player: player, page: $page)
+                interfaceLayer(.pageSelector) { SelectorRow(player: player, page: $page) }
             }
             .frame(height: MusicNowPlayingMetrics.coreHeight)
         }
@@ -426,6 +643,28 @@ private struct BottomControls: View {
 
     private func gap(_ height: CGFloat) -> some View {
         Color.clear.frame(height: height)
+    }
+
+    /// Each band leaves on its own offset and its own curve, which is what makes the row dissolve
+    /// in steps rather than as one block (`NowPlayingBottomControls.swift:68-90`).
+    @ViewBuilder
+    private func interfaceLayer<Content: View>(
+        _ layer: NowPlayingInterfaceTransition.ControlLayer,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .offset(y: isInterfaceHidden
+                     ? NowPlayingInterfaceTransition.hiddenOffset(for: layer)
+                     : 0)
+            .opacity(isInterfaceHidden ? 0 : 1)
+            .animation(
+                NowPlayingInterfaceTransition.controlAnimation(
+                    for: layer,
+                    isVisible: !isInterfaceHidden,
+                    reducesMotion: reduceMotion
+                ),
+                value: isInterfaceHidden
+            )
     }
 }
 

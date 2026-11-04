@@ -19,6 +19,9 @@ DROP = re.compile(r"LiveActivity|liveActivity|Notification|notification|Floating
                   r"|SystemNowPlaying|systemNowPlaying")
 # Built by hand at the bottom of the generated class.
 SUBOBJECTS = {"appleMusicLyrics", "lyricsInterlude"}
+# Read by Doni's own target, which is outside the package: the panel waits this long on the words
+# screen before it hides its controls, exactly as the reference's player does.
+PUBLIC = {"appleMusicLyricsInterfaceAutoHideDelay"}
 CONTINUE = tuple("=(,?&|+-*/:<.")
 # A statement also runs on when the next line opens with an operator, which is how the
 # reference wraps `x = defaults.object(forKey: K) as? Double ?? Self.defaultX`.
@@ -134,8 +137,12 @@ out += ["    }", ""]
 for _, body in statics:
     out.extend(body)
     out.append("")
-for _, body in props:
-    out.extend(body)
+for name, body in props:
+    if name in PUBLIC:
+        out.append("    public " + body[0][4:])
+        out.extend(body[1:])
+    else:
+        out.extend(body)
     out.append("")
 out += [
     "    private let defaults: UserDefaults",

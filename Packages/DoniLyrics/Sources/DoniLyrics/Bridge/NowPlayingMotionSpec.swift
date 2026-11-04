@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum NowPlayingPage: String, Hashable, Sendable {
+public enum NowPlayingPage: String, Hashable, Sendable {
     case artwork
     case lyrics
     case queue
@@ -191,7 +191,7 @@ private struct NowPlayingCubicBezierTimingCurve: Sendable {
     }
 }
 
-enum NowPlayingInterfaceLayer: Hashable, Sendable {
+public enum NowPlayingInterfaceLayer: Hashable, Sendable {
     case progress
     case transport
     case volume

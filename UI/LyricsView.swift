@@ -3,88 +3,31 @@ import Foundation
 import SwiftUI
 import TelegramDesignSystem
 
-/// The words page: the reference's header over the reference's column.
+/// The words page: the reference's column, with the room for the panel's header kept free above it.
 ///
 /// The header is not decoration. The column is a viewport and the line being sung is held a quarter
 /// of the way down it, so whatever is above the column pushes the words down and whatever is below
 /// them is where they fade out. Give the column the whole panel and the fade lands on the transport
-/// buttons; give it the header and the last readable line stops above them, which is what the
-/// reference does by wrapping both in one `VStack` (`NowPlayingLyricsPage.swift:60-76`).
+/// buttons and the words start under the grip; reserve the header's 88 pt and the last readable line
+/// stops above the controls, which is where the reference puts both
+/// (`NowPlayingLyricsPage.swift:60-76`, `:148-154`).
 struct LyricsPage: View {
-    let track: any Playable
-    @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
-    @ObservedObject var artwork: CoverArtwork
-    @ObservedObject var library: Library
     @ObservedObject var lyrics: Lyrics
+    let isInterfaceHidden: Bool
+    let onInterfaceInteraction: () -> Void
+    let onInterfaceVisibilityChange: (Bool) -> Void
 
     var body: some View {
-        VStack(spacing: MusicNowPlayingMetrics.lyricsColumnGap) {
-            LyricsSongHeader(track: track, session: session, player: player,
-                             artwork: artwork, library: library)
-
-            LyricsView(player: player, lyrics: lyrics)
-        }
-        .padding(.bottom, MusicNowPlayingMetrics.lyricsBottomInset)
-    }
-}
-
-/// The 72 pt cover, the song's two lines and the action disc (`NowPlayingSongHeader.swift:65-97`).
-///
-/// The reference hides the star here and leaves the ellipsis, because the star is already in the
-/// transport row — Doni's `SongActions` is that same single disc, so the row is the same row.
-struct LyricsSongHeader: View {
-    let track: any Playable
-    @ObservedObject var session: TelegramSession
-    @ObservedObject var player: Player
-    @ObservedObject var artwork: CoverArtwork
-    @ObservedObject var library: Library
-
-    var body: some View {
-        HStack(spacing: MusicNowPlayingMetrics.lyricsHeaderGap) {
-            artworkThumb
-
-            VStack(alignment: .leading, spacing: MusicNowPlayingMetrics.titleSpacing) {
-                Text(track.displayTitle)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                Text(track.displayPerformer.isEmpty ? "Doni" : track.displayPerformer)
-                    .font(.title3)
-                    .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.artistOpacity))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            SongActions(track: track, player: player, artwork: artwork, library: library)
-        }
-        .task(id: track.uniqueId) {
-            // The panel asked for the hero tier for the artwork page. A 72 pt thumb is a smaller
-            // picture than that, so it is served from what is already held, but the ask is what
-            // puts it in the cache when the user went straight to the words.
-            await artwork.load(track: track, via: session.covers(),
-                               side: MusicNowPlayingMetrics.lyricsHeaderSide)
-        }
-    }
-
-    private var artworkThumb: some View {
-        ZStack {
-            TelegramTrackGradient.linear(track.messageId)
-            if let image = artwork.image(for: track,
-                                         side: MusicNowPlayingMetrics.lyricsHeaderSide) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .transition(.opacity)
-            }
-        }
-        .frame(width: MusicNowPlayingMetrics.lyricsHeaderSide,
-               height: MusicNowPlayingMetrics.lyricsHeaderSide)
-        .clipShape(RoundedRectangle(cornerRadius: MusicNowPlayingMetrics.lyricsHeaderRadius,
-                                    style: .continuous))
-        .animation(MusicArtworkMetrics.loadFade, value: artwork.revision)
-        .accessibilityElement()
-        .accessibilityLabel(track.displayTitle)
+        LyricsView(player: player, lyrics: lyrics, isInterfaceHidden: isInterfaceHidden,
+                   onInterfaceInteraction: onInterfaceInteraction,
+                   onInterfaceVisibilityChange: onInterfaceVisibilityChange)
+            // The header is drawn over this page by the panel, so the column reserves the room for
+            // it rather than drawing it — 72 pt of header and the 16 the reference puts under it
+            // (`NowPlayingLyricsPage.swift:70`, `:148-154`).
+            .padding(.top, MusicNowPlayingMetrics.lyricsHeaderSide
+                            + MusicNowPlayingMetrics.lyricsColumnGap)
+            .padding(.bottom, MusicNowPlayingMetrics.lyricsBottomInset)
     }
 }
 
@@ -100,6 +43,9 @@ struct LyricsSongHeader: View {
 private struct LyricsView: View {
     @ObservedObject var player: Player
     @ObservedObject var lyrics: Lyrics
+    let isInterfaceHidden: Bool
+    let onInterfaceInteraction: () -> Void
+    let onInterfaceVisibilityChange: (Bool) -> Void
     @State private var store = PlayerStore()
 
     var body: some View {
@@ -108,14 +54,14 @@ private struct LyricsView: View {
             errorMessage: lyrics.errorMessage,
             highlightedLyricID: nil,
             isActive: true,
-            isInterfaceHidden: false,
+            isInterfaceHidden: isInterfaceHidden,
             // The transport row floats over this page rather than taking its own band, so the column
             // has to be told how much of its own bottom is not really its bottom: that is where the
             // fade stops and where the last line is allowed to rest.
             bottomOverlayHeight: MusicNowPlayingMetrics.overlayHeight,
             focusAnchorOffset: nil,
-            onInterfaceInteraction: nil,
-            onInterfaceVisibilityChange: nil,
+            onInterfaceInteraction: onInterfaceInteraction,
+            onInterfaceVisibilityChange: onInterfaceVisibilityChange,
             onInitialFocusPrepared: nil
         )
         .environment(Lyrics.settings)

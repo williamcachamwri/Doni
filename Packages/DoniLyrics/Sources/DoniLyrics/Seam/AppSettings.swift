@@ -202,7 +202,7 @@ public final class AppSettings {
 
     static let lyricsHighlightGradientReductionRange = 0.0...1.0
 
-    var appleMusicLyricsInterfaceAutoHideDelay: Double {
+    public var appleMusicLyricsInterfaceAutoHideDelay: Double {
         didSet {
             defaults.set(
                 appleMusicLyricsInterfaceAutoHideDelay,

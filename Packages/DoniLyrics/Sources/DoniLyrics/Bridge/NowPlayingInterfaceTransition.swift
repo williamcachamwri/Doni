@@ -1,19 +1,19 @@
 import SwiftUI
 
-enum NowPlayingInterfaceTransition {
-    typealias ControlLayer = NowPlayingInterfaceLayer
+public enum NowPlayingInterfaceTransition {
+    public typealias ControlLayer = NowPlayingInterfaceLayer
 
     private static let motion = NowPlayingMotionSpec.appleMusic26.interface
 
-    static var utilityHiddenOffset: CGFloat {
+    public static var utilityHiddenOffset: CGFloat {
         motion.utilityHiddenOffset
     }
 
-    static var utilityHiddenScale: CGFloat {
+    public static var utilityHiddenScale: CGFloat {
         motion.utilityHiddenScale
     }
 
-    static func interfaceAnimation(
+    public static func interfaceAnimation(
         isVisible: Bool,
         reducesMotion: Bool
     ) -> Animation? {
@@ -23,7 +23,7 @@ enum NowPlayingInterfaceTransition {
             : motion.coreHide.animation
     }
 
-    static func utilityAnimation(
+    public static func utilityAnimation(
         isVisible: Bool,
         reducesMotion: Bool
     ) -> Animation? {
@@ -33,13 +33,13 @@ enum NowPlayingInterfaceTransition {
             : motion.utilityHide.animation
     }
 
-    static func hiddenOffset(
+    public static func hiddenOffset(
         for layer: ControlLayer
     ) -> CGFloat {
         motion.layerMotion(for: layer).hiddenOffset
     }
 
-    static func controlAnimation(
+    public static func controlAnimation(
         for layer: ControlLayer,
         isVisible: Bool,
         reducesMotion: Bool
