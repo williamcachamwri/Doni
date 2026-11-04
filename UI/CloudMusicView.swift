@@ -210,6 +210,11 @@ struct CloudMusicView: View {
     /// of the list ticks down as they land — the only progress a user can act on.
     private func importFiles(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
+        // The permission the Files app grants for a picked file is only alive inside the callback it
+        // was handed in, so it is claimed here — synchronously, on the main actor, before anything
+        // awaits. Claimed later, from the task below, it answers false for every file and the whole
+        // import reads as "not one of these opened".
+        let claimed = urls.filter { $0.startAccessingSecurityScopedResource() }
         importing = urls.count
         Task {
             var added = 0
@@ -217,6 +222,7 @@ struct CloudMusicView: View {
                 if await library.importMusic(from: url) != nil { added += 1 }
                 importing -= 1
             }
+            claimed.forEach { $0.stopAccessingSecurityScopedResource() }
             if added == 0 { failure = "Không file nào mở được." }
         }
     }

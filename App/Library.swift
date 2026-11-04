@@ -211,9 +211,12 @@ final class Library: ObservableObject {
     private nonisolated static let fingerprintChunk = 1024 * 1024
 
     /// A file rather than a directory, a symlink or whatever else the picker was pointed at.
+    ///
+    /// Asked of the URL rather than of the path: a file the Files app handed over is read through the
+    /// permission attached to that URL, and the path form is the one that can be refused while the
+    /// URL itself is fine.
     private nonisolated static func isAudioFile(_ url: URL) -> Bool {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
-        return (attributes?[.type] as? FileAttributeType) == .typeRegular
+        (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
     }
 
     private nonisolated static func copy(_ url: URL, named hash: String) -> String? {
