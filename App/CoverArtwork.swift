@@ -24,13 +24,15 @@ import UIKit
 /// from arm's length and forgive it, while a card or a hero is not, and shows Telegram's gradient
 /// until something real arrives.
 ///
-/// Two levels hold the result, because one does not survive a phone. `NSCache` is process memory, and
-/// iOS empties it as soon as a backgrounded app is asked for room back — which is why every cover
-/// used to be missing on the way out of Now Playing. Underneath it sits a directory of the cover's
-/// **own bytes**: the tag's JPEG, the server's thumbnail, copied once and then decoded at whatever
-/// tier a surface next asks for. Nothing is re-encoded, so the quality is the channel's rather than a
-/// copy of a copy, and nothing is re-fetched, so the second time a cover appears it costs one ImageIO
-/// read instead of one round trip.
+/// Three levels hold the result, because none of them alone survives a phone. `NSCache` is process
+/// memory, and iOS empties it as soon as a backgrounded app is asked for room back — which is why
+/// every cover used to be missing on the way out of Now Playing. The last screens' tiles are
+/// therefore *also* held in a plain byte-capped dictionary, which is the one thing here the system
+/// cannot take back on its own. Underneath both sits a directory of the cover's **own bytes**: the
+/// tag's JPEG, the server's thumbnail, copied once and then decoded at whatever tier a surface next
+/// asks for. Nothing is re-encoded, so the quality is the channel's rather than a copy of a copy,
+/// and nothing is re-fetched, so the second time a cover appears it costs one ImageIO read instead of
+/// one round trip.
 @MainActor
 final class CoverArtwork: ObservableObject {
     /// The pixel sides a cover is decoded at, smallest first. A surface takes the smallest tier
@@ -62,28 +64,61 @@ final class CoverArtwork: ObservableObject {
 
     private let cache = NSCache<NSString, UIImage>()
 
+    /// The last few dozen tiles, held outside `NSCache` where the system cannot take them back.
+    ///
+    /// This is the whole of the "artwork vanishes when I leave and come back" complaint. `NSCache`
+    /// is the app's own memory and iOS empties it the moment a suspended app is asked for room —
+    /// which is precisely the moment the user is about to look at again, so the list, the strip and
+    /// Now Playing all went back to the flat gradient while the phone was in the pocket, and every
+    /// cover had to be decoded again before anything could be drawn. The same `UIImage`s are kept
+    /// alive here for the covers the last screens actually wore, and because it is a hard cap rather
+    /// than a limit the OS may ignore, the byte budget below is what keeps this from ever being the
+    /// reason the app is killed.
+    private var pinned: [NSString: UIImage] = [:]
+
+    /// The pinned keys, oldest first — a dictionary has no order, and the set needs to drop what was
+    /// looked at longest ago rather than an arbitrary member of it.
+    private var pinnedOrder: [NSString] = []
+
+    private var pinnedBytes = 0
+
     /// The surfaces that have asked since the app was last in front, oldest first. Coming back from
     /// the background refills exactly these: a SwiftUI `.task` that is still on screen does not run
     /// again, so without this a row would go on drawing a gradient over a cache the system emptied.
     private var recent: [(track: any Playable, points: CGFloat)] = []
 
-    /// The re-warm, held so the singleton keeps its observer alive.
-    private var foreground: Task<Void, Never>?
+    /// The re-warms, held so the singleton keeps both of its observers alive.
+    private var foreground: [Task<Void, Never>] = []
+
+    /// Whether a refill is already on the way. Coming back fires `willEnterForeground` and then
+    /// `didBecomeActive` a frame apart, and the second would otherwise start the same decodes again
+    /// while the first is still running.
+    private var refilling = false
 
     /// How many asks are worth remembering. A flick through a thousand-row list is not a request to
     /// hold a thousand rows; the last screens the user actually looked at are what matter.
     private static let recentLimit = 40
+
+    /// 8 MB of pinned tiles. A 192 px row tile is 147 KB, so this is some fifty-five of them — the
+    /// four screens a phone can be looking at at once — and a 768 px hero is 2.3 MB of it, so the
+    /// byte cap, not the count, is what decides.
+    private static let pinnedBudget = 8 * 1024 * 1024
 
     init() {
         // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero is 2.3 MB, and a
         // flat count would either starve the list or let a handful of heroes walk past the
         // process's memory. 64 MB is a couple of hundred rows and a roomful of cards.
         cache.totalCostLimit = 64 * 1024 * 1024
-        foreground = Task { [weak self] in
-            for await _ in NotificationCenter.default.notifications(
-                named: UIApplication.didBecomeActiveNotification
-            ) {
-                await self?.rewind()
+        // Two hooks rather than one. `willEnterForeground` is the earlier of the pair and lands
+        // before anything here is drawn again, so the covers are already decoding while the system's
+        // snapshot is still on the screen; `didBecomeActive` is the one that also fires on a cold
+        // launch and after a system dialog, where the first of the two never arrives.
+        foreground = [UIApplication.willEnterForegroundNotification,
+                      UIApplication.didBecomeActiveNotification].map { name in
+            Task { [weak self] in
+                for await _ in NotificationCenter.default.notifications(named: name) {
+                    await self?.rewind()
+                }
             }
         }
         // The directory outlives the process, so it is the one thing here that needs a budget of its
@@ -107,9 +142,9 @@ final class CoverArtwork: ObservableObject {
     /// choice is a new file, so nothing here has to be invalidated.
     func image(at path: String) -> UIImage? {
         let key = Self.pathKey(path)
-        if let held = cache.object(forKey: key) { return held }
+        if let image = held(key) { return image }
         guard let image = UIImage(contentsOfFile: path) else { return nil }
-        cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
+        hold(image, forKey: key)
         return image
     }
 
@@ -127,9 +162,9 @@ final class CoverArtwork: ObservableObject {
     func mini(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
         guard Self.pixels(forSide: points) <= Self.miniCeiling else { return nil }
         let key = Self.miniKey(uniqueId: track.uniqueId)
-        if let held = cache.object(forKey: key) { return held }
+        if let image = held(key) { return image }
         guard let data = track.miniArtwork, let image = UIImage(data: data) else { return nil }
-        cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
+        hold(image, forKey: key)
         return image
     }
 
@@ -247,7 +282,15 @@ final class CoverArtwork: ObservableObject {
     /// The asks are read from a copy and left in place, not taken and cleared: `fill` does not book,
     /// so the queue keeps saying what was on screen rather than being reordered by the re-warm itself,
     /// and a row that asks while this loop is running cannot mutate the array being walked.
+    ///
+    /// One refill at a time. Coming back fires both observers a frame apart, and the second would
+    /// otherwise walk the same forty covers while the first is still walking them. Covers the pinned
+    /// set still holds are answered by `held` on the way in, so the walk that does happen is a
+    /// handful of dictionary reads rather than forty decodes.
     private func rewind() async {
+        guard !refilling else { return }
+        refilling = true
+        defer { refilling = false }
         for entry in recent.reversed() {
             await fill(track: entry.track, via: nil, points: entry.points)
         }
@@ -262,22 +305,61 @@ final class CoverArtwork: ObservableObject {
         }.value
     }
 
-    /// Writing a tile into memory and telling every surface that reads the cache.
+    /// Writing a tile into both memory tiers and telling every surface that reads them.
     private func put(_ image: UIImage, forKey key: NSString) {
-        cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
+        hold(image, forKey: key)
         revision += 1
+    }
+
+    /// Writing a tile into both memory tiers, quietly.
+    ///
+    /// The quiet half is what `mini` and a playlist's own picture use: those are reads made inside a
+    /// view's `body`, and a `revision` bump from there is a view updating itself mid-update.
+    private func hold(_ image: UIImage, forKey key: NSString) {
+        cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
+        pin(image, forKey: key)
+    }
+
+    /// Keeping this tile alive past the point the system takes `NSCache` back, and dropping the
+    /// oldest pins once the budget is gone.
+    ///
+    /// The order is the order the covers were drawn, so what goes is what the user stopped looking at
+    /// first, and a tile written twice moves to the back rather than being paid for twice. The cap is
+    /// checked before anything is stored: a lone 768 px hero costs 2.3 MB and must not be rejected
+    /// for that, but a tile bigger than the whole budget would empty the set and then be dropped
+    /// itself, so it is not pinned at all.
+    private func pin(_ image: UIImage, forKey key: NSString) {
+        let cost = Self.bytes(of: image)
+        guard cost > 0, cost <= Self.pinnedBudget else { return }
+        if let previous = pinned[key] { pinnedBytes -= Self.bytes(of: previous) }
+        pinnedOrder.removeAll { $0 == key }
+        pinnedOrder.append(key)
+        pinned[key] = image
+        pinnedBytes += cost
+        while pinnedBytes > Self.pinnedBudget, let oldest = pinnedOrder.first {
+            pinnedOrder.removeFirst()
+            if let dropped = pinned.removeValue(forKey: oldest) {
+                pinnedBytes -= Self.bytes(of: dropped)
+            }
+        }
+    }
+
+    /// A tile still in memory: what `NSCache` holds, and if the system took that back while the app
+    /// was in the pocket, what the pinned set is still holding.
+    private func held(_ key: NSString) -> UIImage? {
+        cache.object(forKey: key) ?? pinned[key]
     }
 
     /// The cover read out of the song itself, if this surface's tier of it is already on the phone.
     private func fileArt(of track: any Playable, pixels: Int) -> UIImage? {
-        cache.object(forKey: Self.fileKey(uniqueId: track.uniqueId, pixels: pixels))
+        held(Self.fileKey(uniqueId: track.uniqueId, pixels: pixels))
     }
 
     /// This cover at the asked-for tier or the first bigger one already on the device. A 512 px
     /// card draws a 60 pt row perfectly, so a second decode would buy nothing but memory.
     private func atLeast(_ cover: CoverToken, than pixels: Int) -> UIImage? {
         for tier in Self.tiers where tier >= pixels {
-            if let image = cache.object(forKey: Self.coverKey(cover, pixels: tier)) {
+            if let image = held(Self.coverKey(cover, pixels: tier)) {
                 return image
             }
         }
@@ -288,7 +370,7 @@ final class CoverArtwork: ObservableObject {
     /// it wants was never asked for, since one scaled a little still beats starting from scratch.
     private func largest(_ cover: CoverToken) -> UIImage? {
         for tier in Self.tiers.reversed() {
-            if let image = cache.object(forKey: Self.coverKey(cover, pixels: tier)) {
+            if let image = held(Self.coverKey(cover, pixels: tier)) {
                 return image
             }
         }
