@@ -154,13 +154,20 @@ final class CoverArtwork: ObservableObject {
     /// surface is filled. Called from a row's `.task`, so scrolling past a track is what orders the
     /// fetches and a row that disappears cancels its own. `via` wins over the attached downloader,
     /// because a row already holds the session's.
+    func load(track: any Playable, via: TdFileDownloader? = nil,
+              side points: CGFloat = 60) async {
+        remember(track, at: points)
+        await fill(track: track, via: via, points: points)
+    }
+
+    /// The work of an ask, without the booking. The foreground re-warm needs exactly this half: it is
+    /// refilling asks that were already booked, and booking them again would move them to the back of
+    /// a queue whose whole purpose is to say which cover the user is looking at.
     ///
     /// The three steps are in order of what they cost: the song on the phone, the bytes the phone has
     /// already fetched, and only then the network.
-    func load(track: any Playable, via: TdFileDownloader? = nil,
-              side points: CGFloat = 60) async {
+    private func fill(track: any Playable, via: TdFileDownloader?, points: CGFloat) async {
         let pixels = Self.pixels(forSide: points)
-        remember(track, at: points)
         // The song itself first: no network, and the biggest cover Telegram ever sent for it.
         if track.localPath != nil, fileArt(of: track, pixels: pixels) == nil {
             await loadFileArt(of: track, pixels: pixels)
@@ -223,13 +230,19 @@ final class CoverArtwork: ObservableObject {
     /// have been emptied while the process was suspended; the sources were not, so this is decodes
     /// rather than downloads, and each one bumps the revision the rows redraw from.
     ///
-    /// The list is taken and cleared first because `load` books its own asks again: appending to the
-    /// array the loop is walking would be a simultaneous access.
+    /// Newest ask first, which is the whole point of the order: `remember` appends, so the last entry
+    /// is the cover the user is looking at and the first is whatever was scrolled past longest ago.
+    /// Walked the other way — as this was — the visible hero sat behind up to forty off-screen rows,
+    /// each of which had to open its own song container or wait on TDLib before the picture the user
+    /// is actually staring at was decoded. That is the flat gradient filling Now Playing for two
+    /// seconds on the way out of the background, and this order is what removes it.
+    ///
+    /// The asks are read from a copy and left in place, not taken and cleared: `fill` does not book,
+    /// so the queue keeps saying what was on screen rather than being reordered by the re-warm itself,
+    /// and a row that asks while this loop is running cannot mutate the array being walked.
     private func rewind() async {
-        let asked = recent
-        recent.removeAll()
-        for entry in asked {
-            await load(track: entry.track, side: entry.points)
+        for entry in recent.reversed() {
+            await fill(track: entry.track, via: nil, points: entry.points)
         }
     }
 
