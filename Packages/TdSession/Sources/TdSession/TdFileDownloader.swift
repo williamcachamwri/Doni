@@ -16,9 +16,16 @@ public actor TdFileDownloader {
     public static let coverPriority = 1
     public static let audioPriority = 16
 
-    /// A file TDLib has stopped talking about should not pin a row's placeholder forever: the
-    /// list falls back to the gradient after this.
+    /// A file TDLib has stopped talking about should not pin a row's placeholder forever, so the
+    /// first wait is short and ends the way it always did.
     private static let patience: Duration = .seconds(20)
+
+    /// It is not, though, the last word: a one-hour set is a hundred and forty megabytes, and on a
+    /// phone's connection it outlasts any fixed wait that could be promised. So after the first
+    /// patience the file is asked for itself, and only a run of answers that report the same
+    /// `downloaded_size` ends the wait. Bytes that move are a download that works.
+    private static let poll: Duration = .seconds(4)
+    private static let stallWindow: Duration = .seconds(60)
 
     /// One caller's seat at one file. The stream is `.unbounded` so that an update landing while
     /// the caller is still waiting for its own response is kept rather than dropped.
@@ -65,12 +72,52 @@ public actor TdFileDownloader {
             return nil
         }
 
-        // Silence is a give-up: a file TDLib pauses or abandons never sends the update that would
-        // end this wait.
+        // Silence is a give-up — but only silence. A file TDLib pauses or abandons never sends
+        // the update that would end this wait, and a file that is merely slow keeps sending bytes
+        // that no update carries, so the watch switches from the clock to the file's own progress.
+        // A Task born inside an actor method keeps that isolation, so none of this needs a hop.
         let timer = Task {
-            try? await Task.sleep(for: Self.patience)
-            // A Task born inside an actor method keeps that isolation, so this needs no hop.
-            self.fail(listener)
+            do {
+                try await Task.sleep(for: Self.patience)
+            } catch {
+                return
+            }
+            var idle = Duration.zero
+            var seen = Int64.min
+            while !Task.isCancelled {
+                guard let answer = try? await flow.request(
+                    "getFile", ["file_id": .int(Int64(listener.fileId))]
+                ) else {
+                    // A file TDLib will not even answer about is not coming.
+                    fail(listener)
+                    return
+                }
+                if let path = Self.readyPath(in: answer) {
+                    // The router's stream can miss the last update; the file itself cannot lie.
+                    resolve(listener.fileId, with: path)
+                    return
+                }
+                if Self.isStalled(answer) {
+                    fail(listener)
+                    return
+                }
+                let bytes = answer["local"]?["downloaded_size"]?.int ?? Int64.min
+                if bytes > seen {
+                    seen = bytes
+                    idle = .zero
+                } else {
+                    idle += Self.poll
+                }
+                if idle >= Self.stallWindow {
+                    fail(listener)
+                    return
+                }
+                do {
+                    try await Task.sleep(for: Self.poll)
+                } catch {
+                    return
+                }
+            }
         }
         // `AsyncStream` does not end on its own when the caller goes away, so cancellation is
         // answered by the same door the timer uses: an explicit `nil` into the listener's stream.
