@@ -131,6 +131,54 @@ final class Library: ObservableObject {
         }
     }
 
+    /// The rows the phone does not hold, timed from the piece of them that a header needs.
+    ///
+    /// This is the only way a list of songs nobody has ever played can show timestamps for most of
+    /// itself: a document post has no duration to read off (`td_api.tl:594`) and TDLib will not open
+    /// the container to fill one in. Thirty-two kilobytes per row, asked at cover priority, answers
+    /// the question for the two containers these channels actually carry.
+    func measureRemoteDurations(with files: TdFileDownloader) async {
+        for row in store.unmeasuredTracks(onlyOnDevice: false)
+        where row.localPath == nil && row.fileId > 0 {
+            guard !Task.isCancelled else { return }
+            await probe(row, with: files)
+        }
+    }
+
+    /// One row's length out of a few kilobytes of it.
+    private func probe(_ row: StoreTrack, with files: TdFileDownloader) async {
+        guard var head = await files.part(fileId: row.fileId, offset: 0, bytes: Self.headBytes)
+        else { return }
+        var reading = AudioDuration.read(head: head, totalSize: row.size)
+        // An MP3 carrying its picture in the tag hides its first audio frame behind that picture,
+        // and the tag says how far. One more ask reaches it, for as long as the picture is a sane
+        // size — a megabyte of cover per row is not a price worth paying for a timestamp.
+        if case let .headTooSmall(bytes) = reading, bytes > head.count, bytes <= Self.maxHeadBytes {
+            guard let deeper = await files.part(fileId: row.fileId, offset: 0, bytes: bytes) else {
+                return
+            }
+            head = deeper
+            reading = AudioDuration.read(head: head, totalSize: row.size)
+        }
+        // An MP4 that was not written for streaming keeps its `mvhd` after the audio, at the end.
+        if reading == .tailNeeded, row.size > Self.tailBytes {
+            guard let tail = await files.part(fileId: row.fileId, offset: row.size - Self.tailBytes,
+                                              bytes: Int(Self.tailBytes)) else { return }
+            reading = AudioDuration.read(tail: tail)
+        }
+        if case let .seconds(seconds) = reading {
+            recordDuration(seconds, uniqueId: row.uniqueId)
+        }
+    }
+
+    /// Enough of a head for an ID3 tag with no art in it, the first frame, and its `Xing`.
+    private static let headBytes = 32 * 1024
+    /// The biggest tag worth reading a second time.
+    private static let maxHeadBytes = 512 * 1024
+    /// Enough of a tail for an `mvhd`, which is a hundred and eight bytes. The file's size is the
+    /// same unit, so the two are subtractable without a cast at the call.
+    private static let tailBytes: Int64 = 64 * 1024
+
     /// One file, timed, in the background of the screen that asked for it.
     private func measure(path: String, uniqueId: String) {
         Task { [weak self] in

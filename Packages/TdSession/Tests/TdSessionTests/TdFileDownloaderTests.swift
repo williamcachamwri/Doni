@@ -42,22 +42,36 @@ private func fileJSON(
     completed: Bool,
     path: String,
     downloadable: Bool = true,
+    offset: Int = 0,
+    prefix: Int = 0,
+    size: Int = 4096,
     extra: String? = nil
 ) -> String {
     let answer = extra.map { "\"@extra\":\"\($0)\"," } ?? ""
     let text = #"""
-    {"@type":"file",\#(answer)"id":\#(id),"size":4096,"expected_size":4096,\#
+    {"@type":"file",\#(answer)"id":\#(id),"size":\#(size),"expected_size":\#(size),\#
     "local":{"@type":"localFile","path":"\#(path)","can_be_downloaded":\#(downloadable ? "true" : "false"),\#
     "can_be_deleted":true,\#
     "is_downloading_active":\#(active ? "true" : "false"),\#
     "is_downloading_completed":\#(completed ? "true" : "false"),\#
-    "download_offset":0,"downloaded_prefix_size":0,"downloaded_size":0},\#
+    "download_offset":\#(offset),"downloaded_prefix_size":\#(prefix),"downloaded_size":\#(prefix)},\#
     "remote":{"@type":"remoteFile","id":"7f","unique_id":"u\#(id)","is_uploading_active":false,\#
-    "is_uploading_completed":true,"uploaded_size":4096}}
+    "is_uploading_completed":true,"uploaded_size":\#(size)}}
     """#
     // A fixture that does not parse would hang the request it answers, so it fails here instead.
     precondition(TdJSON.parse(text) != nil, "the \(id) file fixture is not JSON: \(text)")
     return text
+}
+
+/// A file on the phone whose bytes a test can name, so a slice read out of it can be checked.
+private func written(_ text: String) throws -> (url: URL, bytes: [UInt8]) {
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("doni-part-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let url = directory.appendingPathComponent("song.mp3")
+    let bytes = Array(text.utf8)
+    try Data(bytes).write(to: url)
+    return (url, bytes)
 }
 
 private func updateFile(_ body: String) -> String {
@@ -347,5 +361,85 @@ func sharedFileIsNotCancelledUnderSomeoneElse() async throws {
                                                 path: "/tmp/doni/files/7014.jpg")))
     #expect(await staying.value == "/tmp/doni/files/7014.jpg")
     // Checked last, once the give-up has certainly been processed: TDLib was never told to stop.
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "cancelDownloadFile" })
+}
+
+@Test("a header is read out of a file the phone already holds whole")
+func partReadsAWholeFileAtItsOffset() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let (url, bytes) = try written("0123456789abcdef")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+    let waiting = Task { await downloader.part(fileId: 8001, offset: 4, bytes: 6) }
+    let extra = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8001, active: false, completed: true, path: url.path,
+                                     size: bytes.count, extra: extra))
+
+    let got = try #require(await waiting.value)
+    #expect(Array(got) == Array(bytes[4..<10]))
+    // A probe is a range, not a download: TDLib is told where to start and to stop by itself.
+    let request = try #require(requestFields(of: session.transport, type: "downloadFile"))
+    #expect(request["offset"]?.int == 4)
+    #expect(request["limit"]?.int == 6)
+    #expect(request["priority"]?.int == 1)
+    #expect(request["synchronous"]?.bool == false)
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "cancelDownloadFile" })
+}
+
+@Test("a partial file is readable only inside the prefix TDLib says is ready")
+func partStaysInsideTheReadyPrefix() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    // The last eight bytes are what TDLib had not fetched yet — and what the file on the phone is
+    // full of: a partial download is longer than the bytes it has, and the rest is garbage.
+    let (url, bytes) = try written("0123456789ABCDEFGH")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+    let waiting = Task { await downloader.part(fileId: 8002, offset: 0, bytes: 10) }
+    let asked = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8002, active: true, completed: false, path: "", extra: asked))
+    let polledExtra = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 8002, active: true, completed: false, path: url.path,
+                                     prefix: 10, size: bytes.count, extra: polledExtra))
+
+    let got = try #require(await waiting.value)
+    #expect(Array(got) == Array(bytes[0..<10]))
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "cancelDownloadFile" })
+}
+
+@Test("a file somebody is waiting on whole is never probed")
+func probeYieldsToADownloadInFlight() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.path(fileId: 8003) }
+    // TDLib keeps one offset and limit per file id, and the newest request overwrites them: a probe
+    // sent now would truncate the song's own fetch and drop it to cover priority.
+    let extra = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8003, active: true, completed: false, path: "", extra: extra))
+
+    #expect(await downloader.part(fileId: 8003, offset: 0, bytes: 8) == nil)
+    #expect(session.transport.decodedRequests.filter { $0.type == "downloadFile" }.count == 1)
+    waiting.cancel()
+}
+
+@Test("a file gone from the server is no bytes, said quietly")
+func partGivesUpWithoutCancelling() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.part(fileId: 8004, offset: 0, bytes: 8) }
+    let extra = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8004, active: false, completed: false, path: "",
+                                     downloadable: false, extra: extra))
+
+    #expect(await waiting.value == nil)
+    // `cancelDownloadFile` stops a whole file, and a probe that stopped one under a row the user
+    // then pressed play on would leave that row waiting for bytes nobody is fetching.
     #expect(session.transport.decodedRequests.allSatisfy { $0.type != "cancelDownloadFile" })
 }

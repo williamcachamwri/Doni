@@ -20,6 +20,10 @@ public actor TdFileDownloader {
     /// first wait is short and ends the way it always did.
     private static let patience: Duration = .seconds(20)
 
+    /// A probe asks for the least of anything this actor will fetch, so it shares the cover's rung.
+    private static let probePoll: Duration = .milliseconds(400)
+    private static let probePatience: Duration = .seconds(15)
+
     /// It is not, though, the last word: a one-hour set is a hundred and forty megabytes, and on a
     /// phone's connection it outlasts any fixed wait that could be promised. So after the first
     /// patience the file is asked for itself, and only a run of answers that report the same
@@ -139,6 +143,74 @@ public actor TdFileDownloader {
         return Self.readyPath(in: answer)
     }
 
+    /// A few bytes out of a file the phone does not have, and does not get.
+    ///
+    /// `downloadFile`'s `limit` is not a hint: it is the number of bytes after which the fetch is
+    /// canceled by itself (`td_api.tl:14998`), which is what lets the app read a container header
+    /// out of a song it has no intention of downloading. The answer is whatever is readable at the
+    /// offset, which may be fewer bytes than were asked for — a caller that wants a header can
+    /// usually work with the beginning of one.
+    ///
+    /// The state is read back from `getFile` rather than from the request's own reply, because a
+    /// download that ended on its limit is not one that "succeeded", and because the window that is
+    /// actually readable is only ever in `download_offset` and `downloaded_prefix_size`
+    /// (`td_api.tl:303-304`): the partial file on disk is longer than the bytes TDLib has, and the
+    /// rest of it is garbage (`:305`).
+    ///
+    /// Nothing here calls `cancelDownloadFile`. The limit already did the cancelling, and telling
+    /// TDLib to stop a file id stops the whole file — a probe that cancelled under a row the user
+    /// then pressed play on would leave that row waiting for nothing.
+    public func part(fileId: Int, offset: Int64, bytes: Int,
+                     priority: Int = TdFileDownloader.coverPriority) async -> Data? {
+        guard bytes > 0, offset >= 0 else { return nil }
+        // TDLib keeps exactly one offset and limit per file id and the newest request overwrites them
+        // (`FileManager.cpp:3103-3107`). A row waiting on the whole file is a song someone is about
+        // to listen to, so it is not probed: the ask would truncate its fetch and drop its priority.
+        guard listeners[fileId] == nil else { return nil }
+
+        let ask: [String: TdJSON] = ["file_id": .int(Int64(fileId))]
+        var file: TdJSON
+        do {
+            file = try await flow.request(
+                "downloadFile",
+                [
+                    "file_id": .int(Int64(fileId)),
+                    "priority": .int(Int64(priority)),
+                    "offset": .int(offset),
+                    "limit": .int(Int64(bytes)),
+                    // False, so this reply is the file's state right now — a file already on the
+                    // phone is answered here and costs no second round trip.
+                    "synchronous": .bool(false)
+                ]
+            )
+        } catch {
+            return nil
+        }
+        if Self.covers(file, from: offset, bytes: bytes) {
+            return Self.slice(in: file, from: offset, bytes: bytes)
+        }
+        if Self.isUnavailable(file) { return nil }
+
+        var waited: Duration = .zero
+        while waited < Self.probePatience, !Task.isCancelled {
+            do {
+                try await Task.sleep(for: Self.probePoll)
+            } catch {
+                return nil
+            }
+            waited += Self.probePoll
+            guard let answer = try? await flow.request("getFile", ask) else { return nil }
+            file = answer
+            if Self.covers(file, from: offset, bytes: bytes) {
+                return Self.slice(in: file, from: offset, bytes: bytes)
+            }
+            if Self.isUnavailable(file) { return nil }
+        }
+        // Out of patience, not necessarily out of use: the header may well have landed in the first
+        // few kilobytes, which is as good an answer as the whole ask would have been.
+        return Self.slice(in: file, from: offset, bytes: bytes)
+    }
+
     /// Releases everyone waiting on this file and tells TDLib to stop fetching it.
     public func cancel(fileId: Int) {
         resolve(fileId, with: nil)
@@ -231,6 +303,51 @@ public actor TdFileDownloader {
               let path = local["path"]?.string, !path.isEmpty
         else { return nil }
         return path
+    }
+
+    /// The stretch of the file that is on the device and can be read: its path, the first byte that
+    /// means what it says, and the one past the last.
+    ///
+    /// A completed download is readable whole. A partial one is readable from `download_offset` for
+    /// `downloaded_prefix_size` bytes and nowhere else (`td_api.tl:304`).
+    private static func readable(in file: TdJSON) -> (path: String, from: Int64, to: Int64)? {
+        guard let local = file["local"], let path = local["path"]?.string, !path.isEmpty else {
+            return nil
+        }
+        if local["is_downloading_completed"]?.bool == true {
+            return (path, 0, file["size"]?.int ?? Int64.max)
+        }
+        let from = local["download_offset"]?.int ?? 0
+        let prefix = local["downloaded_prefix_size"]?.int ?? 0
+        guard prefix > 0 else { return nil }
+        return (path, from, from + prefix)
+    }
+
+    /// Whether the whole of a request is on the device yet.
+    private static func covers(_ file: TdJSON, from offset: Int64, bytes: Int) -> Bool {
+        guard let window = readable(in: file) else { return false }
+        return window.from <= offset && window.to >= offset + Int64(bytes)
+    }
+
+    /// The requested range, or as much of it as is there.
+    private static func slice(in file: TdJSON, from offset: Int64, bytes: Int) -> Data? {
+        guard let window = readable(in: file) else { return nil }
+        let from = max(offset, window.from)
+        let to = min(offset + Int64(bytes), window.to)
+        guard to > from, to - from <= Int64(Int.max) else { return nil }
+        return read(path: window.path, from: from, bytes: Int(to - from))
+    }
+
+    /// A range read straight off the file system, which is what TDLib itself recommends over
+    /// `readFilePart` (`td_api.tl:14944`): the app has the directory, so the bytes do not need to
+    /// come back through JSON.
+    private static func read(path: String, from offset: Int64, bytes: Int) -> Data? {
+        guard let handle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: path)) else {
+            return nil
+        }
+        defer { try? handle.close() }
+        guard (try? handle.seek(toOffset: UInt64(offset))) != nil else { return nil }
+        return try? handle.read(upToCount: bytes)
     }
 
     /// The one thing in a `localFile` that means "this is never coming": `can_be_downloaded` is

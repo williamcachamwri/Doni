@@ -113,6 +113,11 @@ struct LibraryView: View {
             // the timestamps land while the channel is still being read.
             await library.measureStoredDurations()
             indexer.run(session, library: library)
+            // Behind the walk: this is the slowest thing on the way in — a fetch per row — and the
+            // list has nothing to wait for, since each answer lands in its own row as it arrives.
+            if let files = session.covers() {
+                await library.measureRemoteDurations(with: files)
+            }
         }
         .sheet(isPresented: $showsAddChannel) {
             AddChannelSheet(session: session, library: library) {
