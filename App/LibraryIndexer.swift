@@ -1,6 +1,7 @@
 import Foundation
-import SwiftUI
 import Support
+import SwiftUI
+import TelegramDesignSystem
 import TdSession
 
 /// Walks every channel on the allow-list, 100 messages at a time, and collects everything playable
@@ -46,6 +47,15 @@ final class LibraryIndexer: ObservableObject {
 
     /// Folded haystacks, so a keystroke re-folds only what the last page brought in.
     private var haystacks: [String: String] = [:]
+
+    /// The songs the running walk has brought in, keyed by `unique_id`. A property rather than a
+    /// local because the chats are read in parallel and every one of them adds to it.
+    private var collected: [String: any Playable] = [:]
+    private var messagesRead = 0
+    private var pagesRead = 0
+    private var firstFailure: String?
+    /// Whether the walk is building the list from nothing, which is when rows may move as they land.
+    private var publishingAsItGoes = false
 
     var isReading: Bool {
         switch phase {
@@ -155,7 +165,10 @@ final class LibraryIndexer: ObservableObject {
         guard let reader = session.reader() else { return nil }
         generation += 1
         let mine = generation
-        let walk = Task { await self.index(reader, library: library) }
+        // The downloader is taken here rather than page by page: the covers of a page are ordered
+        // with the page, and a walk that had no session would order nothing.
+        let files = session.covers()
+        let walk = Task { await self.index(reader, library: library, files: files) }
         task = walk
         // Letting the handle go when the walk ends is what allows a second walk at all; the
         // generation check keeps a replaced walk from clearing the one that replaced it.
@@ -174,51 +187,72 @@ final class LibraryIndexer: ObservableObject {
         if case let .reading(snapshot) = phase { phase = .finished(snapshot) }
     }
 
-    private func index(_ reader: TdChannelReader, library: Library) async {
+    /// Forgetting everything the walk has said, for the one case where the library it was built from
+    /// no longer exists: signing out.
+    ///
+    /// `stop` deliberately leaves the list alone — a read the user interrupted is still a list of
+    /// songs. A signed-out session is not. Home, the search and the "Nhạc" grid all read this list
+    /// rather than the store, so leaving it populated is exactly how a sign-out that worked looked
+    /// like a sign-out that failed: the database was gone and the screen still showed 426 bài.
+    ///
+    /// The live feed goes with it, because the stream it drinks belongs to the client that is
+    /// closing, and because a post arriving into a library that has just been thrown away is the
+    /// same bug through the back door.
+    func reset() {
+        stop()
+        liveTask?.cancel()
+        liveTask = nil
+        haystacks.removeAll()
+        collected.removeAll()
+        tracks = []
+        phase = .idle
+    }
+
+    /// Reading every allow-listed chat at once rather than one after another.
+    ///
+    /// A channel's walk is a chain: a page is only asked for once the one before it has landed, so a
+    /// single chat leaves TDLib's request queue idle for most of the round trip. Three chats in
+    /// flight is enough to fill it, and it is not so many that three channels start competing for
+    /// the bandwidth the songs themselves need.
+    private static let walkWidth = 3
+
+    private func index(_ reader: TdChannelReader, library: Library,
+                       files: TdFileDownloader?) async {
         let targets = library.indexedChannels
         guard !targets.isEmpty else {
-            phase = .finished(.init(trackCount: tracks.count, messageCount: 0, pageCount: 0))
+            // Nothing is allow-listed, so nothing belongs on screen. The list used to be left
+            // exactly as it was, which is how a library the user had just signed out of went on
+            // filling Home until a real walk replaced it.
+            tracks = []
+            phase = .finished(.init(trackCount: 0, messageCount: 0, pageCount: 0))
             return
         }
 
         // Keyed by `unique_id`, which is the only id that means the same song in two sources: a walk
         // that re-reads a row overwrites the stored copy of it rather than doubling the list, and a
-        // channel it never reaches keeps the rows already on screen.
-        var collected: [String: any Playable] = Dictionary(
-            uniqueKeysWithValues: tracks.map { ($0.uniqueId, $0) }
-        )
-        var messages = 0
-        var pages = 0
-        var failure: String?
+        // channel it never reaches keeps the rows already on screen. It is a property because the
+        // chats are read in parallel and every one of them adds to it.
+        collected = Dictionary(uniqueKeysWithValues: tracks.map { ($0.uniqueId, $0) })
+        messagesRead = 0
+        pagesRead = 0
+        firstFailure = nil
         haystacks = [:]
         // A refresh over a library that is already on screen waits for the walk to end before it
-        // publishes, so the list never re-sorts itself a thousand times under the finger — and never
+        // publishes, so the list never re-sorts itself a thousand times under a finger — and never
         // shrinks to one page and grows back, because what it grows from is the screen's own rows.
-        let publishAsItGoes = tracks.isEmpty
+        publishingAsItGoes = tracks.isEmpty
 
-        for target in targets {
-            guard !Task.isCancelled else { return }
-            var cursor: Int64 = 0
-            while !Task.isCancelled {
-                let page: TdHistoryPage
-                do {
-                    page = try await reader.page(chatId: target.chatId, cursor: cursor)
-                } catch {
-                    // One channel that will not answer is not a reason to stop the others, but the
-                    // first complaint is the one the screen gets to show.
-                    failure = failure ?? Self.describe(error)
-                    break
+        await withTaskGroup(of: Void.self) { group in
+            var running = 0
+            for target in targets {
+                if running >= Self.walkWidth {
+                    await group.next()
+                    running -= 1
                 }
-                pages += 1
-                messages += page.messages.count
-                for track in page.tracks { collected[track.uniqueId] = track }
-                library.remember(page: page.tracks, chatId: target.chatId)
-                if publishAsItGoes { tracks = Self.newestFirst(collected.values) }
-                phase = .reading(.init(trackCount: collected.count, messageCount: messages,
-                                       pageCount: pages))
-
-                guard !page.isLast, let oldest = page.oldestMessageId, oldest != cursor else { break }
-                cursor = oldest
+                group.addTask {
+                    await self.walk(target, reader: reader, library: library, files: files)
+                }
+                running += 1
             }
         }
 
@@ -229,11 +263,46 @@ final class LibraryIndexer: ObservableObject {
         // the phone is.
         library.refresh()
         tracks = library.storedTracks
-        if let failure {
-            phase = .failed(failure)
+        if let firstFailure {
+            phase = .failed(firstFailure)
         } else {
-            phase = .finished(.init(trackCount: collected.count, messageCount: messages,
-                                    pageCount: pages))
+            phase = .finished(.init(trackCount: collected.count, messageCount: messagesRead,
+                                    pageCount: pagesRead))
+        }
+    }
+
+    /// One chat's own walk, newest page to oldest.
+    ///
+    /// Runs on the main actor like everything here, and only touches the shared counters between
+    /// awaits, which is what makes three of them safe without a lock.
+    private func walk(_ target: StoreChannel, reader: TdChannelReader,
+                      library: Library, files: TdFileDownloader?) async {
+        var cursor: Int64 = 0
+        while !Task.isCancelled {
+            let page: TdHistoryPage
+            do {
+                page = try await reader.page(chatId: target.chatId, cursor: cursor)
+            } catch {
+                // One channel that will not answer is not a reason to stop the others, but the
+                // first complaint is the one the screen gets to show.
+                firstFailure = firstFailure ?? Self.describe(error)
+                return
+            }
+            pagesRead += 1
+            messagesRead += page.messages.count
+            for track in page.tracks { collected[track.uniqueId] = track }
+            library.remember(page: page.tracks, chatId: target.chatId)
+            // The covers are ordered with the songs, not when a row scrolls into view. A channel
+            // that has just been added is a screenful of gradients otherwise, and the fetch is the
+            // slow half of it either way — queued here, they go through the cache's pool together.
+            CoverArtwork.shared.prefetch(page.tracks.map { $0 as any Playable },
+                                         via: files, side: MusicFeedMetrics.songCard)
+            if publishingAsItGoes { tracks = Self.newestFirst(collected.values) }
+            phase = .reading(.init(trackCount: collected.count, messageCount: messagesRead,
+                                   pageCount: pagesRead))
+
+            guard !page.isLast, let oldest = page.oldestMessageId, oldest != cursor else { return }
+            cursor = oldest
         }
     }
 

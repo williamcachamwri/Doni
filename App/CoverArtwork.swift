@@ -115,6 +115,12 @@ final class CoverArtwork: ObservableObject {
     /// rows that ask, so the queue in front of it is what does the ordering.
     private static let fetchWidth = 6
 
+    /// How many asks the queue is allowed to hold. A channel of a thousand songs is not an order for
+    /// a thousand covers: the rows ask for themselves when they are reached, so the queue only has to
+    /// stay ahead of the finger, and an unbounded one would spend the download queue on screens the
+    /// user may never open.
+    private static let queueLimit = 150
+
     /// The re-warms, held so the singleton keeps both of its observers alive.
     private var foreground: [Task<Void, Never>] = []
 
@@ -242,6 +248,7 @@ final class CoverArtwork: ObservableObject {
         }
         for ask in asks { remember(ask.track, at: points) }
         queued.insert(contentsOf: asks, at: 0)
+        if queued.count > Self.queueLimit { queued.removeLast(queued.count - Self.queueLimit) }
         Task { await drain() }
     }
 

@@ -419,8 +419,11 @@ struct SettingsView: View {
     /// the session, once its client has closed.
     private func signOut() {
         // Nothing may write rows while the file is being thrown away: a walk still running, or a
-        // post still arriving, would put the library back into the empty database it just got.
-        indexer.stop()
+        // post still arriving, would put the library back into the empty database it just got. And
+        // nothing may keep showing the rows it already wrote — Home, the search and the "Nhạc" grid
+        // read the walk's own list rather than the store, so that list is the last sight of a
+        // library the user has just signed out of.
+        indexer.reset()
         player.stop()
         library.wipe()
         // How much room the pictures made is the storage screen's business, not this one's.
