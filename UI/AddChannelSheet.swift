@@ -12,8 +12,9 @@ import TdSession
 /// round trips wasted.
 ///
 /// A channel picked from the joined list is added without a probe: the account is in it, so the
-/// user already knows what it holds, and `getChats` answers for forty of them at once where a
-/// probe costs one round trip each.
+/// user already knows what it holds, and a probe costs a page of history for one candidate where
+/// the list costs one request for all of them. The list is every chat the account is in — channel,
+/// group, person, bot — because the walk that follows is the same request for all four.
 struct AddChannelSheet: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var library: Library
@@ -29,6 +30,7 @@ struct AddChannelSheet: View {
     @State private var failure: String?
     @State private var joined: [TdChannel] = []
     @State private var isListingJoined = false
+    @State private var joinedFailure: String?
 
     /// The rows take the reference's song row: 12 between the mark and the text, 3 between the two
     /// lines (`Shared/Media/TrackRowView.swift:3-197`).
@@ -61,18 +63,22 @@ struct AddChannelSheet: View {
                 } header: {
                     Text("Kênh mới")
                 } footer: {
-                    Text("Doni chỉ đọc kênh công khai, và chỉ những bài audio trong đó.")
+                    Text("Doni chỉ lấy những bài audio, dù nguồn là kênh, nhóm, người dùng hay bot.")
                 }
 
                 Section {
                     if isListingJoined {
                         HStack(spacing: Self.rowGap) {
                             ProgressView()
-                            Text("Đang mở danh sách kênh…")
+                            Text("Đang mở danh sách trò chuyện…")
                                 .foregroundStyle(.secondary)
                         }
+                    } else if let joinedFailure {
+                        Text(joinedFailure)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     } else if joined.isEmpty {
-                        Text("Bạn chưa tham gia kênh nào.")
+                        Text("Không có cuộc trò chuyện nào.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(joined, id: \.chatId) { channel in
@@ -80,7 +86,7 @@ struct AddChannelSheet: View {
                         }
                     }
                 } header: {
-                    Text("Kênh bạn đang tham gia")
+                    Text("Cuộc trò chuyện bạn đang tham gia")
                 }
             }
             .formStyle(.grouped)
@@ -114,9 +120,20 @@ struct AddChannelSheet: View {
 
     private func joinedRow(_ channel: TdChannel) -> some View {
         HStack(spacing: Self.rowGap) {
-            channelTitle(channel, subtitle: nil)
+            channelTitle(channel, subtitle: Self.kindLabel(channel.kind))
             Spacer(minLength: 8)
             addButton(for: channel)
+        }
+    }
+
+    /// Telegram's own word for each kind of chat, because the list is no longer only channels and a
+    /// person's chat row has to say so.
+    private static func kindLabel(_ kind: TdChannel.Kind) -> String {
+        switch kind {
+        case .channel: "Kênh"
+        case .group: "Nhóm"
+        case .user: "Người dùng"
+        case .bot: "Bot"
         }
     }
 
@@ -191,6 +208,12 @@ struct AddChannelSheet: View {
         guard let reader = session.reader() else { return }
         isListingJoined = true
         defer { isListingJoined = false }
-        joined = (try? await reader.channels()) ?? []
+        do {
+            joined = try await reader.channels()
+        } catch {
+            // An empty list and a list that could not be read are different sentences, and the one
+            // that was wrong here said "you are in no chats".
+            joinedFailure = LibraryIndexer.describe(error)
+        }
     }
 }

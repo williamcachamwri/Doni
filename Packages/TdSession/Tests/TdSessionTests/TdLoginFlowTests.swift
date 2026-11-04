@@ -208,27 +208,32 @@ func wrongEncryptionKeyStopsTheLoop() async throws {
     }
 }
 
-@Test("the chat list hands the picker channels and nothing else")
+@Test("the chat list resolves the ids getChats answers into rows of every kind")
 func channelsAnswersTheChannelPicker() async throws {
     let (transport, flow) = makeFlow()
     let responder = Task.detached {
         var answered: Set<String> = []
         while !Task.isCancelled {
             for request in transport.decodedRequests {
-                guard request.type == "getChats", let extra = request["@extra"]?.string,
-                      !answered.contains(extra)
+                guard let extra = request["@extra"]?.string, !answered.contains(extra)
                 else { continue }
                 answered.insert(extra)
-                transport.queue("""
-                {"@type":"chats","@extra":"\(extra)","chats":[
-                  {"@type":"chat","id":-1001,"title":"Nhạc Remix",
-                   "type":{"@type":"chatTypeSupergroup","supergroup_id":1,"is_channel":true}},
-                  {"@type":"chat","id":7,"title":"Bạn",
-                   "type":{"@type":"chatTypePrivate","user_id":7}},
-                  {"@type":"chat","id":-1002,"title":"Nhóm bàn",
-                   "type":{"@type":"chatTypeSupergroup","supergroup_id":2,"is_channel":false}}
-                ]}
-                """)
+                switch request.type {
+                case "getChats":
+                    transport.queue("""
+                    {"@type":"chats","@extra":"\(extra)","total_count":3,
+                     "chat_ids":[-1001,-1002,7]}
+                    """)
+                case "getChat":
+                    transport.queue(chatAnswer(extra, request["chat_id"]?.int ?? 0))
+                case "getUser":
+                    transport.queue("""
+                    {"@type":"user","@extra":"\(extra)","id":7,
+                     "type":{"@type":"userTypeBot"}}
+                    """)
+                default:
+                    transport.queue(#"{"@type":"ok","@extra":"\#(extra)"}"#)
+                }
             }
             try? await Task.sleep(for: .milliseconds(2))
         }
@@ -236,8 +241,35 @@ func channelsAnswersTheChannelPicker() async throws {
     defer { responder.cancel() }
 
     let list = try await TdChannelReader(flow: flow).channels(limit: 5)
-    // A group is not a music library, and a private chat is neither — only `is_channel` survives.
-    #expect(list == [TdChannel(chatId: -1001, username: "", title: "Nhạc Remix")])
+    // Every kind survives, in the order of the chat list: a walk is the same request whatever the
+    // chat is, and a bot that DMs audio is one of the ways songs arrive.
+    #expect(list == [
+        TdChannel(chatId: -1001, username: "", title: "Nhạc Remix", kind: .channel),
+        TdChannel(chatId: -1002, username: "", title: "Nhóm bàn", kind: .group),
+        TdChannel(chatId: 7, username: "", title: "Bot nhạc", kind: .bot)
+    ])
+}
+
+/// One `chat` answer in the shape `getChat` really has (`td_api.tl:4080`): the channel, the group
+/// and the private chat the test above was asked for.
+private func chatAnswer(_ extra: String, _ chatId: Int64) -> String {
+    switch chatId {
+    case -1001:
+        return """
+        {"@type":"chat","@extra":"\(extra)","id":-1001,"title":"Nhạc Remix",
+         "type":{"@type":"chatTypeSupergroup","supergroup_id":1,"is_channel":true}}
+        """
+    case -1002:
+        return """
+        {"@type":"chat","@extra":"\(extra)","id":-1002,"title":"Nhóm bàn",
+         "type":{"@type":"chatTypeSupergroup","supergroup_id":2,"is_channel":false}}
+        """
+    default:
+        return """
+        {"@type":"chat","@extra":"\(extra)","id":7,"title":"Bot nhạc",
+         "type":{"@type":"chatTypePrivate","user_id":7}}
+        """
+    }
 }
 
 private struct RefusingKeyProvider: TdDatabaseKeyProviding {

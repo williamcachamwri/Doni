@@ -254,16 +254,29 @@ public struct TdTrack: Equatable, Sendable {
     ]
 }
 
-/// A public channel the app indexes.
+/// A chat the app reads songs out of.
+///
+/// The name is the app's, not Telegram's: the walk is one request whatever the chat is, so a
+/// channel, a group, a person and a bot are all the same kind of source here, and only the label
+/// the picker puts on the row differs.
 public struct TdChannel: Equatable, Sendable {
+    /// What the chat is, which is what the picker says it is.
+    public enum Kind: String, Equatable, Sendable {
+        case channel, group, user, bot
+    }
+
     public let chatId: Int64
     public let username: String
     public let title: String
+    public let kind: Kind
 
-    public init(chatId: Int64, username: String, title: String) {
+    /// A handle only comes from a search by handle; the chat list has none to give
+    /// (`td_api.tl:4080`), and an id is enough to walk a chat.
+    public init(chatId: Int64, username: String, title: String, kind: Kind = .channel) {
         self.chatId = chatId
         self.username = username
         self.title = title
+        self.kind = kind
     }
 }
 

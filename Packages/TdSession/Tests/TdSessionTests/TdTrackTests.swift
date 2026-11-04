@@ -512,7 +512,10 @@ private func makeReader(_ transport: FakeTransport) -> TdChannelReader {
 func readerRequests() async throws {
     let transport = FakeTransport()
     let responder = startChannelServer(transport) { extra in
-        #"{"@type":"chat","@extra":"\#(extra)","id":-1001234567890,"title":"VN Music Remix"}"#
+        """
+        {"@type":"chat","@extra":"\(extra)","id":-1001234567890,"title":"VN Music Remix",
+         "type":{"@type":"chatTypeSupergroup","supergroup_id":1,"is_channel":true}}
+        """
     }
     defer { responder.cancel() }
 
@@ -521,6 +524,7 @@ func readerRequests() async throws {
     #expect(channel.chatId == -1001234567890)
     #expect(channel.username == "VNMusicRemix")
     #expect(channel.title == "VN Music Remix")
+    #expect(channel.kind == .channel)
 
     let page = try await reader.page(chatId: channel.chatId)
     #expect(page.messages.isEmpty)

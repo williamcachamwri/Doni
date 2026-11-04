@@ -105,12 +105,13 @@ public actor TdLoginFlow {
     }
 }
 
-/// Reads the music channels once the session is ready.
+/// Reads the chats the app takes music out of once the session is ready.
 ///
-/// Both requests here are pinned-schema names: `searchPublicChat` (`td_api.tl:12511`)
-/// resolves `t.me/<username>` to a `chat` without joining it, and `getChatHistory`
-/// (`td_api.tl:12758`) walks backwards from a message id, `from_message_id: 0`
-/// meaning "from the newest post".
+/// Every request here is a pinned-schema name: `searchPublicChat` (`td_api.tl:12511`) resolves
+/// `t.me/<username>` to a `chat` without joining it, `getChats` (`:12507`) says which chats the
+/// account is in, `getChat` (`:12413`) and `getUser` (`:12391`) fill in what that list of ids
+/// leaves out, and `getChatHistory` (`td_api.tl:12758`) walks backwards from a message id,
+/// `from_message_id: 0` meaning "from the newest post".
 public struct TdChannelReader: Sendable {
     public static let pageSize = 100
 
@@ -131,14 +132,8 @@ public struct TdChannelReader: Sendable {
             throw Failure.channelNotFound(username)
         }
         let answer = try await flow.request("searchPublicChat", ["username": .string(handle)])
-        guard answer.type == "chat", let chatId = answer["id"]?.int else {
-            throw Failure.channelNotFound(handle)
-        }
-        return TdChannel(
-            chatId: chatId,
-            username: handle,
-            title: answer["title"]?.string ?? handle
-        )
+        guard answer.type == "chat" else { throw Failure.channelNotFound(handle) }
+        return try await describe(answer, username: handle)
     }
 
     /// Accepts `VNMusicRemix`, `@VNMusicRemix` and `https://t.me/VNMusicRemix`,
@@ -176,12 +171,19 @@ public struct TdChannelReader: Sendable {
                               messageCount: page.messages.count)
     }
 
-    /// The channels this account is already in, newest activity first, so the ones worth indexing are
-    /// at the top of the list a picker shows. `getChats` (`td_api.tl:12507`) answers with whole
-    /// `chat` objects (`:4080`), and a channel is a supergroup that says it is one
-    /// (`chatTypeSupergroup`, `:3893`); the handle is not in that answer, so a channel picked from
-    /// here is indexed by its chat id, which is all `getChatHistory` needs.
-    public func channels(limit: Int = 50) async throws -> [TdChannel] {
+    /// The chats this account is already in, newest activity first, so the ones worth indexing sit at
+    /// the top of the list a picker shows.
+    ///
+    /// `getChats` (`td_api.tl:12507`) answers identifiers rather than chats — `chats total_count:int32
+    /// chat_ids:vector<int53>` (`:4083`) — so a row is a `getChat` (`:12413`) after the one request
+    /// that fetched its id, and a private chat is a `getUser` (`:12391`) more. Those lookups are
+    /// independent and the client matches answers by `@extra`, so they go out together: asked one at
+    /// a time, the list of a busy account is a hundred round trips before its first row appears.
+    ///
+    /// Nothing is filtered by kind, because the walk is the same request whatever the chat is
+    /// (`getChatHistory`, `:12758`) and a bot that sends audio privately is one of the ways songs
+    /// actually arrive.
+    public func channels(limit: Int = 100) async throws -> [TdChannel] {
         let answer = try await flow.request(
             "getChats",
             [
@@ -189,12 +191,59 @@ public struct TdChannelReader: Sendable {
                 "limit": .int(Int64(limit))
             ]
         )
-        guard let items = answer["chats"]?.array else { return [] }
-        return items.compactMap { chat in
-            guard chat["type"]?["is_channel"]?.bool == true, let chatId = chat["id"]?.int
-            else { return nil }
-            return TdChannel(chatId: chatId, username: "", title: chat["title"]?.string ?? "")
+        guard answer.type == "chats", let ids = answer["chat_ids"]?.array else {
+            throw Failure.unexpectedResponse(answer.type ?? "no @type")
         }
+        // The answer is in the order of the chat list, so each row keeps the slot its id had.
+        var rows: [TdChannel?] = Array(repeating: nil, count: ids.count)
+        try await withThrowingTaskGroup(of: (Int, TdChannel).self) { group in
+            for (index, id) in ids.enumerated() {
+                guard let chatId = id.int else { continue }
+                group.addTask {
+                    let chat = try await self.flow.request("getChat", ["chat_id": .int(chatId)])
+                    return (index, try await self.describe(chat, username: ""))
+                }
+            }
+            for try await (index, row) in group { rows[index] = row }
+        }
+        return rows.compactMap { $0 }
+    }
+
+    /// A `chat` object (`td_api.tl:4080`) read as a row: its title is right there, its kind is in
+    /// `type`, and a handle is only available when the caller looked the chat up by one.
+    private func describe(_ chat: TdJSON, username: String) async throws -> TdChannel {
+        guard let chatId = chat["id"]?.int, let type = chat["type"] else {
+            throw Failure.unexpectedResponse(chat.type ?? "no chat id")
+        }
+        let kind: TdChannel.Kind
+        switch type.type {
+        case "chatTypeSupergroup":
+            // A supergroup is a channel or a group, and only its own flag says which (`:3893`).
+            kind = type["is_channel"]?.bool == true ? .channel : .group
+        case "chatTypeBasicGroup":
+            kind = .group
+        case "chatTypePrivate", "chatTypeSecret":
+            // A person and a bot are one chat type (`:3887`); the user behind it is what separates
+            // them (`userTypeBot`, `:838`).
+            if let userId = type["user_id"]?.int, await isBot(userId) {
+                kind = .bot
+            } else {
+                kind = .user
+            }
+        default:
+            throw Failure.unexpectedResponse(type.type ?? "no chat type")
+        }
+        return TdChannel(chatId: chatId, username: username,
+                         title: chat["title"]?.string ?? username, kind: kind)
+    }
+
+    /// A bot check that cannot be answered is not a reason to lose a row — the chat title is still
+    /// enough to pick it — so this reads as an ask, not a throw.
+    private func isBot(_ userId: Int64) async -> Bool {
+        guard let user = try? await flow.request("getUser", ["user_id": .int(userId)]) else {
+            return false
+        }
+        return user["type"]?.type == "userTypeBot"
     }
 }
 
