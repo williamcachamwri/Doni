@@ -723,6 +723,9 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Playlist hero | art r12, shadow black 0.18/r18/y10 · 26 top · 24 to `title2.bold()` · 8 to `title3` · 7 to `subheadline.weight(.medium)` · 17 to actions · 22 bottom · 24 sides | `PlaylistDetailContent.swift:190-226` |
 | Hero action row | `GlassEffectContainer(spacing: 14)`, 30 pt glyphs, play at `title3.bold()` | `PlaylistDetailContent.swift:328-389` |
 | Track row | 40 index column (32 circle) · art 48 r6 · gap 12 · leading 20 / trailing 8 · vertical 11 (8 with art) | `PlaylistTrackList.swift:89-101,223-232,254-269` |
+| Playlist detail row | outer gap 4 · inner gap 12 · text gap 3 · name `.body` 2 lines, **no artist and no artwork column** (`showsArtwork` is the toplist layout's) · index `.title3` secondary monospaced in a 40 column · current row a 32 circle stroked 1.5 at `primary` 0.60 with a `caption.bold` play/pause in it · menu ellipsis `body.semibold` in 42×44 · leading 20 / trailing 8 / vertical 11 · background `primary` 0.10 while the player holds it, no animation | `PlaylistTrackList.swift:86-284` |
+| Playlist detail rule | `Divider()` over `primary` 0.12, leading 66, trailing 20, between rows only | `PlaylistTrackList.swift:31-39` |
+| Detail empty state | `ContentUnavailableView` + `foregroundStyle(.primary)` + `minHeight` 180 | `PlaylistTrackList.swift:13-15` |
 | Add-to-playlist row | art 52 r7 · gap 12 · text gap 3 | `AddToPlaylistSheet.swift:86-95` |
 | Queue pills | height 44 · radius 22 · gap 14 · glyph `title3.semibold` · idle white 0.12 with 0.86 white ink, on white 0.7 with 0.62 black ink · row 60 with 8 vertical padding · top inset and mask both stop at pills+60 · toggle `.smooth(0.34)` | `NowPlayingQueuePage.swift:45`, `:100-107`, `:181-187`, `:229`, `:282-299`, `:307` |
 | Queue heading | `title2.bold()`, 14 top / 10 bottom; the empty state is a `ContentUnavailableView` with 24 row insets | `NowPlayingQueuePage.swift:52-58`, `:61-74` |
@@ -794,6 +797,40 @@ pairs in MeloX's order, and the shelves are the four groups the store keeps. A s
 cards (`LibraryView.shelfLimit`) because Doni's library is one channel's thousand songs, and the whole
 list stays below the feed under its own "Tất cả bài hát" title — the same bargain as MeloX's home, which
 embeds `LibraryView` as one of its sections (`HomeView.swift:79-80`).
+
+**The playlist detail wears the cover's colours, not a fixed surface.** This is the whole reason MeloX's
+detail screens look nothing like Doni's old one: the average of the artwork decides the background, and
+the same reading decides whether the screen is light or dark — so the nav bar, the tab bar and the play
+pill all move with the art. Transcribed into `App/ArtworkPalette.swift` as `ArtworkPaletteProvider`:
+
+| Step | MeloX value | Source |
+| --- | --- | --- |
+| Downsample | Lanczos to max side 160, `aspectRatio 1`, skipped when already ≤160 | `ArtworkAccentColorProvider.swift:175-185` |
+| Average | `CIFilter.areaAverage` → 1×1 `RGBA8` rendered in sRGB, bytes ÷ 255 | `:206-237`, `:78-79` |
+| Blur | `gaussianBlur radius 18` on `clampedToExtent()`, cropped back to the extent | `:187-204` |
+| Luminance | `x·0.2126 + y·0.7152 + z·0.0722` | `:323-325` |
+| Appearance | dark when luminance < **0.52** | `:277` |
+| Background | dark `source·0.38 + 0.055·0.62` · light `source·0.30 + 0.94·0.70`, clamped | `:276-291` |
+| No artwork | `SIMD3(repeating: dark ? 0.16 : 0.88)` | `:10-18` |
+| Backdrop | blurred art at **0.22** over the palette fill | `PlaylistDetailContent.swift:442-487` |
+| Wash | top→bottom, dark black 0.08/0.24/0.40 · light white 0.06/0.16/0.30 | `PlaylistDetailContent.swift:442-487` |
+| Cache | `NSCache` 80 entries / 12 MB, cost `w·h·4` | `:45-71` |
+| Install | read → sleep **350 ms** → `easeOut(0.18)`, and `nil` under reduce motion | `PlaylistDetailView.swift:191-215,293-304,657-666`, `MusicNavigationTransitions.swift:4` |
+
+Two ends of that pipeline are what make the zoom survivable. `PlaylistDetailView.swift:42-53` seeds the
+state from `ArtworkAccentColorProvider.cachedDetailAssets` before the body ever runs, so a screen pushed
+with `.navigationTransition(.zoom)` opens already dressed instead of flashing dark→light; and Doni copies
+the same seed through `ArtworkPaletteProvider.cached(forKey:)`, reading the synchronous cache off the
+actor. On the other end, the 350 ms wait is cancelled by a `defer` the moment the task is re-keyed, so a
+playlist changed mid-zoom never lands its colours on the wrong screen.
+
+Doni's one divergence: MeloX fetches a `160y160` variant of the artwork from the network
+(`:166-173`); Doni has no such endpoint, so it downsamples the bitmap it already holds. That is why
+`CoverArtwork.largest(for:)` walks *every* cached tier down to the 40×30 minithumbnail — a song with no
+real cover still gets a colour rather than the gradient, which is exactly what MeloX's `fallback` means.
+The reading then drives `.environment(\.colorScheme:)`, `.toolbarColorScheme(_:for: .navigationBar,
+.tabBar)` and the `.glassProminent` play pill's white-on-black / black-on-white flip
+(`PlaylistDetailView.swift:150-151,167`, `PlaylistDetailContent.swift:403-409`).
 
 ## Known traps found while extracting
 

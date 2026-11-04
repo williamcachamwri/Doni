@@ -38,6 +38,46 @@ public enum MusicArtworkMetrics {
     public static let heroSide: CGFloat = 300
 }
 
+/// The colours a screen wears when it opens on top of a cover, read off that cover.
+/// `ArtworkAccentColorProvider.swift`.
+public enum MusicArtworkPalette {
+    /// `maximumDimension > 160` … `scale = 160 / maximumDimension` (`:175-185`) — the picture is
+    /// shrunk to this before anything is read from it, so both the average and the blur work on a
+    /// thumbnail rather than the whole file.
+    public static let sourceMaxSide: CGFloat = 160
+    /// `filter.radius = 18` on the Gaussian that softens the backdrop (`:191-196`).
+    public static let blurRadius: CGFloat = 18
+    /// `countLimit = 80`, `totalCostLimit = 12 * 1_024 * 1_024`, cost `width * height * 4`
+    /// (`:48-66`).
+    public static let cacheCount: Int = 80
+    public static let cacheBytes: Int = 12 * 1_024 * 1_024
+
+    /// `luminance < 0.52` decides whether the whole interface goes light or dark (`:276-277`).
+    public static let darkLuminanceThreshold: Double = 0.52
+    /// The background: `source * 0.38 + 0.055 * 0.62` dark, `source * 0.30 + 0.94 * 0.70` light
+    /// (`:280-284`).
+    public static let darkMix: Double = 0.38
+    public static let darkLift: Double = 0.055
+    public static let lightMix: Double = 0.30
+    public static let lightLift: Double = 0.94
+    /// `SIMD3(repeating: prefersDarkAppearance ? 0.16 : 0.88)` when there is nothing to read
+    /// (`:10-18`).
+    public static let fallbackDark: Double = 0.16
+    public static let fallbackLight: Double = 0.88
+    /// `x * 0.2126 + y * 0.7152 + z * 0.0722` (`:323-325`).
+    public static let luminanceRed: Double = 0.2126
+    public static let luminanceGreen: Double = 0.7152
+    public static let luminanceBlue: Double = 0.0722
+
+    /// The cover, blurred, over the background at `opacity(0.22)`
+    /// (`PlaylistDetailContent.swift:463-472`).
+    public static let backdropOpacity: Double = 0.22
+    /// The wash that keeps the text legible over it — black `0.08 / 0.24 / 0.40` in the dark
+    /// palette, white `0.06 / 0.16 / 0.30` in the light one (`:476-486`).
+    public static let darkWash: [Double] = [0.08, 0.24, 0.40]
+    public static let lightWash: [Double] = [0.06, 0.16, 0.30]
+}
+
 /// The home feed's vertical rhythm and the cards that fill it. `HomeRecommendedView.swift`,
 /// `HomeRecommendationSections.swift`, `MediaCardView.swift`.
 public enum MusicFeedMetrics {
@@ -204,6 +244,31 @@ public enum MusicPlaylistMetrics {
     public static let trackRowVertical: CGFloat = 11
     public static let trackRowVerticalWithArt: CGFloat = 8
     public static let trackTextGap: CGFloat = 3
+
+    /// The detail's own row, which is not the library's: an index number where a playlist has no
+    /// artwork, the name alone, and an ellipsis menu. `PlaylistTrackList.swift:86-284`.
+    public static let listRowOuterGap: CGFloat = 4
+    /// `HStack(spacing: 12)` inside that row's button (`:89`).
+    public static let listRowGap: CGFloat = 12
+    public static let listRowTextGap: CGFloat = 3
+    /// The current row's own mark: a 32 pt circle stroked 1.5 pt at `primary` 0.60, in the same
+    /// 40 pt column the number sits in (`:256-270`).
+    public static let listIndexColumn: CGFloat = 40
+    public static let listMarkCircle: CGFloat = 32
+    public static let listMarkStroke: CGFloat = 1.5
+    public static let listMarkInk: Double = 0.60
+    /// The menu's hit box, 42 × 44 around a `.body.weight(.semibold)` ellipsis (`:222-225`).
+    public static let listMenuWidth: CGFloat = 42
+    public static let listMenuHeight: CGFloat = 44
+    /// The rule between rows: `primary` at 0.12, inset 66 pt from the leading edge where the number
+    /// column ends and 20 from the trailing (`:31-39`).
+    public static let listDividerInset: CGFloat = 66
+    public static let listDividerTrailing: CGFloat = 20
+    public static let listDividerInk: Double = 0.12
+    /// A row's own background — the accent at 0.16 when something has just been located in the list,
+    /// `primary` at 0.10 while the player is holding it (`:233-236`).
+    public static let listRowHighlight: Double = 0.16
+    public static let listRowCurrent: Double = 0.10
 }
 
 /// The up-next page inside the player. `NowPlayingQueuePage.swift`.
@@ -510,4 +575,22 @@ public enum MusicMotion {
     /// The interface strip reappearing hides after five seconds of no touch
     /// (`AppSettings.swift:2013`, whose default the range 3…15 clamps).
     public static let autoHide: TimeInterval = 5.0
+}
+
+/// The motion a pushed music screen carries, which is a different set of numbers from the player's
+/// own: the reference leaves the zoom transition entirely to the system and animates only what the
+/// artwork tells it to.
+public enum MusicScreenMotion {
+    /// `Duration.milliseconds(350)` — how long a detail waits after the navigation transition has
+    /// been handed over before it changes the colours it is wearing, so the palette never swaps
+    /// under the zoom (`MusicNavigationTransitions.swift:4`, used by `PlaylistDetailView.swift:657-666`).
+    public static let settle: Duration = .milliseconds(350)
+    /// `.easeOut(duration: 0.18)` on the `withAnimation` that installs a new palette and backdrop
+    /// (`PlaylistDetailView.swift:302-304`, `:211-214`).
+    public static let paletteFade = Animation.easeOut(duration: 0.18)
+    /// `.easeInOut(duration: 0.2)` around a `.transition(.opacity)` while a list loads or fails
+    /// (`PlaylistDetailContent.swift:170-172`).
+    public static let contentSwap = Animation.easeInOut(duration: 0.2)
+    /// `.easeInOut(duration: 0.15)` on a row's own selection state (`PlaylistTrackList.swift:311`).
+    public static let rowToggle = Animation.easeInOut(duration: 0.15)
 }

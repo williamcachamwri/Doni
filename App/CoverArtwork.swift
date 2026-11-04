@@ -105,6 +105,20 @@ final class CoverArtwork: ObservableObject {
         sharp(for: track, side: points) != nil
     }
 
+    /// The biggest picture this track has, however it was obtained — the 40×30 the message carried
+    /// included, since nothing better exists for some posts.
+    ///
+    /// A surface that blurs a cover whole or averages its colour is not reading it for detail, so
+    /// a small source still tells it the artwork's colour, which is more than a gradient does. The
+    /// tiers are walked largest first because `sharp` already takes any server thumbnail it holds,
+    /// while the art read out of the song is cached one tier at a time.
+    func largest(for track: any Playable) -> UIImage? {
+        for tier in Self.tiers.reversed() {
+            if let image = sharp(for: track, side: CGFloat(tier) / 3) { return image }
+        }
+        return mini(for: track)
+    }
+
     /// Orders whatever this track still needs, at this surface's size, and stops as soon as the
     /// surface is filled. Called from a row's `.task`, so scrolling past a track is what orders the
     /// fetches and a row that disappears cancels its own. `via` wins over the attached downloader,
