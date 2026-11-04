@@ -902,6 +902,20 @@ rather than reporting an error nobody can act on. Its mark is the reference's 60
 `.quaternary` — the one round shape on the screen, because it stands for a person and the rule that made
 every cover a rounded square never reached it.
 
+**A channel wears its own picture, in the glyph column.** The `Kênh nhạc` rows used to carry a
+`person.2` symbol, which is not a picture of anything. `chat.photo` (`td_api.tl:4080`) is a
+`chatPhotoInfo` (`:784`) with two still variants — `small` at 160×160 and `big` at 640×640 (`:779`,
+`:780`) — and the smaller is the one asked for: a 30 pt mark at 3× wants 90 pixels, so 160 is already
+oversampling, and it is a fifth of the bytes of the 640. The mark keeps the reference's column
+(`SettingsHomeComponents.swift:58-88`) at its 30 pt, so the divider still starts at 62; only its
+contents change, and it is round for the same reason the account mark is — it stands for a chat, not for
+a cover. What is drawn comes off the phone: `chat.photo`'s bytes are copied once into
+`Application Support/Doni/Avatars`, named for the file's `file_unique_id` rather than TDLib's row number
+(`:326`) so a rebuilt database cannot hand one channel another's face, and the path is recorded on the
+channel row. A visit after the first is then one read and no round trip. A channel added from the picker
+or a link already carries its photo in the answer that named it (`searchPublicChat`, `getChat`, `:12413`),
+so the only channel that pays for a request is one added before this existed.
+
 ## Known traps found while extracting
 
 - An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so

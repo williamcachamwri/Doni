@@ -292,14 +292,62 @@ public struct TdChannel: Equatable, Sendable {
     public let username: String
     public let title: String
     public let kind: Kind
+    /// The chat's own picture, or nil when it has never set one. Every request that answers a `chat`
+    /// carries it — `searchPublicChat`, `getChat`, the chat list — so a row picked out of one of them
+    /// knows its avatar without a second round trip.
+    public let photo: TdChatPhoto?
 
     /// A handle only comes from a search by handle; the chat list has none to give
     /// (`td_api.tl:4080`), and an id is enough to walk a chat.
-    public init(chatId: Int64, username: String, title: String, kind: Kind = .channel) {
+    public init(chatId: Int64, username: String, title: String, kind: Kind = .channel,
+                photo: TdChatPhoto? = nil) {
         self.chatId = chatId
         self.username = username
         self.title = title
         self.kind = kind
+        self.photo = photo
+    }
+}
+
+/// A chat's own picture, as TDLib describes it.
+///
+/// `chat.photo` (`td_api.tl:4080`) is a `chatPhotoInfo` (`:784`) with two still variants: `small` at
+/// 160×160 and `big` at 640×640 (`:779`, `:780`). The smaller is what Telegram's own list avatars are
+/// drawn from and is the one asked for — it is five times the pixels a 30 pt mark needs and a
+/// fraction of the bytes of the other.
+///
+/// `fileId` is TDLib's row number in its own database (`:326`), which is what a download is asked for
+/// by; `uniqueId` is MTProto's identity for the same bytes and is what the copy kept on the phone is
+/// named after, because a picture filed under a row number is a picture that one day belongs to a
+/// different chat.
+public struct TdChatPhoto: Equatable, Sendable {
+    public let fileId: Int
+    public let uniqueId: String?
+
+    public init(fileId: Int, uniqueId: String?) {
+        self.fileId = fileId
+        self.uniqueId = uniqueId
+    }
+
+    /// The `photo` of a `chat`, or nil for a chat that has no picture. TDLib answers an empty
+    /// `chatPhotoInfo` for those and a `file` of id 0 for a variant it does not have, so the number
+    /// is what decides rather than the presence of the object.
+    ///
+    /// The identity is read out of the same variant as the number: pairing one file's id with
+    /// another's `unique_id` would name the bytes being downloaded after a picture that was never
+    /// asked for.
+    public init?(chat: TdJSON) {
+        guard let photo = chat["photo"] else { return nil }
+        for variant in ["small", "big"] {
+            guard let file = photo[variant], let number = file["id"]?.int, number != 0 else {
+                continue
+            }
+            let remote = file["remote"]?["unique_id"]?.string
+            fileId = Int(number)
+            uniqueId = (remote?.isEmpty ?? true) ? nil : remote
+            return
+        }
+        return nil
     }
 }
 

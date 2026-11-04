@@ -242,9 +242,12 @@ func channelsAnswersTheChannelPicker() async throws {
 
     let list = try await TdChannelReader(flow: flow).channels(limit: 5)
     // Every kind survives, in the order of the chat list: a walk is the same request whatever the
-    // chat is, and a bot that DMs audio is one of the ways songs arrive.
+    // chat is, and a bot that DMs audio is one of the ways songs arrive. The channel keeps the
+    // picture its `chat` answer carried (`td_api.tl:4080`) with it, so a row added from this list
+    // knows its avatar without a second request.
     #expect(list == [
-        TdChannel(chatId: -1001, username: "", title: "Nhạc Remix", kind: .channel),
+        TdChannel(chatId: -1001, username: "", title: "Nhạc Remix", kind: .channel,
+                  photo: TdChatPhoto(fileId: 12, uniqueId: "AAA=")),
         TdChannel(chatId: -1002, username: "", title: "Nhóm bàn", kind: .group),
         TdChannel(chatId: 7, username: "", title: "Bot nhạc", kind: .bot)
     ])
@@ -257,6 +260,9 @@ private func chatAnswer(_ extra: String, _ chatId: Int64) -> String {
     case -1001:
         return """
         {"@type":"chat","@extra":"\(extra)","id":-1001,"title":"Nhạc Remix",
+         "photo":{"@type":"chatPhotoInfo",
+                  "small":{"@type":"file","id":12,
+                           "remote":{"@type":"fileRemotePersistent","unique_id":"AAA="}}},
          "type":{"@type":"chatTypeSupergroup","supergroup_id":1,"is_channel":true}}
         """
     case -1002:
@@ -270,6 +276,43 @@ private func chatAnswer(_ extra: String, _ chatId: Int64) -> String {
          "type":{"@type":"chatTypePrivate","user_id":7}}
         """
     }
+}
+
+/// A chat answer for one id, used by the test below: the `getChat` shape with the `photo` a channel
+/// row is read from (`td_api.tl:4080`, `:784`).
+private func photoChatAnswer(_ extra: String) -> String {
+    """
+    {"@type":"chat","@extra":"\(extra)","id":-1001,"title":"Nhạc Remix",
+     "photo":{"@type":"chatPhotoInfo","small":{"@type":"file","id":12,
+              "remote":{"@type":"fileRemotePersistent","unique_id":"AAA="}}},
+     "type":{"@type":"chatTypeSupergroup","supergroup_id":1,"is_channel":true}}
+    """
+}
+
+@Test("a channel's picture is one getChat away")
+func photoReadsTheChatItWasGiven() async throws {
+    let (transport, flow) = makeFlow()
+    let responder = Task.detached {
+        var answered: Set<String> = []
+        while !Task.isCancelled {
+            for request in transport.decodedRequests {
+                guard let extra = request["@extra"]?.string, !answered.contains(extra) else { continue }
+                answered.insert(extra)
+                transport.queue(request.type == "getChat"
+                    ? photoChatAnswer(extra)
+                    : #"{"@type":"ok","@extra":"\#(extra)"}"#)
+            }
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+    }
+    defer { responder.cancel() }
+
+    let reader = TdChannelReader(flow: flow)
+    let photo = try await reader.photo(chatId: -1001)
+    // Asked for by the id the allow-list already holds — no handle to look up, and no page of history.
+    #expect(transport.decodedRequests.first?["@type"]?.string == "getChat")
+    #expect(transport.decodedRequests.first?["chat_id"]?.int == -1001)
+    #expect(photo == TdChatPhoto(fileId: 12, uniqueId: "AAA="))
 }
 
 private struct RefusingKeyProvider: TdDatabaseKeyProviding {

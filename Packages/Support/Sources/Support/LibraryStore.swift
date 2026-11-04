@@ -10,12 +10,26 @@ public struct StoreChannel: Equatable, Sendable, Identifiable {
     /// Whether Doni reads this channel. The allow-list: any number of channels can be on it and the
     /// walk reads all of them, so this is a per-channel yes rather than the one channel home shows.
     public var isIndexed: Bool
+    /// TDLib's row number for the chat's own picture (`td_api.tl:326`), which is what a download is
+    /// asked for by. `nil` until `getChat` has been read for this channel.
+    public var avatarFileId: Int?
+    /// MTProto's identity for the same bytes (`td_api.tl:784`), which the copy on the phone is named
+    /// after — filed under the row number, a rebuilt database would hand one channel another's face.
+    public var avatarUniqueId: String?
+    /// The copy itself, in a file this app owns: what lets the row draw the picture without asking
+    /// Telegram for it again.
+    public var avatarPath: String?
 
-    public init(chatId: Int64, username: String, title: String, isIndexed: Bool = false) {
+    public init(chatId: Int64, username: String, title: String, isIndexed: Bool = false,
+                avatarFileId: Int? = nil, avatarUniqueId: String? = nil,
+                avatarPath: String? = nil) {
         self.chatId = chatId
         self.username = username
         self.title = title
         self.isIndexed = isIndexed
+        self.avatarFileId = avatarFileId
+        self.avatarUniqueId = avatarUniqueId
+        self.avatarPath = avatarPath
     }
 }
 
@@ -120,7 +134,7 @@ public final class LibraryStore: @unchecked Sendable {
     }
 
     /// `1` is the first schema; a column added later bumps this and the row below it migrates.
-    private static let schemaVersion = 4
+    private static let schemaVersion = 5
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
@@ -161,7 +175,10 @@ public final class LibraryStore: @unchecked Sendable {
             chat_id INTEGER PRIMARY KEY,
             username TEXT NOT NULL,
             title TEXT NOT NULL,
-            is_indexed INTEGER NOT NULL DEFAULT 0
+            is_indexed INTEGER NOT NULL DEFAULT 0,
+            avatar_file_id INTEGER,
+            avatar_unique_id TEXT,
+            avatar_path TEXT
         )
         """)
         renameSelectedColumn(handle)
@@ -221,13 +238,23 @@ public final class LibraryStore: @unchecked Sendable {
     ///
     /// Version 2 gave a list its own cover file, and version 4 gave a song's cover its own identity:
     /// the row number a pre-4 build stored belongs to whichever TDLib database made it, and a track
-    /// that has been re-read since then gets its real `file_unique_id` written beside it.
+    /// that has been re-read since then gets its real `file_unique_id` written beside it. Version 5
+    /// gave a channel the same three things for its picture.
     private static func addMissingColumn(_ handle: OpaquePointer) {
         if !hasColumn(handle, table: "playlist", column: "cover_path") {
             sqlRun(handle, "ALTER TABLE playlist ADD COLUMN cover_path TEXT")
         }
         if !hasColumn(handle, table: "track", column: "cover_unique_id") {
             sqlRun(handle, "ALTER TABLE track ADD COLUMN cover_unique_id TEXT")
+        }
+        if !hasColumn(handle, table: "channel", column: "avatar_file_id") {
+            sqlRun(handle, "ALTER TABLE channel ADD COLUMN avatar_file_id INTEGER")
+        }
+        if !hasColumn(handle, table: "channel", column: "avatar_unique_id") {
+            sqlRun(handle, "ALTER TABLE channel ADD COLUMN avatar_unique_id TEXT")
+        }
+        if !hasColumn(handle, table: "channel", column: "avatar_path") {
+            sqlRun(handle, "ALTER TABLE channel ADD COLUMN avatar_path TEXT")
         }
     }
 
@@ -261,8 +288,10 @@ public final class LibraryStore: @unchecked Sendable {
     public func channels() -> [StoreChannel] {
         lock.lock()
         defer { lock.unlock() }
-        let sql = "SELECT chat_id, username, title, is_indexed FROM channel"
-            + " ORDER BY title COLLATE NOCASE"
+        let sql = """
+        SELECT chat_id, username, title, is_indexed, avatar_file_id, avatar_unique_id, avatar_path
+        FROM channel ORDER BY title COLLATE NOCASE
+        """
         guard let statement = prepare(sql) else { return [] }
         defer { sqlite3_finalize(statement) }
         var rows: [StoreChannel] = []
@@ -271,28 +300,63 @@ public final class LibraryStore: @unchecked Sendable {
                 chatId: sqlite3_column_int64(statement, 0),
                 username: Self.text(statement, 1),
                 title: Self.text(statement, 2),
-                isIndexed: sqlite3_column_int(statement, 3) != 0
+                isIndexed: sqlite3_column_int(statement, 3) != 0,
+                avatarFileId: Self.optionalInt(statement, 4),
+                avatarUniqueId: Self.optionalText(statement, 5),
+                avatarPath: Self.optionalText(statement, 6)
             ))
         }
         return rows
     }
 
     /// Remembers a channel. Reading it is the app's business, not the row's, so an upsert leaves the
-    /// opt-in exactly as the allow-list put it.
+    /// opt-in exactly as the allow-list put it — and leaves a picture already recorded, because the
+    /// screen that adds a channel knows it but not yet whether the bytes are on the phone.
     @discardableResult
     public func save(channel: StoreChannel) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard let statement = prepare("""
-            INSERT INTO channel (chat_id, username, title, is_indexed) VALUES (?, ?, ?, ?)
+            INSERT INTO channel (chat_id, username, title, is_indexed,
+                                 avatar_file_id, avatar_unique_id, avatar_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (chat_id) DO UPDATE
-            SET username = excluded.username, title = excluded.title
+            SET username = excluded.username, title = excluded.title,
+                avatar_file_id = COALESCE(excluded.avatar_file_id, channel.avatar_file_id),
+                avatar_unique_id = COALESCE(excluded.avatar_unique_id, channel.avatar_unique_id),
+                avatar_path = COALESCE(excluded.avatar_path, channel.avatar_path)
             """) else { return false }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_int64(statement, 1, channel.chatId)
         sqlite3_bind_text(statement, 2, channel.username, -1, Self.transient)
         sqlite3_bind_text(statement, 3, channel.title, -1, Self.transient)
         sqlite3_bind_int(statement, 4, channel.isIndexed ? 1 : 0)
+        Self.bindOptional(statement, 5, channel.avatarFileId.map(Int64.init))
+        Self.bindOptional(statement, 6, channel.avatarUniqueId)
+        Self.bindOptional(statement, 7, channel.avatarPath)
+        return sqlite3_step(statement) == SQLITE_DONE
+    }
+
+    /// What a channel's picture is made of, written down as each half of it is learned: the number
+    /// and the identity out of `getChat`, the path once the copy exists. A `nil` leaves the column
+    /// alone rather than clearing it, so recording a picture cannot undo the file already kept.
+    @discardableResult
+    public func setChannelAvatar(chatId: Int64, fileId: Int?, uniqueId: String?,
+                                 path: String?) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("""
+            UPDATE channel
+            SET avatar_file_id = COALESCE(?, avatar_file_id),
+                avatar_unique_id = COALESCE(?, avatar_unique_id),
+                avatar_path = COALESCE(?, avatar_path)
+            WHERE chat_id = ?
+            """) else { return false }
+        defer { sqlite3_finalize(statement) }
+        Self.bindOptional(statement, 1, fileId.map(Int64.init))
+        Self.bindOptional(statement, 2, uniqueId)
+        Self.bindOptional(statement, 3, path)
+        sqlite3_bind_int64(statement, 4, chatId)
         return sqlite3_step(statement) == SQLITE_DONE
     }
 
@@ -940,6 +1004,34 @@ public final class LibraryStore: @unchecked Sendable {
         guard let statement, sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
         let value = text(statement, index)
         return value.isEmpty ? nil : value
+    }
+
+    /// An INTEGER column that is allowed to be absent — a channel that has not had its picture read
+    /// yet is not a channel whose picture is zero.
+    private static func optionalInt(_ statement: OpaquePointer?, _ index: Int32) -> Int? {
+        guard let statement, sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
+        return Int(sqlite3_column_int(statement, index))
+    }
+
+    /// Binding a value that may be absent. `NULL` is what the `COALESCE` in the statements above reads
+    /// as "leave the column alone", so an optional has to be bound as one rather than turned into a
+    /// zero or an empty string.
+    private static func bindOptional(_ statement: OpaquePointer?, _ index: Int32,
+                                     _ value: String?) {
+        if let value {
+            sqlite3_bind_text(statement, index, value, -1, Self.transient)
+        } else {
+            sqlite3_bind_null(statement, index)
+        }
+    }
+
+    private static func bindOptional(_ statement: OpaquePointer?, _ index: Int32,
+                                     _ value: Int64?) {
+        if let value {
+            sqlite3_bind_int64(statement, index, value)
+        } else {
+            sqlite3_bind_null(statement, index)
+        }
     }
 }
 

@@ -15,9 +15,10 @@ import TdSession
 ///
 /// First on the screen is the account block — the identity card and, 32 pt under it, the red
 /// sign-out, neither of them carrying a header (`SettingsAccountSection.swift:17-31`, `:142-153`,
-/// `:163-196`). The one round thing here is the account mark, which is MeloX's own
-/// (`SettingsAccountSection.swift:213-214`) and stands for a person rather than a cover; the rule
-/// that made every artwork a rounded square never reaches it.
+/// `:163-196`). The round things here are the marks that stand for somebody rather than for a cover:
+/// the account mark, which is MeloX's own (`SettingsAccountSection.swift:213-214`), and the photo each
+/// channel wears in the list below. The rule that made every artwork a rounded square never reaches
+/// them.
 ///
 /// The search field is the reference's behaviour, not its decoration: a query is split on whitespace
 /// and a row survives only when every piece of it turns up in that row's own text, and a card with
@@ -63,9 +64,11 @@ struct SettingsView: View {
                         } else {
                             ForEach(visibleChannels) { channel in
                                 if channel.id != visibleChannels.first?.id { divider }
-                                row("person.2", channel.title,
-                                    subtitle: subtitle(for: channel),
-                                    selected: channel.isIndexed) {
+                                row(channel.title, mark: {
+                                    ChannelAvatar(channel: channel, library: library,
+                                                  session: session)
+                                }, subtitle: subtitle(for: channel),
+                                  selected: channel.isIndexed) {
                                     library.setIndexed(channel.chatId, on: !channel.isIndexed)
                                     indexer.run(session, library: library)
                                 }
@@ -259,10 +262,22 @@ struct SettingsView: View {
     private func row(_ symbol: String, _ title: String, subtitle: String? = nil,
                      value: String? = nil, selected: Bool = false,
                      action: (() -> Void)? = nil) -> some View {
-        let content = HStack(spacing: MusicSettingsMetrics.rowIconGap) {
+        row(title, mark: {
             Image(systemName: symbol)
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.tint)
+        }, subtitle: subtitle, value: value, selected: selected, action: action)
+    }
+
+    /// The same row with a mark of the caller's own rather than a glyph, which is what lets a channel
+    /// wear its Telegram photo in the column the placeholder used to fill.
+    private func row<Mark: View>(_ title: String,
+                                 @ViewBuilder mark: () -> Mark,
+                                 subtitle: String? = nil, value: String? = nil,
+                                 selected: Bool = false,
+                                 action: (() -> Void)? = nil) -> some View {
+        let content = HStack(spacing: MusicSettingsMetrics.rowIconGap) {
+            mark()
                 .frame(width: MusicSettingsMetrics.rowIconWidth)
             VStack(alignment: .leading, spacing: MusicSettingsMetrics.rowTextGap) {
                 Text(title)
@@ -396,6 +411,47 @@ private enum SettingsSearch {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .split(whereSeparator: \.isWhitespace)
+    }
+}
+
+/// A channel's own Telegram picture, in the mark column of its row: 30 pt because that is the column
+/// every other row on this screen has (`SettingsHomeComponents.swift:58-88`), and round because it
+/// stands for a chat rather than for a cover.
+///
+/// What is drawn is a file on the phone, not a request in flight: `chat.photo`'s `small` variant is a
+/// 160×160 JPEG (`td_api.tl:784`, `:779`) — five times the pixels this mark is drawn at, which is the
+/// difference between a photo and a smear — and `Library.loadAvatar` copies it into a directory this
+/// app owns the first time the row appears. So a visit to this screen after the first one costs one
+/// read and no round trip at all, which is what "cực nhanh" has to mean when the picture lives on a
+/// server in Amsterdam.
+private struct ChannelAvatar: View {
+    let channel: StoreChannel
+    @ObservedObject var library: Library
+    /// Only used inside the task, which is where the asking happens; the row's own redraw comes from
+    /// the library publishing its channels.
+    let session: TelegramSession
+
+    var body: some View {
+        mark
+            .task { await library.loadAvatar(of: channel, on: session) }
+    }
+
+    @ViewBuilder
+    private var mark: some View {
+        if let image = library.avatarImage(of: channel) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: MusicSettingsMetrics.rowIconWidth,
+                       height: MusicSettingsMetrics.rowIconWidth)
+                .background(.quaternary, in: .circle)
+                .clipShape(.circle)
+        } else {
+            // Until the bytes arrive, the row wears what it wore before it had a picture at all.
+            Image(systemName: "person.2")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.tint)
+        }
     }
 }
 

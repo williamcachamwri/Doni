@@ -112,6 +112,72 @@ struct LibraryStoreTests {
         #expect(store.channels().first?.title == "New")
     }
 
+    @Test("a channel re-added by handle keeps the picture already recorded for it")
+    func avatarSurvivesAReAdd() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A",
+                                         avatarFileId: 42, avatarUniqueId: "AAA=",
+                                         avatarPath: "/tmp/a.jpg"))
+        // The add screen knows a title and a handle and nothing about the file on the phone, so the
+        // upsert must not let that ignorance take the picture away.
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "Renamed"))
+        let row = try #require(store.channels().first)
+        #expect(row.title == "Renamed")
+        #expect(row.avatarFileId == 42)
+        #expect(row.avatarUniqueId == "AAA=")
+        #expect(row.avatarPath == "/tmp/a.jpg")
+    }
+
+    @Test("a picture is recorded in halves, and a half never clears what is there")
+    func avatarIsWrittenInParts() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        store.save(channel: StoreChannel(chatId: -1, username: "a", title: "A"))
+        #expect(store.channels().first?.avatarFileId == nil)
+
+        // `getChat` has answered and the bytes have not been copied yet.
+        store.setChannelAvatar(chatId: -1, fileId: 7, uniqueId: nil, path: nil)
+        #expect(store.channels().first?.avatarFileId == 7)
+        #expect(store.channels().first?.avatarPath == nil)
+
+        store.setChannelAvatar(chatId: -1, fileId: 7, uniqueId: "AAA=", path: "/tmp/aaa.jpg")
+        // A new picture is a new file, so the path moves with it.
+        store.setChannelAvatar(chatId: -1, fileId: 8, uniqueId: "BBB=", path: "/tmp/bbb.jpg")
+        let row = try #require(store.channels().first)
+        #expect(row.avatarFileId == 8)
+        #expect(row.avatarUniqueId == "BBB=")
+        #expect(row.avatarPath == "/tmp/bbb.jpg")
+
+        store.setChannelAvatar(chatId: -1, fileId: nil, uniqueId: nil, path: nil)
+        #expect(store.channels().first?.avatarPath == "/tmp/bbb.jpg")
+    }
+
+    @Test("a database written before channels had pictures gains the columns and keeps the rows")
+    func avatarColumnsMigrate() throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("doni-store-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let path = directory.appendingPathComponent("library.db").path
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var old: OpaquePointer?
+        #expect(sqlite3_open(path, &old) == SQLITE_OK)
+        sql(old, "CREATE TABLE channel (chat_id INTEGER PRIMARY KEY, username TEXT NOT NULL,"
+            + " title TEXT NOT NULL, is_indexed INTEGER NOT NULL DEFAULT 0)")
+        sql(old, "INSERT INTO channel VALUES (-1002, 'vn', 'VN Music', 1)")
+        sqlite3_close(old)
+
+        let store = LibraryStore(path: path)
+        defer { store.close() }
+        #expect(store.channels() == [StoreChannel(chatId: -1002, username: "vn",
+                                                  title: "VN Music", isIndexed: true)])
+        store.setChannelAvatar(chatId: -1002, fileId: 9, uniqueId: "AAA=", path: "/tmp/a.jpg")
+        let row = try #require(store.channels().first)
+        #expect(row.avatarFileId == 9)
+        #expect(row.avatarPath == "/tmp/a.jpg")
+    }
+
     @Test("the library reads newest first, the way a chat does")
     func tracksComeBackNewestFirst() throws {
         let (store, directory) = try makeStore()

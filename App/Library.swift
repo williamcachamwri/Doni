@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import ImageIO
 import SwiftUI
@@ -54,10 +55,14 @@ final class Library: ObservableObject {
 
     /// A channel on the allow-list, remembered from the link or the chat list it was picked out of.
     /// The chat id is already resolved by then — the screen that adds a channel has read a page of it
-    /// to say what is in there — so a walk needs no second lookup to start.
+    /// to say what is in there — so a walk needs no second lookup to start. The picture comes back in
+    /// the same answer (`td_api.tl:4080`), so the row knows what to ask for without a request of its
+    /// own.
     func add(_ channel: TdChannel) {
         store.save(channel: StoreChannel(chatId: channel.chatId, username: channel.username,
-                                         title: channel.title, isIndexed: true))
+                                         title: channel.title, isIndexed: true,
+                                         avatarFileId: channel.photo?.fileId,
+                                         avatarUniqueId: channel.photo?.uniqueId))
         refresh()
     }
 
@@ -284,9 +289,92 @@ final class Library: ObservableObject {
         try? FileManager.default.removeItem(atPath: path)
     }
 
+    // MARK: Channel pictures
+
+    /// The picture a channel wears, decoded through the app's cover cache — a row redraws on every
+    /// scroll and the decode is the part worth not doing twice. `nil` until the bytes are on the
+    /// phone, which is what tells the row to keep showing its placeholder.
+    func avatarImage(of channel: StoreChannel) -> UIImage? {
+        guard let path = channel.avatarPath else { return nil }
+        return CoverArtwork.shared.image(at: path)
+    }
+
+    /// Getting one channel's picture onto the phone, if it is not there already.
+    ///
+    /// Called from the row that shows it, and it returns having asked for nothing once the copy exists,
+    /// so the list of channels costs one `getChat` and one small download per channel the first time
+    /// they are looked at and nothing after. What it fetches is `chat.photo`'s `small` variant, a
+    /// 160×160 JPEG (`td_api.tl:4080`, `:784`, `:779`) — five times the pixels a 30 pt mark is drawn
+    /// at, which is the whole of the difference between this and the glyph it replaces.
+    func loadAvatar(of channel: StoreChannel, on session: TelegramSession) async {
+        if let path = channel.avatarPath, FileManager.default.fileExists(atPath: path) { return }
+        guard let reader = session.reader(), let files = session.covers() else { return }
+        guard let photo = try? await reader.photo(chatId: channel.chatId) else { return }
+        guard let uniqueId = photo.uniqueId else {
+            // A number for the file and no identity for its bytes — TDLib's `fileRemoteUnknown` —
+            // leaves nothing safe to file a picture under, so the number is kept and the row asks
+            // again next time it is shown.
+            store.setChannelAvatar(chatId: channel.chatId, fileId: photo.fileId,
+                                   uniqueId: nil, path: nil)
+            return
+        }
+        guard let taken = await files.path(fileId: photo.fileId,
+                                           priority: TdFileDownloader.coverPriority) else { return }
+        let written = Self.keepPhoto(taken, uniqueId: uniqueId)
+        if let written, let previous = channel.avatarPath, previous != written {
+            // A channel that changed its picture is a new file rather than an overwrite: the cache
+            // this is drawn through is keyed by path, so a path may only ever name one picture.
+            try? FileManager.default.removeItem(atPath: previous)
+        }
+        store.setChannelAvatar(chatId: channel.chatId, fileId: photo.fileId,
+                               uniqueId: uniqueId, path: written)
+        // The published channels, not the whole library: `refresh()` would re-stat every file on the
+        // phone to prove that one picture arrived. Nothing is published when there is no picture.
+        if written != nil { channels = store.channels() }
+    }
+
+    /// One chat's picture, copied where this app keeps its own files. The copy is what makes the row
+    /// instant: TDLib prunes its own caches when the phone wants the room back, and a picture that
+    /// lived only there had to be fetched again on every visit.
+    private nonisolated static func keepPhoto(_ path: String, uniqueId: String) -> String? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)), !data.isEmpty else {
+            return nil
+        }
+        let url = avatarURL(uniqueId)
+        guard !FileManager.default.fileExists(atPath: url.path) else { return url.path }
+        do {
+            try data.write(to: url, options: .atomic)
+            return url.path
+        } catch {
+            return nil
+        }
+    }
+
+    /// The name a picture is kept under: a hash of the file's MTProto identity, which is the same for
+    /// the same bytes in every database on every device (`td_api.tl:326`). Hashed because the identity
+    /// itself is bytes, and a filename is not allowed to say so.
+    private nonisolated static func avatarURL(_ uniqueId: String) -> URL {
+        let name = SHA256.hash(data: Data(uniqueId.utf8)).prefix(12)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return avatarDirectory.appendingPathComponent("\(name).jpg")
+    }
+
+    /// Beside the list covers, in the app's private support directory: nothing here is uploaded, and
+    /// nothing here is read by anything but this app.
+    private nonisolated static var avatarDirectory: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let url = base.appendingPathComponent("Doni/Avatars", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
     // MARK: The file
 
     func remove(channel chatId: Int64) {
+        if let path = channels.first(where: { $0.chatId == chatId })?.avatarPath {
+            try? FileManager.default.removeItem(atPath: path)
+        }
         store.removeChannel(chatId: chatId)
         refresh()
     }
@@ -296,6 +384,7 @@ final class Library: ObservableObject {
     func wipe() {
         store.wipeLibrary()
         try? FileManager.default.removeItem(at: Self.coverDirectory)
+        try? FileManager.default.removeItem(at: Self.avatarDirectory)
         refresh()
     }
 

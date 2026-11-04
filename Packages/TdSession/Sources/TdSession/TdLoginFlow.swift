@@ -234,7 +234,18 @@ public struct TdChannelReader: Sendable {
             throw Failure.unexpectedResponse(type.type ?? "no chat type")
         }
         return TdChannel(chatId: chatId, username: username,
-                         title: chat["title"]?.string ?? username, kind: kind)
+                         title: chat["title"]?.string ?? username, kind: kind,
+                         photo: TdChatPhoto(chat: chat))
+    }
+
+    /// The picture one chat wears, asked for by the id the allow-list already holds.
+    ///
+    /// One `getChat` (`td_api.tl:12413`) — the same request the chat list uses to fill a row — and the
+    /// `chatPhotoInfo` it answers (`:784`) is read straight off the `chat` object, so a channel added
+    /// before this app recorded its picture needs exactly one round trip to get it.
+    public func photo(chatId: Int64) async throws -> TdChatPhoto? {
+        let chat = try await flow.request("getChat", ["chat_id": .int(chatId)])
+        return TdChatPhoto(chat: chat)
     }
 
     /// A bot check that cannot be answered is not a reason to lose a row — the chat title is still
