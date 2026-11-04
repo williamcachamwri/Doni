@@ -270,7 +270,10 @@ struct LoginView: View {
             .scaleEffect(motion.fieldScale)
             .opacity(motion.alpha)
 
-            Spacer(minLength: 0)
+            // Not `minLength: 0`. The keyboard's suggestion strip — the "Từ Nicegram 97539" bar — is
+            // part of the height iOS takes back, and a spacer that can close to nothing pressed the
+            // button straight onto the bottom of the boxes.
+            Spacer(minLength: TelegramLoginMetrics.buttonToBottom)
 
             TelegramPrimaryButton(
                 palette: list,
