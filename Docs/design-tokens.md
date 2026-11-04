@@ -724,8 +724,9 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Hero action row | `GlassEffectContainer(spacing: 14)`, 30 pt glyphs, play at `title3.bold()` | `PlaylistDetailContent.swift:328-389` |
 | Track row | 40 index column (32 circle) · art 48 r6 · gap 12 · leading 20 / trailing 8 · vertical 11 (8 with art) | `PlaylistTrackList.swift:89-101,223-232,254-269` |
 | Add-to-playlist row | art 52 r7 · gap 12 · text gap 3 | `AddToPlaylistSheet.swift:86-95` |
-| Queue pills | height 44 · radius 22 | `NowPlayingQueuePage.swift:289,297` |
-| Queue row | art 48 r6, title `.body`, note `.subheadline` | `NowPlayingQueuePage.swift:343-351` |
+| Queue pills | height 44 · radius 22 · gap 14 · glyph `title3.semibold` · idle white 0.12 with 0.86 white ink, on white 0.7 with 0.62 black ink · row 60 with 8 vertical padding · top inset and mask both stop at pills+60 · toggle `.smooth(0.34)` | `NowPlayingQueuePage.swift:45`, `:100-107`, `:181-187`, `:229`, `:282-299`, `:307` |
+| Queue heading | `title2.bold()`, 14 top / 10 bottom; the empty state is a `ContentUnavailableView` with 24 row insets | `NowPlayingQueuePage.swift:52-58`, `:61-74` |
+| Queue row | art 48 r6 · gap 12 · text gap 2 · title `.body`, artist `.subheadline` white 0.58 · row insets 4 top/bottom · edit mode pinned on so every row drags | `NowPlayingQueuePage.swift:95`, `:338-370` |
 | Settings card | r26 continuous, `secondarySystemGroupedBackground` · header `headline` secondary at 14 padding · card gap 10 · divider leading 58 | `SettingsHomeComponents.swift:23-50` |
 | Settings row | minHeight 68 · icon `title3.medium` tinted, 30 wide · gap 14 · text gap 3 · title `body.semibold` · subtitle `caption` · chevron `caption.semibold` tertiary · padding 18/13 | `SettingsHomeComponents.swift:58-88` |
 | Now playing padding | 32 horizontal | `NowPlayingView.swift:5` |
@@ -738,9 +739,11 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Progress block | thumb hidden, `.tint(.white)`, times `caption2.monospacedDigit()` white 0.5, chip 9/4 padding r7 white 0.12 with a 9 glyph | `NowPlayingControls.swift:11-52,99-105,151-160` |
 | Volume | row 42 · slider 32 · glyph gap 10 · white 0.62 | `NowPlayingControls.swift:324-337` |
 | Page selector | row 50 inset 32 · 44 circles at `.title3` white 0.72 · selected 0.68 white disc, 0.68 black ink · badge 15 with a 7 glyph at (3,1) | `NowPlayingControls.swift:451-512` |
-| Title line | `title3.semibold` over `title3` artist at white 0.64, 2 apart, 8 to badges, 14 to actions | `NowPlayingArtworkPage.swift:130-153` |
-| Song header (queue/lyrics) | 72 tall, art r12, enters from 40 below | `NowPlayingSongHeader.swift:43,104`, `NowPlayingMotionSpec.swift:528` |
-| Backdrop | artwork at scale 1.35 under a 90 blur | `NowPlayingBackground.swift:127-128`, `AppSettings.swift:2007` |
+| Title line | `title3.semibold` over `title3` artist at white 0.64, 2 apart, 14 to actions | `NowPlayingArtworkPage.swift:130-153` |
+| Song actions | two 40 discs 10 apart — ellipsis on white 0.15, star on 0.13; the artwork page shows the ellipsis alone | `NowPlayingSongActions.swift:15,56-57,219-220`, `NowPlayingArtworkPage.swift:149-152` |
+| Song header (queue/lyrics) | 72 tall, art r12, row gap 12, enters from 40 below | `NowPlayingSongHeader.swift:43,66,104`, `NowPlayingMotionSpec.swift:528` |
+| Backdrop | artwork at scale 1.35 under a 90 blur, a 0.10 black veil, a legibility wash at 0.04/0.12/0.48, cross-faded at `easeInOut(0.55)` | `NowPlayingBackground.swift:61,127-128,149,168-170`, `AppSettings.swift:2007` |
+| Page travel | artwork enters and leaves at −300; queue and lyrics travel 0, so they cross-fade; selection `.smooth(0.30)`, outgoing 0.24, incoming 0.22 + 0.07 | `NowPlayingPageTransition.swift:38-53`, `NowPlayingMotionSpec.swift:525-526` |
 
 **Motion bank** (`NowPlayingMotionSpec.appleMusic26`, all iOS 17-safe). Page transitions `.smooth`
 0.30 selection / 0.44 direct alternate / 0.24 outgoing / 0.22+0.07 incoming / 0.40+0.08 song header /
