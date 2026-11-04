@@ -15,15 +15,9 @@ extension EnvironmentValues {
 }
 
 /// The shell around the list: a tab bar, a strip of player above it, and the chips Doni uses to
-/// pick a channel. The strip and the tab bar now wear the numbers of the Apple Music kit the user
-/// pointed at (`AMToolbarView.swift`, `AMTabBarController.swift`); the chips stay Telegram's.
+/// pick a channel. The strip's own numbers moved to `MusicMiniPlayerMetrics` when MeloX became the
+/// oracle; the chips stay Telegram's.
 public enum TelegramShellMetrics {
-    /// The toolbar is a 40 pt artwork inset 8 into its 56 pt bar (`AMToolbarView.swift:109-114`).
-    public static let miniPlayerHeight: CGFloat = 56
-    public static let miniPlayerArt: CGFloat = 40
-    /// `imageView.layer.cornerRadius = 6` (`AMToolbarView.swift:101`).
-    public static let miniPlayerArtRadius: CGFloat = 6
-
     /// `buttonSize = CGSize(width: 64.0, height: 64.0)` for the transport row (`:887`); the glyph
     /// inside it is a 76 pt asset box (`:899`), which an SF Symbol cannot be sized from, so the
     /// point sizes live with the screen that draws them.
@@ -100,21 +94,24 @@ public enum TelegramHeaderMetrics {
     public static var searchClearance: CGFloat { topClearance + actionGap + fieldHeight }
 }
 
-/// The bottom chrome after the Apple Music kit: a full-width toolbar 6 pt above the standard tab
-/// bar, both sitting on one backdrop that runs from the toolbar's top to the screen's bottom — no
-/// capsule, no separate search circle. `AMTabBarController.swift`, `AMToolbarView.swift`.
+/// The bottom chrome: a strip of player over a full-width tab bar, both on one backdrop that runs
+/// from the strip's top to the screen's bottom. MeloX hangs the strip on the tab bar's own accessory
+/// slot (`ContentView.swift:336-340`), which iOS 17 has no equivalent of, so Doni stacks the two and
+/// keeps the accessory's 12 pt of side padding as the card's margin.
 public enum TelegramFloatingBarMetrics {
-    /// `toolbarView` insets 12 pt from each edge (`AMTabBarController.swift:48-49`).
+    /// `.padding(.horizontal, 12)` inside the accessory row (`MiniPlayerView.swift:92`) — Doni's
+    /// card keeps that much air from each screen edge.
     public static let toolbarMargin: CGFloat = 12
-    /// `toolbarView.bottomAnchor.constraint(equalTo: tabBar.topAnchor, constant: -6)` (`:50`).
+    /// Doni's own: the system accessory butts against the bar; a floating card needs a seam to read
+    /// as one, and the 6 pt the kit measured is already in the backdrop.
     public static let toolbarToTabBar: CGFloat = 6
 
-    /// How far a list has to run before its last row clears the chrome. The kit scrolls its lists
-    /// *under* the toolbar and tab bar — the backdrop blurs them as they pass — so this is content
-    /// margin rather than a layout row.
+    /// How far a list has to run before its last row clears the chrome. The reference scrolls its
+    /// lists *under* the chrome and blurs them as they pass, so this is content margin rather than a
+    /// layout row.
     public static func clearance(stripVisible: Bool) -> CGFloat {
         TelegramShellMetrics.tabBarHeight
-            + (stripVisible ? TelegramShellMetrics.miniPlayerHeight + toolbarToTabBar : 0)
+            + (stripVisible ? MusicMiniPlayerMetrics.height + toolbarToTabBar : 0)
     }
 }
 
@@ -127,18 +124,17 @@ public enum TelegramShellTypography {
     public static let artist = Font.system(size: 15, weight: .regular)
     /// `Font.medium(12.0)` on both timestamp labels (`:267`, `:270`).
     public static let timestamp = Font.system(size: 12, weight: .medium)
-    /// `Font.medium(10.0)` under an icon (`TabBarNode.swift:20`).
+    /// The system tab bar's own label, `medium(10)`, which is what MeloX gets under
+    /// `Tab(tab.title, systemImage: …)` (`ContentView.swift:367-372`).
     public static let tabLabel = Font.system(size: 10, weight: .medium)
     /// The photo's bar title is a *large* centred title, not the source's literal `semibold(17)`
     /// (`DocumentPreviewController.swift:202`): its ink spans 16.0 pt (`bands 380 800 150 341`) and
     /// its stems measure 7 px where the row's `semibold(13)` measures 4, i.e. 13 × 7 ÷ 4 ≈ 22 pt at
     /// the same weight.
     public static let barLargeTitle = Font.system(size: 22, weight: .semibold)
-    /// Doni's own: on a floating pill the leading word is an iOS bar button, which is `regular(17)`
-    /// — the measured `semibold(14)` belonged to the band's capsule and went with it.
-    public static let barAction = Font.system(size: 17, weight: .regular)
-    /// Doni's own: the tab screens' large title, `bold(34)` after the Apple Music set the user
-    /// pointed at.
+    /// Doni's own: the tab screens' large title, the `bold(34)` the system draws for the
+    /// `.navigationTitle` MeloX sets on every tab root (`SearchView.swift:35`, `HomeView` and the
+    /// rest of them), which iOS 17 has to be asked for by hand.
     public static let largeTitle = Font.system(size: 34, weight: .bold)
 }
 

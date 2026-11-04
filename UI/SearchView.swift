@@ -3,9 +3,10 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The screen the tab bar's search circle opens, after the Apple Music set: the title set left in
-/// `bold(34)`, a full-width rounded field under it, and Huỷ stepping in only while the field holds
-/// the keyboard.
+/// The search tab, after MeloX: the title set left in `bold(34)` and a full-width field under it,
+/// which is what `SearchView.swift:35-40` asks the system for with `.navigationTitle` plus a
+/// `.searchable(placement: .navigationBarDrawer(displayMode: .always))` — a bar that is always
+/// open, so it needs no Huỷ to close it and no keyboard grabbed before anyone wants one.
 ///
 /// What it searches is the whole library, and the fold it searches with is `SearchTextFold`'s, so
 /// "tinh yeu" finds "Tình yêu" the way the list always did.
@@ -15,13 +16,11 @@ struct SearchView: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    let close: () -> Void
 
     @Environment(\.displayScale) private var displayScale
     @Environment(\.telegramFloatingClearance) private var floatingClearance
 
     @State private var query = ""
-    @State private var editing = false
 
     private let palette = TelegramPalette.dark
 
@@ -39,21 +38,11 @@ struct SearchView: View {
             Text("Tìm kiếm")
                 .font(TelegramShellTypography.largeTitle)
                 .foregroundStyle(palette.navPrimaryText)
-            HStack(spacing: TelegramHeaderMetrics.actionGap) {
-                SearchField(query: $query, placeholder: "Tìm bài hát",
-                            autoFocus: true, isEditing: $editing)
-                if editing {
-                    Button("Huỷ", action: close)
-                        .font(TelegramShellTypography.barAction)
-                        .foregroundStyle(palette.highlight)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                }
-            }
+            SearchField(query: $query, placeholder: "Tìm bài hát")
         }
         .padding(.horizontal, TelegramHeaderMetrics.sideInset)
         .padding(.top, TelegramHeaderMetrics.topPadding)
         .padding(.bottom, TelegramHeaderMetrics.bottomPadding)
-        .animation(TelegramLoginMotion.easeInOut(0.2), value: editing)
     }
 
     private var visible: [any Playable] {
@@ -76,7 +65,6 @@ struct SearchView: View {
                         isFavorite: kept.contains(track.uniqueId),
                         artwork: artwork
                     ) {
-                        close()
                         player.play(track, in: visible)
                     }
                     .trackActions(track, library: library)

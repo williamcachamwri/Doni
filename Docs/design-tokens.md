@@ -662,23 +662,16 @@ because the pill itself is now the vessel the band was.
 | loupe ink **21.0 pt** tall, centred in the circle | the glyph inside the 64 pt search circle — Doni sizes an SF Symbol to land on it, which wants `pointSize` 24 | `bands 918 1110 2280 2472`: 2344 → 2406 px |
 | the capsule is **278 pt** because the margins and the circle take the rest | 390 − 2 × 20 − 64 − 8. Doni's four tabs share that same 278 pt, so its item is 69.5 rather than the measured 92.7 | `hedges 2380`: 60 → 894, 918 → 1110 px |
 
-**Doni's own, in this section.** Four tabs in the photo's three-item capsule, so the pitch is
-`278 / 4` and not the measured 92.7; the search circle opens its **own screen** (`UI/SearchView.swift`),
-because a field under the bar would be a row the photo does not have — the library's list starts
-12.7 pt below the band exactly as the reference's does; `play/pause` and the account menu in the
-trailing group instead of Telegram's camera / add-contact / compose; a 60 pt *cover* in the column
-the reference uses for an avatar (49 pt in the photo, 60 at the scale the user directed), circular
-because the photo's column is circular; the download
-bubble, which occupies the unread pill's slot with the pill's own metrics; a badge over the library
-tab only while the channel is being read; and the mini player as a third floating capsule above the
-bar with 8 pt between them, since the reference's music panel is full-bleed and this build's chrome
-is not.
+**Superseded, 2026-11-04.** MeloX replaced this oracle (see the next section), and the bar it wears is
+the iOS system bar: five full-width items, home first and search last, each a 24 pt glyph over a
+`medium(10)` label on the system's own 49 pt height, the selected item in the scene's red tint and no
+badge anywhere (`UI/AMTabBar.swift`, `DoniTab`). The strip is MeloX's mini player — a 52 pt row, a 40 pt
+cover at radius 6 and two 36 pt circles, inset 12 from each edge and floating 6 pt above the bar.
 
 **The clearance the floating chrome needs.** A list that scrolls under the glass still has to end
 above it, so the scroll content is inset by `TelegramFloatingBarMetrics.clearance(stripVisible:)` =
-`20 + 67.3 (+ 64 + 8 when the strip is showing)` — 87.3 pt, or 159.3 with a song loaded. The shell
-owns that number and hands it down through `\.telegramFloatingClearance`, because only the shell
-knows whether the strip is up.
+`49`, or `49 + 52 + 6 = 107` with a song loaded. The shell owns that number and hands it down through
+`\.telegramFloatingClearance`, because only the shell knows whether the strip is up.
 
 ## MeloX — the music shell Doni now wears (2026-11-04)
 
@@ -706,6 +699,7 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Quick-action tile | 132 tall · ≤230 wide compact · `min(w×0.86, 340)` standard · r14 · p14 · gap 16 | `HomeQuickActionsView.swift:101,131-135,144`, `HomeComponents.swift:11,43,53` |
 | Tile gradient | topLeading→bottomTrailing over pink/red, orange/red, pink/purple, indigo/purple, cyan/blue, mint/teal | `HomeQuickActionsView.swift:81-96`, `HomeComponents.swift:47-52` |
 | Tile watermark | 72 `semibold` at white 0.24; overlay title `.title.bold()` with 18 padding; box aspect 1.48 | `HomeComponents.swift:79-94` |
+| Tab bar | `ForEach(visibleTabs)` of `Tab(title, systemImage:)`, home first and search last, neither movable; glyphs `house` / `music.note.list` / `heart` / `magnifyingglass`, selection in the scene's red tint | `ContentView.swift:366-372`, `AppSettings.swift:1901-1914`, `NavigationPreferences.swift:42-60`, `TabLayoutSettingsView.swift:88` |
 | Mini player | art 40 (30 inline) r6 · gap 10 (8) · text gap 1 · buttons 36 circle · padding 12/6 | `MiniPlayerView.swift:14-30,47-93,110-112` |
 | Mini player swipe | `DragGesture(minimumDistance: 28)`, horizontal-dominant | `MiniPlayerView.swift:115-123` |
 | Playlist list row | art 54 r7 · gap 12 · text gap 4 · count `.caption` secondary | `LibraryPlaylistsView.swift:155-163` |

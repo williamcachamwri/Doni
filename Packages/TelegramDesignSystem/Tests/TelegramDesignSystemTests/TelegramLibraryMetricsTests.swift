@@ -68,25 +68,20 @@ struct TelegramBarMetricsTests {
         #expect(TelegramBarMetrics.topClearance == 72)
     }
 
-    @Test("the bottom chrome is the kit's toolbar over its tab bar")
+    @Test("the bottom chrome keeps the seam the kit measured")
     func floating() {
-        // The toolbar insets 12 from each edge (`AMTabBarController.swift:48-49`) and hangs 6
-        // above the tab bar (`:50`).
+        // The strip insets 12 from each edge and hangs 6 above the tab bar; the strip's own height
+        // is MeloX's now, so it is asserted in `MusicScreenThemeTests`.
         #expect(TelegramFloatingBarMetrics.toolbarMargin == 12)
         #expect(TelegramFloatingBarMetrics.toolbarToTabBar == 6)
-        // The toolbar is the 56 pt bar whose artwork arithmetic is tested above; the tab bar is
-        // the system's 49.
-        #expect(TelegramShellMetrics.miniPlayerHeight == 56)
-        #expect(TelegramShellMetrics.miniPlayerHeight
-            == TelegramShellMetrics.miniPlayerArt + 2 * 8)
         #expect(TelegramShellMetrics.tabBarHeight == 49)
     }
 
     @Test("a list ends above the glass it scrolls under")
     func clearance() {
-        // The tab bar's 49 alone, plus toolbar and gap once the strip is up: 49 + 56 + 6.
+        // The tab bar's 49 alone, plus strip and seam once it is up: 49 + 52 + 6.
         #expect(TelegramFloatingBarMetrics.clearance(stripVisible: false) == 49)
-        #expect(TelegramFloatingBarMetrics.clearance(stripVisible: true) == 111)
+        #expect(TelegramFloatingBarMetrics.clearance(stripVisible: true) == 107)
     }
 }
 

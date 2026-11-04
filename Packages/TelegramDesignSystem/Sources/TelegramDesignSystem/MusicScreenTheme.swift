@@ -119,6 +119,11 @@ public enum MusicMiniPlayerMetrics {
     /// `.padding(.horizontal, 12).padding(.vertical, 6)` around the row (`:92-93`).
     public static let horizontalPadding: CGFloat = 12
     public static let verticalPadding: CGFloat = 6
+    /// `.font(.title3.weight(.semibold))` on both bar glyphs (`:53`, `:84`).
+    public static let glyph = Font.title3.weight(.semibold)
+    /// Doni's own: the reference hangs this row in the tab bar's glass accessory, which iOS 17 has
+    /// no equivalent of, so Doni floats it as a card and has to give the card a corner.
+    public static let cardRadius: CGFloat = 14
     /// The row's own height — Doni's own, the number the kit's bar measured and MeloX leaves to
     /// its accessory container: artwork plus both vertical pads.
     public static var height: CGFloat { art + 2 * verticalPadding }
