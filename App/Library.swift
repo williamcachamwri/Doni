@@ -84,10 +84,20 @@ final class Library: ObservableObject {
 
     /// Where TDLib put the file. Recorded so the row shows as downloaded and a second play of the
     /// same song never asks the network again.
+    ///
+    /// The published row is patched rather than re-read: a song finishing its download is one row
+    /// changing, and `refresh()` re-stats every file the library knows to prove that one of them
+    /// exists. The tab that was waiting for the file would wait longer for the count than for it.
     func recordDownload(path: String, uniqueId: String) {
         store.setLocalPath(path, uniqueId: uniqueId)
         downloadedCount = store.downloadedCount()
         downloadedBytes = store.downloadedBytes()
+        storedTracks = storedTracks.map { row in
+            guard row.uniqueId == uniqueId, row.localPath != path else { return row }
+            var filled = row
+            filled.localPath = path
+            return filled
+        }
     }
 
     // MARK: Hearts

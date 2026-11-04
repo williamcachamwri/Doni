@@ -417,6 +417,21 @@ final class Player: ObservableObject {
         startCurrent(autoplay: false, startAt: elapsed)
     }
 
+    // MARK: Bringing a song onto the phone
+
+    /// Takes a song the list is showing but the phone does not have yet. Playing it fetches the same
+    /// file as a side effect; this is the press that wants the file without wanting the noise, which
+    /// is what the Cloud Music tab's swipe is for. It answers when the file is on the device, so the
+    /// screen that asked can stop showing its spinner. The downloader coalesces waiters per file, so
+    /// a play that arrives mid-download does not start a second copy.
+    func download(_ track: any Playable) async {
+        guard !track.isDownloaded, let downloader else { return }
+        guard let onDisk = await downloader.path(
+            fileId: track.fileId, priority: TdFileDownloader.audioPriority
+        ) else { return }
+        library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
+    }
+
     // MARK: Loading
 
     /// Loading the row under the playhead. `autoplay: false` is the relaunch case: the song is
