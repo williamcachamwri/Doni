@@ -13,6 +13,11 @@ import UIKit
 /// session is `.playback`, which is the only category that survives the app being suspended.
 @MainActor
 final class Player: ObservableObject {
+    /// What the end of the queue is: an ending, a loop of the whole list, or a loop of this song.
+    enum RepeatMode: Equatable, Sendable {
+        case off, all, one
+    }
+
     @Published private(set) var current: (any Playable)?
     @Published private(set) var isPlaying = false
     @Published private(set) var elapsed: TimeInterval = 0
@@ -21,11 +26,27 @@ final class Player: ObservableObject {
     @Published private(set) var isFetchingFile = false
     /// The slice being played, when the user favoured one: the player holds itself inside it.
     @Published var segment: ClosedRange<Double>?
-    /// Queue order, so the list can mark the row it is on.
-    @Published private(set) var queueCount = 0
+    /// The start of a cut the user is marking, before they have reached its end. Held here rather
+    /// than in the panel because the panel's two pages — the chip and the queue's pill — both show
+    /// it, and a cut marked on one has to read the same on the other.
+    @Published private(set) var markIn: TimeInterval?
+    /// The queue as the up-next page shows it, in the order it will be played.
+    @Published private(set) var queue: [any Playable] = []
+    /// Which row of `queue` is playing, so the page can mark it and a swipe can be answered.
+    @Published private(set) var index = 0
+    @Published private(set) var isShuffled = false
+    @Published private(set) var repeatMode: RepeatMode = .off
+    /// The player's own volume, 0…1. `AVAudioPlayer` has a real one, which is why Doni's volume bar
+    /// moves sound instead of being the prop the reference had to settle for.
+    @Published var volume: Float = 1 {
+        didSet {
+            engine?.volume = volume
+            publishNowPlaying(elapsed: elapsed)
+        }
+    }
 
-    private var queue: [any Playable] = []
-    private var index = 0
+    /// The order the list was played in, kept so turning shuffle off puts it back.
+    private var source: [any Playable] = []
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
     private var loading: Task<Void, Never>?
@@ -37,8 +58,9 @@ final class Player: ObservableObject {
     /// launch and the offline count in Settings is the truth.
     private let library: Library
 
-    var hasNext: Bool { index + 1 < queue.count }
-    var hasPrevious: Bool { index > 0 }
+    /// A repeat loop always has somewhere to go, so the next button is never idle while one is on.
+    var hasNext: Bool { !queue.isEmpty && (index + 1 < queue.count || repeatMode != .off) }
+    var hasPrevious: Bool { !queue.isEmpty && (index > 0 || repeatMode != .off) }
 
     func bind(_ downloader: TdFileDownloader?) {
         self.downloader = downloader
@@ -83,11 +105,128 @@ final class Player: ObservableObject {
     /// The whole list becomes the queue so next/previous walk the channel the way a listener
     /// expects, newest first.
     func play(_ track: any Playable, in list: [any Playable]) {
+        source = list
         queue = list
         index = list.firstIndex { $0.uniqueId == track.uniqueId } ?? 0
-        queueCount = list.count
         segment = nil
+        markIn = nil
+        if isShuffled { shuffleAhead() }
         startCurrent()
+    }
+
+    /// Shuffle only ever touches what has not been heard: the rows behind the playhead stay where
+    /// the user left them, so a flick of the pill never requeues a song already played.
+    private func shuffleAhead() {
+        guard index < queue.count else { return }
+        let ahead = Array(queue[index...]).shuffled()
+        queue.replaceSubrange(index..<queue.count, with: ahead)
+    }
+
+    func setShuffled(_ on: Bool) {
+        guard on != isShuffled else { return }
+        isShuffled = on
+        if on {
+            shuffleAhead()
+        } else {
+            // Back to the order the list was opened in, with this song still under the finger.
+            let held = current?.uniqueId
+            queue = source
+            if let held { index = queue.firstIndex { $0.uniqueId == held } ?? index }
+        }
+    }
+
+    /// The repeat pill walks the three states in the order the reference draws them.
+    func cycleRepeatMode() {
+        switch repeatMode {
+        case .off: repeatMode = .all
+        case .all: repeatMode = .one
+        case .one: repeatMode = .off
+        }
+    }
+
+    // MARK: The queue page
+
+    /// Tapping a row of the up-next page plays that row.
+    func play(at position: Int) {
+        guard queue.indices.contains(position), position != index else { return }
+        index = position
+        startCurrent()
+    }
+
+    /// "Play next" from a row: the song goes in directly behind this one, and a queue that already
+    /// holds it moves rather than duplicates it.
+    func playNext(_ track: any Playable) {
+        var target = queue
+        if let already = target.firstIndex(where: { $0.uniqueId == track.uniqueId }) {
+            target.remove(at: already)
+        }
+        let place = min(index + 1, target.count)
+        target.insert(track, at: place)
+        set(order: target)
+    }
+
+    /// Dragging a row somewhere else. A hand-made order is the user's, so it also becomes the order
+    /// a shuffle-off goes back to.
+    func move(from offsets: IndexSet, to destination: Int) {
+        guard !offsets.isEmpty else { return }
+        var target = queue
+        target.move(fromOffsets: offsets, toOffset: destination)
+        set(order: target, pinAsSource: true)
+    }
+
+    /// Taking rows out of the queue. The song that is playing keeps playing even when its row goes:
+    /// the queue is a plan for what comes next, not the thing making noise.
+    func remove(at offsets: IndexSet) {
+        guard !offsets.isEmpty else { return }
+        let leaving = Set(offsets.map { queue[$0].uniqueId })
+        source.removeAll { leaving.contains($0.uniqueId) }
+        var target = queue
+        target.remove(atOffsets: offsets)
+        set(order: target)
+    }
+
+    /// Installs a new queue order and keeps the playhead on the song it was on.
+    private func set(order: [any Playable], pinAsSource: Bool = false) {
+        let held = current?.uniqueId
+        queue = order
+        if pinAsSource { source = order }
+        if let held, let found = order.firstIndex(where: { $0.uniqueId == held }) {
+            index = found
+        } else {
+            index = min(index, max(order.count - 1, 0))
+        }
+    }
+
+    /// The rows still ahead of the playhead — what the up-next page lists. MeloX's
+    /// `unplayedQueueIndices` (`PlayerStore.swift:89`) is `upcomingIndices(wraps: false)`
+    /// (`PlaybackQueue.swift:66-78`): a repeat never re-offers what has already been heard, so the
+    /// page shows the tail of the queue and nothing more.
+    var upcomingIndices: [Int] {
+        guard !queue.isEmpty else { return [] }
+        return Array(queue.indices.dropFirst(min(index + 1, queue.count)))
+    }
+
+    /// The glyph the queue button wears while it is not the page on screen — MeloX's
+    /// `queueModeBadgeSystemImage` (`PlayerStore.swift:97`) and
+    /// `QueuePlaybackModeIndicator.systemImage` (`PlaybackQueue.swift:33-40`).
+    var queueModeBadgeSystemImage: String? {
+        if repeatMode == .one { return "repeat.1" }
+        if repeatMode == .all { return "repeat" }
+        if isShuffled { return "shuffle" }
+        return nil
+    }
+
+    /// MeloX's own mapping (`PlaybackQueue.swift:10-15`): off and repeat-all share the glyph, and
+    /// only repeat-one earns the `.1`.
+    var repeatSystemImage: String {
+        repeatMode == .one ? "repeat.1" : "repeat"
+    }
+
+    /// Dragging on the up-next page. Its rows are the queue's tail, so the offsets the list reports
+    /// are lifted onto the whole queue by the number of rows the page never shows.
+    func moveUpcoming(from offsets: IndexSet, to destination: Int) {
+        let ahead = min(index + 1, queue.count)
+        move(from: IndexSet(offsets.map { $0 + ahead }), to: destination + ahead)
     }
 
     /// The same track again, but only for the slice the user favourited.
@@ -105,6 +244,9 @@ final class Player: ObservableObject {
         engine = nil
         artworkItem = nil
         current = nil
+        queue = []
+        source = []
+        index = 0
         isPlaying = false
         isFetchingFile = false
         elapsed = 0
@@ -134,15 +276,23 @@ final class Player: ObservableObject {
         publishNowPlaying(elapsed: elapsed)
     }
 
+    /// Forward, and past the last row the loop decides what happens: a repeat walks back to the
+    /// start, no repeat stops with the queue.
     func next() {
         guard hasNext else { return }
-        index += 1
+        index = index + 1 < queue.count ? index + 1 : 0
         startCurrent()
     }
 
     func previous() {
         guard hasPrevious else { return }
-        index -= 1
+        // A song more than three seconds in goes back to its own start first, the way every player
+        // the user already knows behaves; the press after that leaves it.
+        if elapsed > 3 {
+            seek(to: 0)
+            return
+        }
+        index = index > 0 ? index - 1 : queue.count - 1
         startCurrent()
     }
 
@@ -153,6 +303,27 @@ final class Player: ObservableObject {
         engine?.currentTime = clamped
         elapsed = clamped
         publishNowPlaying(elapsed: clamped)
+    }
+
+    // MARK: Cutting
+
+    /// The first press of a cut: the song's current second becomes where the slice starts.
+    func markStart() {
+        markIn = elapsed
+    }
+
+    /// The second press: wherever the song has reached since. A mark that has not moved forward is
+    /// not a slice, so it is refused rather than saved as a zero-length one.
+    func markEnd() {
+        guard let started = markIn, elapsed > started else { return }
+        segment = started...elapsed
+        markIn = nil
+    }
+
+    /// Letting a cut go, whether it was only marked or already held.
+    func clearCut() {
+        segment = nil
+        markIn = nil
     }
 
     // MARK: Loading
@@ -167,6 +338,10 @@ final class Player: ObservableObject {
         // once with only one of them audible.
         engine?.stop()
         engine = nil
+        // A cut is a decision about one song, so it does not travel: the row the chip is describing
+        // is the row under the finger, and a new song has no slice until one is marked on it.
+        segment = nil
+        markIn = nil
         current = track
         elapsed = 0
         duration = Double(track.duration ?? 0)
@@ -203,6 +378,9 @@ final class Player: ObservableObject {
         self.engine = engine
         self.duration = engine.duration
         self.isFetchingFile = false
+        // A fresh `AVAudioPlayer` starts at full, so the slider's position has to be written into
+        // it before the first sample goes out — otherwise the second song of a queue jumps louder.
+        engine.volume = volume
         if let segment {
             engine.currentTime = segment.lowerBound
             elapsed = segment.lowerBound
@@ -231,6 +409,8 @@ final class Player: ObservableObject {
                 // A favourited slice loops: that is the point of saving three minutes of a
                 // one-hour set.
                 engine.currentTime = segment.lowerBound
+            } else if repeatMode == .one {
+                engine.currentTime = 0
             } else if hasNext {
                 next()
                 return
