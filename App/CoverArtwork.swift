@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import Foundation
 import ImageIO
 import TdSession
@@ -22,6 +23,14 @@ import UIKit
 /// The third is therefore only allowed on the smallest tier: rows, bubbles and the strip are drawn
 /// from arm's length and forgive it, while a card or a hero is not, and shows Telegram's gradient
 /// until something real arrives.
+///
+/// Two levels hold the result, because one does not survive a phone. `NSCache` is process memory, and
+/// iOS empties it as soon as a backgrounded app is asked for room back — which is why every cover
+/// used to be missing on the way out of Now Playing. Underneath it sits a directory of the cover's
+/// **own bytes**: the tag's JPEG, the server's thumbnail, copied once and then decoded at whatever
+/// tier a surface next asks for. Nothing is re-encoded, so the quality is the channel's rather than a
+/// copy of a copy, and nothing is re-fetched, so the second time a cover appears it costs one ImageIO
+/// read instead of one round trip.
 @MainActor
 final class CoverArtwork: ObservableObject {
     /// The pixel sides a cover is decoded at, smallest first. A surface takes the smallest tier
@@ -53,11 +62,33 @@ final class CoverArtwork: ObservableObject {
 
     private let cache = NSCache<NSString, UIImage>()
 
+    /// The surfaces that have asked since the app was last in front, oldest first. Coming back from
+    /// the background refills exactly these: a SwiftUI `.task` that is still on screen does not run
+    /// again, so without this a row would go on drawing a gradient over a cache the system emptied.
+    private var recent: [(track: any Playable, points: CGFloat)] = []
+
+    /// The re-warm, held so the singleton keeps its observer alive.
+    private var foreground: Task<Void, Never>?
+
+    /// How many asks are worth remembering. A flick through a thousand-row list is not a request to
+    /// hold a thousand rows; the last screens the user actually looked at are what matter.
+    private static let recentLimit = 40
+
     init() {
         // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero is 2.3 MB, and a
         // flat count would either starve the list or let a handful of heroes walk past the
         // process's memory. 64 MB is a couple of hundred rows and a roomful of cards.
         cache.totalCostLimit = 64 * 1024 * 1024
+        foreground = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(
+                named: UIApplication.didBecomeActiveNotification
+            ) {
+                await self?.rewind()
+            }
+        }
+        // The directory outlives the process, so it is the one thing here that needs a budget of its
+        // own: `Library/Caches` is only pruned when the system feels like it.
+        Task.detached(priority: .utility) { Self.trimSources() }
     }
 
     /// The tile's content, best first: a cover that can fill this surface, then the inline
@@ -123,9 +154,13 @@ final class CoverArtwork: ObservableObject {
     /// surface is filled. Called from a row's `.task`, so scrolling past a track is what orders the
     /// fetches and a row that disappears cancels its own. `via` wins over the attached downloader,
     /// because a row already holds the session's.
+    ///
+    /// The three steps are in order of what they cost: the song on the phone, the bytes the phone has
+    /// already fetched, and only then the network.
     func load(track: any Playable, via: TdFileDownloader? = nil,
               side points: CGFloat = 60) async {
         let pixels = Self.pixels(forSide: points)
+        remember(track, at: points)
         // The song itself first: no network, and the biggest cover Telegram ever sent for it.
         if track.localPath != nil, fileArt(of: track, pixels: pixels) == nil {
             await loadFileArt(of: track, pixels: pixels)
@@ -135,28 +170,81 @@ final class CoverArtwork: ObservableObject {
         // and one that holds the tier it asked for has nothing left to order.
         if fileArt(of: track, pixels: pixels) != nil { return }
         guard atLeast(coverFileId, than: pixels) == nil else { return }
+        let source = Self.coverSource(fileId: coverFileId)
+        if let tile = await tile(from: source, pixels: pixels) {
+            put(tile, forKey: Self.coverKey(fileId: coverFileId, pixels: pixels))
+            return
+        }
         guard let path = await (via ?? downloader)?.path(
             fileId: coverFileId, priority: TdFileDownloader.coverPriority
         ) else { return }
         let image = await Task.detached(priority: .userInitiated) {
-            Self.downsampled(path: path, side: pixels)
+            let tile = Self.downsampled(path: path, side: pixels)
+            Self.keep(path: path, as: source)
+            return tile
         }.value
         guard !Task.isCancelled, let image else { return }
-        cache.setObject(image, forKey: Self.coverKey(fileId: coverFileId, pixels: pixels),
-                        cost: Self.bytes(of: image))
-        revision += 1
+        put(image, forKey: Self.coverKey(fileId: coverFileId, pixels: pixels))
     }
 
     /// The cover inside the audio file, decoded off the main thread and written into the same cache
     /// the fetched covers use, so every surface that wants this song's art gets it for one read.
+    ///
+    /// The tag's bytes are copied out on the first read because that read is the expensive one:
+    /// `AVURLAsset` has to open the whole container to find `APIC` or `covr`, which costs tens of
+    /// milliseconds and was being paid again for every tier the same song is drawn at — the row's
+    /// 192, the card's 512, the hero's 768. After the copy those are ImageIO reads of a file this app
+    /// already knows the size of.
     private func loadFileArt(of track: any Playable, pixels: Int) async {
         guard let path = track.localPath else { return }
-        let image = await Task.detached(priority: .userInitiated) {
-            await Self.embeddedCover(path: path, side: pixels)
+        let key = Self.fileKey(uniqueId: track.uniqueId, pixels: pixels)
+        let source = Self.fileSource(uniqueId: track.uniqueId)
+        if let tile = await tile(from: source, pixels: pixels) {
+            put(tile, forKey: key)
+            return
+        }
+        let image: UIImage? = await Task.detached(priority: .userInitiated) {
+            guard let bytes = await Self.embeddedBytes(path: path) else { return nil }
+            Self.write(bytes, to: source)
+            return Self.downsampled(data: bytes, side: pixels)
         }.value
         guard !Task.isCancelled, let image else { return }
-        cache.setObject(image, forKey: Self.fileKey(uniqueId: track.uniqueId, pixels: pixels),
-                        cost: Self.bytes(of: image))
+        put(image, forKey: key)
+    }
+
+    /// Booking an ask so the foreground re-warm knows what was on screen.
+    private func remember(_ track: any Playable, at points: CGFloat) {
+        recent.removeAll { $0.track.uniqueId == track.uniqueId && $0.points == points }
+        recent.append((track, points))
+        if recent.count > Self.recentLimit { recent.removeFirst(recent.count - Self.recentLimit) }
+    }
+
+    /// Refilling every surface that is still on screen after the app came back. The memory cache may
+    /// have been emptied while the process was suspended; the sources were not, so this is decodes
+    /// rather than downloads, and each one bumps the revision the rows redraw from.
+    ///
+    /// The list is taken and cleared first because `load` books its own asks again: appending to the
+    /// array the loop is walking would be a simultaneous access.
+    private func rewind() async {
+        let asked = recent
+        recent.removeAll()
+        for entry in asked {
+            await load(track: entry.track, side: entry.points)
+        }
+    }
+
+    /// A tile decoded off the bytes kept on the phone. Nothing on disk is not a failure, it is the
+    /// caller's cue to go to the network.
+    private func tile(from source: URL, pixels: Int) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) {
+            guard let bytes = Self.read(source) else { return nil }
+            return Self.downsampled(data: bytes, side: pixels)
+        }.value
+    }
+
+    /// Writing a tile into memory and telling every surface that reads the cache.
+    private func put(_ image: UIImage, forKey key: NSString) {
+        cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
         revision += 1
     }
 
@@ -212,7 +300,10 @@ final class CoverArtwork: ObservableObject {
     /// draws, and they are bigger than every thumbnail the server has: the bot uploaded the cover
     /// with the song. Read through `AVFoundation` rather than by hand, because the two formats the
     /// channel posts (`audio/mpeg` and `audio/mp4`) keep the picture in two different places.
-    private nonisolated static func embeddedCover(path: String, side: Int) async -> UIImage? {
+    ///
+    /// The bytes rather than a picture, because the bytes are what is worth keeping: one file then
+    /// answers every tier, at the resolution the bot posted it.
+    private nonisolated static func embeddedBytes(path: String) async -> Data? {
         let asset = AVURLAsset(url: URL(fileURLWithPath: path))
         guard let metadata = try? await asset.load(.commonMetadata) else { return nil }
         guard let item = AVMetadataItem.metadataItems(
@@ -223,7 +314,83 @@ final class CoverArtwork: ObservableObject {
         // loaded asynchronously anyway — for an item whose metadata is not resolved yet the property
         // would answer nil.
         guard let data = try? await item.load(.dataValue) else { return nil }
-        return downsampled(data: data, side: side)
+        return data.isEmpty ? nil : data
+    }
+
+    // MARK: The sources on disk
+
+    /// A cover's own bytes, kept between launches. `Library/Caches` because that is exactly what this
+    /// is: every file here can be fetched or read out of the song again, and the system is allowed to
+    /// take the space back. Nothing is written outside the phone.
+    private nonisolated static var sourceDirectory: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let url = base.appendingPathComponent("Doni/Cover Sources", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// A file per cover, named for a hash of the cache key: a key carries a colon and, for a
+    /// playlist's own picture, a whole path, and neither belongs in a filename. The source is keyed
+    /// without a tier, because the bytes answer every tier.
+    private nonisolated static func coverSource(fileId: Int) -> URL {
+        sourceURL("c:\(fileId)")
+    }
+
+    private nonisolated static func fileSource(uniqueId: String) -> URL {
+        sourceURL("a:\(uniqueId)")
+    }
+
+    private nonisolated static func sourceURL(_ key: String) -> URL {
+        let name = SHA256.hash(data: Data(key.utf8)).prefix(12)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return sourceDirectory.appendingPathComponent("\(name).img")
+    }
+
+    private nonisolated static func read(_ url: URL) -> Data? {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        return data.isEmpty ? nil : data
+    }
+
+    /// Writing once: the file already there is the same bytes, and rewriting it would only move the
+    /// date that `trimSources` prunes by.
+    private nonisolated static func write(_ data: Data, to url: URL) {
+        guard !data.isEmpty, !FileManager.default.fileExists(atPath: url.path) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    /// The same, from a file TDLib has already put on the phone. Copying it here is what makes the
+    /// cover outlive TDLib's own pruning of the big caches.
+    private nonisolated static func keep(path: String, as url: URL) {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path),
+                                   options: .mappedIfSafe) else { return }
+        write(data, to: url)
+    }
+
+    /// 120 MB is a thousand covers' worth of originals. The oldest-written go first, which is roughly
+    /// the order a listener stops needing them in.
+    private nonisolated static let sourceBudget = 120 * 1024 * 1024
+
+    private nonisolated static func trimSources() {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: sourceDirectory,
+            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
+        )) ?? []
+        var live: [(url: URL, bytes: Int, written: Date)] = []
+        for file in files {
+            let values = try? file.resourceValues(
+                forKeys: [.fileSizeKey, .contentModificationDateKey]
+            )
+            live.append((file, values?.fileSize ?? 0, values?.contentModificationDate ?? .distantPast))
+        }
+        var kept = 0
+        for entry in live.sorted(by: { $0.written > $1.written }) {
+            if kept + entry.bytes > sourceBudget {
+                try? FileManager.default.removeItem(at: entry.url)
+            } else {
+                kept += entry.bytes
+            }
+        }
     }
 
     private nonisolated static func downsampled(path: String, side: Int) -> UIImage? {
