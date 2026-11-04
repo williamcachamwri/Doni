@@ -108,7 +108,9 @@ struct RootView: View {
         switch tab {
         case .library:
             LibraryView(session: session, indexer: indexer, player: player,
-                        artwork: artwork, library: library)
+                        artwork: artwork, library: library,
+                        onOpenTab: { tab in binding.wrappedValue = tab },
+                        onOpenPlayer: { showsPlayer = true })
         case .likes:
             LikesView(session: session, player: player, artwork: artwork, library: library)
         case .playlists:

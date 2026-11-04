@@ -759,6 +759,14 @@ Two structural notes the transcription keeps. First, MeloX's queue is **not a sh
 page of the player's own `ZStack`, with the artwork pinned to a 72 pt header while it slides up. Second,
 MeloX's home has no search field: search is a tab, and the tab bar carries `role: .search`.
 
+**Doni's own, on the home feed.** The feed's *contents*: there is no recommender behind a Telegram
+channel, so the six tiles are the six things this app can do (shuffle the channel, newest, open likes,
+play what is on the device, open playlists, resume the player), each wearing one of MeloX's six gradient
+pairs in MeloX's order, and the shelves are the four groups the store keeps. A shelf cuts itself at 20
+cards (`LibraryView.shelfLimit`) because Doni's library is one channel's thousand songs, and the whole
+list stays below the feed under its own "Tất cả bài hát" title — the same bargain as MeloX's home, which
+embeds `LibraryView` as one of its sections (`HomeView.swift:79-80`).
+
 ## Known traps found while extracting
 
 - An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so

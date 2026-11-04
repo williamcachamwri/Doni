@@ -83,6 +83,8 @@ public enum MusicQuickActionMetrics {
     public static let padding: CGFloat = 14
     /// `Spacer(minLength: 8)` between the glyph and the words (`:31`).
     public static let glyphToTitle: CGFloat = 8
+    /// The compact tile's own `VStack(spacing: 4)` (`HomeComponents.swift:26`).
+    public static let textSpacing: CGFloat = 4
     /// The watermark: `.system(size: 72, weight: .semibold)` at 0.24 white (`:79-81`).
     public static let watermarkGlyph: CGFloat = 72
     public static let watermarkOpacity: Double = 0.24
