@@ -45,6 +45,10 @@ struct SearchView: View {
     @State private var query = ""
     @State private var scope: DoniSearchScope = .songs
 
+    /// How many of a result set's covers are worth ordering before anyone looks at them. The rows
+    /// ask for themselves too; the point of this is that it outlives a keystroke.
+    private static let coverWarm = 40
+
     var body: some View {
         Group {
             if trimmed.isEmpty {
@@ -114,6 +118,15 @@ struct SearchView: View {
             }
         }
         .listStyle(.plain)
+        // The result set asks for its own covers, once, through the cache's pool. A row's `.task`
+        // belongs to the row: every keystroke rebuilds this list, cancels what the rows had started
+        // and starts it again, so a fast typist never lets a single cover finish downloading — which
+        // is what "it loads but it stays blurry for ages" turns out to be. The pool's queue belongs
+        // to no row, so it keeps working while the list is being retyped under it.
+        .task(id: songMatches.prefix(Self.coverWarm).map(\.uniqueId)) {
+            artwork.prefetch(Array(songMatches.prefix(Self.coverWarm)),
+                             via: session.covers(), side: MusicSearchMetrics.songArt)
+        }
     }
 
     private var playlistResults: some View {

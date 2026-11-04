@@ -41,14 +41,25 @@ final class CoverArtwork: ObservableObject {
     /// 154/166 pt cards in the second, and anything hero-sized in the last.
     static let tiers = [192, 512, 768]
 
-    /// The tier the 40×30 minithumbnail is allowed to fill. Past it the upscale is the blur the
-    /// user is reporting, and the gradient is the better picture.
-    private static let miniCeiling = tiers[0]
+    /// The most pixels the 40×30 minithumbnail is allowed to fill.
+    ///
+    /// It used to be the whole first tier — 192 — which is a 4.8× upscale of a 40 px source, and a
+    /// 4.8× upscale is exactly the smear being reported on search rows: the picture had arrived, and
+    /// it was not worth looking at while the sharp one was still coming. Held to 96 px it stays what
+    /// it is for, a placeholder for the 24-32 pt marks where nobody can count the pixels, and any
+    /// surface bigger than that waits for something real instead of pretending.
+    private static let miniCeiling = 96
 
-    /// The tier a surface of this point size is drawn at. Three is this app's own screen scale:
-    /// Doni is a portrait iPhone and `UIScreen.main.scale` is on its way out of the SDK.
+    /// The pixels a surface of this point size actually wants, before it is rounded up to a tier.
+    /// Three is this app's own screen scale: Doni is a portrait iPhone and `UIScreen.main.scale` is
+    /// on its way out of the SDK.
+    static func neededPixels(forSide points: CGFloat) -> Int {
+        Int((points * 3).rounded(.up))
+    }
+
+    /// The tier a surface of this point size is drawn at.
     static func pixels(forSide points: CGFloat) -> Int {
-        let needed = Int((points * 3).rounded(.up))
+        let needed = neededPixels(forSide: points)
         return tiers.first { $0 >= needed } ?? tiers[tiers.count - 1]
     }
 
@@ -195,7 +206,10 @@ final class CoverArtwork: ObservableObject {
     /// The 40×30 the message carried, which is what a row shows until the sharp file lands — and
     /// only on a surface small enough that four pixels of tile is still four pixels of cover.
     func mini(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
-        guard Self.pixels(forSide: points) <= Self.miniCeiling else { return nil }
+        // Measured against what the surface wants, not against the tier it will be drawn at: the
+        // smallest tier is 192, and comparing a 96 px ceiling to it would switch the placeholder off
+        // everywhere, including the 24 pt marks it was made for.
+        guard Self.neededPixels(forSide: points) <= Self.miniCeiling else { return nil }
         let key = Self.miniKey(uniqueId: track.uniqueId)
         if let image = held(key) { return image }
         guard let data = track.miniArtwork, let image = UIImage(data: data) else { return nil }
