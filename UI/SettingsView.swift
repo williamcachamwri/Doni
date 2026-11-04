@@ -105,7 +105,7 @@ struct SettingsView: View {
             Button("Đăng xuất", role: .destructive) { signOut() }
             Button("Huỷ", role: .cancel) {}
         } message: {
-            Text("Thư viện, các bài đã yêu thích và danh sách phát trên máy sẽ bị xoá. "
+            Text("Toàn bộ thư viện, danh sách phát, nhạc đã tải về máy và cache ảnh bìa sẽ bị xoá. "
                 + "Phiên đăng nhập sẽ bị đóng.")
         }
         .sheet(isPresented: $showsAddChannel) {
@@ -403,8 +403,16 @@ struct SettingsView: View {
 
     /// The rows go first, then the session: a database emptied under a live client would be read
     /// back into memory by whatever is still walking a channel.
+    ///
+    /// The player goes before all of it. A song still playing is a file still open and a queue whose
+    /// rows have just been deleted, which is how signing out used to leave the music running.
+    /// TDLib's own directory and the Keychain key that opens its database go with the session — from
+    /// the session, once its client has closed.
     private func signOut() {
+        player.stop()
         library.wipe()
+        // How much room the pictures made is the storage screen's business, not this one's.
+        _ = CoverArtwork.shared.clearCache()
         session.logOut()
     }
 }

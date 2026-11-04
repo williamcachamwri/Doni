@@ -36,6 +36,14 @@ final class TelegramSession: ObservableObject {
     /// device; the inline thumbnail is drawn under it until then.
     @Published private(set) var accountPhoto: UIImage?
 
+    /// Whether TDLib has said anything about this phone's session yet.
+    ///
+    /// The app's first screen is decided by the answer, and TDLib takes a few hundred milliseconds
+    /// to give it: until then a signed-in phone and a phone that has never been signed in look
+    /// identical from here. Drawing the login gate anyway is the flash that greeted every launch, so
+    /// the root waits for this instead of guessing.
+    @Published private(set) var hasAnswered = false
+
     var isAuthorized: Bool { step == .ready }
 
     private var client: TdClient?
@@ -59,6 +67,7 @@ final class TelegramSession: ObservableObject {
 
         Task {
             for await step in flow.steps {
+                hasAnswered = true
                 self.step = step
                 if step == .ready {
                     await readAccount(flow)
@@ -90,7 +99,21 @@ final class TelegramSession: ObservableObject {
         account = nil
         accountPhoto = nil
         isWaiting = false
+        Self.eraseStorage()
         start()
+    }
+
+    /// Everything TDLib kept on the phone, thrown away once its client has said it is closed.
+    ///
+    /// `logOut` ends the session and leaves both of TDLib's directories where they are: the database
+    /// that records which files are already local, and the bytes beside it. Reopened by the next
+    /// login, that record is why songs downloaded before signing out were still "on the phone"
+    /// afterwards — and `file_id` is TDLib's row number inside its own database (`td_api.tl:326`), so
+    /// the ids the new session hands out can point at any of those files. The Keychain key goes with
+    /// the database it opened; a new session makes its own.
+    private nonisolated static func eraseStorage() {
+        try? FileManager.default.removeItem(at: telegramDirectory)
+        KeychainDatabaseKey().erase()
     }
 
     /// `then` runs only when the server accepted the number. TDLib does not always announce the

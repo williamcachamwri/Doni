@@ -35,6 +35,18 @@ struct KeychainDatabaseKey: TdDatabaseKeyProviding {
         return try store()
     }
 
+    /// The key goes with the database it opened. Leaving it behind would keep a 32-byte secret on
+    /// the phone for a file that no longer exists, and the next session would build its database
+    /// under a key nothing else can read — which is exactly as bad as it sounds if the user ever
+    /// restores the app without this Keychain.
+    func erase() {
+        SecItemDelete([
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: Self.account,
+        ] as CFDictionary)
+    }
+
     /// Generates 32 random bytes, writes them, and returns the value to use
     /// now — reading it back after the add would only race with itself.
     private func store() throws -> String {

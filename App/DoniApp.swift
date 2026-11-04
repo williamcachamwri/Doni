@@ -18,16 +18,25 @@ struct DoniApp: App {
             // lifts off it on the reference's own spring, which is what makes signing in feel like
             // opening the app rather than switching to another one.
             ZStack {
-                if session.isAuthorized {
-                    RootView(session: session, indexer: indexer, player: player,
-                             artwork: artwork, library: library)
-                } else {
-                    LoginView(session: session)
-                        .transition(.asymmetric(
-                            insertion: .identity,
-                            removal: .scale(scale: TelegramLoginMotion.leaveScale)
-                                .combined(with: .opacity)
-                        ))
+                // TDLib's first word decides which screen this phone belongs on, and it takes a few
+                // hundred milliseconds to say it. Guessing meanwhile put the login gate over a
+                // session that was already on the device, which is the flash every launch opened
+                // with; this is the same black both screens are already drawn on.
+                TelegramListPalette.night.background
+                    .ignoresSafeArea()
+
+                if session.hasAnswered {
+                    if session.isAuthorized {
+                        RootView(session: session, indexer: indexer, player: player,
+                                 artwork: artwork, library: library)
+                    } else {
+                        LoginView(session: session)
+                            .transition(.asymmetric(
+                                insertion: .identity,
+                                removal: .scale(scale: TelegramLoginMotion.leaveScale)
+                                    .combined(with: .opacity)
+                            ))
+                    }
                 }
             }
             .animation(TelegramLoginMotion.presentation, value: session.isAuthorized)
