@@ -129,6 +129,18 @@ final class Player: ObservableObject {
             Task { @MainActor in self.seek(to: event.positionTime) }
             return .success
         }
+        // The star the system draws in its own media controls — the lock screen, Control Centre, the
+        // Dynamic Island's Now Playing and the same card as a Live Activity. It is `ratingCommand`:
+        // `likeCommand` is the heart, and the star slot only exists once this command is enabled.
+        // Doni has no ratings, so one star at the top of the scale means exactly what the row's heart
+        // means, and the press toggles it either way.
+        center.ratingCommand.minimumRating = 0
+        center.ratingCommand.maximumRating = 1
+        center.ratingCommand.addTarget { _ in
+            Task { @MainActor in self.rateFromRemote() }
+            return .success
+        }
+        center.ratingCommand.isEnabled = true
     }
 
     /// Plays one track out of `list`, fetching its file first if the phone does not have it.
@@ -642,6 +654,16 @@ final class Player: ObservableObject {
 
     // MARK: Lock screen and control centre
 
+    /// The star's answer: the same heart the row wears, pressed from outside the app.
+    ///
+    /// The rating the event carries is not trusted — some of the system's surfaces send the maximum on
+    /// every press rather than the change they want — so a press flips whatever the row would do.
+    private func rateFromRemote() {
+        guard let track = current else { return }
+        library.toggleFavorite(track)
+        publishNowPlaying(elapsed: elapsed)
+    }
+
     private func publishNowPlaying(elapsed: TimeInterval, track: (any Playable)? = nil) {
         let shown = track ?? current
         guard let shown else { return }
@@ -657,6 +679,12 @@ final class Player: ObservableObject {
         if let artwork = artwork(for: shown) {
             info[MPMediaItemPropertyArtwork] = artwork
         }
+        // The system's star is filled from this, and it is the only way the lock screen, Control
+        // Centre and the Dynamic Island can tell a favourited song from one that is merely playing.
+        // Read off the list the library already publishes rather than from the store: this dictionary
+        // is rewritten four times a second by the ticker.
+        info[MPMediaItemPropertyRating] =
+            library.favorites.contains(where: { $0.track.uniqueId == shown.uniqueId }) ? 1.0 : 0.0
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
