@@ -256,13 +256,22 @@ private struct PlaylistDetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, MusicPlaylistMetrics.detailBottom)
             }
             .scrollIndicators(.hidden)
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .task(id: cover?.uniqueId) {
+            // The hero and the backdrop both draw at a width no row ever asked for, so without this
+            // order the list's own cover stays the 192 px a 54 pt row fetched and both surfaces fall
+            // back to the gradient.
+            if let cover {
+                await artwork.load(track: cover, via: session.covers(),
+                                   side: MusicArtworkMetrics.heroSide)
+            }
+        }
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Tìm trong danh sách")
         .animation(TelegramLoginMotion.easeInOut(0.2), value: tracks.map(\.uniqueId))
@@ -385,15 +394,17 @@ private struct PlaylistDetailView: View {
         .padding(.bottom, MusicPlaylistMetrics.heroBottom)
     }
 
-    /// `min(width × 0.68, 300)` at radius 12 (`PlaylistDetailContent.swift:190-193`).
+    /// `min(width × 0.68, 300)` at radius 12, square — and in the reference's own modifier order,
+    /// where the cap is applied by `containerRelativeFrame` *before* the aspect ratio reads the
+    /// proposal (`PlaylistDetailContent.swift:190-193`, `ArtworkImage.swift:12-29`). Measuring the
+    /// cap inside the `GeometryReader` instead leaves the ratio pinning a full-screen-height square,
+    /// which is the empty band the hero used to show.
     @ViewBuilder
     private var heroArt: some View {
         GeometryReader { proxy in
-            let side = min(proxy.size.width * 0.68, MusicArtworkMetrics.heroSide)
             if let cover {
-                TrackCover(track: cover, side: side,
+                TrackCover(track: cover, side: proxy.size.width,
                            radius: MusicPlaylistMetrics.heroArtRadius, artwork: artwork)
-                    .frame(width: side, height: side)
             } else {
                 ZStack {
                     TelegramTrackGradient.linear(playlistId)
@@ -401,12 +412,14 @@ private struct PlaylistDetailView: View {
                         .font(MusicArtworkMetrics.placeholderGlyph)
                         .foregroundStyle(.white.opacity(0.9))
                 }
-                .frame(width: side, height: side)
                 .clipShape(RoundedRectangle(cornerRadius: MusicPlaylistMetrics.heroArtRadius,
                                             style: .continuous))
             }
         }
         .aspectRatio(1, contentMode: .fit)
+        .containerRelativeFrame(.horizontal) { width, _ in
+            min(width * MusicPlaylistMetrics.heroWidthFactor, MusicArtworkMetrics.heroSide)
+        }
     }
 
     private func play(_ tracks: [StoreTrack]) {

@@ -154,6 +154,9 @@ public enum MusicPlaylistMetrics {
     /// `subheadline.weight(.medium)` count, 17 pt to the action row, 26 pt above and 22 below
     /// (`PlaylistDetailContent.swift:190-226`).
     public static let heroArtRadius: CGFloat = 12
+    /// The hero's side is `min(container × 0.68, 300)` — the factor and the cap both stated by
+    /// `PlaylistDetailContent.swift:191-193`.
+    public static let heroWidthFactor: CGFloat = 0.68
     public static let heroShadowOpacity: Double = 0.18
     public static let heroShadowRadius: CGFloat = 18
     public static let heroShadowY: CGFloat = 10
@@ -164,6 +167,13 @@ public enum MusicPlaylistMetrics {
     public static let heroToActions: CGFloat = 17
     public static let heroBottom: CGFloat = 22
     public static let heroSidePadding: CGFloat = 24
+
+    /// The detail's scroll clearance. The reference ends its list 32 below the content
+    /// (`PlaylistDetailContent.swift:88`), which is enough inside its own tab but not on a pushed
+    /// Doni screen: the floating bar does not inset a pushed scroll view, so the last row lands
+    /// under it. Doni adds the 88 the reference reserves under its settings list for that same bar
+    /// (`SettingsView.swift:27-32`, `MusicSettingsMetrics.contentBottom`).
+    public static let detailBottom: CGFloat = 32 + 88
 
     /// `GlassEffectContainer(spacing: 14)` around the action row, whose secondary buttons are a
     /// 30 pt glyph in a 30 pt box and whose play button is a `title3.bold()` (`:328-329`, `:343-344`, `:374`).
