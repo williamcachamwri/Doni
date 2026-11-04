@@ -53,6 +53,11 @@ final class Player: ObservableObject {
     private var source: [any Playable] = []
     private var engine: AVAudioPlayer?
     private var ticker: Timer?
+    /// Held because `AVAudioPlayer.delegate` is a weak reference, and because one watcher outlives
+    /// every song: what it says is only "this file has run out".
+    private lazy var endWatcher = SongEndWatcher { [weak self] in
+        Task { @MainActor in self?.songEnded() }
+    }
     private var loading: Task<Void, Never>?
     /// The lead-time fetch of the song queued behind this one, and the song it was started for. The
     /// id is what stops a timer that fires four times a second asking for the same file forty times
@@ -544,6 +549,7 @@ final class Player: ObservableObject {
             return false
         }
         self.engine = engine
+        engine.delegate = endWatcher
         self.duration = engine.duration
         self.isFetchingFile = false
         // A document post has no duration in the schema and the engine has just read the container's
@@ -581,8 +587,8 @@ final class Player: ObservableObject {
         return true
     }
 
-    /// A timer rather than the delegate: `AVAudioPlayerDelegate` methods are nonisolated, and
-    /// the tick this app needs for a progress bar is the same one that notices the song ended.
+    /// A timer for the progress bar and for the cut's own boundary; the file's end comes from the
+    /// delegate, which is the only thing that actually knows it.
     private func startTicker() {
         ticker?.invalidate()
         ticker = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -594,20 +600,12 @@ final class Player: ObservableObject {
         guard let engine else { return }
         let end = segment?.upperBound ?? engine.duration
         prefetchAhead(remaining: end - engine.currentTime)
-        if engine.currentTime >= end - 0.05 {
-            if let segment {
-                // A favourited slice loops: that is the point of saving three minutes of a
-                // one-hour set.
-                engine.currentTime = segment.lowerBound
-            } else if repeatMode == .one {
-                engine.currentTime = 0
-            } else if hasNext {
-                next()
-                return
-            } else {
-                pause()
-                engine.currentTime = 0
-            }
+        // Only a cut is a boundary the timer can watch: nothing stops the file at the slice's end,
+        // so the playhead goes on and the next tick is at most a quarter of a second late.
+        if let segment, engine.currentTime >= segment.upperBound - 0.05 {
+            // A favourited slice loops: that is the point of saving three minutes of a
+            // one-hour set.
+            engine.currentTime = segment.lowerBound
         }
         elapsed = engine.currentTime
         let second = Int(elapsed)
@@ -616,6 +614,30 @@ final class Player: ObservableObject {
             persist()
         }
         if isPlaying { publishNowPlaying(elapsed: engine.currentTime) }
+    }
+
+    /// The file ran out, as `AVAudioPlayer` itself reports.
+    ///
+    /// This used to be the timer's job, and it is why a queue stopped after one song. The tick's test
+    /// was `currentTime >= duration - 0.05` — a window of fifty milliseconds — while the tick comes
+    /// every two hundred and fifty, and `AVAudioPlayer` rewinds its own `currentTime` to zero the
+    /// moment the file ends. Measured over three files out of the library: the playhead reads exactly
+    /// `duration` on a tick that happens to land inside the window and `0.00` on every one after it,
+    /// so roughly one song in five handed over to the next and the rest left the app playing silence
+    /// under a full progress bar. The delegate fires for all three.
+    private func songEnded() {
+        // A song that was paused, seeked or replaced on the way here has nothing to answer for.
+        guard let engine, isPlaying else { return }
+        if repeatMode == .one {
+            // A player that has finished is not playing any more, so the loop has to ask for sound.
+            engine.currentTime = 0
+            engine.play()
+        } else if hasNext {
+            next()
+        } else {
+            pause()
+            engine.currentTime = 0
+        }
     }
 
     // MARK: Lock screen and control centre
@@ -669,5 +691,23 @@ final class Player: ObservableObject {
     /// catch it because `requestHandler:` is not declared `@Sendable`.
     private nonisolated static func mediaArtwork(_ image: UIImage) -> MPMediaItemArtwork {
         MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }
+}
+
+/// `AVAudioPlayerDelegate` in its own object, because the protocol's methods are nonisolated and
+/// `Player` is not.
+///
+/// It carries one fact — this file has run out — and nothing else about the audio session: a pause,
+/// a seek or a route change is not an ending, and the player has to be able to tell them apart.
+/// Sendable because its only property is an immutable `@Sendable` closure.
+private final class SongEndWatcher: NSObject, AVAudioPlayerDelegate, Sendable {
+    private let onFinish: @Sendable () -> Void
+
+    init(onFinish: @escaping @Sendable () -> Void) {
+        self.onFinish = onFinish
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        onFinish()
     }
 }
