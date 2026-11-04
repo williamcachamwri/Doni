@@ -103,7 +103,7 @@ struct RootView: View {
             Tab(DoniTab.settings.title, systemImage: DoniTab.settings.symbol,
                 value: DoniTab.settings) {
                 NavigationStack {
-                    SettingsView(session: session, library: library)
+                    SettingsView(session: session, indexer: indexer, library: library)
                 }
             }
             // The reference's own search tab: a `Tab` with the search role, whose content is a

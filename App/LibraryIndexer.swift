@@ -209,7 +209,10 @@ final class LibraryIndexer: ObservableObject {
         tracks.sorted { $0.date != $1.date ? $0.date > $1.date : $0.messageId > $1.messageId }
     }
 
-    private static func describe(_ error: any Error) -> String {
+    /// TDLib's own code is the useful half of a failure: `USERNAME_NOT_OCCUPIED` and
+    /// `CHANNEL_METHOD_INVALID` are different fixes, and a translation table for them would be a
+    /// guess. The allow-list screens report through here too.
+    static func describe(_ error: any Error) -> String {
         if let failure = error as? TdClient.Failure { return failure.description }
         if let failure = error as? TdChannelReader.Failure, case .channelNotFound(let name) = failure {
             return "Không tìm thấy kênh @\(name)"

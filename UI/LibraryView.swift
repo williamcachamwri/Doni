@@ -28,6 +28,7 @@ struct LibraryView: View {
     let onOpenPlayer: () -> Void
 
     @State private var showsAccountMenu = false
+    @State private var showsAddChannel = false
     @State private var section: DoniHomeSection = .forYou
 
     private let palette = TelegramPalette.dark
@@ -104,6 +105,11 @@ struct LibraryView: View {
             }
             Button("Đăng xuất", role: .destructive) { session.logOut() }
             Button("Huỷ", role: .cancel) {}
+        }
+        .sheet(isPresented: $showsAddChannel) {
+            AddChannelSheet(session: session, library: library) {
+                indexer.run(session, library: library)
+            }
         }
     }
 
@@ -351,11 +357,26 @@ struct LibraryView: View {
                 .padding(.top, 72)
                 .padding(.horizontal, 40)
             } else {
-                Text("Chưa có bài nào trong kênh")
-                    .font(TelegramLibraryTypography.preview)
-                    .foregroundStyle(palette.chatListMessageText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 72)
+                // Nothing on the allow-list is a different empty from a channel with no songs in it,
+                // and only the first one has something to tap.
+                VStack(spacing: 14) {
+                    Text(library.channels.isEmpty
+                         ? "Chưa có kênh nhạc nào"
+                         : "Chưa có bài nào trong kênh")
+                        .font(TelegramLibraryTypography.preview)
+                        .foregroundStyle(palette.chatListMessageText)
+                        .multilineTextAlignment(.center)
+                    if library.channels.isEmpty {
+                        Button("Thêm kênh nhạc") { showsAddChannel = true }
+                            .font(TelegramLibraryTypography.barTitle)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20)
+                            .frame(height: 40)
+                            .background(Capsule().fill(palette.highlight))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 72)
             }
         } else if let failure {
             // Reading can fail into a half-filled library, and the bar no longer has room to say

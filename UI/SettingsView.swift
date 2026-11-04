@@ -28,10 +28,12 @@ import TdSession
 /// the library goes with the session rather than being left behind to fail.
 struct SettingsView: View {
     @ObservedObject var session: TelegramSession
+    @ObservedObject var indexer: LibraryIndexer
     @ObservedObject var library: Library
 
     @State private var confirmingLogout = false
     @State private var searchText = ""
+    @State private var showsAddChannel = false
 
     var body: some View {
         ScrollView {
@@ -52,17 +54,20 @@ struct SettingsView: View {
                 }
 
                 if showsChannels {
-                    card("Kênh nhạc") {
+                    card("Kênh nhạc", accessory: {
+                        Button("Thêm") { showsAddChannel = true }
+                            .buttonStyle(.glass)
+                    }) {
                         if visibleChannels.isEmpty {
                             row("antenna.radiowaves.left.and.right", "Chưa thêm kênh nào")
                         } else {
                             ForEach(visibleChannels) { channel in
                                 if channel.id != visibleChannels.first?.id { divider }
                                 row("person.2", channel.title,
-                                    subtitle: channel.username.isEmpty
-                                        ? nil : "@\(channel.username)",
+                                    subtitle: subtitle(for: channel),
                                     selected: channel.isIndexed) {
                                     library.setIndexed(channel.chatId, on: !channel.isIndexed)
+                                    indexer.run(session, library: library)
                                 }
                             }
                         }
@@ -95,6 +100,11 @@ struct SettingsView: View {
         } message: {
             Text("Thư viện, các bài đã yêu thích và danh sách phát trên máy sẽ bị xoá. "
                 + "Phiên đăng nhập sẽ bị đóng.")
+        }
+        .sheet(isPresented: $showsAddChannel) {
+            AddChannelSheet(session: session, library: library) {
+                indexer.run(session, library: library)
+            }
         }
     }
 
@@ -215,11 +225,25 @@ struct SettingsView: View {
     /// (`SettingsHomeComponents.swift:23-51`).
     private func card<Content: View>(_ title: String,
                                      @ViewBuilder _ content: () -> Content) -> some View {
+        card(title, accessory: { EmptyView() }, content: content)
+    }
+
+    /// The same card with one thing at the right edge of its header, which is where a list you add
+    /// to wants its add.
+    private func card<Accessory: View, Content: View>(
+        _ title: String,
+        @ViewBuilder accessory: () -> Accessory,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: MusicSettingsMetrics.headerToCard) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, MusicSettingsMetrics.headerPadding)
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                accessory()
+            }
+            .padding(.horizontal, MusicSettingsMetrics.headerPadding)
             VStack(spacing: 0) {
                 content()
             }
@@ -314,6 +338,14 @@ struct SettingsView: View {
         }
     }
 
+    /// The handle the channel was added by and how many of its songs are on the phone. A channel
+    /// picked out of the joined list came in by its chat id, so the count is all it can say.
+    private func subtitle(for channel: StoreChannel) -> String {
+        let songs = "\(library.store.trackCount(chatId: channel.chatId).formatted()) bài"
+        let handle = channel.username.isEmpty ? nil : "@\(channel.username)"
+        return [handle, songs].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// The empty card stays while the field is blank and goes once something is typed into it: a row
     /// that says there are no channels is not an answer to a search.
     private var showsChannels: Bool {
@@ -373,6 +405,7 @@ private enum SettingsSearch {
 
 #Preview {
     NavigationStack {
-        SettingsView(session: TelegramSession(), library: Library.shared)
+        SettingsView(session: TelegramSession(), indexer: LibraryIndexer(),
+                     library: Library.shared)
     }
 }
