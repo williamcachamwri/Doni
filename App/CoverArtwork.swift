@@ -88,6 +88,33 @@ final class CoverArtwork: ObservableObject {
     /// again, so without this a row would go on drawing a gradient over a cache the system emptied.
     private var recent: [(track: any Playable, points: CGFloat)] = []
 
+    /// Asks waiting for the pool, the one the user is looking at first.
+    private var queued: [Ask] = []
+
+    /// Whether a pool is already working through `queued`. Starting a second one would only put
+    /// more workers on the same list, and the width below is the point of the exercise.
+    private var draining = false
+
+    /// Tiles whose bytes are on their way. A row, a shelf card and the Now Playing hero all want the
+    /// same picture at different sizes, and before this each of them opened its own download of the
+    /// same file and its own decode of the same bytes.
+    private var inFlight: Set<NSString> = []
+
+    /// One surface's ask, which is what the pool carries.
+    private struct Ask {
+        let track: any Playable
+        let via: TdFileDownloader?
+        let points: CGFloat
+    }
+
+    /// How many covers are worked on at once.
+    ///
+    /// TDLib queues its own downloads and a cover is tens of kilobytes, so this is not a limit on
+    /// the network — it is a limit on how many decodes and how many file waits the app puts on the
+    /// phone at a time. Six is enough to fill a screen at once, and it is far below the number of
+    /// rows that ask, so the queue in front of it is what does the ordering.
+    private static let fetchWidth = 6
+
     /// The re-warms, held so the singleton keeps both of its observers alive.
     private var foreground: [Task<Void, Never>] = []
 
@@ -199,6 +226,47 @@ final class CoverArtwork: ObservableObject {
         await fill(track: track, via: via, points: points)
     }
 
+    /// Ordering the covers of a whole page before its rows are drawn.
+    ///
+    /// A row asks when it appears, which is a round trip paid while the user is still looking at the
+    /// gap. These go into the same queue the foreground refill uses, so a screen's worth of fetches
+    /// runs side by side instead of one per row, and the tiles are on the phone before the rows are.
+    /// An ask that is already answered costs one dictionary read, so warming a list a row has already
+    /// reached is free.
+    func prefetch(_ tracks: [any Playable], via: TdFileDownloader?, side points: CGFloat) {
+        let asks = tracks.map { Ask(track: $0, via: via, points: points) }
+        guard !asks.isEmpty else { return }
+        queued.removeAll { ask in
+            ask.points == points && asks.contains { $0.track.uniqueId == ask.track.uniqueId }
+        }
+        for ask in asks { remember(ask.track, at: points) }
+        queued.insert(contentsOf: asks, at: 0)
+        Task { await drain() }
+    }
+
+    /// Working through the queue with at most `fetchWidth` covers in flight.
+    ///
+    /// The workers pull from the front rather than being handed a slice of it, so an ask that turns
+    /// out to be cached already costs a dictionary read and frees its worker for the next one at
+    /// once, instead of leaving a seat empty for the length of a download.
+    private func drain() async {
+        guard !draining, !queued.isEmpty else { return }
+        draining = true
+        defer { draining = false }
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<min(Self.fetchWidth, queued.count) {
+                group.addTask { await self.takeOne() }
+            }
+        }
+    }
+
+    private func takeOne() async {
+        while let ask = queued.first {
+            queued.removeFirst()
+            await fill(track: ask.track, via: ask.via, points: ask.points)
+        }
+    }
+
     /// Throwing away every cached picture — the tiles in memory, the pinned ones, and the cover
     /// bytes on disk — and reporting the room that made.
     ///
@@ -213,6 +281,7 @@ final class CoverArtwork: ObservableObject {
         pinnedOrder.removeAll()
         pinnedBytes = 0
         recent.removeAll()
+        queued.removeAll()
         let freed = DiskUsage.clear(Self.sourceDirectory)
         revision += 1
         return freed
@@ -236,6 +305,11 @@ final class CoverArtwork: ObservableObject {
         if fileArt(of: track, pixels: pixels) != nil { return }
         guard atLeast(cover, than: pixels) == nil else { return }
         let key = Self.coverKey(cover, pixels: pixels)
+        // One ask per tile. Without this, a row, the card it is also drawn in and the hero the same
+        // song opens each fetched and decoded the identical bytes.
+        guard !inFlight.contains(key) else { return }
+        inFlight.insert(key)
+        defer { inFlight.remove(key) }
         if cover.persistent, let tile = await tile(from: Self.coverSource(cover), pixels: pixels) {
             put(tile, forKey: key)
             return
@@ -267,6 +341,11 @@ final class CoverArtwork: ObservableObject {
     private func loadFileArt(of track: any Playable, pixels: Int) async {
         guard let path = track.localPath else { return }
         let key = Self.fileKey(uniqueId: track.uniqueId, pixels: pixels)
+        // The container read is the expensive one, so it is asked for once per song per tier — a
+        // shelf, a row and the hero of the same file are three surfaces and one `AVURLAsset`.
+        guard !inFlight.contains(key) else { return }
+        inFlight.insert(key)
+        defer { inFlight.remove(key) }
         let source = Self.fileSource(uniqueId: track.uniqueId)
         if let tile = await tile(from: source, pixels: pixels) {
             put(tile, forKey: key)
@@ -299,21 +378,22 @@ final class CoverArtwork: ObservableObject {
     /// is actually staring at was decoded. That is the flat gradient filling Now Playing for two
     /// seconds on the way out of the background, and this order is what removes it.
     ///
-    /// The asks are read from a copy and left in place, not taken and cleared: `fill` does not book,
-    /// so the queue keeps saying what was on screen rather than being reordered by the re-warm itself,
-    /// and a row that asks while this loop is running cannot mutate the array being walked.
+    /// The asks go into the pool rather than being awaited one after another, which is the other half
+    /// of the same complaint: forty covers fetched in series is forty round trips end to end, and at
+    /// six in flight the screen the user is on is answered in a seventh of the time. They are read
+    /// from a copy and left in place, not taken and cleared, so a row that asks while the pool is
+    /// running cannot mutate the record of what was on screen.
     ///
     /// One refill at a time. Coming back fires both observers a frame apart, and the second would
-    /// otherwise walk the same forty covers while the first is still walking them. Covers the pinned
-    /// set still holds are answered by `held` on the way in, so the walk that does happen is a
-    /// handful of dictionary reads rather than forty decodes.
+    /// otherwise queue the same forty covers while the first is still working through them.
     private func rewind() async {
         guard !refilling else { return }
         refilling = true
         defer { refilling = false }
-        for entry in recent.reversed() {
-            await fill(track: entry.track, via: nil, points: entry.points)
-        }
+        queued.insert(contentsOf: recent.reversed().map {
+            Ask(track: $0.track, via: nil, points: $0.points)
+        }, at: 0)
+        await drain()
     }
 
     /// A tile decoded off the bytes kept on the phone. Nothing on disk is not a failure, it is the

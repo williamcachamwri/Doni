@@ -113,6 +113,12 @@ struct LibraryView: View {
             // the timestamps land while the channel is still being read.
             await library.measureStoredDurations()
             indexer.run(session, library: library)
+            // The first screen's worth of covers, ordered before its cards are drawn. A card asks
+            // when it appears, which is a round trip paid while the user is still looking at the
+            // gap; queued here they go through the cache's pool six at a time, so the shelves fill
+            // over one fetch's latency rather than fifty of them.
+            artwork.prefetch(cut(visible), via: session.covers(),
+                             side: MusicFeedMetrics.songCard)
             // Behind the walk: this is the slowest thing on the way in — a fetch per row — and the
             // list has nothing to wait for, since each answer lands in its own row as it arrives.
             if let files = session.covers() {
