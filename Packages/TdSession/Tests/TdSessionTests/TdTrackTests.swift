@@ -220,6 +220,10 @@ private struct Thumbnail {
     var width: Int
     var fileId: Int?
     var bytes: Int = 0
+    /// `file.remote.unique_id` — MTProto's name for the same bytes in every database. TDLib may leave
+    /// it empty for a file whose remote copy it has not looked up (`td_api.tl:314`: "may be empty if
+    /// unknown"), which is the only way a cover ends up with no stable name to be cached under.
+    var uniqueId: String?
 }
 
 private func thumbnailJSON(_ thumbnail: Thumbnail) -> TdJSON {
@@ -229,11 +233,15 @@ private func thumbnailJSON(_ thumbnail: Thumbnail) -> TdJSON {
         "height": .int(Int64(thumbnail.width))
     ]
     if let fileId = thumbnail.fileId {
-        fields["file"] = .object([
+        let file: [String: TdJSON] = [
             "@type": .string("file"), "id": .int(Int64(fileId)),
             "size": .int(Int64(thumbnail.bytes)),
-            "expected_size": .int(Int64(thumbnail.bytes))
-        ])
+            "expected_size": .int(Int64(thumbnail.bytes)),
+            "remote": .object([
+                "@type": .string("remoteFile"), "unique_id": .string(thumbnail.uniqueId ?? "")
+            ])
+        ]
+        fields["file"] = .object(file)
     }
     return .object(fields)
 }
@@ -324,6 +332,31 @@ func coverWithoutFileIdIsIgnored() throws {
     ])))
     #expect(value.coverFileId == nil)
     #expect(value.displayTitle == "Lạc Trôi", "and the row still shows the song")
+}
+
+@Test("the cover's own name comes from the thumbnail its number came from")
+func coverIdentityTravelsWithTheWinner() throws {
+    // The pair matters: TDLib's `file_id` (`td_api.tl:326`) is a row in whichever database made it,
+    // while `unique_id` (`:314`) is the file. A cover cached under the number is another song's
+    // picture after a re-index, so the identity has to be read off the very thumbnail that won.
+    let track = try #require(TdTrack(message: audioWithCovers(
+        [
+            Thumbnail(width: 100, fileId: 401, uniqueId: "AQADnHkAAJ11cXl"),
+            Thumbnail(width: 600, fileId: 402, uniqueId: "AQADFR4AAn3M-VZy")
+        ],
+        thumbnail: Thumbnail(width: 320, fileId: 403, bytes: 6_635, uniqueId: "AQADRiAAAmUqCVZy")
+    )))
+    #expect(track.coverFileId == 403, "the one with bytes still wins the download")
+    #expect(track.coverUniqueId == "AQADRiAAAmUqCVZy", "and is the one named")
+}
+
+@Test("a cover whose remote is unknown has a number and no name")
+func coverWithoutIdentityIsNotCacheable() throws {
+    let track = try #require(TdTrack(message: audioWithCovers([
+        Thumbnail(width: 600, fileId: 402)
+    ])))
+    #expect(track.coverFileId == 402, "the row can still be fetched")
+    #expect(track.coverUniqueId == nil, "and nothing is written under a name it does not have")
 }
 
 /// The shape a posting bot sends: the tag cut at about 64 characters and the whole name

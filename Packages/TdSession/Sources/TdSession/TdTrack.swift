@@ -51,6 +51,21 @@ public struct TdTrack: Equatable, Sendable {
     /// on 168 of 168 audios with no size on any of them, while 112 audios carry a 320×240 or
     /// 320×180 `album_cover_thumbnail` of 6.6-31 KB — which this app never used to read at all.
     public let coverFileId: Int?
+    /// The same cover's MTProto identity, which is the half worth caching.
+    ///
+    /// `file:id:int32` (`td_api.tl:326`) counts rows in *this* database, so it is only good while
+    /// the database is; `remote:unique_id` (`:318`) is the file's name on Telegram's side and is the
+    /// same in every database, channel and re-upload. The picture kept on the phone outlives the
+    /// numbers, so it has to be filed under the identity rather than the row number — keyed on the
+    /// number, a re-index hands one song another song's cover.
+    ///
+    /// `nil` only for a row written before this was recorded; the covers in the measured channel all
+    /// carry one, on both the 112 `album_cover_thumbnail` and the 336 `external_album_covers`.
+    public let coverUniqueId: String?
+
+    /// The cover a post carries: TDLib's row number for the download, and MTProto's identity for
+    /// everything worth keeping.
+    private typealias Cover = (fileId: Int, uniqueId: String?)
 
     /// `message` is a `message` object; nil for anything that is not a file the
     /// app can play.
@@ -68,7 +83,7 @@ public struct TdTrack: Equatable, Sendable {
         let caption: String
         let duration: Int?
         let miniArtwork: Data?
-        let coverFileId: Int?
+        let cover: Cover?
 
         switch content.type {
         case "messageAudio":
@@ -87,7 +102,7 @@ public struct TdTrack: Equatable, Sendable {
             // minithumbnail is a drawn file icon, so it is not artwork and stays unread.
             let encodedArtwork = audio?["album_cover_minithumbnail"]?["data"]?.string
             miniArtwork = encodedArtwork.flatMap { Data(base64Encoded: $0) }
-            coverFileId = Self.bestCover(audio)
+            cover = Self.bestCover(audio)
         case "messageDocument":
             origin = .document
             let document = content["document"]
@@ -99,7 +114,7 @@ public struct TdTrack: Equatable, Sendable {
             caption = content["caption"]?["text"]?.string ?? ""
             duration = nil
             miniArtwork = nil
-            coverFileId = nil
+            cover = nil
         case "messageVoiceNote":
             origin = .voiceNote
             let voice = content["voice_note"]
@@ -111,7 +126,7 @@ public struct TdTrack: Equatable, Sendable {
             caption = content["caption"]?["text"]?.string ?? ""
             duration = Int(voice?["duration"]?.int ?? 0)
             miniArtwork = nil
-            coverFileId = nil
+            cover = nil
         default:
             return nil
         }
@@ -140,16 +155,18 @@ public struct TdTrack: Equatable, Sendable {
         self.localPath = path.isEmpty ? nil : path
         self.isDownloaded = local?["is_downloading_completed"]?.bool ?? false
         self.miniArtwork = miniArtwork
-        self.coverFileId = coverFileId
+        self.coverFileId = cover?.fileId
+        self.coverUniqueId = cover?.uniqueId
     }
 
-    /// The cover to ask TDLib for, out of every thumbnail the post carries.
+    /// The cover to ask TDLib for, out of every thumbnail the post carries, with the identity of the
+    /// file it picked.
     ///
     /// Ones with bytes are considered first and, among them, the widest: a 320 px `album_cover_thumbnail`
     /// is a download that can start now, and a 600 px generated cover that never starts is worth less
     /// than nothing to a row. Only when the post has no sized cover at all does the generated one get
     /// its turn, which is the whole of what a track posted without a proper tag has to offer.
-    private static func bestCover(_ audio: TdJSON?) -> Int? {
+    private static func bestCover(_ audio: TdJSON?) -> Cover? {
         var candidates: [TdJSON] = []
         if let thumbnail = audio?["album_cover_thumbnail"] { candidates.append(thumbnail) }
         candidates.append(contentsOf: audio?["external_album_covers"]?.array ?? [])
@@ -166,12 +183,18 @@ public struct TdTrack: Equatable, Sendable {
 
     /// The widest of TDLib's `thumbnail` objects (`td_api.tl:393`), which is the one worth a
     /// download: a 54 pt tile at @3x wants 162 pixels, and 100×100 is not enough.
-    private static func widest(_ thumbnails: [TdJSON]) -> Int? {
-        let sized = thumbnails.compactMap { entry -> (width: Int, id: Int)? in
-            guard let width = entry["width"]?.int, let id = entry["file"]?["id"]?.int else { return nil }
-            return (Int(width), Int(id))
+    ///
+    /// The remote identity comes from the same `file` object as the number, so the two can never be
+    /// a pair from different thumbnails. A `fileRemoteUnknown` remote — what TDLib answers before it
+    /// has looked the file up — has no identity, and the caller then has only the number to work with.
+    private static func widest(_ thumbnails: [TdJSON]) -> Cover? {
+        let ranked = thumbnails.compactMap { entry -> (width: Int, cover: Cover)? in
+            guard let width = entry["width"]?.int, let file = entry["file"],
+                  let id = file["id"]?.int else { return nil }
+            let unique = file["remote"]?["unique_id"]?.string
+            return (Int(width), (Int(id), unique.flatMap { $0.isEmpty ? nil : $0 }))
         }
-        return sized.max { $0.width < $1.width }?.id
+        return ranked.max { $0.width < $1.width }?.cover
     }
 
     /// The bots that post these files write the name twice — into the audio tag and into the

@@ -29,6 +29,9 @@ protocol Playable {
     var fileExtension: String { get }
     var miniArtwork: Data? { get }
     var coverFileId: Int? { get }
+    /// The cover's MTProto identity — the only part of it that means the same thing in two
+    /// databases, and so the only part worth filing a cached picture under.
+    var coverUniqueId: String? { get }
 }
 
 extension TdTrack: Playable {}
@@ -60,7 +63,7 @@ extension StoreTrack {
                   fileName: track.fileName, duration: track.duration, size: track.size,
                   date: track.date,
                   localPath: track.isDownloaded ? track.localPath : nil,
-                  miniArtwork: track.miniArtwork)
+                  miniArtwork: track.miniArtwork, coverUniqueId: track.coverUniqueId)
     }
 }
 

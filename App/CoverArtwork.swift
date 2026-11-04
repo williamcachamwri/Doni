@@ -88,7 +88,10 @@ final class CoverArtwork: ObservableObject {
         }
         // The directory outlives the process, so it is the one thing here that needs a budget of its
         // own: `Library/Caches` is only pruned when the system feels like it.
-        Task.detached(priority: .utility) { Self.trimSources() }
+        Task.detached(priority: .utility) {
+            Self.discardLegacySources()
+            Self.trimSources()
+        }
     }
 
     /// The tile's content, best first: a cover that can fill this surface, then the inline
@@ -115,8 +118,8 @@ final class CoverArtwork: ObservableObject {
     func sharp(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
         let pixels = Self.pixels(forSide: points)
         if let embedded = fileArt(of: track, pixels: pixels) { return embedded }
-        guard let id = track.coverFileId else { return nil }
-        return atLeast(id, than: pixels) ?? largest(id)
+        guard let cover = Self.token(for: track) else { return nil }
+        return atLeast(cover, than: pixels) ?? largest(cover)
     }
 
     /// The 40×30 the message carried, which is what a row shows until the sharp file lands — and
@@ -172,26 +175,30 @@ final class CoverArtwork: ObservableObject {
         if track.localPath != nil, fileArt(of: track, pixels: pixels) == nil {
             await loadFileArt(of: track, pixels: pixels)
         }
-        guard let coverFileId = track.coverFileId else { return }
+        guard let cover = Self.token(for: track) else { return }
         // A surface already filled by the tags has no reason to fetch a server thumbnail over it,
         // and one that holds the tier it asked for has nothing left to order.
         if fileArt(of: track, pixels: pixels) != nil { return }
-        guard atLeast(coverFileId, than: pixels) == nil else { return }
-        let source = Self.coverSource(fileId: coverFileId)
-        if let tile = await tile(from: source, pixels: pixels) {
-            put(tile, forKey: Self.coverKey(fileId: coverFileId, pixels: pixels))
+        guard atLeast(cover, than: pixels) == nil else { return }
+        let key = Self.coverKey(cover, pixels: pixels)
+        if cover.persistent, let tile = await tile(from: Self.coverSource(cover), pixels: pixels) {
+            put(tile, forKey: key)
             return
         }
+        guard let fileId = track.coverFileId else { return }
+        // `nil` when this cover only has a database row number to be called by: there is then no
+        // safe name to file its bytes under, so it is fetched again next time rather than kept.
+        let source: URL? = cover.persistent ? Self.coverSource(cover) : nil
         guard let path = await (via ?? downloader)?.path(
-            fileId: coverFileId, priority: TdFileDownloader.coverPriority
+            fileId: fileId, priority: TdFileDownloader.coverPriority
         ) else { return }
         let image = await Task.detached(priority: .userInitiated) {
             let tile = Self.downsampled(path: path, side: pixels)
-            Self.keep(path: path, as: source)
+            if let source { Self.keep(path: path, as: source) }
             return tile
         }.value
         guard !Task.isCancelled, let image else { return }
-        put(image, forKey: Self.coverKey(fileId: coverFileId, pixels: pixels))
+        put(image, forKey: key)
     }
 
     /// The cover inside the audio file, decoded off the main thread and written into the same cache
@@ -268,9 +275,9 @@ final class CoverArtwork: ObservableObject {
 
     /// This cover at the asked-for tier or the first bigger one already on the device. A 512 px
     /// card draws a 60 pt row perfectly, so a second decode would buy nothing but memory.
-    private func atLeast(_ fileId: Int, than pixels: Int) -> UIImage? {
+    private func atLeast(_ cover: CoverToken, than pixels: Int) -> UIImage? {
         for tier in Self.tiers where tier >= pixels {
-            if let image = cache.object(forKey: Self.coverKey(fileId: fileId, pixels: tier)) {
+            if let image = cache.object(forKey: Self.coverKey(cover, pixels: tier)) {
                 return image
             }
         }
@@ -279,17 +286,26 @@ final class CoverArtwork: ObservableObject {
 
     /// The biggest cover this file has, however small: what a surface falls back to when the tier
     /// it wants was never asked for, since one scaled a little still beats starting from scratch.
-    private func largest(_ fileId: Int) -> UIImage? {
+    private func largest(_ cover: CoverToken) -> UIImage? {
         for tier in Self.tiers.reversed() {
-            if let image = cache.object(forKey: Self.coverKey(fileId: fileId, pixels: tier)) {
+            if let image = cache.object(forKey: Self.coverKey(cover, pixels: tier)) {
                 return image
             }
         }
         return nil
     }
 
-    private static func coverKey(fileId: Int, pixels: Int) -> NSString {
-        "c:\(fileId):\(pixels)" as NSString
+    /// What a cover is called in this cache.
+    private nonisolated static func token(for track: any Playable) -> CoverToken? {
+        if let unique = track.coverUniqueId, !unique.isEmpty {
+            return CoverToken(id: unique, persistent: true)
+        }
+        guard let fileId = track.coverFileId else { return nil }
+        return CoverToken(id: "db:\(fileId)", persistent: false)
+    }
+
+    private nonisolated static func coverKey(_ cover: CoverToken, pixels: Int) -> NSString {
+        "c:\(cover.id):\(pixels)" as NSString
     }
 
     private static func pathKey(_ path: String) -> NSString {
@@ -337,16 +353,29 @@ final class CoverArtwork: ObservableObject {
     /// take the space back. Nothing is written outside the phone.
     private nonisolated static var sourceDirectory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        let url = base.appendingPathComponent("Doni/Cover Sources", isDirectory: true)
+        let url = base.appendingPathComponent("Doni/Covers", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    /// The directory this cache used before covers were named for a `file_unique_id`.
+    ///
+    /// Its files were named for a hash of TDLib's row number, so two things are true of them: some
+    /// are the picture of a different song than the one that would now ask for them, and none can be
+    /// found again under the new name. They are deleted on the way in rather than left to age out of
+    /// the budget, because leaving them means leaving both the wrongness and the space.
+    private nonisolated static func discardLegacySources() {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.removeItem(
+            at: base.appendingPathComponent("Doni/Cover Sources", isDirectory: true)
+        )
     }
 
     /// A file per cover, named for a hash of the cache key: a key carries a colon and, for a
     /// playlist's own picture, a whole path, and neither belongs in a filename. The source is keyed
     /// without a tier, because the bytes answer every tier.
-    private nonisolated static func coverSource(fileId: Int) -> URL {
-        sourceURL("c:\(fileId)")
+    private nonisolated static func coverSource(_ cover: CoverToken) -> URL {
+        sourceURL("c:\(cover.id)")
     }
 
     private nonisolated static func fileSource(uniqueId: String) -> URL {
@@ -455,4 +484,22 @@ final class CoverArtwork: ObservableObject {
         else { return 0 }
         return max(width, height)
     }
+}
+
+/// What one song's cover is called, and whether the phone may keep it between launches.
+///
+/// `cover_file_id` is TDLib's row number in whichever database made it (`td_api.tl:326`), so it
+/// means a different file after the library has been rebuilt — while the pictures this app keeps in
+/// its own cache directory outlive that rebuild by a long way. Filed under the number, one song is
+/// handed another song's picture, which is the artwork mismatch being reported. `file_unique_id` is
+/// MTProto's name for the same bytes in every database on every device, so it is what every memory
+/// key and every source file here is built from.
+///
+/// A row indexed before the identity was recorded has only the number to go on. That still answers
+/// inside this process, where the number is consistent, but `persistent` is false for it: those
+/// bytes neither come off the disk nor go back to it. The next read of that channel records the
+/// identity and the cover becomes storable again.
+private struct CoverToken: Equatable {
+    let id: String
+    let persistent: Bool
 }

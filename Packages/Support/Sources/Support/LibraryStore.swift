@@ -39,11 +39,14 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
     public var date: Int64
     public var localPath: String?
     public var miniArtwork: Data?
+    /// The cover's MTProto identity. `coverFileId` is TDLib's row number in whichever database made
+    /// it, so it is only good until that database is; this is what a cached picture is filed under.
+    public var coverUniqueId: String?
 
     public init(uniqueId: String, chatId: Int64, messageId: Int64, fileId: Int,
                 coverFileId: Int? = nil, title: String, performer: String, fileName: String,
                 duration: Int?, size: Int64, date: Int64, localPath: String? = nil,
-                miniArtwork: Data? = nil) {
+                miniArtwork: Data? = nil, coverUniqueId: String? = nil) {
         self.uniqueId = uniqueId
         self.chatId = chatId
         self.messageId = messageId
@@ -57,6 +60,7 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
         self.date = date
         self.localPath = localPath
         self.miniArtwork = miniArtwork
+        self.coverUniqueId = coverUniqueId
     }
 }
 
@@ -116,7 +120,7 @@ public final class LibraryStore: @unchecked Sendable {
     }
 
     /// `1` is the first schema; a column added later bumps this and the row below it migrates.
-    private static let schemaVersion = 3
+    private static let schemaVersion = 4
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
@@ -175,7 +179,8 @@ public final class LibraryStore: @unchecked Sendable {
             size INTEGER NOT NULL,
             date INTEGER NOT NULL,
             local_path TEXT,
-            mini_artwork BLOB
+            mini_artwork BLOB,
+            cover_unique_id TEXT
         )
         """)
         sqlRun(handle, "CREATE INDEX IF NOT EXISTS track_chat ON track (chat_id, date DESC)")
@@ -209,14 +214,20 @@ public final class LibraryStore: @unchecked Sendable {
         sqlRun(handle, "PRAGMA user_version = \(Self.schemaVersion)")
     }
 
-    /// Version 2 gave a list its own cover file. `CREATE TABLE IF NOT EXISTS` cannot add a column to
-    /// the table an older build already made, so the upgrade asks the table what it holds and adds
-    /// the one it is missing. Asking rather than reading `user_version` is what keeps this safe on a
-    /// brand new database, where the statement above has already made the column and a second one
-    /// would be an error.
+    /// A column added later. `CREATE TABLE IF NOT EXISTS` cannot add a column to the table an older
+    /// build already made, so the upgrade asks the table what it holds and adds the one it is missing.
+    /// Asking rather than reading `user_version` is what keeps this safe on a brand new database,
+    /// where the statement above has already made the column and a second one would be an error.
+    ///
+    /// Version 2 gave a list its own cover file, and version 4 gave a song's cover its own identity:
+    /// the row number a pre-4 build stored belongs to whichever TDLib database made it, and a track
+    /// that has been re-read since then gets its real `file_unique_id` written beside it.
     private static func addMissingColumn(_ handle: OpaquePointer) {
         if !hasColumn(handle, table: "playlist", column: "cover_path") {
             sqlRun(handle, "ALTER TABLE playlist ADD COLUMN cover_path TEXT")
+        }
+        if !hasColumn(handle, table: "track", column: "cover_unique_id") {
+            sqlRun(handle, "ALTER TABLE track ADD COLUMN cover_unique_id TEXT")
         }
     }
 
@@ -412,7 +423,7 @@ public final class LibraryStore: @unchecked Sendable {
     private func insert(track: StoreTrack) {
         guard let statement = prepare("""
             INSERT INTO track (\(Self.columns))
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(unique_id) DO UPDATE SET
                 chat_id = excluded.chat_id,
                 message_id = excluded.message_id,
@@ -425,7 +436,8 @@ public final class LibraryStore: @unchecked Sendable {
                 size = excluded.size,
                 date = excluded.date,
                 local_path = COALESCE(excluded.local_path, track.local_path),
-                mini_artwork = COALESCE(excluded.mini_artwork, track.mini_artwork)
+                mini_artwork = COALESCE(excluded.mini_artwork, track.mini_artwork),
+                cover_unique_id = COALESCE(excluded.cover_unique_id, track.cover_unique_id)
             """) else { return }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_text(statement, 1, track.uniqueId, -1, Self.transient)
@@ -459,6 +471,11 @@ public final class LibraryStore: @unchecked Sendable {
             }
         } else {
             sqlite3_bind_null(statement, 13)
+        }
+        if let coverId = track.coverUniqueId {
+            sqlite3_bind_text(statement, 14, coverId, -1, Self.transient)
+        } else {
+            sqlite3_bind_null(statement, 14)
         }
         sqlite3_step(statement)
     }
@@ -813,12 +830,12 @@ public final class LibraryStore: @unchecked Sendable {
 
     private static let columns = """
     unique_id, chat_id, message_id, file_id, cover_file_id, title, performer, file_name, \
-    duration, size, date, local_path, mini_artwork
+    duration, size, date, local_path, mini_artwork, cover_unique_id
     """
 
     private static let aliasedColumns = """
     t.unique_id, t.chat_id, t.message_id, t.file_id, t.cover_file_id, t.title, t.performer, \
-    t.file_name, t.duration, t.size, t.date, t.local_path, t.mini_artwork
+    t.file_name, t.duration, t.size, t.date, t.local_path, t.mini_artwork, t.cover_unique_id
     """
 
     /// `SQLITE_TRANSIENT` makes SQLite copy what it is bound, so the Swift string behind it can
@@ -874,10 +891,19 @@ public final class LibraryStore: @unchecked Sendable {
                 ? nil : Int(sqlite3_column_int(statement, offset + 8)),
             size: sqlite3_column_int64(statement, offset + 9),
             date: sqlite3_column_int64(statement, offset + 10),
-            localPath: sqlite3_column_type(statement, offset + 11) == SQLITE_NULL
-                ? nil : text(statement, offset + 11),
-            miniArtwork: artwork
+            localPath: optionalText(statement, offset + 11),
+            miniArtwork: artwork,
+            coverUniqueId: optionalText(statement, offset + 13)
         )
+    }
+
+    /// A TEXT column that is allowed to be empty. `text(_:_)` answers `""` for a NULL, which is the
+    /// wrong thing for an identity: an empty cover id would be read as a real one and file a picture
+    /// under nothing.
+    private static func optionalText(_ statement: OpaquePointer?, _ index: Int32) -> String? {
+        guard let statement, sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
+        let value = text(statement, index)
+        return value.isEmpty ? nil : value
     }
 }
 

@@ -206,10 +206,25 @@ struct LibraryStoreTests {
         defer { store.close(); try? FileManager.default.removeItem(at: directory) }
         var row = track("a")
         row.miniArtwork = Data([0xff, 0xd8, 0x01])
+        row.coverUniqueId = "AQADFR4AAn3M-VZy"
         store.replaceTracks(chatId: -1, tracks: [row])
         let read = try #require(store.track(uniqueId: "a"))
         #expect(read.coverFileId == 20)
+        #expect(read.coverUniqueId == "AQADFR4AAn3M-VZy")
         #expect(read.miniArtwork == Data([0xff, 0xd8, 0x01]))
+    }
+
+    @Test("a re-read that names no cover keeps the name already stored")
+    func rereadingKeepsTheCoverName() throws {
+        // A row written before covers had their own column, or a page TDLib answered without the
+        // remote, must not blank the identity the picture is filed under.
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        var row = track("a")
+        row.coverUniqueId = "AQADFR4AAn3M-VZy"
+        store.replaceTracks(chatId: -1, tracks: [row])
+        store.replaceTracks(chatId: -1, tracks: [track("a")])
+        #expect(store.track(uniqueId: "a")?.coverUniqueId == "AQADFR4AAn3M-VZy")
     }
 
     @Test("a heart on, then off, then on again")
