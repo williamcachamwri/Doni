@@ -238,6 +238,13 @@ struct LibraryView: View {
         if !offlineAll.isEmpty {
             list.append(HomeFacet(title: "Trên máy", tracks: cut(offlineAll)))
         }
+        // One chip for every group the allow-list holds, in the order they were added. "Tất cả"
+        // mixes the channels into one river, and someone who joined three of them came here to hear
+        // one of them.
+        for channel in library.channels where channel.isIndexed {
+            let songs = cut(visible.filter { $0.chatId == channel.chatId })
+            if songs.count > 1 { list.append(HomeFacet(title: channel.title, tracks: songs)) }
+        }
         for artist in visible.searchArtists.prefix(5) where artist.tracks.count > 1 {
             list.append(HomeFacet(title: artist.name, tracks: cut(artist.tracks)))
         }
