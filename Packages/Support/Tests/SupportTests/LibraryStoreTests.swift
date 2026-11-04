@@ -537,4 +537,28 @@ struct LibraryStoreTests {
         #expect(store.playlists().isEmpty)
         #expect(store.createPlaylist(name: "Sau khi đăng xuất") != nil, "the tables are still there")
     }
+
+    /// What a sign-out does now, and what deleting the rows never was: the file itself goes, so the
+    /// pages the library was written on do not stay behind inside it for anyone who opens it after.
+    @Test("throwing the database away and reopening leaves no trace of what was in it")
+    func reopenReplacesTheFile() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("library.db")
+        store.appendTracks((0..<200).map { track("song-\($0)") })
+        #expect(store.trackCount() == 200)
+
+        // Closing is what folds the write-ahead log back into the file, so this is the moment the
+        // rows are certainly in it — and certainly must not be after.
+        store.close()
+        let written = try Data(contentsOf: file)
+        #expect(written.contains(Array("song-7.mp3".utf8)), "the library is in the file to begin with")
+
+        try FileManager.default.removeItem(at: file)
+        store.reopen()
+        #expect(store.trackCount() == 0)
+        let after = try Data(contentsOf: file)
+        #expect(!after.contains(Array("song-7.mp3".utf8)), "no page of it survived")
+        #expect(store.createPlaylist(name: "Sau khi đăng xuất") != nil, "the schema came back with it")
+    }
 }

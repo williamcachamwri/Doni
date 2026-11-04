@@ -41,9 +41,13 @@ final class Library: ObservableObject {
     @Published private(set) var disk: DoniStorage?
 
     init(filename: String = "library.db") {
+        self.filename = filename
         store = LibraryStore(path: Self.supportDirectory.appendingPathComponent(filename).path)
         refresh()
     }
+
+    /// The name `wipe` unlinks. Kept because the file is the thing that has to go, not its rows.
+    private let filename: String
 
     /// Every published list and number, re-read. Called after anything that touches the file, so a
     /// heart tapped in one tab shows in the other three without a relaunch.
@@ -553,10 +557,22 @@ final class Library: ObservableObject {
         refresh()
     }
 
-    /// Everything this app put on the phone, thrown away. The session is Keychain's business; the
-    /// rows, the hearts and the lists are not.
+    /// Everything this app put on the phone, thrown away — the file, not only its rows.
+    ///
+    /// Deleting the rows was the old answer, and it was not an answer: a SQLite database keeps the
+    /// pages it deleted until something else overwrites them, so anyone who opens the file after a
+    /// sign-out can still read the library out of it. The connection is therefore closed, the
+    /// database and its two write-ahead files are unlinked, and an empty one is opened in their
+    /// place. That is also what makes this survive being interrupted — there is no half-emptied
+    /// library left behind to come back, because there is no library.
+    ///
+    /// The session itself is Keychain's business, and TDLib's directory goes with its client.
     func wipe() {
-        store.wipeLibrary()
+        store.close()
+        for name in [filename, "\(filename)-wal", "\(filename)-shm"] {
+            try? FileManager.default.removeItem(at: Self.supportDirectory.appendingPathComponent(name))
+        }
+        store.reopen()
         try? FileManager.default.removeItem(at: Self.coverDirectory)
         try? FileManager.default.removeItem(at: Self.avatarDirectory)
         try? FileManager.default.removeItem(at: Self.musicDirectory)

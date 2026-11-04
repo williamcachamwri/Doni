@@ -148,19 +148,12 @@ public final class LibraryStore: @unchecked Sendable {
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
+    private let path: String
 
     /// Opens (and creates if needed) the database at `path`.
     public init(path: String) {
-        var opened: OpaquePointer?
-        let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
-        if sqlite3_open_v2(path, &opened, flags, nil) == SQLITE_OK, let opened {
-            handle = opened
-            sqlite3_busy_timeout(opened, 2000)
-            Self.configure(opened)
-            Self.createSchema(opened)
-        } else {
-            handle = nil
-        }
+        self.path = path
+        open()
     }
 
     deinit {
@@ -172,6 +165,33 @@ public final class LibraryStore: @unchecked Sendable {
         defer { lock.unlock() }
         if let handle { sqlite3_close_v2(handle) }
         handle = nil
+    }
+
+    /// Closes the connection and opens it again over the same path.
+    ///
+    /// This is what lets a sign-out throw the *file* away rather than only its rows: the unlink has
+    /// to happen while nothing holds the database open, and the app still has to have somewhere to
+    /// write afterwards. What comes back is an empty schema — the same thing a first launch gets.
+    public func reopen() {
+        lock.lock()
+        defer { lock.unlock() }
+        if let handle { sqlite3_close_v2(handle) }
+        handle = nil
+        open()
+    }
+
+    /// The caller holds the lock.
+    private func open() {
+        var opened: OpaquePointer?
+        let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
+        if sqlite3_open_v2(path, &opened, flags, nil) == SQLITE_OK, let opened {
+            handle = opened
+            sqlite3_busy_timeout(opened, 2000)
+            Self.configure(opened)
+            Self.createSchema(opened)
+        } else {
+            handle = nil
+        }
     }
 
     private static func configure(_ handle: OpaquePointer) {

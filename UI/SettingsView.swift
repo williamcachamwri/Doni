@@ -418,6 +418,9 @@ struct SettingsView: View {
     /// TDLib's own directory and the Keychain key that opens its database go with the session — from
     /// the session, once its client has closed.
     private func signOut() {
+        // Nothing may write rows while the file is being thrown away: a walk still running, or a
+        // post still arriving, would put the library back into the empty database it just got.
+        indexer.stop()
         player.stop()
         library.wipe()
         // How much room the pictures made is the storage screen's business, not this one's.
