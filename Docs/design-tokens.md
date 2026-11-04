@@ -680,6 +680,91 @@ above it, so the scroll content is inset by `TelegramFloatingBarMetrics.clearanc
 owns that number and hands it down through `\.telegramFloatingClearance`, because only the shell
 knows whether the strip is up.
 
+## MeloX — the music shell Doni now wears (2026-11-04)
+
+The user replaced the oracle: *"lấy toàn bộ giao diện home, playlist, tạo playlist, settings, thêm
+nhạc vào playlist, queue hàng chờ nhạc tiếp theo, tab bar và cả now playing và animation giao diện
+của app… https://github.com/youshen2/MeloX"*. MeloX is SwiftUI, GPL-3.0, deployment target **iOS 26**,
+and leans on system Liquid Glass. Doni stays on iOS 17, so these are *transcriptions* of its numbers
+into Doni's own views — no file, type or asset is copied. Provenance is `file:line` in
+`/tmp/MeloX/MeloX`, and the tokens live in `MusicScreenTheme.swift`.
+
+**Global.** The accent is `.tint(.red)` (`App/MeloXApp.swift:95`); Doni forces the dark scheme, where
+system red is `#ff453a` → `MusicTint.accent`.
+
+| Token | Value | Source |
+| --- | --- | --- |
+| Cover radius (default) | 10 | `Shared/Media/ArtworkImage.swift:7` |
+| Placeholder fill / glyph | `secondary` 0.12 / `.title2` `music.note` | `ArtworkImage.swift:60,68-70` |
+| Image load fade | `easeOut(0.18)` | `ArtworkImage.swift:46` |
+| Feed section gap / top / bottom | 32 / 8 / 28 | `Features/Home/HomeRecommendedView.swift:101,139-140` |
+| Shelf gutter | 16 (both header padding and scroll content margin) | `HomeRecommendationSections.swift:102,109` |
+| Header→shelf / card→card | 14 / 14 | `HomeRecommendationSections.swift:85,105` |
+| Card artwork | 166 playlist · 154 song · 160 default | `HomeComponents.swift:110-112`, `HomeRecommendationSections.swift:123-125`, `MediaCardView.swift:8` |
+| Card text gap | 8 | `MediaCardView.swift:11` |
+| Grid | 16 padding · 145 min item · 16 spacing | `MediaCardGridLayout.swift:9-11` |
+| Quick-action tile | 132 tall · ≤230 wide compact · `min(w×0.86, 340)` standard · r14 · p14 · gap 16 | `HomeQuickActionsView.swift:101,131-135,144`, `HomeComponents.swift:11,43,53` |
+| Tile gradient | topLeading→bottomTrailing over pink/red, orange/red, pink/purple, indigo/purple, cyan/blue, mint/teal | `HomeQuickActionsView.swift:81-96`, `HomeComponents.swift:47-52` |
+| Tile watermark | 72 `semibold` at white 0.24; overlay title `.title.bold()` with 18 padding; box aspect 1.48 | `HomeComponents.swift:79-94` |
+| Mini player | art 40 (30 inline) r6 · gap 10 (8) · text gap 1 · buttons 36 circle · padding 12/6 | `MiniPlayerView.swift:14-30,47-93,110-112` |
+| Mini player swipe | `DragGesture(minimumDistance: 28)`, horizontal-dominant | `MiniPlayerView.swift:115-123` |
+| Playlist list row | art 54 r7 · gap 12 · text gap 4 · count `.caption` secondary | `LibraryPlaylistsView.swift:155-163` |
+| Playlist hero | art r12, shadow black 0.18/r18/y10 · 26 top · 24 to `title2.bold()` · 8 to `title3` · 7 to `subheadline.weight(.medium)` · 17 to actions · 22 bottom · 24 sides | `PlaylistDetailContent.swift:190-226` |
+| Hero action row | `GlassEffectContainer(spacing: 14)`, 30 pt glyphs, play at `title3.bold()` | `PlaylistDetailContent.swift:328-389` |
+| Track row | 40 index column (32 circle) · art 48 r6 · gap 12 · leading 20 / trailing 8 · vertical 11 (8 with art) | `PlaylistTrackList.swift:89-101,223-232,254-269` |
+| Add-to-playlist row | art 52 r7 · gap 12 · text gap 3 | `AddToPlaylistSheet.swift:86-95` |
+| Queue pills | height 44 · radius 22 | `NowPlayingQueuePage.swift:289,297` |
+| Queue row | art 48 r6, title `.body`, note `.subheadline` | `NowPlayingQueuePage.swift:343-351` |
+| Settings card | r26 continuous, `secondarySystemGroupedBackground` · header `headline` secondary at 14 padding · card gap 10 · divider leading 58 | `SettingsHomeComponents.swift:23-50` |
+| Settings row | minHeight 68 · icon `title3.medium` tinted, 30 wide · gap 14 · text gap 3 · title `body.semibold` · subtitle `caption` · chevron `caption.semibold` tertiary · padding 18/13 | `SettingsHomeComponents.swift:58-88` |
+| Now playing padding | 32 horizontal | `NowPlayingView.swift:5` |
+| Dismiss handle | capsule 60×5 white 0.52, 8 top, inside a 34 box | `NowPlayingView.swift:465-473` |
+| Artwork | `min(w+16, max(170, h−279−92))`, r12, shrinks to 0.74 paused | `NowPlayingArtworkPage.swift:4,39-50,66` |
+| Artwork shadow | playing 0.34/r26/y15 · paused 0.18/r14/y8 · none elsewhere | `NowPlayingPortraitArtwork.swift:45-58` |
+| Bottom overlay | utility 62 + core 279 = 341 | `NowPlayingBottomControls.swift:4-6` |
+| Core stack | progress 52 · 19 · transport 82 · 31 · volume 42 · 3 · selector 50 = 279 | `NowPlayingBottomControls.swift:36-59` |
+| Transport | circles 64, glyphs 34/48/34 `.medium` | `NowPlayingControls.swift:197,224,248,286` |
+| Progress block | thumb hidden, `.tint(.white)`, times `caption2.monospacedDigit()` white 0.5, chip 9/4 padding r7 white 0.12 with a 9 glyph | `NowPlayingControls.swift:11-52,99-105,151-160` |
+| Volume | row 42 · slider 32 · glyph gap 10 · white 0.62 | `NowPlayingControls.swift:324-337` |
+| Page selector | row 50 inset 32 · 44 circles at `.title3` white 0.72 · selected 0.68 white disc, 0.68 black ink · badge 15 with a 7 glyph at (3,1) | `NowPlayingControls.swift:451-512` |
+| Title line | `title3.semibold` over `title3` artist at white 0.64, 2 apart, 8 to badges, 14 to actions | `NowPlayingArtworkPage.swift:130-153` |
+| Song header (queue/lyrics) | 72 tall, art r12, enters from 40 below | `NowPlayingSongHeader.swift:43,104`, `NowPlayingMotionSpec.swift:528` |
+| Backdrop | artwork at scale 1.35 under a 90 blur | `NowPlayingBackground.swift:127-128`, `AppSettings.swift:2007` |
+
+**Motion bank** (`NowPlayingMotionSpec.appleMusic26`, all iOS 17-safe). Page transitions `.smooth`
+0.30 selection / 0.44 direct alternate / 0.24 outgoing / 0.22+0.07 incoming / 0.40+0.08 song header /
+0.34+0.11 delayed resident / 0.48 artwork resize. Spatial page curves are
+`interpolatingSpring(mass 1, stiffness 350, damping 40)`; opacity curves are
+`timingCurve(0.42, 0, 0.58, 1)` at 0.18 (lyrics) and 0.30±0.10 (queue). Content scales 0.92 alternate /
+0.90 presenting. Core layers rise from 180/165/148/128 with show delays 0.025/0.05/0.075/0.10 and hide
+delays 0.075/0.05/0.025/0 on a 0.24 `.smooth`; the utility band goes 64 down and 0.82. Transport press:
+glyph 0.8 (`easeInOut 0.16`), disc from 0.86 (`easeOut 0.18`) at white 0.1, release `easeInOut 0.4`.
+Play glyph swap `.symbolEffect(.replace.downUp.wholeSymbol, .speed(1.6))` inside `.snappy(0.2)`.
+Artwork bounce: `easeOut(0.17)`→1.055, hold 170 ms, `spring(duration 0.42, bounce 0.24)` home.
+Interface auto-hide 5 s.
+
+**The overdamped spring has no iOS 17 call.** MeloX asks for its settlement horizon with
+`Spring(mass: 1, stiffness: 350, damping: 40, allowOverDamping: true).settlingDuration(…)`. The
+`allowOverDamping:` initialiser is newer than iOS 17, so Doni carries the evaluated number: damping 40
+against a critical 2√350 ≈ 37.4 is overdamped, roots −12.9289 and −27.0711, y(0) = −1 with y′(0) = 0
+gives A = −1.91421, and −ln(0.001 ÷ 1.91421) ÷ 12.9289 ≈ **0.5845 s** → `MusicMotion.pageSpringSettling`.
+
+**API substitutions.** MeloX's chrome is iOS 26 system plumbing; Doni reproduces the *look* on iOS 17:
+
+| MeloX | Doni |
+| --- | --- |
+| `TabView` + `.tabViewBottomAccessory { MiniPlayerView }` + `.tabBarMinimizeBehavior(.onScrollDown)` | hand-built `AMTabBar` + `MiniPlayerBar` in one floating chrome |
+| `matchedTransitionSource` + `.navigationTransition(.zoom)` | the existing `matchedGeometryEffect` morph |
+| `GlassEffectContainer`, `.buttonStyle(.glass)` / `.glassProminent` | `telegramGlass(_:fallback:)` |
+| `MeshGradient` / Metal `layerEffect` backdrop | blurred-artwork backdrop at the same 1.35 / 90 numbers |
+| `Picker(.segmented)` in the nav bar for home sections | Doni has one home feed; no picker |
+| `Tab(role: .search)` | search is a real tab in the bar, last, with no separate circle |
+| Nuke `LazyImage` thumbnails | `TrackCover` + `CoverArtwork` |
+
+Two structural notes the transcription keeps. First, MeloX's queue is **not a sheet** — it is the third
+page of the player's own `ZStack`, with the artwork pinned to a 72 pt header while it slides up. Second,
+MeloX's home has no search field: search is a tab, and the tab bar carries `role: .search`.
+
 ## Known traps found while extracting
 
 - An audio's fields are not on the `messageAudio` object: TDLib nests them under `audio`, so
