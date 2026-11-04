@@ -143,6 +143,21 @@ public actor TdFileDownloader {
         return Self.readyPath(in: answer)
     }
 
+    /// Tells TDLib to throw its own copy of a file away.
+    ///
+    /// This is the only way to empty TDLib's directory that leaves TDLib knowing it has been emptied:
+    /// `deleteFile` (`td_api.tl:15052`) marks the file's row in TDLib's own database as gone, so a
+    /// later `downloadFile` fetches it again. Deleting the bytes from under a running TDLib instead
+    /// leaves it holding a path that no longer exists, and it goes on answering `downloadFile` with
+    /// that path — the song would look downloaded forever and never play.
+    ///
+    /// Offline, TDLib says `Ok` and does nothing until the next connection
+    /// (`td_api.tl:15045-15052`), which is why the caller keeps the row's own state as the truth
+    /// about the phone rather than this answer.
+    public func remove(fileId: Int) async -> Bool {
+        (try? await flow.request("deleteFile", ["file_id": .int(Int64(fileId))])) != nil
+    }
+
     /// A few bytes out of a file the phone does not have, and does not get.
     ///
     /// `downloadFile`'s `limit` is not a hint: it is the number of bytes after which the fetch is

@@ -721,3 +721,19 @@ public enum MusicScreenMotion {
     /// `.easeInOut(duration: 0.15)` on a row's own selection state (`PlaylistTrackList.swift:311`).
     public static let rowToggle = Animation.easeInOut(duration: 0.15)
 }
+
+/// The storage screen's numbers, all of them MeloX's own
+/// (`StorageManagementView.swift:68-124`, `:329-352`, `:386-418`).
+public enum MusicStorageMetrics {
+    /// The overview's glyph sits in a 34 pt box, 12 from the two lines beside it, which are 2 apart
+    /// and 6 pt from the top and bottom of the row (`:71-99`).
+    public static let glyphBox: CGFloat = 34
+    public static let rowGap: CGFloat = 12
+    public static let textGap: CGFloat = 2
+    public static let rowVertical: CGFloat = 6
+    /// 14 pt between the managed-size block and the device capacity bar (`:70`).
+    public static let overviewGap: CGFloat = 14
+    /// The smallest room between an operation row's words and its byte count, where a spinner takes
+    /// the number's place while the work runs (`:405`).
+    public static let valueFloor: CGFloat = 8
+}

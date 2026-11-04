@@ -2,6 +2,7 @@ import AVFoundation
 import CryptoKit
 import Foundation
 import ImageIO
+import Support
 import TdSession
 import UIKit
 
@@ -196,6 +197,25 @@ final class CoverArtwork: ObservableObject {
               side points: CGFloat = 60) async {
         remember(track, at: points)
         await fill(track: track, via: via, points: points)
+    }
+
+    /// Throwing away every cached picture — the tiles in memory, the pinned ones, and the cover
+    /// bytes on disk — and reporting the room that made.
+    ///
+    /// Everything here is recomputable: a song's own art is decoded out of its container again and a
+    /// Telegram thumbnail is fetched again by the row that wants it. That is what makes this the safe
+    /// half of the app's storage. The picture a user chose for a list is deliberately not in this
+    /// directory: that file is theirs, it came out of their own photo library, and nothing else on
+    /// the phone holds a copy.
+    func clearCache() -> Int64 {
+        cache.removeAllObjects()
+        pinned.removeAll()
+        pinnedOrder.removeAll()
+        pinnedBytes = 0
+        recent.removeAll()
+        let freed = DiskUsage.clear(Self.sourceDirectory)
+        revision += 1
+        return freed
     }
 
     /// The work of an ask, without the booking. The foreground re-warm needs exactly this half: it is
@@ -433,7 +453,7 @@ final class CoverArtwork: ObservableObject {
     /// A cover's own bytes, kept between launches. `Library/Caches` because that is exactly what this
     /// is: every file here can be fetched or read out of the song again, and the system is allowed to
     /// take the space back. Nothing is written outside the phone.
-    private nonisolated static var sourceDirectory: URL {
+    nonisolated static var sourceDirectory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let url = base.appendingPathComponent("Doni/Covers", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

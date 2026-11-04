@@ -37,6 +37,7 @@ struct SettingsView: View {
     @State private var searchText = ""
     @State private var showsAddChannel = false
     @State private var showsPendingSongs = false
+    @State private var showsStorage = false
 
     var body: some View {
         ScrollView {
@@ -118,6 +119,13 @@ struct SettingsView: View {
             PendingSongsView(session: session, player: player, artwork: CoverArtwork.shared,
                              library: library, indexer: indexer)
         }
+        .navigationDestination(isPresented: $showsStorage) {
+            StorageView(session: session, player: player, artwork: CoverArtwork.shared,
+                        library: library)
+        }
+        // The card's storage line quotes the disk, not the rows, so the walk is asked for on the way
+        // in. It runs detached at utility priority and a second visit costs nothing the first missed.
+        .task { await library.remeasureDisk() }
     }
 
     // MARK: Header
@@ -332,8 +340,9 @@ struct SettingsView: View {
     // MARK: What is on the phone
 
     /// The library's numbers, in the two-line shape every other row on the screen wears. The first
-    /// three carry a value and nowhere to go; the last is the one thing on this card that has a screen
-    /// of its own, because a song waiting to be fetched is a queue and a queue wants rows.
+    /// two carry a value and nowhere to go; the last two each have a screen of their own, because a
+    /// song waiting to be fetched is a queue and a queue wants rows, and because bytes that have to
+    /// be counted off the disk want a screen that can throw them away.
     private var lines: [SettingLine] {
         [
             SettingLine(symbol: "doc.text", title: "Bài đã chỉ mục",
@@ -344,10 +353,11 @@ struct SettingsView: View {
                         subtitle: "Nghe được khi không có mạng",
                         value: "\(library.downloadedCount.formatted()) bài",
                         keywords: "tải offline file"),
-            SettingLine(symbol: "internalfolder", title: "Dung lượng đã tải",
-                        subtitle: "Bị xoá khi đăng xuất",
-                        value: DataSize.string(library.downloadedBytes),
-                        keywords: "dung lượng bộ nhớ cache"),
+            SettingLine(symbol: "internalfolder", title: "Bộ nhớ",
+                        subtitle: "Ảnh bìa, nhạc Telegram, file của bạn",
+                        value: library.disk.map { DataSize.string($0.managedBytes) } ?? "…",
+                        keywords: "dung lượng bộ nhớ cache storage disk",
+                        action: { showsStorage = true }),
             SettingLine(symbol: "tray.and.arrow.down", title: "Bài chưa tải về",
                         subtitle: "Chọn bài để đưa về máy",
                         value: pendingCount.formatted(),

@@ -33,9 +33,15 @@ final class Library: ObservableObject {
     @Published private(set) var downloadedCount = 0
     @Published private(set) var trackCount = 0
     @Published private(set) var downloadedBytes: Int64 = 0
+    /// What the phone really holds, in bytes, measured rather than summed — `nil` until someone asks.
+    ///
+    /// Published from here rather than kept on the storage screen because two screens quote it: the
+    /// settings line that says how big the app is, and the screen that says where the bytes are. One
+    /// walk of the disk, and the line never goes on quoting space that a cleanup just took back.
+    @Published private(set) var disk: DoniStorage?
 
     init(filename: String = "library.db") {
-        store = LibraryStore(path: Self.directory.appendingPathComponent(filename).path)
+        store = LibraryStore(path: Self.supportDirectory.appendingPathComponent(filename).path)
         refresh()
     }
 
@@ -246,6 +252,36 @@ final class Library: ObservableObject {
         if storedTracks.first(where: { $0.uniqueId == uniqueId })?.duration == nil {
             measure(path: path, uniqueId: uniqueId)
         }
+    }
+
+    /// Walking the disk and publishing what was found.
+    ///
+    /// Called when the settings screen appears and again after anything that throws bytes away. The
+    /// walk is detached at utility priority (`StorageTally`), so this is safe to fire from a `.task`
+    /// on a screen the user is already scrolling.
+    func remeasureDisk() async {
+        disk = await StorageTally.measure()
+    }
+
+    /// Releasing the songs Telegram can hand back, and saying how many went.
+    ///
+    /// TDLib is asked first, because it keeps its own record of what is on the phone: bytes deleted
+    /// from under it leave a row that says "downloaded" pointing at a path that is gone, and it will
+    /// go on answering `downloadFile` with that path instead of fetching again. A file it no longer
+    /// has is answered as its own no-op, so the count here is of songs this app has said goodbye to,
+    /// which is what the screen quotes.
+    ///
+    /// A file the user imported is never in this loop: no server holds a copy of it, and `fileId` 0
+    /// is TDLib's way of saying it never heard of the bytes.
+    func clearTelegramDownloads(with files: TdFileDownloader) async -> Int {
+        var released = 0
+        for row in storedTracks where row.isDownloaded && !row.isLocal && row.fileId != 0 {
+            guard await files.remove(fileId: row.fileId) else { continue }
+            store.setLocalPath(nil, uniqueId: row.uniqueId)
+            released += 1
+        }
+        refresh()
+        return released
     }
 
     // MARK: Lengths
@@ -500,7 +536,7 @@ final class Library: ObservableObject {
 
     /// Beside the list covers, in the app's private support directory: nothing here is uploaded, and
     /// nothing here is read by anything but this app.
-    private nonisolated static var avatarDirectory: URL {
+    nonisolated static var avatarDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let url = base.appendingPathComponent("Doni/Avatars", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -565,7 +601,10 @@ final class Library: ObservableObject {
         return fresh
     }
 
-    private nonisolated static var directory: URL {
+    /// The folder this app's own files live in, and the one every path below hangs off. The storage
+    /// screen measures these rather than the sizes written in the rows, because a row records what
+    /// the app meant to keep and the disk records what is actually there.
+    nonisolated static var supportDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let url = base.appendingPathComponent("Doni", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -575,8 +614,8 @@ final class Library: ObservableObject {
     /// Where a list's own picture lives: beside the database, in the app's private support
     /// directory. Nothing here is uploaded anywhere — a chosen cover is a file on this phone and
     /// the only reader of it is this app.
-    private static var coverDirectory: URL {
-        let url = directory.appendingPathComponent("Covers", isDirectory: true)
+    nonisolated static var coverDirectory: URL {
+        let url = supportDirectory.appendingPathComponent("Covers", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -585,8 +624,8 @@ final class Library: ObservableObject {
     /// is free to take a cache back and TDLib prunes its own when the phone wants the room, and an
     /// imported song is the one thing here that cannot afford to disappear — no channel holds a copy
     /// and there is nothing to fetch it back from.
-    private nonisolated static var musicDirectory: URL {
-        let url = directory.appendingPathComponent("Music", isDirectory: true)
+    nonisolated static var musicDirectory: URL {
+        let url = supportDirectory.appendingPathComponent("Music", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

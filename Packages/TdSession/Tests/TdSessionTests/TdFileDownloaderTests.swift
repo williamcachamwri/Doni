@@ -273,6 +273,33 @@ func readyPathIsNilWhenNotComplete() async throws {
     #expect(await waiting.value == nil)
 }
 
+@Test("throwing a file away is said to TDLib, so it knows to fetch it again")
+func removeAsksTDLibToDeleteItsOwnCopy() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.remove(fileId: 7020) }
+    let extra = try await downloadExtra(of: session.transport, type: "deleteFile")
+    session.transport.queue(#"{"@type":"ok","@extra":"\#(extra)"}"#)
+
+    #expect(await waiting.value == true)
+    let request = try #require(requestFields(of: session.transport, type: "deleteFile"))
+    #expect(request["file_id"]?.int == 7020)
+}
+
+@Test("a delete TDLib cannot answer is a no, not a wait that never ends")
+func removeIsFalseWhenTheRequestFails() async throws {
+    let session = makeSession()
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.remove(fileId: 7021) }
+    _ = try await downloadExtra(of: session.transport, type: "deleteFile")
+    session.client.close()
+
+    #expect(await waiting.value == false)
+}
+
 @Test("a download cancelled by the app is cancelled at TDLib too")
 func cancelReleasesTheWaitAndStopsTheFetch() async throws {
     let session = makeSession()

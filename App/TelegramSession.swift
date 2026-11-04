@@ -203,19 +203,34 @@ final class TelegramSession: ObservableObject {
         return TdParameters(
             apiId: apiId,
             apiHash: apiHash,
-            databaseDirectory: directory("db"),
-            filesDirectory: directory("files"),
+            databaseDirectory: directory(databaseDirectory),
+            filesDirectory: directory(filesDirectory),
             deviceModel: UIDevice.current.model,
             systemVersion: UIDevice.current.systemVersion,
             applicationVersion: version
         )
     }
 
-    /// TDLib's own storage, kept out of Documents so it is never shared or
+    /// TDLib's own storage root, kept out of Documents so it is never shared or
     /// picked up as user content.
-    private static func directory(_ name: String) -> String {
+    private nonisolated static var telegramDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let url = base.appendingPathComponent("Doni/Telegram/\(name)", isDirectory: true)
+        let url = base.appendingPathComponent("Doni/Telegram", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// The bytes TDLib has fetched — the songs a stream brought over and the pictures it thumbed.
+    /// The storage screen measures this, because it is the bulk of what the app costs a phone and
+    /// none of it is counted in the library's rows.
+    nonisolated static var filesDirectory: URL { telegramDirectory.appendingPathComponent("files") }
+
+    /// TDLib's database: the session itself, the chat list, and the file table that says which
+    /// bytes are on the phone.
+    nonisolated static var databaseDirectory: URL { telegramDirectory.appendingPathComponent("db") }
+
+    /// One of TDLib's two areas, made if it is not there yet.
+    private nonisolated static func directory(_ url: URL) -> String {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url.path
     }
