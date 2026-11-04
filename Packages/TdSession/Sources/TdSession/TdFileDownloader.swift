@@ -67,7 +67,7 @@ public actor TdFileDownloader {
             detach(listener)
             return path
         }
-        if Self.isStalled(answer) {
+        if Self.isUnavailable(answer) {
             detach(listener)
             return nil
         }
@@ -97,7 +97,7 @@ public actor TdFileDownloader {
                     resolve(listener.fileId, with: path)
                     return
                 }
-                if Self.isStalled(answer) {
+                if Self.isUnavailable(answer) {
                     fail(listener)
                     return
                 }
@@ -125,7 +125,7 @@ public actor TdFileDownloader {
             await receive(from: listener)
         } onCancel: {
             timer.cancel()
-            Task { await self.fail(listener) }
+            Task { await self.abandon(listener) }
         }
         timer.cancel()
         detach(listener)
@@ -143,6 +143,12 @@ public actor TdFileDownloader {
     public func cancel(fileId: Int) {
         resolve(fileId, with: nil)
         listeners[fileId] = nil
+        stop(fileId)
+    }
+
+    /// Asks TDLib for the download back. `only_if_pending` is false because a file that has sent a
+    /// byte is exactly the one worth stopping: nobody wants it any more.
+    private func stop(_ fileId: Int) {
         Task {
             _ = try? await flow.request(
                 "cancelDownloadFile",
@@ -176,6 +182,20 @@ public actor TdFileDownloader {
         continuation.finish()
     }
 
+    /// A row that scrolled away is a caller that has gone and a download nobody wants. TDLib keeps
+    /// fetching until it is told otherwise, and a hundred covers at priority 1 still running after
+    /// one flick of a finger is what holds up the song the user actually pressed play on — which is
+    /// why the wait ends with `cancelDownloadFile` as well as with a `nil`.
+    ///
+    /// Only when this was the last seat at the file: a shelf card and a list row often want the same
+    /// cover, and stopping the fetch under the one that is still waiting would leave it stranded.
+    private func abandon(_ listener: Listener) {
+        fail(listener)
+        guard listeners[listener.fileId]?.isEmpty != false else { return }
+        listeners[listener.fileId] = nil
+        stop(listener.fileId)
+    }
+
     private func detach(_ listener: Listener) {
         guard listeners[listener.fileId]?.removeValue(forKey: listener.token) != nil else { return }
         if listeners[listener.fileId]?.isEmpty == true { listeners[listener.fileId] = nil }
@@ -188,7 +208,7 @@ public actor TdFileDownloader {
                 guard let raw = file["id"]?.int else { continue }
                 let fileId = Int(raw)
                 if let path = Self.readyPath(in: file) { resolve(fileId, with: path) }
-                else if Self.isStalled(file) { resolve(fileId, with: nil) }
+                else if Self.isUnavailable(file) { resolve(fileId, with: nil) }
             }
             // The client closed, so nothing is going to finish these files.
             for fileId in listeners.keys { resolve(fileId, with: nil) }
@@ -205,7 +225,7 @@ public actor TdFileDownloader {
         }
     }
 
-    /// `localFile.path` is only non-empty once TDLib has the whole file (`td_api.tl:343`).
+    /// `localFile.path` is only non-empty once TDLib has the whole file (`td_api.tl:306`).
     private static func readyPath(in file: TdJSON) -> String? {
         guard let local = file["local"], local["is_downloading_completed"]?.bool == true,
               let path = local["path"]?.string, !path.isEmpty
@@ -213,11 +233,19 @@ public actor TdFileDownloader {
         return path
     }
 
-    /// A file that is neither complete nor being downloaded has been given up on — paused, failed
-    /// or already deleted locally.
-    private static func isStalled(_ file: TdJSON) -> Bool {
+    /// The one thing in a `localFile` that means "this is never coming": `can_be_downloaded` is
+    /// documented as "if it is possible to download or generate the file" (`td_api.tl:299`), and it
+    /// says so whatever TDLib is or is not doing with it right now.
+    ///
+    /// `is_downloading_active` was read as this, and it is not: it means the file is being fetched
+    /// *at this moment*, which a download TDLib has queued but not started is not (`td_api.tl:301`).
+    /// `downloadFile` with `synchronous: false` answers "immediately, just after the download has
+    /// been started" (`td_api.tl:15000`) — for a cover still waiting its turn that answer is
+    /// inactive, and every one of those was being reported as a give-up. That is why the list stayed
+    /// on its 40×30 minithumbnail: the tiles were not missing, they were queued.
+    private static func isUnavailable(_ file: TdJSON) -> Bool {
         guard let local = file["local"] else { return false }
-        return local["is_downloading_active"]?.bool == false
+        return local["can_be_downloaded"]?.bool == false
             && local["is_downloading_completed"]?.bool != true
     }
 }

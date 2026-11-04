@@ -41,12 +41,14 @@ private func fileJSON(
     active: Bool,
     completed: Bool,
     path: String,
+    downloadable: Bool = true,
     extra: String? = nil
 ) -> String {
     let answer = extra.map { "\"@extra\":\"\($0)\"," } ?? ""
     let text = #"""
     {"@type":"file",\#(answer)"id":\#(id),"size":4096,"expected_size":4096,\#
-    "local":{"@type":"localFile","path":"\#(path)","can_be_downloaded":true,"can_be_deleted":true,\#
+    "local":{"@type":"localFile","path":"\#(path)","can_be_downloaded":\#(downloadable ? "true" : "false"),\#
+    "can_be_deleted":true,\#
     "is_downloading_active":\#(active ? "true" : "false"),\#
     "is_downloading_completed":\#(completed ? "true" : "false"),\#
     "download_offset":0,"downloaded_prefix_size":0,"downloaded_size":0},\#
@@ -157,18 +159,38 @@ func alreadyLocalNeedsNoUpdate() async throws {
     #expect(await waiting.value == "/tmp/doni/files/7004.mp3")
 }
 
-@Test("a file TDLib has given up on is a nil, not a row stuck on its placeholder")
-func stalledFileEndsImmediately() async throws {
+@Test("a file TDLib says it cannot fetch is a nil, not a row stuck on its placeholder")
+func unavailableFileEndsImmediately() async throws {
     let session = makeSession()
     defer { session.client.close() }
     let downloader = TdFileDownloader(flow: session.flow)
 
     let waiting = Task { await downloader.path(fileId: 7005) }
     let extra = try await downloadExtra(of: session.transport)
-    // Neither active nor complete: paused, failed, or deleted from local storage.
-    session.transport.queue(fileJSON(id: 7005, active: false, completed: false, path: "", extra: extra))
+    // `can_be_downloaded` false with nothing complete: the bytes are gone from the server's side.
+    session.transport.queue(fileJSON(id: 7005, active: false, completed: false, path: "",
+                                     downloadable: false, extra: extra))
 
     #expect(await waiting.value == nil)
+}
+
+@Test("a download TDLib has queued but not started is still a download")
+func queuedFileKeepsWaiting() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.path(fileId: 7013) }
+    let extra = try await downloadExtra(of: session.transport)
+    // The `downloadFile` answer is "immediately, just after the download has been started"
+    // (`td_api.tl:15000`), and a file waiting its turn behind the hundred others the list asked for
+    // is not active yet — `is_downloading_active` means *right now*, not *ever*. Reading it as a
+    // give-up is what left every cover in the library on its 40 px minithumbnail.
+    session.transport.queue(fileJSON(id: 7013, active: false, completed: false, path: "", extra: extra))
+    session.transport.queue(updateFile(fileJSON(id: 7013, active: false, completed: true,
+                                                path: "/tmp/doni/files/7013.jpg")))
+
+    #expect(await waiting.value == "/tmp/doni/files/7013.jpg")
 }
 
 @Test("an updateFile that beats the response is still heard")
@@ -272,7 +294,7 @@ func closeReleasesEveryWaiter() async throws {
     #expect(await waiting.value == nil)
 }
 
-@Test("a caller that goes away stops waiting and does not block the file for anyone else")
+@Test("a caller that goes away stops waiting, hands the file back, and does not block it for anyone else")
 func cancelledTaskReleasesItsSeat() async throws {
     let session = makeSession()
     defer { session.client.close() }
@@ -284,6 +306,16 @@ func cancelledTaskReleasesItsSeat() async throws {
     abandoned.cancel()
     #expect(await abandoned.value == nil)
 
+    // A row that scrolled off the list is a download nobody wants, and TDLib goes on fetching it
+    // until it is told otherwise: a hundred priority-1 covers still running after one flick is what
+    // starves the song the user actually pressed play on.
+    #expect(await polled {
+        session.transport.decodedRequests.contains { $0.type == "cancelDownloadFile" }
+    })
+    let stop = try #require(requestFields(of: session.transport, type: "cancelDownloadFile"))
+    #expect(stop["file_id"]?.int == 7012)
+    #expect(stop["only_if_pending"]?.bool == false)
+
     // The file is still fetchable, so a row that appears later gets the same id.
     let retried = Task { await downloader.path(fileId: 7012) }
     let secondExtra = try await downloadExtra(of: session.transport, nth: 2)
@@ -291,4 +323,29 @@ func cancelledTaskReleasesItsSeat() async throws {
     session.transport.queue(updateFile(fileJSON(id: 7012, active: false, completed: true,
                                                 path: "/tmp/doni/files/7012.mp3")))
     #expect(await retried.value == "/tmp/doni/files/7012.mp3")
+}
+
+@Test("a second waiter on one file keeps TDLib fetching it when the first goes away")
+func sharedFileIsNotCancelledUnderSomeoneElse() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    // A shelf card and a list row want the same cover, so one leaving must not stop the fetch the
+    // other is still waiting on.
+    let leaving = Task { await downloader.path(fileId: 7014) }
+    let firstExtra = try await downloadExtra(of: session.transport)
+    let staying = Task { await downloader.path(fileId: 7014) }
+    let secondExtra = try await downloadExtra(of: session.transport, nth: 2)
+    session.transport.queue(fileJSON(id: 7014, active: true, completed: false, path: "", extra: firstExtra))
+    session.transport.queue(fileJSON(id: 7014, active: true, completed: false, path: "", extra: secondExtra))
+
+    leaving.cancel()
+    #expect(await leaving.value == nil)
+
+    session.transport.queue(updateFile(fileJSON(id: 7014, active: false, completed: true,
+                                                path: "/tmp/doni/files/7014.jpg")))
+    #expect(await staying.value == "/tmp/doni/files/7014.jpg")
+    // Checked last, once the give-up has certainly been processed: TDLib was never told to stop.
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "cancelDownloadFile" })
 }

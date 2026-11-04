@@ -41,9 +41,15 @@ public struct TdTrack: Equatable, Sendable {
     /// message itself carries, so the list can show real artwork without asking for
     /// a file. `nil` when the post has no cover, which is a third of a real channel.
     public let miniArtwork: Data?
-    /// The largest of TDLib's `external_album_covers` (`td_api.tl:583`) — a square cover
-    /// Telegram already holds on the server, so it is a `downloadFile` away rather than a
-    /// scrape. A real channel carries one for every track, which is why the list can be sharp.
+    /// The cover worth fetching, picked from TDLib's three of them — `album_cover_thumbnail` and
+    /// the two `external_album_covers` (`td_api.tl:583`).
+    ///
+    /// A thumbnail that already reports bytes wins over a bigger one that reports none, because
+    /// the external covers are *generated* files: TDLib builds their location out of the title and
+    /// the performer (`FileManager.cpp:4361`, `AudiosManager.cpp:53-67`) and answers `size` and
+    /// `expected_size` as 0 until the server has made the bytes. In the measured channel they are
+    /// on 168 of 168 audios with no size on any of them, while 112 audios carry a 320×240 or
+    /// 320×180 `album_cover_thumbnail` of 6.6-31 KB — which this app never used to read at all.
     public let coverFileId: Int?
 
     /// `message` is a `message` object; nil for anything that is not a file the
@@ -81,9 +87,7 @@ public struct TdTrack: Equatable, Sendable {
             // minithumbnail is a drawn file icon, so it is not artwork and stays unread.
             let encodedArtwork = audio?["album_cover_minithumbnail"]?["data"]?.string
             miniArtwork = encodedArtwork.flatMap { Data(base64Encoded: $0) }
-            // Every track in a real channel carries two of these — 100×100 and 600×600, in that
-            // order — so the biggest is picked by width rather than by position.
-            coverFileId = Self.largestCover(audio?["external_album_covers"]?.array ?? [])
+            coverFileId = Self.bestCover(audio)
         case "messageDocument":
             origin = .document
             let document = content["document"]
@@ -139,10 +143,31 @@ public struct TdTrack: Equatable, Sendable {
         self.coverFileId = coverFileId
     }
 
+    /// The cover to ask TDLib for, out of every thumbnail the post carries.
+    ///
+    /// Ones with bytes are considered first and, among them, the widest: a 320 px `album_cover_thumbnail`
+    /// is a download that can start now, and a 600 px generated cover that never starts is worth less
+    /// than nothing to a row. Only when the post has no sized cover at all does the generated one get
+    /// its turn, which is the whole of what a track posted without a proper tag has to offer.
+    private static func bestCover(_ audio: TdJSON?) -> Int? {
+        var candidates: [TdJSON] = []
+        if let thumbnail = audio?["album_cover_thumbnail"] { candidates.append(thumbnail) }
+        candidates.append(contentsOf: audio?["external_album_covers"]?.array ?? [])
+        let sized = candidates.filter { Self.bytes(of: $0) > 0 }
+        return Self.widest(sized) ?? Self.widest(candidates)
+    }
+
+    /// Bytes TDLib is willing to promise about a thumbnail right now. `size` once it has seen the
+    /// file, `expected_size` while it has not — and a generated cover promises neither.
+    private static func bytes(of thumbnail: TdJSON) -> Int64 {
+        guard let file = thumbnail["file"] else { return 0 }
+        return max(file["size"]?.int ?? 0, file["expected_size"]?.int ?? 0)
+    }
+
     /// The widest of TDLib's `thumbnail` objects (`td_api.tl:393`), which is the one worth a
     /// download: a 54 pt tile at @3x wants 162 pixels, and 100×100 is not enough.
-    private static func largestCover(_ entries: [TdJSON]) -> Int? {
-        let sized = entries.compactMap { entry -> (width: Int, id: Int)? in
+    private static func widest(_ thumbnails: [TdJSON]) -> Int? {
+        let sized = thumbnails.compactMap { entry -> (width: Int, id: Int)? in
             guard let width = entry["width"]?.int, let id = entry["file"]?["id"]?.int else { return nil }
             return (Int(width), Int(id))
         }

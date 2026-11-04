@@ -209,37 +209,61 @@ func unreadableArtworkIsIgnored() throws {
     #expect(value.displayTitle == "Lạc Trôi", "the track is still listable")
 }
 
+/// One `thumbnail` (`td_api.tl:393`), which is the shape all three of an audio's covers arrive in.
+///
+/// `bytes` is what the file behind it promises: 0 for every `external_album_covers` entry of the
+/// measured channel — TDLib generates those from the title and performer and has no size for them
+/// until the server has made the picture (`AudiosManager.cpp:53-67`) — and 6,635 to 31,205 for the
+/// 112 audios that carry a real `album_cover_thumbnail`. `fileId` is nil for a thumbnail with no
+/// file object at all.
+private struct Thumbnail {
+    var width: Int
+    var fileId: Int?
+    var bytes: Int = 0
+}
+
+private func thumbnailJSON(_ thumbnail: Thumbnail) -> TdJSON {
+    var fields: [String: TdJSON] = [
+        "@type": .string("thumbnail"),
+        "width": .int(Int64(thumbnail.width)),
+        "height": .int(Int64(thumbnail.width))
+    ]
+    if let fileId = thumbnail.fileId {
+        fields["file"] = .object([
+            "@type": .string("file"), "id": .int(Int64(fileId)),
+            "size": .int(Int64(thumbnail.bytes)),
+            "expected_size": .int(Int64(thumbnail.bytes))
+        ])
+    }
+    return .object(fields)
+}
+
 /// A real channel's every audio carries `external_album_covers` (`td_api.tl:583`) with two
 /// `thumbnail` objects (`td_api.tl:393`) — measured as 100×100 then 600×600 on 168 of 168
-/// messages. Sizes here are invented; the shape is the measured one.
-private func audioWithCovers(_ covers: [(width: Int, fileId: Int)]) -> TdJSON {
-    .object([
+/// messages, both of them with zero bytes. Sizes here are invented; the shape is the measured one.
+private func audioWithCovers(_ covers: [Thumbnail], thumbnail: Thumbnail? = nil) -> TdJSON {
+    var audio: [String: TdJSON] = [
+        "@type": .string("audio"), "duration": .int(210),
+        "title": .string("Lạc Trôi"), "performer": .string("Sơn Tùng M-TP"),
+        "file_name": .string("lac-troi.mp3"), "mime_type": .string("audio/mpeg"),
+        "audio": .object([
+            "@type": .string("file"), "id": .int(92), "size": .int(5_000_000),
+            "local": .object(["@type": .string("localFile"), "path": .string("")]),
+            "remote": .object([
+                "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUb")
+            ])
+        ]),
+        "external_album_covers": .array(covers.map(thumbnailJSON))
+    ]
+    if let thumbnail {
+        audio["album_cover_thumbnail"] = thumbnailJSON(thumbnail)
+    }
+    return .object([
         "@type": .string("message"), "id": .int(602), "chat_id": .int(-1001234567890),
         "date": .int(1_730_000_400),
         "content": .object([
             "@type": .string("messageAudio"),
-            "audio": .object([
-                "@type": .string("audio"), "duration": .int(210),
-                "title": .string("Lạc Trôi"), "performer": .string("Sơn Tùng M-TP"),
-                "file_name": .string("lac-troi.mp3"), "mime_type": .string("audio/mpeg"),
-                "audio": .object([
-                    "@type": .string("file"), "id": .int(92), "size": .int(5_000_000),
-                    "local": .object(["@type": .string("localFile"), "path": .string("")]),
-                    "remote": .object([
-                        "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUb")
-                    ])
-                ]),
-                "external_album_covers": .array(covers.map { cover in
-                    .object([
-                        "@type": .string("thumbnail"), "width": .int(Int64(cover.width)),
-                        "height": .int(Int64(cover.width)),
-                        "file": .object([
-                            "@type": .string("file"), "id": .int(Int64(cover.fileId)),
-                            "expected_size": .int(0)
-                        ])
-                    ])
-                })
-            ]),
+            "audio": .object(audio),
             "caption": .object(["@type": .string("formattedText"), "text": .string("")])
         ])
     ])
@@ -247,17 +271,44 @@ private func audioWithCovers(_ covers: [(width: Int, fileId: Int)]) -> TdJSON {
 
 @Test("the sharp cover is the widest of the pair the channel sends")
 func widestCoverWins() throws {
-    let measured = try #require(TdTrack(message: audioWithCovers([(100, 401), (600, 402)])))
+    let measured = try #require(TdTrack(message: audioWithCovers([
+        Thumbnail(width: 100, fileId: 401), Thumbnail(width: 600, fileId: 402)
+    ])))
     #expect(measured.coverFileId == 402)
 
-    let reversed = try #require(TdTrack(message: audioWithCovers([(600, 402), (100, 401)])))
+    let reversed = try #require(TdTrack(message: audioWithCovers([
+        Thumbnail(width: 600, fileId: 402), Thumbnail(width: 100, fileId: 401)
+    ])))
     #expect(reversed.coverFileId == 402, "the largest is chosen by width, not by position")
 
-    let alone = try #require(TdTrack(message: audioWithCovers([(100, 401)])))
+    let alone = try #require(TdTrack(message: audioWithCovers([Thumbnail(width: 100, fileId: 401)])))
     #expect(alone.coverFileId == 401)
 
     let none = try #require(TdTrack(message: audioWithCovers([])))
     #expect(none.coverFileId == nil, "a track with no cover announced falls back to the gradient")
+}
+
+@Test("a thumbnail with bytes outranks a bigger one that has none")
+func realThumbnailBeatsGeneratedCover() throws {
+    // The measured 112 of 168: a 320×240 `album_cover_thumbnail` of 6.6 KB alongside the pair of
+    // generated covers claiming 100 and 600 pixels with no bytes behind either.
+    let track = try #require(TdTrack(message: audioWithCovers(
+        [Thumbnail(width: 100, fileId: 401), Thumbnail(width: 600, fileId: 402)],
+        thumbnail: Thumbnail(width: 320, fileId: 403, bytes: 6_635)
+    )))
+    #expect(track.coverFileId == 403, "the one that can be downloaded now is the sharp cover")
+
+    let smallerButReal = try #require(TdTrack(message: audioWithCovers(
+        [Thumbnail(width: 600, fileId: 402, bytes: 0)],
+        thumbnail: Thumbnail(width: 90, fileId: 404, bytes: 1)
+    )))
+    #expect(smallerButReal.coverFileId == 404, "bytes count before width does")
+
+    let bothReal = try #require(TdTrack(message: audioWithCovers(
+        [Thumbnail(width: 600, fileId: 402, bytes: 40_000)],
+        thumbnail: Thumbnail(width: 320, fileId: 403, bytes: 6_635)
+    )))
+    #expect(bothReal.coverFileId == 402, "and among ones that can all be fetched, the widest still wins")
 }
 
 @Test("a document announces no album cover")
@@ -268,32 +319,9 @@ func documentHasNoCover() throws {
 
 @Test("a thumbnail with no file behind it is not a cover")
 func coverWithoutFileIdIsIgnored() throws {
-    let unreadable: TdJSON = .object([
-        "@type": .string("message"), "id": .int(603), "chat_id": .int(-1001234567890),
-        "date": .int(1_730_000_500),
-        "content": .object([
-            "@type": .string("messageAudio"),
-            "audio": .object([
-                "@type": .string("audio"), "duration": .int(210),
-                "title": .string("Lạc Trôi"), "performer": .string("Sơn Tùng M-TP"),
-                "file_name": .string("lac-troi.mp3"), "mime_type": .string("audio/mpeg"),
-                "audio": .object([
-                    "@type": .string("file"), "id": .int(93), "size": .int(5_000_000),
-                    "local": .object(["@type": .string("localFile"), "path": .string("")]),
-                    "remote": .object([
-                        "@type": .string("remoteFile"), "unique_id": .string("CAACAgEAAxUc")
-                    ])
-                ]),
-                // A width with nothing to download: `expected_size` 0 is normal in this channel,
-                // so the file id is the only thing that makes a cover usable.
-                "external_album_covers": .array([
-                    .object(["@type": .string("thumbnail"), "width": .int(600), "height": .int(600)])
-                ])
-            ]),
-            "caption": .object(["@type": .string("formattedText"), "text": .string("")])
-        ])
-    ])
-    let value = try #require(TdTrack(message: unreadable))
+    let value = try #require(TdTrack(message: audioWithCovers([
+        Thumbnail(width: 600, fileId: nil)
+    ])))
     #expect(value.coverFileId == nil)
     #expect(value.displayTitle == "Lạc Trôi", "and the row still shows the song")
 }
