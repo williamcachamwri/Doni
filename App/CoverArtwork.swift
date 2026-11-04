@@ -67,6 +67,18 @@ final class CoverArtwork: ObservableObject {
         sharp(for: track, side: points) ?? mini(for: track, side: points)
     }
 
+    /// A picture that is not a song's — the cover a user chose for a list — read from the file it was
+    /// written to and kept in the same cache, because a list row redraws on every scroll and the
+    /// decode is the part worth not doing twice. A path names one picture for its whole life: a new
+    /// choice is a new file, so nothing here has to be invalidated.
+    func image(at path: String) -> UIImage? {
+        let key = Self.pathKey(path)
+        if let held = cache.object(forKey: key) { return held }
+        guard let image = UIImage(contentsOfFile: path) else { return nil }
+        cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
+        return image
+    }
+
     /// A cover at this surface's own size, or the biggest one the phone holds for it: the art read
     /// out of the song, then the file TDLib fetched.
     func sharp(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
@@ -163,6 +175,10 @@ final class CoverArtwork: ObservableObject {
 
     private static func coverKey(fileId: Int, pixels: Int) -> NSString {
         "c:\(fileId):\(pixels)" as NSString
+    }
+
+    private static func pathKey(_ path: String) -> NSString {
+        "p:\(path)" as NSString
     }
 
     private static func fileKey(uniqueId: String, pixels: Int) -> NSString {

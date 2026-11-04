@@ -65,12 +65,17 @@ public struct StoredPlaylist: Equatable, Sendable, Identifiable {
     public var name: String
     public var createdAt: Int64
     public var trackCount: Int
+    /// A picture the user chose for this list, written next to the database. `nil` means the list
+    /// wears its first song's cover, which is the only artwork a Telegram list has by itself.
+    public var coverPath: String?
 
-    public init(id: Int64, name: String, createdAt: Int64, trackCount: Int = 0) {
+    public init(id: Int64, name: String, createdAt: Int64, trackCount: Int = 0,
+                coverPath: String? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.trackCount = trackCount
+        self.coverPath = coverPath
     }
 }
 
@@ -110,7 +115,7 @@ public final class LibraryStore: @unchecked Sendable {
     }
 
     /// `1` is the first schema; a column added later bumps this and the row below it migrates.
-    private static let schemaVersion = 1
+    private static let schemaVersion = 2
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
@@ -184,9 +189,11 @@ public final class LibraryStore: @unchecked Sendable {
         CREATE TABLE IF NOT EXISTS playlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            cover_path TEXT
         )
         """)
+        addMissingColumn(handle)
         sqlRun(handle, """
         CREATE TABLE IF NOT EXISTS playlist_track (
             playlist_id INTEGER NOT NULL,
@@ -198,6 +205,26 @@ public final class LibraryStore: @unchecked Sendable {
         )
         """)
         sqlRun(handle, "PRAGMA user_version = \(Self.schemaVersion)")
+    }
+
+    /// Version 2 gave a list its own cover file. `CREATE TABLE IF NOT EXISTS` cannot add a column to
+    /// the table an older build already made, so the upgrade asks the table what it holds and adds
+    /// the one it is missing. Asking rather than reading `user_version` is what keeps this safe on a
+    /// brand new database, where the statement above has already made the column and a second one
+    /// would be an error.
+    private static func addMissingColumn(_ handle: OpaquePointer?) {
+        guard let handle else { return }
+        var hasCoverPath = false
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, "PRAGMA table_info(playlist)", -1, &statement, nil)
+                == SQLITE_OK, let statement else { return }
+        defer { sqlite3_finalize(statement) }
+        while sqlite3_step(statement) == SQLITE_ROW, let pointer = sqlite3_column_text(statement, 1) {
+            if String(cString: pointer) == "cover_path" { hasCoverPath = true }
+        }
+        if !hasCoverPath {
+            sqlRun(handle, "ALTER TABLE playlist ADD COLUMN cover_path TEXT")
+        }
     }
 
     // MARK: Channels
@@ -600,7 +627,8 @@ public final class LibraryStore: @unchecked Sendable {
         defer { lock.unlock() }
         guard let statement = prepare("""
             SELECT p.id, p.name, p.created_at,
-                   (SELECT COUNT(*) FROM playlist_track pt WHERE pt.playlist_id = p.id)
+                   (SELECT COUNT(*) FROM playlist_track pt WHERE pt.playlist_id = p.id),
+                   p.cover_path
             FROM playlist p ORDER BY p.created_at
             """) else { return [] }
         defer { sqlite3_finalize(statement) }
@@ -610,10 +638,44 @@ public final class LibraryStore: @unchecked Sendable {
                 id: sqlite3_column_int64(statement, 0),
                 name: Self.text(statement, 1),
                 createdAt: sqlite3_column_int64(statement, 2),
-                trackCount: Int(sqlite3_column_int(statement, 3))
+                trackCount: Int(sqlite3_column_int(statement, 3)),
+                coverPath: sqlite3_column_type(statement, 4) == SQLITE_NULL
+                    ? nil : Self.text(statement, 4)
             ))
         }
         return rows
+    }
+
+    /// The picture a list wears. `nil` clears it, which puts the list back on its first song's cover.
+    public func setPlaylistCover(id: Int64, path: String?) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("UPDATE playlist SET cover_path = ? WHERE id = ?") else {
+            return false
+        }
+        defer { sqlite3_finalize(statement) }
+        switch path {
+        case let path?:
+            sqlite3_bind_text(statement, 1, path, -1, Self.transient)
+        case nil:
+            sqlite3_bind_null(statement, 1)
+        }
+        sqlite3_bind_int64(statement, 2, id)
+        return sqlite3_step(statement) == SQLITE_DONE
+    }
+
+    /// The file a list owns, so the one that replaces it can be thrown away with it.
+    public func playlistCoverPath(id: Int64) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("SELECT cover_path FROM playlist WHERE id = ?") else {
+            return nil
+        }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int64(statement, 1, id)
+        guard sqlite3_step(statement) == SQLITE_ROW,
+              sqlite3_column_type(statement, 0) != SQLITE_NULL else { return nil }
+        return Self.text(statement, 0)
     }
 
     /// Adding the same song twice is a no-op, so a row's sheet can be tapped twice without the

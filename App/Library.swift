@@ -1,7 +1,9 @@
 import Foundation
+import ImageIO
 import SwiftUI
 import Support
 import TdSession
+import UIKit
 
 /// The library on disk.
 ///
@@ -111,6 +113,7 @@ final class Library: ObservableObject {
     }
 
     func deletePlaylist(id: Int64) {
+        removeCover(playlistId: id)
         store.deletePlaylist(id: id)
         refresh()
     }
@@ -143,6 +146,35 @@ final class Library: ObservableObject {
         store.playlists(containing: uniqueId)
     }
 
+    // MARK: List covers
+
+    /// Puts a picture the user chose on a list, and throws away the one it wore. The bytes come from
+    /// the photo library at camera size, so the resize happens off the main thread — a twelve
+    /// megapixel JPEG is a hundred milliseconds of decoding, and the app is being asked to play
+    /// music while it happens.
+    func setCover(_ data: Data, for playlistId: Int64) async -> Bool {
+        guard let written = await Self.encode(data, to: Self.newCoverURL(for: playlistId),
+                                              side: Self.coverSide) else {
+            return false
+        }
+        removeCover(playlistId: playlistId)
+        let stored = store.setPlaylistCover(id: playlistId, path: written)
+        refresh()
+        return stored
+    }
+
+    /// Back to the list's own artwork, which is its first song's cover.
+    func clearCover(playlistId: Int64) {
+        removeCover(playlistId: playlistId)
+        _ = store.setPlaylistCover(id: playlistId, path: nil)
+        refresh()
+    }
+
+    private func removeCover(playlistId: Int64) {
+        guard let path = store.playlistCoverPath(id: playlistId) else { return }
+        try? FileManager.default.removeItem(atPath: path)
+    }
+
     // MARK: The file
 
     func select(channel chatId: Int64) {
@@ -159,6 +191,7 @@ final class Library: ObservableObject {
     /// rows, the hearts and the lists are not.
     func wipe() {
         store.wipeLibrary()
+        try? FileManager.default.removeItem(at: Self.coverDirectory)
         refresh()
     }
 
@@ -205,5 +238,55 @@ final class Library: ObservableObject {
         let url = base.appendingPathComponent("Doni", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    /// Where a list's own picture lives: beside the database, in the app's private support
+    /// directory. Nothing here is uploaded anywhere — a chosen cover is a file on this phone and
+    /// the only reader of it is this app.
+    private static var coverDirectory: URL {
+        let url = directory.appendingPathComponent("Covers", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// One file per choice rather than one file per list, so a path names exactly one picture. The
+    /// cache that holds decoded covers is keyed by path: a list that changed its cover would
+    /// otherwise go on drawing the old one until the app relaunched.
+    private static func newCoverURL(for playlistId: Int64) -> URL {
+        coverDirectory.appendingPathComponent("playlist-\(playlistId)-\(UUID().uuidString).jpg")
+    }
+
+    /// The widest a list's cover is drawn: the detail hero caps at 300 pt
+    /// (`MusicPlaylistMetrics`/`MusicArtworkMetrics.heroSide`), so 600 px is that at a 2× screen and
+    /// nothing bigger is ever read from this file.
+    private static let coverSide = 600
+
+    /// Resize while reading, not after: `kCGImageSourceThumbnailMaxPixelSize` only means anything to
+    /// `CGImageSourceCreateThumbnailAtIndex`, the same key that keeps `CoverArtwork`'s decodes cheap.
+    /// `kCGImageSourceCreateThumbnailWithTransform` is what honours the photo's own EXIF orientation,
+    /// without which a portrait shot is written sideways.
+    private nonisolated static func encode(_ data: Data, to url: URL, side: Int) async -> String? {
+        let written: Bool = await Task.detached(priority: .userInitiated) {
+            guard let source = CGImageSourceCreateWithData(data as CFData,
+                                                            [kCGImageSourceShouldCache: false]
+                                                                as CFDictionary),
+                  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                      kCGImageSourceCreateThumbnailFromImageAlways: true,
+                      kCGImageSourceCreateThumbnailWithTransform: true,
+                      kCGImageSourceShouldCacheImmediately: true,
+                      kCGImageSourceThumbnailMaxPixelSize: side,
+                  ] as CFDictionary)
+            else { return false }
+            guard let bytes = UIImage(cgImage: image).jpegData(compressionQuality: 0.82) else {
+                return false
+            }
+            do {
+                try bytes.write(to: url, options: .atomic)
+                return true
+            } catch {
+                return false
+            }
+        }.value
+        return written ? url.path : nil
     }
 }

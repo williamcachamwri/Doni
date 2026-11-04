@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import Support
 import TelegramDesignSystem
 import TdSession
@@ -152,10 +153,6 @@ struct PlaylistsView: View {
 
 /// A playlist row, the way the reference builds one: a 54 pt cover at radius 7, 12 pt to a name
 /// with the song count under it in `caption` at secondary (`LibraryPlaylistsView.swift:151-167`).
-///
-/// A Netease list carries its own artwork; Doni's carry the first song's, which is the only picture
-/// a list here has. A list still empty wears the coverless gradient with the list glyph in it, the
-/// way `TrackCover` dresses a song with no artwork.
 private struct PlaylistRow: View {
     let playlist: StoredPlaylist
     let cover: StoreTrack?
@@ -163,20 +160,9 @@ private struct PlaylistRow: View {
 
     var body: some View {
         HStack(spacing: MusicPlaylistMetrics.rowSpacing) {
-            if let cover {
-                TrackCover(track: cover, side: MusicPlaylistMetrics.rowArt,
-                           radius: MusicPlaylistMetrics.rowArtRadius, artwork: artwork)
-            } else {
-                ZStack {
-                    TelegramTrackGradient.linear(playlist.id)
-                    Image(systemName: "music.note.list")
-                        .font(MusicArtworkMetrics.placeholderGlyph)
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-                .frame(width: MusicPlaylistMetrics.rowArt, height: MusicPlaylistMetrics.rowArt)
-                .clipShape(RoundedRectangle(cornerRadius: MusicPlaylistMetrics.rowArtRadius,
-                                            style: .continuous))
-            }
+            PlaylistArt(listId: playlist.id, coverPath: playlist.coverPath, cover: cover,
+                        side: MusicPlaylistMetrics.rowArt,
+                        radius: MusicPlaylistMetrics.rowArtRadius, artwork: artwork)
 
             VStack(alignment: .leading, spacing: MusicPlaylistMetrics.rowTextGap) {
                 Text(playlist.name)
@@ -190,6 +176,43 @@ private struct PlaylistRow: View {
             }
         }
         .contentShape(.rect)
+    }
+}
+
+/// A list's picture, in the order this app can find one: the cover the user chose for it, then the
+/// first song's, then the list's own gradient with the glyph in it.
+///
+/// Every Netease list carries server artwork of its own, so the reference has only the first tier
+/// here; the other two are what a Telegram list forces, and they are drawn the way `TrackCover`
+/// dresses a song with no artwork.
+private struct PlaylistArt: View {
+    /// The list's own number, which is what the coverless gradient is picked by.
+    let listId: Int64
+    /// The picture the user chose, if any.
+    let coverPath: String?
+    /// The first song's cover — the only artwork a Telegram list has by itself.
+    let cover: StoreTrack?
+    let side: CGFloat
+    let radius: CGFloat
+    let artwork: CoverArtwork
+
+    var body: some View {
+        ZStack {
+            TelegramTrackGradient.linear(listId)
+            if let coverPath, let image = artwork.image(at: coverPath) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if let cover {
+                TrackCover(track: cover, side: side, radius: radius, artwork: artwork)
+            } else {
+                Image(systemName: "music.note.list")
+                    .font(MusicArtworkMetrics.placeholderGlyph)
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+        }
+        .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }
 
@@ -209,6 +232,14 @@ private struct PlaylistDetailView: View {
     @State private var confirmsDelete = false
     /// Renaming happens on the sheet the tab already owns, reached from the bar's menu.
     @State private var renaming = false
+    /// The cover is chosen in the system's own photo picker. It opens from a plain button rather
+    /// than from a `PhotosPicker` inside the menu, because the menu closes the moment it is tapped
+    /// and a presentation started from inside it has nothing left to present from.
+    @State private var choosingCover = false
+    @State private var coverChoice: PhotosPickerItem?
+    /// A photo the app could not read is said out loud: the list would otherwise keep wearing the
+    /// cover it already had and look like the tap did nothing.
+    @State private var coverFailed = false
 
     private let palette = TelegramPalette.dark
 
@@ -283,6 +314,16 @@ private struct PlaylistDetailView: View {
                     } label: {
                         Label("Đổi tên", systemImage: "pencil")
                     }
+                    Button {
+                        choosingCover = true
+                    } label: {
+                        Label("Đổi ảnh bìa", systemImage: "photo.on.rectangle")
+                    }
+                    if playlist?.coverPath != nil {
+                        Button("Gỡ ảnh bìa") {
+                            library.clearCover(playlistId: playlistId)
+                        }
+                    }
                     Divider()
                     Button(role: .destructive) {
                         confirmsDelete = true
@@ -294,6 +335,26 @@ private struct PlaylistDetailView: View {
                 }
                 .accessibilityLabel("Khác")
             }
+        }
+        .photosPicker(isPresented: $choosingCover, selection: $coverChoice, matching: .images)
+        .onChange(of: coverChoice) { _, picked in
+            guard let picked else { return }
+            coverChoice = nil
+            Task {
+                guard let data = try? await picked.loadTransferable(type: Data.self) else {
+                    coverFailed = true
+                    return
+                }
+                // `setCover` republishes the lists, and a new cover is a new path, so the row and the
+                // hero both re-read it from the row they are given. Nothing has to be told.
+                let written = await library.setCover(data, for: playlistId)
+                coverFailed = !written
+            }
+        }
+        .alert("Không đọc được ảnh này", isPresented: $coverFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Danh sách vẫn giữ ảnh bìa cũ.")
         }
         .sheet(isPresented: $renaming) {
             PlaylistNameSheet(title: "Đổi tên danh sách", verb: "Lưu",
@@ -311,8 +372,12 @@ private struct PlaylistDetailView: View {
         }
     }
 
+    private var playlist: StoredPlaylist? {
+        library.playlists.first { $0.id == playlistId }
+    }
+
     private var name: String {
-        library.playlists.first { $0.id == playlistId }?.name ?? ""
+        playlist?.name ?? ""
     }
 
     private var cover: StoreTrack? {
@@ -338,8 +403,14 @@ private struct PlaylistDetailView: View {
     private var backdrop: some View {
         TelegramTrackGradient.linear(playlistId)
             .overlay {
-                if let cover, let image = artwork.image(for: cover,
-                                                         side: MusicArtworkMetrics.heroSide) {
+                if let path = playlist?.coverPath, let image = artwork.image(at: path) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .opacity(0.22)
+                } else if let cover,
+                          let image = artwork.image(for: cover,
+                                                    side: MusicArtworkMetrics.heroSide) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -402,19 +473,9 @@ private struct PlaylistDetailView: View {
     @ViewBuilder
     private var heroArt: some View {
         GeometryReader { proxy in
-            if let cover {
-                TrackCover(track: cover, side: proxy.size.width,
-                           radius: MusicPlaylistMetrics.heroArtRadius, artwork: artwork)
-            } else {
-                ZStack {
-                    TelegramTrackGradient.linear(playlistId)
-                    Image(systemName: "music.note.list")
-                        .font(MusicArtworkMetrics.placeholderGlyph)
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-                .clipShape(RoundedRectangle(cornerRadius: MusicPlaylistMetrics.heroArtRadius,
-                                            style: .continuous))
-            }
+            PlaylistArt(listId: playlistId, coverPath: playlist?.coverPath, cover: cover,
+                        side: proxy.size.width,
+                        radius: MusicPlaylistMetrics.heroArtRadius, artwork: artwork)
         }
         .aspectRatio(1, contentMode: .fit)
         .containerRelativeFrame(.horizontal) { width, _ in

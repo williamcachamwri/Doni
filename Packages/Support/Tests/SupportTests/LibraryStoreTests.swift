@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import Testing
 @testable import Support
 
@@ -291,6 +292,47 @@ struct LibraryStoreTests {
         #expect(!store.renamePlaylist(id: playlist.id, name: "  "))
         #expect(store.playlists().first?.name == "New")
         #expect(store.playlistTracks(playlistId: playlist.id).count == 1)
+    }
+
+    @Test("a list can be given a picture of its own, and take it back off")
+    func playlistCoverRoundTrips() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        let playlist = try #require(store.createPlaylist(name: "Chạy bộ"))
+        #expect(store.playlists().first?.coverPath == nil)
+        #expect(store.setPlaylistCover(id: playlist.id, path: "/tmp/cover.jpg"))
+        #expect(store.playlistCoverPath(id: playlist.id) == "/tmp/cover.jpg")
+        #expect(store.playlists().first?.coverPath == "/tmp/cover.jpg")
+        #expect(store.setPlaylistCover(id: playlist.id, path: nil))
+        #expect(store.playlistCoverPath(id: playlist.id) == nil)
+        #expect(store.playlists().first?.coverPath == nil)
+    }
+
+    /// The database a phone already holds was made by the build before list covers, and
+    /// `CREATE TABLE IF NOT EXISTS` will not add a column to the table that build left behind — so
+    /// the upgrade has to notice. Written out here in the shape version 1 made.
+    @Test("a library from the build before list covers still opens, and gains the column")
+    func oldDatabaseGainsTheCoverColumn() throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("doni-legacy-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("library.db").path
+        var legacy: OpaquePointer?
+        try #require(sqlite3_open(path, &legacy) == SQLITE_OK)
+        sqlite3_exec(legacy, "CREATE TABLE playlist (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            + " name TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL)", nil, nil, nil)
+        sqlite3_exec(legacy, "INSERT INTO playlist (name, created_at) VALUES ('Cũ', 1)", nil, nil, nil)
+        sqlite3_exec(legacy, "PRAGMA user_version = 1", nil, nil, nil)
+        sqlite3_close(legacy)
+
+        let store = LibraryStore(path: path)
+        defer { store.close() }
+        let list = try #require(store.playlists().first)
+        #expect(list.name == "Cũ")
+        #expect(list.coverPath == nil, "the column is there, and empty")
+        #expect(store.setPlaylistCover(id: list.id, path: "/tmp/cover.jpg"))
+        #expect(store.playlistCoverPath(id: list.id) == "/tmp/cover.jpg")
     }
 
     @Test("a channel that goes away takes its songs and their hearts with it")
