@@ -27,7 +27,7 @@ struct LibraryView: View {
     let onOpenTab: (DoniTab) -> Void
     let onOpenPlayer: () -> Void
 
-    @State private var showsAccountMenu = false
+    @State private var showsSettings = false
     @State private var showsAddChannel = false
     @State private var section: DoniHomeSection = .forYou
 
@@ -65,25 +65,43 @@ struct LibraryView: View {
                                artwork: artwork, library: library)
                 .musicNavigationTransition(playlistID: id)
         }
-        // The system's own bar: a large title and three glass circles, which is what MeloX
-        // asks for and what iOS 26 draws (`ContentView.swift:377-379`, `:429-460`).
+        // The system's own bar: a large title, two glass circles and the account's own picture in a
+        // third one of its own, which is what MeloX draws (`ContentView.swift:377-379`, `:429-460`).
         .navigationTitle("Trang chủ")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button(action: shuffleAll) {
                     Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
                 }
+                // The circle is the walk's brake as well as its restart: the ellipsis menu that used
+                // to carry "Dừng đọc kênh" is gone, and a read of a thousand messages is the one
+                // thing here a listener may want to stop rather than only start.
                 Button {
-                    indexer.run(session, library: library)
+                    if indexer.isReading {
+                        indexer.stop()
+                    } else {
+                        indexer.run(session, library: library)
+                    }
                 } label: {
-                    Label("Đọc lại kênh", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
-                }
-                Button {
-                    showsAccountMenu = true
-                } label: {
-                    Label("Kênh và tài khoản", systemImage: "ellipsis").labelStyle(.iconOnly)
+                    Label(indexer.isReading ? "Dừng đọc kênh" : "Đọc lại kênh",
+                          systemImage: indexer.isReading ? "stop.fill" : "arrow.clockwise")
+                        .labelStyle(.iconOnly)
                 }
             }
+            // Its own item, so the glass circle around it does not join the pair: the account is not
+            // one of the feed's actions.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showsSettings = true
+                } label: {
+                    AccountAvatar(account: session.account)
+                }
+                .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" }
+                    ?? "Cài đặt")
+            }
+        }
+        .navigationDestination(isPresented: $showsSettings) {
+            SettingsView(session: session, indexer: indexer, library: library)
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
@@ -92,19 +110,6 @@ struct LibraryView: View {
             // without a downloader would leave the row spinning.
             player.restore()
             indexer.run(session, library: library)
-        }
-        .confirmationDialog(
-            "Tài khoản",
-            isPresented: $showsAccountMenu,
-            titleVisibility: .visible
-        ) {
-            if indexer.isReading {
-                Button("Dừng đọc kênh", role: .destructive) { indexer.stop() }
-            } else {
-                Button("Tải lại thư viện") { indexer.run(session, library: library) }
-            }
-            Button("Đăng xuất", role: .destructive) { session.logOut() }
-            Button("Huỷ", role: .cancel) {}
         }
         .sheet(isPresented: $showsAddChannel) {
             AddChannelSheet(session: session, library: library) {
@@ -402,6 +407,37 @@ struct LibraryView: View {
             .padding(.vertical, 20)
         }
     }
+}
+
+/// The account button, in the one place the reference puts it — the head of the bar, after the
+/// group of circles (`ContentView.swift:453-457`, `:474-497`): the profile picture at 28 pt in a
+/// `.quaternary` disc, clipped to a circle, and the person glyph for the accounts that never chose
+/// a picture.
+///
+/// The picture is the ~100 px JPEG TDLib sends inside `getMe`, so this button asks the network for
+/// nothing; an account whose photo has not come back yet is drawn with the outline glyph, which is
+/// the same thing the reference does while it is still loading.
+private struct AccountAvatar: View {
+    let account: TdAccount?
+
+    var body: some View {
+        if let data = account?.avatarData, let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: Self.side, height: Self.side)
+                .background(.quaternary, in: .circle)
+                .clipShape(.circle)
+        } else {
+            Image(systemName: account == nil
+                ? "person.crop.circle"
+                : "person.crop.circle.fill")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// `ContentView.swift:487-488` — 28 pt, on both edges.
+    private static let side: CGFloat = 28
 }
 
 #Preview {

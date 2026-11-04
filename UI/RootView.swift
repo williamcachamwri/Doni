@@ -100,10 +100,13 @@ struct RootView: View {
                                   library: library)
                 }
             }
-            Tab(DoniTab.settings.title, systemImage: DoniTab.settings.symbol,
-                value: DoniTab.settings) {
+            // The slot the reference gives its cloud drive (`Features/Cloud/CloudMusicView.swift`),
+            // which is where Settings used to sit: the account moved to the header's avatar, the way
+            // MeloX puts it (`ContentView.swift:453-457`).
+            Tab(DoniTab.cloud.title, systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
                 NavigationStack {
-                    SettingsView(session: session, indexer: indexer, library: library)
+                    CloudMusicView(session: session, player: player, artwork: artwork,
+                                   library: library, indexer: indexer)
                 }
             }
             // The reference's own search tab: a `Tab` with the search role, whose content is a
@@ -124,13 +127,14 @@ struct RootView: View {
 }
 
 /// The five tabs, named and dressed the way the reference names them
-/// (`NavigationPreferences.swift:22-60`). One outline glyph each: the glass selection is what says
-/// which tab is current, so a filled variant would only fight it.
+/// (`NavigationPreferences.swift:22-60`, and `:16,:36,:56` for the cloud page's own title and
+/// `icloud` glyph). One outline glyph each: the glass selection is what says which tab is current,
+/// so a filled variant would only fight it.
 enum DoniTab: String, CaseIterable, Identifiable {
     case home
     case likes
     case playlists
-    case settings
+    case cloud
     case search
 
     var id: String { rawValue }
@@ -140,7 +144,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
         case .home: return "Trang chủ"
         case .likes: return "Yêu thích"
         case .playlists: return "Danh sách"
-        case .settings: return "Cài đặt"
+        case .cloud: return "Cloud Music"
         case .search: return "Tìm kiếm"
         }
     }
@@ -150,7 +154,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
         case .home: return "house"
         case .likes: return "heart"
         case .playlists: return "music.quarternote.3"
-        case .settings: return "gearshape"
+        case .cloud: return "icloud"
         case .search: return "magnifyingglass"
         }
     }
