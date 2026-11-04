@@ -54,6 +54,16 @@ final class TelegramSession: ObservableObject {
     /// missing can ask again.
     func start() {
         guard client == nil else { return }
+        if UserDefaults.standard.bool(forKey: Self.eraseKey) {
+            // A logout that was killed on the way out. TDLib must not get the chance to reopen the
+            // database the user already threw away, so the promise is kept before a client exists.
+            Task {
+                await Self.eraseStorage()
+                UserDefaults.standard.removeObject(forKey: Self.eraseKey)
+                start()
+            }
+            return
+        }
         guard let parameters = Self.parameters() else {
             lastError = "Thiếu api_id/api_hash trong bundle — xem Config/Tdlib.xcconfig"
             // Nothing is going to answer, so the root has to stop waiting for one. A screen that
@@ -111,8 +121,15 @@ final class TelegramSession: ObservableObject {
         accountPhoto = nil
         isWaiting = false
         await Self.eraseStorage()
+        UserDefaults.standard.removeObject(forKey: Self.eraseKey)
         start()
     }
+
+    /// Set the moment the user asks to be signed out, and cleared once the deletion has actually
+    /// happened. TDLib will not let its database go while it has it open, so the real unlink waits
+    /// for the client to close — and if the app is killed in that gap, this is what makes the next
+    /// launch finish the job before a session can be reopened.
+    private static let eraseKey = "session.eraseOnLaunch"
 
     /// Everything TDLib kept on the phone, thrown away once its client has said it is closed.
     ///
@@ -200,7 +217,10 @@ final class TelegramSession: ObservableObject {
         run { try await $0.submitPassword(password) }
     }
 
+    /// Promises the deletion before asking for the logout, so nothing can leave the app between the
+    /// two and take the promise with it.
     func logOut() {
+        UserDefaults.standard.set(true, forKey: Self.eraseKey)
         run { try await $0.logOut() }
     }
 
