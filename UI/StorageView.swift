@@ -138,7 +138,8 @@ struct StorageView: View {
             Text("Tổng quan")
         } footer: {
             Text("Nhạc Telegram và cache ảnh lấy lại được khi cần. Danh sách, bài yêu thích, "
-                + "ảnh bìa bạn tự chọn và file bạn thêm vào thì không.")
+                + "ảnh bìa bạn tự chọn và file bạn thêm vào thì không. Phần TDLib tự tạo không "
+                + "phải dữ liệu của bạn: đăng xuất sẽ xoá sạch, và phiên mới lại tạo nó từ đầu.")
         }
     }
 
@@ -154,8 +155,14 @@ struct StorageView: View {
                  "File chọn từ máy, không lấy lại được", usage?.importedBytes)
             item("photo.stack", "Cache ảnh",
                  "Ảnh bìa và ảnh kênh, tự tải lại", usage?.pictureBytes)
-            item("cylinder.split.1x2", "Danh sách và tài khoản",
-                 "Cơ sở dữ liệu, ảnh bìa bạn chọn", usage?.recordsBytes)
+            item("heart.text.square", "Thư viện của bạn",
+                 "Danh sách, bài yêu thích, ảnh bìa bạn chọn", usage?.libraryBytes)
+            // Its own row, because a fresh TDLib spends several megabytes on its database, its
+            // binary log and its sticker folders before it has been told anything at all. Counted
+            // with the library, that made a sign-out that worked look like one that failed.
+            item("gearshape.2", "Phần Telegram của app",
+                 "Cơ sở dữ liệu TDLib tự tạo — không xoá được khi đang đăng nhập",
+                 usage?.engineBytes)
         }
     }
 

@@ -17,14 +17,22 @@ struct DoniStorage: Equatable, Sendable {
     var importedBytes: Int64
     /// Cached covers and channel photos: every picture this app can get back on its own.
     var pictureBytes: Int64
-    /// This app's SQLite file and TDLib's database, plus the list covers a user chose — the records
-    /// half, which is what a cleanup must not touch.
-    var recordsBytes: Int64
+    /// This app's own records: its SQLite file and the picture a user chose for a list. The
+    /// half a cleanup must not touch, and the half that is actually about the user's listening.
+    var libraryBytes: Int64
+    /// TDLib's working area — its database, its binary log, the sticker and photo folders it makes
+    /// for itself. This is not the user's library: a fresh engine that has never been told anything
+    /// still spends several megabytes here, and it grows again the moment a session starts. It is
+    /// counted separately because putting it in the same row as the library made a clean sign-out
+    /// look like a failed one.
+    var engineBytes: Int64
     var deviceTotalBytes: Int64?
     var deviceFreeBytes: Int64?
 
     /// Everything the app owns, which is what the system's storage panel calls "Documents & Data".
-    var managedBytes: Int64 { telegramBytes + importedBytes + pictureBytes + recordsBytes }
+    var managedBytes: Int64 {
+        telegramBytes + importedBytes + pictureBytes + libraryBytes + engineBytes
+    }
 
     /// The part that can be thrown away and come back on its own: what Telegram can send again, and
     /// what can be decoded out of the files already here. Imported songs and the records are not in
@@ -49,9 +57,9 @@ enum StorageTally {
                 importedBytes: DiskUsage.bytes(at: Library.musicDirectory),
                 pictureBytes: DiskUsage.bytes(at: CoverArtwork.sourceDirectory)
                     + DiskUsage.bytes(at: Library.avatarDirectory),
-                recordsBytes: StorageTally.libraryDatabaseBytes()
-                    + DiskUsage.bytes(at: TelegramSession.databaseDirectory)
+                libraryBytes: StorageTally.libraryDatabaseBytes()
                     + DiskUsage.bytes(at: Library.coverDirectory),
+                engineBytes: DiskUsage.bytes(at: TelegramSession.databaseDirectory),
                 deviceTotalBytes: capacity.total,
                 deviceFreeBytes: capacity.available
             )
