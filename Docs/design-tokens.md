@@ -423,6 +423,9 @@ moment it was asked for and the list fell back to a 40×30 tile stretched 4.5×.
 | **4.** the inline `minithumbnail`, and **only** on surfaces at or below the first tier | 40×30 is a placeholder, not artwork: rows, bubbles and the strip forgive it, a card or a hero must not, and shows the gradient instead of an upscale | `td_api.tl:361`, `CoverArtwork.miniCeiling` |
 | tiers **192 / 512 / 768** px, a surface picking the smallest that covers `points × 3` | 54 pt at @3x wants 162, so a row gets 192; the 154/166 pt cards get 512; a hero gets 768. One `NSCache` holds every tier, keyed by it, costed by bytes at **64 MB** | `CoverArtwork.tiers` / `.pixels(forSide:)` |
 | `min(tier, the source's own longest side)` in `kCGImageSourceThumbnailMaxPixelSize`, handed to `CGImageSourceCreateThumbnailAtIndex` | the key only means anything to *that* call — the pipeline used to hand it to `CGImageSourceCreateImageAtIndex`, which ignores it and decoded every cover whole. Clamping to the source matters just as much: asking a 320 px thumbnail for 512 buys the same picture with more of it smeared | `CoverArtwork.downsampled(source:side:)` |
+| **source tier** — the cover's **own bytes** in `Library/Caches/Doni/Cover Sources/<first 12 bytes of sha256(key)>.img`, keyed **without** a tier | the memory cache was the only thing standing between a backgrounded app and a grid of grey squares, and iOS takes it back the moment the process goes; one file then answers 192, 512 and 768 from the resolution the bot actually posted, so nothing is re-stored smaller than it came and a relaunch costs a disk read rather than a download. `Caches` because every byte there can be refetched or read out of the song again | `CoverArtwork.sourceDirectory` / `.sourceURL(_:)` |
+| **40** covers the screens just asked for, remembered and re-asked when the app becomes active | the memory tier is cold after a relaunch, but TDLib answers `getFile` from its own database, so replaying the list is a disk read per cover and not a download; each answer bumps `revision` and the rows redraw from it | `CoverArtwork.recent` / `.recentLimit` / `.rewind()` |
+| a cover fades in on MeloX's `easeOut(0.18)`, not on a pop | 168 covers re-asking on launch would otherwise land one frame apart, which reads as a flicker; the reference's own image transition is the one being copied | `MusicArtworkMetrics.loadFade`, `ArtworkImage.swift:46` |
 | `can_be_downloaded == false` **and** not complete → unavailable; `is_downloading_active == false` → still waiting | `is_downloading_active` is "the file is *currently* being downloaded" (`td_api.tl:301`) and TDLib only sets it once the job has a priority it has started (`FileManager.cpp:1031-1033`, `:4128-4134`); `downloadFile` answers "immediately, just after the download has been started" (`:15000`), so the first thing it says about a cover is that it is not active yet. The tiles were never missing — they were queued | `TdFileDownloader.isUnavailable` |
 | `priority 1` for a cover, `16` for the song the user pressed play on | TDLib's priority is 1-32 and the higher wins; 168 covers must never queue ahead of audio | `td_api.tl:15001`, `TdFileDownloader.coverPriority` / `.audioPriority` |
 | `cancelDownloadFile` when the **last** waiter walks away, and not when another remains | a row that scrolled off should stop a fetch, but two rows on one file must not cancel each other's | `TdFileDownloader.abandon` / `.stop` |
@@ -736,6 +739,17 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Queue row | art 48 r6 · gap 12 · text gap 2 · title `.body`, artist `.subheadline` white 0.58 · row insets 4 top/bottom · edit mode pinned on so every row drags | `NowPlayingQueuePage.swift:95`, `:338-370` |
 | Settings card | r26 continuous, `secondarySystemGroupedBackground` · header `headline` secondary at 14 padding · card gap 10 · divider leading 58 | `SettingsHomeComponents.swift:23-50` |
 | Settings row | minHeight 68 · icon `title3.medium` tinted, 30 wide · gap 14 · text gap 3 · title `body.semibold` · subtitle `caption` · chevron `caption.semibold` tertiary · padding 18/13 | `SettingsHomeComponents.swift:58-88` |
+| Home segments | `VStack(spacing: 0)` with `Picker(.segmented)` — 16 side, 8 vertical, on the screen's own background — over the content, which takes the rest of the height | `HomeView.swift:18-33` |
+| Second segment | the reference embeds its discover screen as a segment rather than a tab | `HomeView.swift:36-47`, `ExploreView.swift:44-102` |
+| Explore chips | `LazyHStack(spacing: 8)` of `.borderedProminent` capsules at `.small`, the chosen one in the accent and the rest on `secondary` 0.14, indicators hidden and clipping off | `ExplorePlaylistComponents.swift:10-20` |
+| Explore hero | aspect 1.55 at r22 under clear→black 0.78, copy padded 20 with 6 between its lines, badge white 0.78 over meta white 0.76 8 apart | `ExplorePlaylistComponents.swift:44-81` |
+| Explore grid | `GridItem(.adaptive(minimum: 148, maximum: 220), spacing: 16)` with 22 between rows · heading `title2.bold()` and a `caption` count 16 above · card art r12, 8 to two lines · pill `caption2.semibold` white on black 0.48, 7×5 padding, 8 in from the corner | `ExploreView.swift:21-23,90-104`, `ExplorePlaylistComponents.swift:103-125` |
+| Explore stack | sections 26 apart · 16 gutter · 28 bottom | `ExploreView.swift:45,54-55` |
+| Settings title | a 28 pt mark clipped at 7, 8 from a `.headline` name, in the bar's `.principal` slot | `SettingsHomeComponents.swift:5-14` |
+| Settings search | `.searchable` (prompt "Search Settings") with `scrollDismissesKeyboard(.interactively)`, and a `ContentUnavailableView` on 48 vertical padding when the query leaves nothing | `SettingsView.swift:38-41`, `:99-106` |
+| Settings filter | trim, lower-case, split the query on whitespace, keep a row only when **every** piece appears in its text, and drop a card whose rows are all gone | `SettingsCatalog.swift:120-148` |
+| Settings account card | r28 · min height 100 · padding 18/16 · a 60 pt mark on `.quaternary` in a circle · 16 to the words · 5 between them · `title3.semibold` name on one line over a `subheadline` secondary on two | `SettingsAccountSection.swift:64-76`, `:142-153`, `:213-214` |
+| Settings logout card | no header and no footnote · `rectangle.portrait.and.arrow.right` `title3.medium` in a 30 column, 14 from a `body.medium` title · padding 18/14 · min height 60 · r26 · the whole label in `.red` | `SettingsAccountSection.swift:163-196` |
 | Now playing padding | 32 horizontal | `NowPlayingView.swift:5` |
 | Dismiss handle | capsule 60×5 white 0.52, 8 top, inside a 34 box | `NowPlayingView.swift:465-473` |
 | Artwork | `min(w+16, max(170, h−279−92))`, r12, shrinks to 0.74 paused | `NowPlayingArtworkPage.swift:4,39-50,66` |
@@ -780,7 +794,7 @@ substitute:
 | `matchedTransitionSource` + `.navigationTransition(.zoom)` | the same pair on the strip's cover and the panel; the `matchedGeometryEffect` morph is gone |
 | `GlassEffectContainer`, `.buttonStyle(.glass)` / `.glassProminent` | the same, on the playlist hero; `telegramGlass(_:fallback:)` and its iOS 17 blur fallback deleted |
 | `MeshGradient` / Metal `layerEffect` backdrop | blurred-artwork backdrop at the same 1.35 / 90 numbers — the one MeloX surface Doni still draws |
-| `Picker(.segmented)` in the nav bar for home sections | Doni has one home feed; no picker |
+| `Picker(.segmented)` above the home content, whose second segment is `ExploreView` | the same picker in `UI/LibraryView.swift`, with `UI/HomeBrowse.swift` standing where the reference's explore screen does |
 | `Tab(role: .search)` | the search tab's own role, with `.searchable(placement: .navigationBarDrawer(displayMode: .always))` inside it |
 | Nuke `LazyImage` thumbnails | `TrackCover` + `CoverArtwork` |
 
@@ -798,9 +812,14 @@ MeloX's home has no search field: search is a tab, and the tab bar carries `role
 channel, so the six tiles are the six things this app can do (shuffle the channel, newest, open likes,
 play what is on the device, open playlists, resume the player), each wearing one of MeloX's six gradient
 pairs in MeloX's order, and the shelves are the four groups the store keeps. A shelf cuts itself at 20
-cards (`LibraryView.shelfLimit`) because Doni's library is one channel's thousand songs, and the whole
-list stays below the feed under its own "Tất cả bài hát" title — the same bargain as MeloX's home, which
-embeds `LibraryView` as one of its sections (`HomeView.swift:79-80`).
+cards (`LibraryView.shelfLimit`) because Doni's library is one channel's thousand songs.
+
+The second segment is where the rest of the library lives. The reference switches its home sections in
+a `VStack(spacing: 0)` and hands the `.music` one to `ExploreView` (`HomeView.swift:66-73`), so Doni's
+"Nhạc" segment is `UI/HomeBrowse.swift` — the chips, the hero and the adaptive grid — and the facets
+behind those chips carry the whole library at 50 songs each (`LibraryView.facetLimit`), counted out of
+the same store the shelves read. A "Tất cả bài hát" list under the feed used to do that job in a form
+the reference does not have, and the user asked for it gone.
 
 **The playlist detail wears the cover's colours, not a fixed surface.** This is the whole reason MeloX's
 detail screens look nothing like Doni's old one: the average of the artwork decides the background, and
@@ -854,6 +873,15 @@ MeloX waits on a network: it sleeps 350 ms before searching, keeps a result cach
 `ProgressView` row while the request is out; Doni asks its own index, which has the answer already, so
 it shows results immediately and keeps only the 300 ms debounce in front of the completions
 (`SearchView.swift:113-126`).
+
+**The account card asks TDLib who this is.** The reference fills its first card from the service's own
+account call; Doni's equivalent is `getMe`, which answers a `user` whose `first_name` and `last_name`
+are the name and whose `usernames.active_usernames` is the handle the channels are read by
+(`td_api.tl:12388`, `:2806`, `:2775`). One request, made on the way into the ready state, and `TdAccount`
+is what the settings card reads. Nothing coming back leaves the card on the reference's loading branch
+rather than reporting an error nobody can act on. Its mark is the reference's 60 pt circle on
+`.quaternary` — the one round shape on the screen, because it stands for a person and the rule that made
+every cover a rounded square never reached it.
 
 ## Known traps found while extracting
 
