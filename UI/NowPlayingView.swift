@@ -59,7 +59,8 @@ struct NowPlayingView: View {
 
     /// The reference's blurred-artwork style: the cover scaled 1.35 under a 90 pt blur, a 0.10 veil
     /// over the pair, and a wash that darkens toward the controls so white text stays legible
-    /// (`NowPlayingBackground.swift:34-56`, `:113-173`).
+    /// (`NowPlayingBackground.swift:34-56`, `:113-173`). A new song's wash dissolves over the 0.8 s
+    /// curve the reference gives its artwork image (`NowPlayingAppleMusicBackground.swift:128-153`).
     private var backdrop: some View {
         GeometryReader { edge in
             ZStack {
@@ -75,6 +76,11 @@ struct NowPlayingView: View {
                         .scaleEffect(MusicNowPlayingMetrics.backdropScale)
                         .blur(radius: MusicNowPlayingMetrics.backdropBlur)
                         .transition(.opacity)
+                        // The reference keys the wash by its artwork
+                        // (`NowPlayingAppleMusicBackground.swift:153`), and so must this: without an
+                        // identity the new cover is the same view with different pixels, which is a
+                        // swap and not a cross-fade, and no curve can fix that.
+                        .id(track.uniqueId)
                 }
                 Color.black.opacity(MusicNowPlayingMetrics.veilOpacity)
                 LinearGradient(colors: MusicNowPlayingMetrics.legibilityStops.map {
@@ -86,7 +92,7 @@ struct NowPlayingView: View {
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
-        .animation(reduceMotion ? nil : MusicNowPlayingMetrics.backdropFade,
+        .animation(reduceMotion ? nil : MusicNowPlayingMetrics.washCrossFade,
                    value: player.current?.uniqueId)
     }
 
@@ -213,6 +219,7 @@ private struct ArtworkPage: View {
                             .resizable()
                             .scaledToFill()
                             .transition(.opacity)
+                            .id(track.uniqueId)
                     }
                 }
                 .frame(width: shown, height: shown)
@@ -229,6 +236,15 @@ private struct ArtworkPage: View {
                 .frame(width: side, height: side)
                 .animation(reduceMotion ? nil : MusicMotion.artworkResize, value: isExpanded)
                 .animation(reduceMotion ? nil : MusicMotion.artworkShadow, value: player.isPlaying)
+                // Two fades, because a cover arrives two ways: a song the phone already has the art
+                // for swaps identities, and one it does not inserts the picture when the bytes land.
+                // The reference gets both from one mechanism — Nuke empties its own image while the
+                // new URL loads, so the placeholder is always re-inserted — and Doni needs the
+                // second key because its cache is a disk tier the row has usually already warmed
+                // (`ArtworkImage.swift:14-16`, `:45-55`).
+                .animation(reduceMotion ? nil : MusicArtworkMetrics.loadFade, value: track.uniqueId)
+                .animation(reduceMotion ? nil : MusicArtworkMetrics.loadFade,
+                           value: artwork.revision)
                 .accessibilityElement()
                 .accessibilityLabel(track.displayTitle)
                 .task(id: player.isPlaying) { await bounceIn() }

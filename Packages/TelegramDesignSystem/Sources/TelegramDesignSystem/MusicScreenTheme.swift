@@ -568,8 +568,14 @@ public enum MusicNowPlayingMetrics {
     /// vertical gradient that darkens toward the controls (`NowPlayingBackground.swift:142-173`).
     public static let veilOpacity: Double = 0.10
     public static let legibilityStops: [Double] = [0.04, 0.12, 0.48]
-    /// A background style change cross-fades at 0.55 (`:58-63`).
-    public static let backdropFade = Animation.easeInOut(duration: 0.55)
+    /// The wash a new song's artwork brings in: `timingCurve(0, 0, 0.3, 1, duration: 0.8)` carried by
+    /// the image's own load transaction, with `.transition(.opacity)` and the view keyed by
+    /// `.id(artworkURL)` so the old wash is removed and the new one inserted rather than swapped in
+    /// place (`NowPlayingAppleMusicBackground.swift:128-153`). The id is the load-bearing half: a
+    /// cross-fade needs an insertion, and a view that only changes its pixels has none.
+    /// A background *style* change — a switch Doni does not offer — cross-fades at 0.55
+    /// (`NowPlayingBackground.swift:58-63`), so it is not the number the wash needs.
+    public static let washCrossFade = Animation.timingCurve(0, 0, 0.3, 1, duration: 0.8)
 
     /// The artwork page's own two spacers: 8 above the cover, 22 below it, and the title block
     /// pushed off the bottom by the 279 pt core (`NowPlayingArtworkPage.swift:60`, `:128`, `:155`).
