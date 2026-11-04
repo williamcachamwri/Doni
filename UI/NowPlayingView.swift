@@ -61,20 +61,28 @@ struct NowPlayingView: View {
     /// over the pair, and a wash that darkens toward the controls so white text stays legible
     /// (`NowPlayingBackground.swift:34-56`, `:113-173`).
     private var backdrop: some View {
-        ZStack {
-            Color.black
-            if let track = player.current,
-               let image = artwork.image(for: track, side: MusicArtworkMetrics.heroSide) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .scaleEffect(MusicNowPlayingMetrics.backdropScale)
-                    .blur(radius: MusicNowPlayingMetrics.backdropBlur)
+        GeometryReader { edge in
+            ZStack {
+                Color.black
+                if let track = player.current,
+                   let image = artwork.image(for: track,
+                                             side: MusicArtworkMetrics.heroSide) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: edge.size.width, height: edge.size.height)
+                        .clipped()
+                        .scaleEffect(MusicNowPlayingMetrics.backdropScale)
+                        .blur(radius: MusicNowPlayingMetrics.backdropBlur)
+                        .transition(.opacity)
+                }
+                Color.black.opacity(MusicNowPlayingMetrics.veilOpacity)
+                LinearGradient(colors: MusicNowPlayingMetrics.legibilityStops.map {
+                    Color.black.opacity($0)
+                }, startPoint: .top, endPoint: .bottom)
             }
-            Color.black.opacity(MusicNowPlayingMetrics.veilOpacity)
-            LinearGradient(colors: MusicNowPlayingMetrics.legibilityStops.map {
-                Color.black.opacity($0)
-            }, startPoint: .top, endPoint: .bottom)
+            .frame(width: edge.size.width, height: edge.size.height)
+            .clipped()
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

@@ -745,7 +745,7 @@ system red is `#ff453a` → `MusicTint.accent`.
 | Title line | `title3.semibold` over `title3` artist at white 0.64, 2 apart, 14 to actions | `NowPlayingArtworkPage.swift:130-153` |
 | Song actions | two 40 discs 10 apart — ellipsis on white 0.15, star on 0.13; the artwork page shows the ellipsis alone | `NowPlayingSongActions.swift:15,56-57,219-220`, `NowPlayingArtworkPage.swift:149-152` |
 | Song header (queue/lyrics) | 72 tall, art r12, row gap 12, enters from 40 below | `NowPlayingSongHeader.swift:43,66,104`, `NowPlayingMotionSpec.swift:528` |
-| Backdrop | artwork at scale 1.35 under a 90 blur, a 0.10 black veil, a legibility wash at 0.04/0.12/0.48, cross-faded at `easeInOut(0.55)` | `NowPlayingBackground.swift:61,127-128,149,168-170`, `AppSettings.swift:2007` |
+| Backdrop | artwork **framed to the container and `.clipped()` before** the 1.35 scale, then a 90 blur, a 0.10 black veil, a legibility wash at 0.04/0.12/0.48, cross-faded at `easeInOut(0.55)`; the `ZStack` itself is framed and clipped too | `NowPlayingBackground.swift:34-67,113-140`, `AppSettings.swift:2007` |
 | Page travel | artwork enters and leaves at −300; queue and lyrics travel 0, so they cross-fade; selection `.smooth(0.30)`, outgoing 0.24, incoming 0.22 + 0.07 | `NowPlayingPageTransition.swift:38-53`, `NowPlayingMotionSpec.swift:525-526` |
 
 **Motion bank** (`NowPlayingMotionSpec.appleMusic26`, all iOS 17-safe). Page transitions `.smooth`
@@ -857,3 +857,12 @@ The reading then drives `.environment(\.colorScheme:)`, `.toolbarColorScheme(_:f
 - The same trap caught the bubble's **font**: its digits were first recorded as `semibold(11)`, but the
   ink measures 19–20 px (6.5 pt) and the source sets `badgeFont` to `semibold(floor(base × 12/17))` =
   `semibold(9)` (`ChatListItem.swift:2294`). Ink of 6.5 pt is what 9 pt digits look like.
+- **`.scaledToFill()` sizes the layout box, not only the pixels.** The Now Playing backdrop scaled a
+  square cover by 1.35 under a 90 blur without pinning it to its container first, so the image's own box
+  was 844×844 on a 390 pt screen. The `ZStack` holding backdrop and page takes the *union* of its
+  children, so the page's `GeometryReader` was handed 844 — which made the artwork
+  `min(844+16, 844−279−92) = 473` pt wide and pushed the title line and the transport off the screen. It
+  only happened for songs **with** a cover: with none, the backdrop is a flexible `Color.black` and the
+  box stays the screen's. MeloX frames to `proxy.size` and clips *before* the scale, then frames and
+  clips the `ZStack` again (`NowPlayingBackground.swift:34-67,113-140`) — the clip is load-bearing
+  layout, not decoration.
