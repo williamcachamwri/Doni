@@ -13,24 +13,21 @@ struct DoniApp: App {
     @StateObject private var artwork = CoverArtwork.shared
 
     init() {
-        // Following the phone is the default, and it has to be written before any view asks for a
-        // word: the catalog is read through the system's own language list, which the process picks
-        // up at launch. A phone already set to one of the six therefore opens in that language from
-        // the second launch onward, and a choice in Settings overrides it for good.
+        // Following the phone is the default and must be written before any view asks for a word: the
+        // catalog resolves through the system language list the process picks up at launch, so a matched
+        // phone opens in that language from the second launch onward and a Settings choice overrides it.
         guard !DoniLanguage.isChosen else { return }
         DoniLanguage.followDevice()
     }
 
     var body: some Scene {
         WindowGroup {
-            // One ZStack, not one root per state: the shell is put up underneath and the sequence
-            // lifts off it on the reference's own spring, which is what makes signing in feel like
-            // opening the app rather than switching to another one.
+            // One ZStack, not one root per state: the shell stays underneath and the sequence lifts off
+            // it on the reference's own spring, so signing in feels like opening the app.
             ZStack {
-                // TDLib's first word decides which screen this phone belongs on, and it takes a few
-                // hundred milliseconds to say it. Guessing meanwhile put the login gate over a
-                // session that was already on the device, which is the flash every launch opened
-                // with; this is the same black both screens are already drawn on.
+                // TDLib's first word decides which screen this phone belongs on and takes a few hundred
+                // ms. Guessing meanwhile flashed the login gate over a session already on the device, so
+                // this is the same black both screens are already drawn on.
                 TelegramListPalette.night.background
                     .ignoresSafeArea()
 
@@ -49,10 +46,9 @@ struct DoniApp: App {
                 }
             }
             .animation(TelegramLoginMotion.presentation, value: session.isAuthorized)
-            // The client is started here and nowhere else. It used to be the login screen's job, and
-            // this screen now waits for TDLib's first word before it draws either of them — a screen
-            // that waits for the answer cannot be the one that asks the question. Left as it was,
-            // every launch was a black canvas forever.
+            // The client is started here and nowhere else. It used to be the login screen's job, and a
+            // screen that waits for TDLib's answer cannot be the one that asks it: left there, every
+            // launch was a black canvas forever.
             .task { session.start() }
         }
     }

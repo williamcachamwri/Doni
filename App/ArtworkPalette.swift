@@ -4,14 +4,11 @@ import Foundation
 import SwiftUI
 import TelegramDesignSystem
 
-/// The colours a screen wears once it is opened on top of a cover.
-///
-/// MeloX does not tint a fixed dark surface: it averages the artwork, decides from that average's
-/// luminance whether the whole interface should be light or dark, and paints the background, the
-/// nav bar, the tab bar and the text out of the result (`ArtworkAccentColorProvider.swift:273-291`,
-/// `PlaylistDetailView.swift:151`, `:167`, `:293-304`). That is why a bright cover turns the
-/// reference's detail screen pale and a dark one turns it near-black, and why every number this
-/// type uses lives in `MusicArtworkPalette`.
+/// The colours a screen wears once it is opened on top of a cover. MeloX does not tint a fixed dark
+/// surface: it averages the artwork, decides light or dark from that average's luminance, and paints the
+/// background, nav bar, tab bar and text from the result (`ArtworkAccentColorProvider.swift:273-291`,
+/// `PlaylistDetailView.swift:151, 167, 293-304`) — which is why a bright cover turns the reference's
+/// detail screen pale. Every number here lives in `MusicArtworkPalette`.
 struct ArtworkDetailPalette: Equatable, Sendable {
     /// The background, in sRGB components 0…1.
     let backgroundRGB: SIMD3<Double>
@@ -42,8 +39,8 @@ struct ArtworkDetailPalette: Equatable, Sendable {
 /// same downsampled bitmap.
 struct ArtworkDetailAssets: Sendable {
     let palette: ArtworkDetailPalette
-    /// Already blurred, at the reference's own 160 px, so a screen can scale it to fill without
-    /// asking a filter to keep up with scrolling.
+    /// Already blurred at the reference's own 160 px, so a screen can scale it to fill without a live
+    /// filter chasing the scroll.
     let blurredBackdrop: CGImage?
 
     static func fallback(prefersDarkAppearance: Bool) -> Self {
@@ -51,11 +48,9 @@ struct ArtworkDetailAssets: Sendable {
     }
 }
 
-/// A cover's palette, read the way MeloX reads one.
-///
-/// The reference downloads a 160 px version of the artwork to do it (`:159-173`); this app already
-/// holds the decoded bitmap, so the read starts from that and never touches the network. The work
-/// is GPU-side and a list is usually scrolling while it happens, hence the actor.
+/// A cover's palette, read the way MeloX reads one. The reference downloads a 160 px version of the
+/// artwork to do it (`:159-173`); this starts from the decoded bitmap already held and never touches the
+/// network. GPU-side work during a scrolling list, hence the actor.
 actor ArtworkPaletteProvider {
     static let shared = ArtworkPaletteProvider()
 
@@ -64,15 +59,15 @@ actor ArtworkPaletteProvider {
     private let context = CIContext(options: [.cacheIntermediates: false])
     private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 
-    /// The answer for a cover already read, without waiting on the actor. A detail screen seeds its
-    /// palette from this at init so the colours are right from the first frame of the zoom
-    /// transition instead of arriving 350 ms into it (`PlaylistDetailView.swift:42-53`).
+    /// A cover already read, without waiting on the actor. A detail screen seeds its palette from this at
+    /// init so the colours are right from the zoom transition's first frame, not 350 ms into it
+    /// (`PlaylistDetailView.swift:42-53`).
     nonisolated static func cached(forKey key: String) -> ArtworkDetailAssets? {
         cache.assets(forKey: key)
     }
 
-    /// The palette and the blurred backdrop for one cover. `key` names the picture, and a cover the
-    /// user replaced is a different key, so nothing here needs invalidating.
+    /// The palette and blurred backdrop for one cover. `key` names the picture, and a cover the user
+    /// replaced is a different key, so nothing needs invalidating.
     func assets(from source: CGImage?, key: String,
                 fallbackPrefersDarkAppearance: Bool) -> ArtworkDetailAssets {
         guard let source else {
@@ -89,8 +84,7 @@ actor ArtworkPaletteProvider {
         return assets
     }
 
-    /// To 160 px on the longest side, which is what the reference reads and blurs
-    /// (`:175-185`).
+    /// To 160 px on the longest side, which is what the reference reads and blurs (`:175-185`).
     private func downsampled(_ image: CIImage) -> CIImage {
         let maximumDimension = max(image.extent.width, image.extent.height)
         guard maximumDimension > MusicArtworkPalette.sourceMaxSide else { return image }
@@ -102,8 +96,8 @@ actor ArtworkPaletteProvider {
         return filter.outputImage ?? image
     }
 
-    /// `:187-204` — clamped at the edges so the blur has something to sample past the border, then
-    /// cropped back to the picture's own extent.
+    /// `:187-204` — clamped at the edges so the blur has something to sample past the border, then cropped
+    /// back to the picture's own extent.
     private func makeBlurredBackdrop(from image: CIImage) -> CGImage? {
         let extent = image.extent.integral
         guard !extent.isEmpty, !extent.isInfinite else { return nil }

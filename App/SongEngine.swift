@@ -4,42 +4,34 @@ import Support
 import TdSession
 import UIKit
 
-/// What `Player` actually does to the thing making noise, which is both of the two ways a song can
-/// reach an ear here.
-///
-/// `AVAudioPlayer` opens a whole file and is the right tool for a song the phone already has — it
-/// seeks exactly, costs nothing to start and has a real `volume`. `AVPlayer` is the right tool for a
-/// song that is still arriving, and it needs a different shape underneath. Everything else the player
-/// does — the queue, the cut, the clock, the lock screen — is the same on both sides of this protocol,
-/// which is the whole reason it exists: `Player` should not have to know which one it is holding.
+/// What `Player` actually does to the thing making noise, which is both of the two ways a song can reach
+/// an ear here. `AVAudioPlayer` opens a whole file — exact seeks, cheap start, a real `volume`; `AVPlayer`
+/// handles a song still arriving and needs a different shape underneath. Everything else (queue, cut,
+/// clock, lock screen) is the same on both sides, so `Player` never has to know which it holds.
 @MainActor
 protocol SongEngine: AnyObject {
-    /// The length of what is playing. `0` means the container has not told us yet, which is a
-    /// different fact from a song that is a fraction of a second long.
+    /// Length of what is playing; `0` means the container has not told us yet — a different fact from a
+    /// song a fraction of a second long.
     var duration: TimeInterval { get }
-    /// Whether the length is a measurement or a guess. A stream's duration comes from dividing its
-    /// byte count by an average bitrate, and that is good enough to draw a progress bar with and not
-    /// good enough to write into the library as the song's own length.
+    /// Whether the length is a measurement or a guess: a stream's comes from bytes ÷ average bitrate —
+    /// good enough to draw a progress bar, not to write into the library as the song's length.
     var durationIsExact: Bool { get }
     var currentTime: TimeInterval { get set }
     var volume: Float { get set }
-    /// The word that this song ran out. `AVAudioPlayer` reports it through its delegate and
-    /// `AVPlayer` posts a notification; both are the file's end, and neither is a pause.
+    /// The word that this song ran out: `AVAudioPlayer` via its delegate, `AVPlayer` via a notification —
+    /// both the file's end, neither a pause.
     var onEnd: (@MainActor () -> Void)? { get set }
-    /// Whether the engine is consuming time right now. This is the only honest answer to "is the
-    /// song playing": a paused player is not, and a player waiting for bytes is not either — which
-    /// is what a progress bar that keeps walking across a silent speaker turns out to have been
-    /// asking for all along.
+    /// Whether the engine is consuming time right now — the only honest answer to "is the song playing":
+    /// neither a paused player nor one waiting for bytes is.
     var isProducingSound: Bool { get }
-    /// Whether the engine has run dry and is waiting for bytes. Not a failure yet: a second of this
-    /// is buffering, a minute of it is a song that is not coming.
+    /// Whether the engine has run dry and is waiting for bytes. Not a failure yet: a second of this is
+    /// buffering, a minute of it is a song that is not coming.
     var isWaitingForData: Bool { get }
-    /// The transport's own last word about the bytes, for the engine that has a transport. `nil`
-    /// means either "nothing has gone wrong" or "this engine reads a file and asked nobody".
+    /// The transport's last word about the bytes, where there is a transport; `nil` means nothing went
+    /// wrong or this engine reads a file and asked nobody.
     var transportFailure: AudioStreamError? { get }
-    /// Whether the engine could start making sound if it were told to. A stream is not ready until
-    /// the container has been parsed, and the screen has to say "still getting it" rather than show
-    /// a pause button over silence.
+    /// Whether the engine could start making sound if told to. A stream is not ready until the container
+    /// is parsed, and the screen must say "still getting it" rather than show a pause button over silence.
     var isReadyToPlay: Bool { get }
     func play()
     func pause()
@@ -50,11 +42,9 @@ protocol SongEngine: AnyObject {
 
 // MARK: Whole file
 
-/// A song the phone has all of.
-///
-/// `AVAudioPlayer` is not `Sendable`, so it cannot be built on whichever thread asked for it and
-/// handed over — `load` is the one allowed crossing, off the main thread because a one-hour set is a
-/// hundred and forty megabytes of file to open and that used to freeze the screen that asked.
+/// A song the phone has all of. `AVAudioPlayer` is not `Sendable`, so it cannot be built on whichever
+/// thread asked for it: `load` is the one allowed crossing, off the main thread because a one-hour set is
+/// 140 MB of file to open.
 @MainActor
 final class FileSongEngine: NSObject, SongEngine, AVAudioPlayerDelegate {
     private let player: AVAudioPlayer
@@ -65,7 +55,7 @@ final class FileSongEngine: NSObject, SongEngine, AVAudioPlayerDelegate {
         super.init()
     }
 
-    /// The file, opened away from the main actor. `nil` means the file is not there or is not audio.
+    /// The file, opened away from the main actor; `nil` means it is not there or is not audio.
     static func load(path: String) async -> FileSongEngine? {
         let url = URL(fileURLWithPath: path)
         let handoff = await Task.detached(priority: .userInitiated) {
@@ -103,8 +93,8 @@ final class FileSongEngine: NSObject, SongEngine, AVAudioPlayerDelegate {
     }
 }
 
-/// `AVAudioPlayer` is not `Sendable`, so it cannot be handed back from a detached task by itself.
-/// This box is the one allowed crossing: built off the main thread, arrives on it, and never leaves.
+/// The one allowed crossing for the non-`Sendable` `AVAudioPlayer`: built off the main thread, arrives on
+/// it, and never leaves.
 private struct FileSongHandoff: @unchecked Sendable {
     let player: AVAudioPlayer?
 }
@@ -112,10 +102,9 @@ private struct FileSongHandoff: @unchecked Sendable {
 // MARK: Stream
 
 /// The bytes of one Telegram file, in ranges, as TDLib has them.
-///
-/// `want` is the interesting part: it is what makes a seek a *seek*. TDLib keeps one download window
-/// per file and moves it on the download already running, so asking for the bytes at four minutes is
-/// asking the fetch to go to four minutes — not asking for the file again from the start.
+/// `want` is what makes a seek a *seek*: TDLib keeps one download window per file and moves it on the
+/// download already running, so asking for the bytes at four minutes sends the fetch there rather than
+/// starting the file again.
 nonisolated final class TelegramAudioSource: AudioByteProviding, Sendable {
     private let file: TdFile
     private let downloader: TdFileDownloader
@@ -135,9 +124,8 @@ nonisolated final class TelegramAudioSource: AudioByteProviding, Sendable {
     }
 
     func want(_ range: AudioByteRange) async {
-        // Only the window is moved here, and no waiting: the player owns when the fetch is left
-        // running and when it is stopped, and a second owner that cancelled the file would stop the
-        // bytes this one is waiting for.
+        // Only the window moves here, and nothing waits: the player owns when the fetch is left running
+        // and when it is stopped, and a second owner cancelling the file would stop these bytes too.
         _ = await downloader.ask(file, window: range.offset, bytes: range.count)
     }
 }
@@ -151,9 +139,8 @@ final class StreamSongEngine: NSObject, SongEngine {
     private var endObserver: Task<Void, Never>?
     var onEnd: (@MainActor () -> Void)?
 
-    /// The transport's give-up, delivered on the main actor the moment it happens. A caller that
-    /// only learns it on its next poll has already drawn another quarter second of progress bar
-    /// across a song that is not playing.
+    /// The transport's give-up, delivered on the main actor the moment it happens: a caller that only
+    /// learns it on its next poll has drawn another quarter second of progress bar over silence.
     var onTransportFailure: (@MainActor (AudioStreamError) -> Void)? {
         didSet {
             loader.onFailure = { [weak self] error in
@@ -162,8 +149,8 @@ final class StreamSongEngine: NSObject, SongEngine {
         }
     }
 
-    /// The library's own number for this song, which is what Telegram's audio object carries and is
-    /// exact. A stream's container duration is a division, so this is preferred when it exists.
+    /// The library's own number for this song — what Telegram's audio object carries, and exact. A
+    /// stream's container duration is a division, so this is preferred when it exists.
     private let storedDuration: TimeInterval
 
     private init(player: AVPlayer, item: AVPlayerItem, loader: AudioStreamLoader,
@@ -174,18 +161,12 @@ final class StreamSongEngine: NSObject, SongEngine {
         self.storedDuration = storedDuration
     }
 
-    /// The stream, built but not yet parsed.
-    ///
-    /// Nothing here waits for the head of the file, and that is the whole point of this function's
-    /// shape. The first version loaded the tracks before handing the engine back — to check the
-    /// container and read a duration — and on a phone's connection a megabyte of head takes longer
-    /// than any patience that can honestly be promised, so every song on a slow link timed its own
-    /// streaming out after six seconds and fell back to downloading the whole file. That is what a
-    /// storage screen that keeps growing while "streaming" is switched on turns out to have been.
-    ///
-    /// AVFoundation parses the container when the bytes land, and the app waits with it: `isReadyToPlay`
-    /// is what the spinner is made of now, and the only give-up is the transport saying these bytes
-    /// are not coming at all.
+    /// The stream, built but not yet parsed. Nothing here waits for the head of the file, and that is the
+    /// whole point of this function's shape: the first version loaded the tracks before handing the engine
+    /// back, and on a phone's connection a megabyte of head takes longer than any patience that can
+    /// honestly be promised — every song on a slow link timed its own streaming out after six seconds and
+    /// fell back to downloading the whole file. AVFoundation parses as the bytes land; `isReadyToPlay` is
+    /// what the spinner is made of, and the only give-up is the transport saying the bytes are not coming.
     static func make(source: TelegramAudioSource, key: String, fileType: String,
                      storedDuration: TimeInterval) -> StreamSongEngine {
         let url = AudioStreamLoader.url(for: key, fileType: fileType)

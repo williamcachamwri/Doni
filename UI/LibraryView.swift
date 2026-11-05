@@ -4,19 +4,14 @@ import TelegramDesignSystem
 import TdSession
 import UIKit
 
-/// The home tab, in MeloX's shape: one screen split by a segmented picker
-/// (`HomeView.swift:18-33`, `:36-47`), "Dành cho bạn" over the tiles and the shelves, "Nhạc" over
-/// the chips, the hero card and the grid.
-///
-/// The numbers are the reference's — 32 pt between sections, 8 above the first one and 28 below the
-/// last, 16 of gutter, a shelf's own 14 from its title to its cards, 154 pt cards for a song and 166
-/// for a playlist at radius 10 (`HomeRecommendedView.swift:101,139-140`,
-/// `HomeRecommendationSections.swift:85,102,105,109`, `MediaCardView.swift:8-11`). What fills them is
-/// Doni's: there is no recommender behind a Telegram channel, so the tiles are the six things this
-/// app can actually do and the shelves are the four groups its store already keeps.
-///
-/// There is no full-library list at the foot of the feed any more. The songs it showed are the
-/// "Tất cả" chip's grid, which reaches them in the same order and lets you see the covers.
+/// The home tab, in MeloX's shape: one screen split by a segmented picker (`HomeView.swift:18-33`,
+/// `:36-47`) — "Dành cho bạn" over the tiles and shelves, "Nhạc" over the chips, hero card and grid.
+/// 32 pt between sections, 8 above the first and 28 below the last, 16 of gutter, 14 from a shelf's
+/// title to its cards, 154 pt song cards and 166 for a playlist at radius 10
+/// (`HomeRecommendedView.swift:101,139-140`, `HomeRecommendationSections.swift:85,102,105,109`,
+/// `MediaCardView.swift:8-11`). No recommender sits behind a Telegram channel, so the tiles are the six
+/// things this app can do and the shelves the four groups its store keeps; the full library is the
+/// "Tất cả" chip's grid, not a list at the foot of the feed.
 struct LibraryView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -33,12 +28,12 @@ struct LibraryView: View {
 
     private let palette = TelegramPalette.dark
 
-    /// How many cards a shelf shows before the flick starts. MeloX hands its strips the whole
-    /// payload; Doni's library is one channel's thousand songs, so a shelf cuts itself.
+    /// How many cards a shelf shows before the flick starts. MeloX hands its strips the whole payload;
+    /// Doni's library is one channel's thousand songs.
     private static let shelfLimit = 20
 
     /// How many cards a chip's grid holds. The reference asks its category for fifty playlists
-    /// (`ExploreView.swift:170`), and fifty covers is what one screen of this can fetch at once.
+    /// (`ExploreView.swift:170`), and fifty covers is one screen's worth of fetching here.
     private static let facetLimit = 50
 
     var body: some View {
@@ -74,9 +69,8 @@ struct LibraryView: View {
                 Button(action: shuffleAll) {
                     Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
                 }
-                // The circle is the walk's brake as well as its restart: the ellipsis menu that used
-                // to carry "Dừng đọc kênh" is gone, and a read of a thousand messages is the one
-                // thing here a listener may want to stop rather than only start.
+                // The circle is the walk's brake as well as its restart: reading a thousand messages is
+                // the one thing here a listener may want to stop, not only to start.
                 Button {
                     if indexer.isReading {
                         indexer.stop()
@@ -97,10 +91,9 @@ struct LibraryView: View {
                     ?? "Cài đặt")
             }
         }
-        // The account mark opens settings the way the reference does: a sheet that fills the screen
-        // with a 32 pt corner and no drag handle, so the close button in its own bar is the only way
-        // out (`ContentView.swift:116-128`). A pushed page would leave the tab bar under it, which is
-        // what the reference's panel never has.
+        // The account mark opens settings the reference's way: a sheet filling the screen, a 32 pt
+        // corner, no drag handle, so its own bar's close button is the only way out
+        // (`ContentView.swift:116-128`). A pushed page would leave the tab bar under it.
         .sheet(isPresented: $showsSettings) {
             NavigationStack {
                 SettingsView(session: session, indexer: indexer, player: player, library: library)
@@ -119,10 +112,9 @@ struct LibraryView: View {
             // the timestamps land while the channel is still being read.
             await library.measureStoredDurations()
             indexer.run(session, library: library)
-            // The first screen's worth of covers, ordered before its cards are drawn. A card asks
-            // when it appears, which is a round trip paid while the user is still looking at the
-            // gap; queued here they go through the cache's pool six at a time, so the shelves fill
-            // over one fetch's latency rather than fifty of them.
+            // The first screen's worth of covers, ordered before its cards are drawn: a card asks when
+            // it appears, which is a round trip paid while the user looks at the gap. Queued here they
+            // go through the cache's pool six at a time, so the shelves fill over one fetch's latency.
             artwork.prefetch(cut(visible), via: session.covers(),
                              side: MusicFeedMetrics.songCard)
             // Behind the walk: this is the slowest thing on the way in — a fetch per row — and the
@@ -158,14 +150,13 @@ struct LibraryView: View {
     private var feed: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: MusicFeedMetrics.sectionSpacing) {
-                // A channel still being read has no tiles worth tapping, so the first screen is the
-                // walk's own progress rather than six actions over "0 bài".
+                // A channel still being read has no tiles worth tapping, so the first screen shows
+                // the walk's own progress.
                 if !visible.isEmpty {
                     HomeQuickActions(subtitle: subtitle, perform: perform)
 
-                    // What was just heard, above what was just posted: a listener who came back for a
-                    // song they were in the middle of does not want to find it by scrolling a
-                    // thousand new posts from a channel.
+                    // What was just heard, above what was just posted: someone back for a song they
+                    // were in the middle of should not scroll a thousand new posts to find it.
                     if !recent.isEmpty {
                         songShelf("Gần đây phát", recent)
                     }
@@ -213,13 +204,11 @@ struct LibraryView: View {
         }
     }
 
-    /// A list, opened the way the reference opens one: the card hands its cover to the screen the zoom
-    /// grows (`MusicNavigationTransitions.swift:43-52`, `AppNavigation.swift:243-248`).
-    ///
-    /// The card also asks for the hero's size rather than its own, which is MeloX's prefetch on the
-    /// source (`MusicNavigationTransitions.swift:48-52, 65-68`): by the time the zoom is running, the
-    /// 300 pt picture the detail draws is already on the phone, so the cover that flies out is the
-    /// cover that lands.
+    /// A list, opened the reference's way: the card hands its cover to the screen the zoom grows
+    /// (`MusicNavigationTransitions.swift:43-52`, `AppNavigation.swift:243-248`). The card asks for the
+    /// hero's size rather than its own — MeloX's prefetch on the source
+    /// (`MusicNavigationTransitions.swift:48-52, 65-68`) — so the cover that flies out is the one that
+    /// lands.
     private var playlistShelf: some View {
         HomeShelf(title: "Danh sách") {
             ForEach(playlists, id: \.id) { shelf in
@@ -238,10 +227,10 @@ struct LibraryView: View {
         }
     }
 
-    /// The chips the "Nhạc" segment has: the groups this store keeps, then the performers that recur
-    /// in it. MeloX's chips are Netease's playlist categories (`ExploreView.swift:24-27`); what a
-    /// Telegram channel repeats is the nearest thing this app has to a category. Five performers is
-    /// where the row stops being browsable, and a song one artist sang once is not an artist chip.
+    /// The "Nhạc" chips: the groups this store keeps, then the performers recurring in it. MeloX's
+    /// chips are Netease's categories (`ExploreView.swift:24-27`); what a Telegram channel repeats is
+    /// the nearest thing here to a category. Five performers is where the row stops being browsable,
+    /// and an artist heard once is not a chip.
     private var facets: [HomeFacet] {
         var list = [HomeFacet(title: "Tất cả", tracks: cut(visible))]
         if !keptAll.isEmpty {
@@ -250,9 +239,8 @@ struct LibraryView: View {
         if !offlineAll.isEmpty {
             list.append(HomeFacet(title: "Trên máy", tracks: cut(offlineAll)))
         }
-        // One chip for every group the allow-list holds, in the order they were added. "Tất cả"
-        // mixes the channels into one river, and someone who joined three of them came here to hear
-        // one of them.
+        // One chip per indexed group on the allow-list, in the order they were added: "Tất cả" mixes
+        // them into one river, and someone who joined three came here to hear one of them.
         for channel in library.channels where channel.isIndexed {
             let songs = cut(visible.filter { $0.chatId == channel.chatId })
             if songs.count > 1 { list.append(HomeFacet(title: channel.title, tracks: songs)) }
@@ -279,10 +267,9 @@ struct LibraryView: View {
         Array(visible.prefix(Self.shelfLimit))
     }
 
-    /// The songs the phone has played, in the order they were played. No channel posts this list: it
-    /// is the one shelf the app writes for itself, out of the timestamp each play leaves on its row.
-    ///
-    /// `Library` already cuts it to a shelf's length, so the shelf shows the whole of it.
+    /// The songs this phone played, in play order. No channel posts this list: it is the one shelf the
+    /// app writes for itself, from the timestamp each play leaves on its row. `Library` already cuts it
+    /// to a shelf's length, so the shelf shows the whole of it.
     private var recent: [any Playable] {
         library.recentlyPlayed
     }
@@ -352,8 +339,7 @@ struct LibraryView: View {
     // MARK: Playback
 
     /// The shuffle the header's first action runs: the whole library, in an order that is not the
-    /// channel's. Telegram's own bar actions are one tap each, so this starts immediately rather
-    /// than asking.
+    /// channel's. Telegram's bar actions are one tap each, so this starts without asking.
     private func shuffleAll() {
         var list = visible
         guard !list.isEmpty else { return }
@@ -372,9 +358,7 @@ struct LibraryView: View {
 
     // MARK: While the channel is being read
 
-    /// What the feed says when there is nothing shelved yet, or the read did not finish. It used to
-    /// hang under the full-library list; with the list gone it stands on its own, in the same fonts
-    /// and greys.
+    /// What the feed says when nothing is shelved yet, or the read did not finish.
     @ViewBuilder
     private func footer(_ isEmpty: Bool, failure: String?) -> some View {
         if isEmpty {
@@ -404,9 +388,8 @@ struct LibraryView: View {
                 .padding(.top, 72)
                 .padding(.horizontal, 40)
             } else {
-                // Nothing on the allow-list and a channel that holds no audio are two ways of ending
-                // up with an empty feed, and both are answered by the same screen — the one that
-                // picks a chat. It is a button, because that is the only thing this screen can do.
+                // Nothing on the allow-list and a channel with no audio are two ways to an empty feed,
+                // and both are answered by the same screen — the one that picks a chat.
                 AddChannelPrompt(library.channels.isEmpty
                                  ? "Chưa có kênh nhạc nào"
                                  : "Chưa có bài nào trong kênh") {
@@ -415,8 +398,8 @@ struct LibraryView: View {
                 .padding(.top, 72)
             }
         } else if let failure {
-            // Reading can fail into a half-filled library, and the bar no longer has room to say
-            // so, so the end of the list does.
+            // A half-filled library after a failed read: the bar has no room to say so, so the end of
+            // the list does.
             HStack(spacing: 8) {
                 Text(failure)
                     .font(TelegramLibraryTypography.preview)
@@ -442,11 +425,9 @@ struct LibraryView: View {
 
 /// The account's own picture, worn wherever an account is named: 28 pt at the head of the bar
 /// (`ContentView.swift:487-488`) and 60 pt in the settings card (`SettingsAccountSection.swift:64-76`).
-///
-/// The picture is the file behind it rather than the thumbnail `getMe` sends inside the user object:
-/// the inline JPEG is around a hundred pixels wide and 28 pt on a 3× screen asks for 84 of them,
-/// which is the blur the account's own Telegram does not have. The inline one is what shows first —
-/// it arrives with the session and needs no download — and the file replaces it when it lands.
+/// The file behind it, not `getMe`'s inline thumbnail: that JPEG is around a hundred pixels wide, and
+/// 28 pt on a 3× screen asks for 84 of them — the blur the account's own Telegram does not have. The
+/// inline one shows first since it needs no download, and the file replaces it when it lands.
 struct AccountAvatar: View {
     let account: TdAccount?
     let photo: UIImage?

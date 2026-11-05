@@ -2,14 +2,11 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The screen MeloX puts behind an empty search field (`SearchDiscoveryView.swift:16-45`): sections
-/// 28 apart, each one a `.title2.bold()` heading with 14 down to its content, over 8 pt of scroll
-/// padding, and pull-to-refresh on top.
-///
-/// MeloX's shelf is Netease's ten recommended playlists and its grid is twenty genres; a Telegram
-/// channel has neither. The same furniture carries what this store really holds — the user's own lists
-/// on the shelf, and the artists the channel actually has as tiles, each tile tapping straight into a
-/// search for that name the way MeloX's tile taps into a genre.
+/// The screen MeloX puts behind an empty search field (`SearchDiscoveryView.swift:16-45`): sections 28
+/// apart, each a `.title2.bold()` heading with 14 down to its content, over 8 pt of scroll padding,
+/// with pull-to-refresh on top.
+/// The same furniture carries what this store holds: the user's own lists on the shelf, and the
+/// channel's artists as tiles, each tapping straight into a search for that name.
 struct SearchDiscoveryView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -132,13 +129,13 @@ struct SearchDiscoveryView: View {
               count: MusicSearchMetrics.gridColumns)
     }
 
-    /// The reference's category glyphs (`SearchDiscoveryView.swift:175-196`), cycled because a tile
-    /// here is an artist and has no genre of its own to draw.
+    /// The reference's category glyphs (`SearchDiscoveryView.swift:175-196`), cycled: a tile here is an
+    /// artist, with no genre of its own to draw.
     private static let glyphs = ["music.mic", "mic.fill", "guitars.fill",
                                  "pianokeys", "waveform", "music.note"]
 
-    /// MeloX paints each category with a two-colour pair; the six it ships are the home tiles'
-    /// (`HomeQuickActionsView.swift:81-96`), cycled in the same order.
+    /// MeloX's two-colour category pairs, the same six the home tiles use, cycled in order
+    /// (`HomeQuickActionsView.swift:81-96`).
     private static func pair(at position: Int) -> [Color] {
         let pairs = MusicQuickActionMetrics.gradientPairs
         let pair = pairs[position % pairs.count]
@@ -167,8 +164,8 @@ private struct SearchCategoryTile: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(MusicSearchMetrics.tilePadding)
 
-                // Either a category this app named or an artist it read; a name is not in the
-                // catalog and comes back as itself.
+                // Either a category this app named or an artist it read; a name not in the catalog
+                // comes back as itself.
                 Text(LocalizedStringKey(title))
                     .font(.title3.bold())
                     .foregroundStyle(.white)
@@ -185,22 +182,19 @@ private struct SearchCategoryTile: View {
     }
 }
 
-/// One artist's name and the songs that carry it — the facet a Telegram channel allows in place of
-/// Netease's genres.
+/// One artist's name and the songs carrying it — the facet a Telegram channel has in place of genres.
 struct SearchArtist: Identifiable {
     let name: String
     let tracks: [any Playable]
 
     var id: String { name }
 
-    /// The artwork an artist has is the artwork of a song they are on; the newest is the one worth
-    /// showing.
+    /// An artist's artwork is the artwork of a song it is on; the first is the newest.
     var sample: any Playable { tracks[0] }
 }
 
 extension Array where Element == any Playable {
-    /// Grouped by performer, biggest first, then by name — the order MeloX's category list is in
-    /// before it is filtered.
+    /// Grouped by performer, biggest first, then by name — MeloX's category order before filtering.
     var searchArtists: [SearchArtist] {
         var grouped: [String: [any Playable]] = [:]
         for track in self where !track.displayPerformer.trimmedSearchName.isEmpty {
@@ -215,8 +209,8 @@ extension Array where Element == any Playable {
 }
 
 extension String {
-    /// A performer field is bot-written text with the name padded in spaces, and an empty one is
-    /// literally empty after the pad is gone.
+    /// Performer fields are bot-written text padded with spaces; an empty one is truly empty once the
+    /// pad is gone.
     var trimmedSearchName: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }

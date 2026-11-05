@@ -1,12 +1,9 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// The About screen, in the reference's shape (`MeloX/Features/Settings/Application/AboutView.swift`)
-/// with Doni's content: what the build is, whether a newer one is out, what is in it, who made it and
-/// under what licence.
-///
-/// There is no website and no community group: this is one person's app, the code is on GitHub, and
-/// the way to reach the author is the Telegram account that already signs the builds.
+/// The About screen, shaped on `MeloX/Features/Settings/Application/AboutView.swift`: build version,
+/// updates, release notes, author, licences. Contact is GitHub plus the Telegram account that signs
+/// the builds — there is no website and no community group.
 struct AboutView: View {
     @Environment(\.openURL) private var openURL
 
@@ -153,8 +150,7 @@ struct ReleaseNotesView: View {
             } else {
                 Section {
                     ForEach(Array(notes.entries.enumerated()), id: \.offset) { _, entry in
-                        // The loader already picked the language of these lines, so they are data
-                        // rather than keys: looking one up would only risk a half-translated note.
+                        // The loader already picked these lines' language, so they are data, not keys.
                         Text(verbatim: entry)
                             .font(.body)
                             .fixedSize(horizontal: false, vertical: true)
@@ -171,13 +167,9 @@ struct ReleaseNotesView: View {
     }
 }
 
-/// What Doni is built out of, and under what licence each part arrives.
-///
-/// Doni itself is GPL-3.0 for the same reason MeloX is: the lyrics screen and several of the feed's
-/// views came out of a GPLv3 codebase. TDLib and OpenSSL are linked, Telegram-iOS was only ever
-/// measured — the distinction is worth drawing because the two carry different obligations, and a
-/// reader who wants the third (the lyrics sources) gets a sentence rather than a licence: they are
-/// web requests, not code.
+/// What Doni is built out of, and each part's licence. Doni is GPL-3.0 because the lyrics screen and
+/// several feed views came from GPLv3 MeloX; TDLib and OpenSSL are linked, Telegram-iOS was only
+/// measured, and the lyrics sources are web requests rather than code.
 struct LicensesView: View {
     private struct Part: Identifiable {
         let name: String
@@ -200,8 +192,8 @@ struct LicensesView: View {
             Section {
                 ForEach(parts) { part in
                     HStack(alignment: .firstTextBaseline) {
-                        // A project's own name and the licence its authors chose are not in the
-                        // language table: they are the words other people gave their work.
+                        // Project names and their authors' licence strings are other people's
+                        // words, not table keys.
                         Text(verbatim: part.name).font(.body.weight(.semibold))
                         Spacer(minLength: 8)
                         Text(verbatim: part.licence)

@@ -1,28 +1,22 @@
 import AVFoundation
 import Foundation
 
-/// Why a range could not be handed to the player.
-///
-/// These are said out loud rather than answered with silence because a stalled progress bar and a
-/// song that has run out of bytes look identical from the screen, and only one of them is the app's
-/// fault.
+/// Why a range could not be handed to the player, said out loud rather than answered with silence:
+/// a stalled progress bar and a song out of bytes look identical on screen.
 public enum AudioStreamError: Error, Equatable, Sendable {
     /// The file's length is not known, so no byte range can be promised to anything.
     case lengthUnknown
     /// The reader asked for bytes that are not on the phone and nothing arrived for them in time.
     case stalled
-    /// The transport says these bytes are never coming — the file is gone from the server, or the row
-    /// number it was asked with belongs to another song. Distinct from `stalled` because waiting for
-    /// the first of them is pointless and waiting for the second is normal.
+    /// The transport says these bytes are never coming — gone from the server, or the row number asked
+    /// with belongs to another song. Waiting on this is pointless where `stalled` is only slow.
     case unavailable
 }
 
 /// Whoever holds the song's bytes, in ranges.
 ///
-/// The shape is deliberately the smallest one that can still be honest about a partial file: there is
-/// no "give me the whole thing" on it, and there is no way to ask for bytes without also saying where
-/// the player wants to be, because the only way to get bytes in the middle of a Telegram file is to
-/// move the download there.
+/// The smallest shape still honest about a partial file: no "give me the whole thing", and no asking
+/// for bytes without saying where the player wants to be — moving the download is the only way.
 public protocol AudioByteProviding: Sendable {
     /// The exact size on the server, or `nil` when it is not known — which means nothing can be served.
     func totalBytes() async -> Int64?
@@ -30,9 +24,8 @@ public protocol AudioByteProviding: Sendable {
     /// The bytes at `offset`, as many as are actually there.
     ///
     /// Implementations must not hand back bytes the transport has not declared ready: a Telegram file
-    /// on disk is longer than the parts it holds and the gap between them is somebody else's bytes.
-    /// An empty answer means "not yet" and is waited through; `nil` means "not ever" and ends the
-    /// request, because a spinner that never stops is a worse answer than a song that says it is gone.
+    /// on disk is longer than its parts and the gap between them is somebody else's bytes. An empty
+    /// answer means "not yet" and is waited through; `nil` means "not ever" and ends the request.
     func read(at offset: Int64, count: Int) async -> Data?
 
     /// Move the fetch to `range`. Called every time `read` came back short, and only then.
@@ -41,40 +34,33 @@ public protocol AudioByteProviding: Sendable {
 
 /// Serves a song to AVFoundation one byte range at a time out of an `AudioByteProviding`.
 ///
-/// This is the piece that decides whether the feature is real. `AVPlayer` will happily read a local
-/// file, so a loader that simply read the whole file and handed it over in one `respond(with:)` would
-/// play perfectly and still make the user wait for all fifteen megabytes — a download manager with a
-/// delegate attached. What makes it streaming is that every answer here is bounded twice over: by
-/// what the player asked for, and by what the provider is willing to say is on the device.
+/// What makes it streaming rather than a download manager with a delegate attached is that every
+/// answer here is bounded twice: by what the player asked for, and by what the provider says is on
+/// the device.
 ///
-/// Threading is the other half. AVFoundation calls the delegate on a queue of its own and hands over
-/// loading requests it does not describe as `Sendable`, so each request lives in a box with a lock and
-/// the answering happens in a task per request, which is also how a cancel from the player is
-/// answered — `didCancel` sets the flag the task is about to read.
+/// AVFoundation calls the delegate on a queue of its own with requests it does not describe as
+/// `Sendable`, so each one lives in a box with a lock and is answered in a task per request — which
+/// is also how `didCancel` is answered: it sets the flag that task is about to read.
 public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @unchecked Sendable {
-    /// How much of a request is answered in one go. Big enough that the decoder gets a frame
-    /// boundary to hold on to, small enough that a truncated answer comes back quickly and the player
-    /// asks again rather than waiting for megabytes.
+    /// How much of a request is answered in one go: big enough for the decoder to get a frame
+    /// boundary, small enough that a truncated answer comes back quickly.
     public static let chunkBytes = 256 * 1024
 
-    /// How often to look again for a range the transport was told about: sixteen times a second,
-    /// which is short next to a Telegram part arriving over the network and long next to a disk read.
+    /// How often to look again for a range the transport was told about: short next to a Telegram
+    /// part arriving over the network, long next to a disk read.
     static let pollNanoseconds: UInt64 = 60_000_000
 
-    /// How many looks in a row may come back "not yet" before the range is called stalled. At sixty
-    /// milliseconds a look, five hundred of them is half a minute — measured, not guessed: on a
-    /// phone's connection a 64 KiB Telegram part lands anywhere between one and eight seconds after
-    /// it is asked for, so a range of a megabyte is a normal thirty-second wait and a stream that
-    /// gives up at a second and a half is a stream that breaks on every seek.
+    /// How many "not yet" looks before the range is called stalled: at sixty milliseconds a look, five
+    /// hundred is half a minute — measured, not guessed. On a phone's connection a 64 KiB Telegram
+    /// part lands one to eight seconds after being asked, so giving up early breaks on every seek.
     public static let maximumIdlePasses = 500
 
     /// How many empty passes this loader will wait through for one range.
     private let stallPasses: Int
 
     /// The uniform type identifier of the container, which the player has to be *told*: a resource
-    /// loader is not a URL AVFoundation will probe, and answering the content-information request
-    /// without a type is what AVFoundation reports as "the server is not correctly configured"
-    /// (-11850) rather than as a missing type.
+    /// loader is not a URL AVFoundation probes, and answering content-information without a type is
+    /// reported as "the server is not correctly configured" (-11850), not as a missing type.
     private let contentType: String?
 
     private let source: any AudioByteProviding
@@ -82,9 +68,8 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
 
     /// One loading request the player is waiting on.
     ///
-    /// The cancel flag is behind a lock because the player sets it on its own queue while the serving
-    /// task reads it on every pass — a race here is a request answered after the player stopped
-    /// listening, which AVFoundation reports as a broken stream rather than as a cancelled one.
+    /// The cancel flag is behind a lock: the player sets it on its own queue while the serving task
+    /// reads it every pass, and answering after the player stopped listening is a broken stream.
     private final class Open: @unchecked Sendable {
         let request: AVAssetResourceLoadingRequest
         private let lock = NSLock()
@@ -98,21 +83,19 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
 
     private var open: [ObjectIdentifier: Open] = [:]
 
-    /// The last reason this loader gave up on a range, which is the only way a caller can tell a
-    /// stream that is slow apart from a stream that is dead — and the thing a test asserts on.
+    /// The last reason this loader gave up on a range — the only way to tell a slow stream from a dead
+    /// one, and what a test asserts on.
     public private(set) var lastError: AudioStreamError?
     private let errorLock = NSLock()
 
-    /// Said as soon as a range is given up on, rather than left for a caller to notice by asking.
-    /// A player that keeps drawing a progress bar across a song that has stopped needs this the
-    /// moment the bytes are declared not coming, not on its next poll.
+    /// Said as soon as a range is given up on, not left for a caller to notice by polling: a player
+    /// still drawing a progress bar across a stopped song needs it the moment the bytes are not coming.
     public var onFailure: (@Sendable (AudioStreamError) -> Void)?
 
     /// - Parameters:
     ///   - source: whoever holds the bytes.
-    ///   - url: the address the asset will be played from, made by `url(for:fileType:)`. The type is
-    ///     taken from its extension because a URL and a container that disagree about what they are
-    ///     is a bug no player can recover from.
+    ///   - url: the address the asset plays from, made by `url(for:fileType:)`; its extension is the
+    ///     container, since a URL and a container that disagree is a bug no player can recover from.
     public init(source: any AudioByteProviding, url: URL,
                 stallPasses: Int = AudioStreamLoader.maximumIdlePasses) {
         self.source = source
@@ -121,11 +104,9 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
         super.init()
     }
 
-    /// The address a song is played from: a scheme of this app's own, with the file's durable
-    /// identity in the query so a byte provider can be asked about it and nothing else.
-    ///
-    /// The extension is carried in the path because AVFoundation reads the URL's name when it has to
-    /// guess a container, and a song named only by a hash costs it a probe of the head instead.
+    /// The address a song is played from: a scheme of this app's own, with the file's durable identity
+    /// in the query so a byte provider is asked about it and nothing else. The extension rides in the
+    /// path because AVFoundation reads the URL's name to guess a container.
     public static func url(for key: String, fileType: String) -> URL {
         let name = fileType.isEmpty ? "audio" : "audio.\(fileType)"
         var components = URLComponents()
@@ -165,9 +146,8 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
     private func serve(_ held: Open) async {
         let request = held.request
         if let info = request.contentInformationRequest {
-            // The two things the player needs before it will treat a stream as seekable: the exact
-            // size of the thing, and permission to come back for any range of it. Without byte-range
-            // access AVFoundation asks for the file to the end and the loader is a downloader again.
+            // What makes a stream seekable to the player: the exact size, and permission to come back
+            // for any range. Without byte-range access the loader is a downloader again.
             info.isByteRangeAccessSupported = true
             info.contentType = contentType
             if let total = await source.totalBytes() {
@@ -186,18 +166,15 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
     }
 
     private func serve(_ data: AVAssetResourceLoadingDataRequest, for held: Open) async {
-        // Idleness is counted in passes rather than in seconds: a stream that is going to arrive may
-        // take a minute to do it on a bad connection and must not be called broken because of it,
-        // while a stream that has stopped answers with nothing on every single pass. A caller that
-        // wants the give-up sooner — a test, or a phone on a network it knows is down — passes a
-        // smaller number in.
+        // Idleness is counted in passes rather than seconds: a stream that is going to arrive may take
+        // a minute on a bad connection and must not be called broken for it, while one that stopped
+        // answers with nothing on every pass. A caller wanting the give-up sooner passes a smaller number.
         var idle = 0
         while !held.cancelled {
             let offset = data.currentOffset
-            // Exactly as much as this request still wants, never more. AVFoundation opens a stream
-            // with a two-byte probe (`requestedLength: 2`) and a delegate that answers it with a
-            // megabyte is answered back with -11850 "the server is not correctly configured": the
-            // parser asked for a nibble, got a mouthful it had no offsets for, and gave up.
+            // Exactly as much as this request still wants, never more. AVFoundation opens a stream with
+            // a two-byte probe (`requestedLength: 2`), and a delegate answering it with a megabyte is
+            // answered back with -11850: the parser asked for a nibble and gave up.
             let asked = Int64(data.requestedLength)
             let remaining = asked > 0 ? asked - (offset - Int64(data.requestedOffset)) : Int64(Self.chunkBytes)
             let count = max(1, min(Self.chunkBytes, Int(min(remaining, Int64(Self.chunkBytes)))))
@@ -215,8 +192,8 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
                 }
                 continue
             }
-            // Nothing there yet: say where the player is, and go round again. This is the seek — the
-            // transport is told to fetch from this offset, not from the beginning of the song.
+            // Nothing there yet: say where the player is and go round again — the seek tells the
+            // transport to fetch from this offset, not from the beginning of the song.
             await source.want(AudioByteRange(offset: offset, count: Int64(Self.chunkBytes * 4)))
             idle += 1
             if idle >= stallPasses {
@@ -230,11 +207,9 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
 
     /// Whether the player has now been given everything it asked for in this request.
     ///
-    /// A request with no length is "give me everything to the end of the file", which is true of the
-    /// first probe AVFoundation makes when it does not yet know the format. Answering it in full is
-    /// the download-manager mistake; here it is answered as far as the bytes happen to reach, and the
-    /// player comes back for a range when it needs more — which is exactly the conversation a server
-    /// that supports byte ranges has with a client.
+    /// A request with no length is "everything to the end of the file", the first probe AVFoundation
+    /// makes before it knows the format; answering it in full is the download-manager mistake, so it
+    /// is answered as far as the bytes reach and the player comes back for a range.
     private func isSatisfied(_ data: AVAssetResourceLoadingDataRequest, by end: Int64) -> Bool {
         let asked = Int64(data.requestedLength)
         if asked > 0 { return end >= Int64(data.requestedOffset) + asked }

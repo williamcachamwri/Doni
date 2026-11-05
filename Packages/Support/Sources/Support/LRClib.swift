@@ -14,18 +14,13 @@ public struct LyricQuery: Equatable, Sendable {
     }
 }
 
-/// lrclib's public JSON API (`https://lrclib.net`) — one of the four sources Doni asks, and the one
-/// that carries Western and Vietnamese releases the Chinese catalogues do not.
+/// lrclib's public JSON API (`https://lrclib.net`) — the source carrying the Western and Vietnamese
+/// releases the Chinese catalogues do not. The least a lookup can work with goes: name, artist and
+/// length; the accepted `file_size` is deliberately not sent, since it identifies the exact file rather
+/// than the song. No album, no session, no device identifier.
 ///
-/// What goes is the least a lookup can work with: the song's name, its artist and its length. The
-/// `file_size` parameter the API accepts is deliberately not sent — it would identify the exact file
-/// rather than the song, and a song title is already enough to find its words. No album, no session,
-/// no device identifier.
-///
-/// Two shapes matter here. `/api/get` answers **one object** and `/api/search` answers an **array**,
-/// and a caller that only reads one of them silently finds nothing half the time. And lrclib sends
-/// `""` rather than `null` for a field a lyric does not have, so "is there a synced lyric" is a
-/// question about content, not about presence.
+/// Two shapes matter: `/api/get` answers **one object** and `/api/search` an **array**; reading only one
+/// silently finds nothing. lrclib sends `""`, not `null`, for an absent field.
 public enum LRClib {
     public static let base = URL(string: "https://lrclib.net")!
 
@@ -66,12 +61,10 @@ public enum LRClib {
         }
     }
 
-    /// The answer, or `nil` when no request reached the site.
-    ///
-    /// A channel's caption is not the song's name. The one that started this carried the upload's
-    /// bitrate as part of the title — `… & 2PILLZ (320kbps)` — and lrclib answers that string with
-    /// nothing while answering the same song without it with three synced entries. So every title is
-    /// asked twice: as the row spells it, and with the quality noise taken out.
+    /// The answer, or `nil` when no request reached the site. A channel's caption is not the song's
+    /// name: titles arrive carrying the upload's bitrate, e.g. `… & 2PILLZ (320kbps)`, which lrclib
+    /// answers with nothing — so every title is asked twice, as the row spells it and with the quality
+    /// noise taken out.
     public static func fetch(_ query: LyricQuery,
                              session: URLSession = .shared) async -> LyricText? {
         var reached = false
@@ -156,9 +149,8 @@ public enum LRClib {
         return .none
     }
 
-    /// Whether the field actually carries `[mm:ss.xx]` stamps. lrclib labels a lyric "synced" and
-    /// then serves a line of plain text under that field, and treating that as timed words is how
-    /// every line ends up stacked on second zero.
+    /// Whether the field actually carries `[mm:ss.xx]` stamps: lrclib labels a lyric "synced" then
+    /// serves plain text under it, and treating that as timed words stacks every line on second zero.
     private static func stamped(_ text: String) -> Bool {
         text.split(whereSeparator: \.isNewline).contains { $0.firstMatch(of: /^\s*\[\d{1,2}:\d\d/) != nil }
     }

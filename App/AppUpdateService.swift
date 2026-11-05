@@ -27,15 +27,11 @@ enum AppUpdateError: Error, Equatable {
     }
 }
 
-/// GitHub Releases, asked the way the reference asks it.
-///
-/// The list endpoint rather than `/releases/latest`, because the newest published release is not
-/// always the one to offer — a draft or a pre-release is newer than what anybody should be told to
-/// install, and a repository that has just been made has no releases at all, which is an answer
-/// rather than a failure.
-///
-/// Nothing is downloaded and nothing is installed: an app signed with a free personal team cannot
-/// replace itself, so the honest outcome is a sentence and a link to the release page.
+/// GitHub Releases, asked the way the reference asks it: the list endpoint rather than
+/// `/releases/latest`, because a draft or pre-release is newer than what anybody should be told to
+/// install, and a repository with no releases at all is an answer rather than a failure.
+/// Nothing is downloaded or installed — a free-team signed app cannot replace itself, so the honest
+/// outcome is a sentence and a link to the release page.
 enum AppUpdateService {
     static let repositoryURL = URL(string: "https://github.com/williamcachamwri/Doni")!
 
@@ -43,8 +39,8 @@ enum AppUpdateService {
         string: "https://api.github.com/repos/williamcachamwri/Doni/releases?per_page=100"
     )!
 
-    /// The newest release that is actually out. Throws `noRelease` when the repository has none,
-    /// which is what a first launch before the first tag looks like.
+    /// The newest release that is actually out. `noRelease` is what a first launch before the first tag
+    /// looks like.
     static func check(currentVersion: String = AppVersion.current) async throws -> AppUpdateResult {
         var request = URLRequest(url: releasesURL, cachePolicy: .reloadIgnoringLocalCacheData,
                                  timeoutInterval: 20)
@@ -93,10 +89,9 @@ enum AppUpdateService {
     }
 }
 
-/// Whether the next launch is allowed to ask GitHub for a newer version.
-///
-/// Default on, like the reference: a listener who installed the app from a release page wants to
-/// know when there is another one, and a check that fails quietly is not a reason to interrupt them.
+/// Whether the next launch may ask GitHub for a newer version. Default on, like the reference: someone
+/// who installed from a release page wants to know about the next one, and a check that fails quietly is
+/// no reason to interrupt them.
 enum AppUpdateSettings {
     private static let key = "updates.checkOnLaunch"
 

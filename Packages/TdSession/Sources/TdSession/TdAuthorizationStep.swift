@@ -1,11 +1,8 @@
 import Foundation
 
-/// What the user has to do next, as the login screen needs it.
-///
-/// Mirrors `AuthorizationState` in the pinned TDLib schema (`td_api.tl:206-263`)
-/// and keeps the data each state carries, because the UI shows it: the code
-/// length, the password hint, the confirmation link. `unknown` exists so a
-/// state TDLib adds later degrades to a message instead of a crash.
+/// What the user has to do next, as the login screen needs it. Mirrors `AuthorizationState` in the
+/// pinned TDLib schema (`td_api.tl:206-263`) and keeps the data each state carries because the UI shows
+/// it. `unknown` exists so a state TDLib adds later degrades to a message instead of a crash.
 public enum TdAuthorizationStep: Equatable, Sendable {
     case waitTdlibParameters
     case waitPhoneNumber
@@ -32,8 +29,8 @@ public enum TdAuthorizationStep: Equatable, Sendable {
         case unknown(type: String)
     }
 
-    /// `state` is an `authorizationState*` object — either the payload of
-    /// `updateAuthorizationState` or the answer to `getAuthorizationState`.
+    /// `state` is an `authorizationState*` object — `updateAuthorizationState`'s payload or the answer
+    /// to `getAuthorizationState`.
     public static func decode(_ state: TdJSON) -> TdAuthorizationStep {
         guard let type = state.type else { return .unknown(type: "missing @type") }
         switch type {

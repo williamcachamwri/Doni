@@ -2,20 +2,17 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The menu a song answers to wherever it was found: keep it, and put it in a list.
-///
-/// Long press opening a list of verbs is the reference's own gesture for a row
-/// (`ChatContextMenus.swift:83`); the verbs are Doni's, because Telegram has no music library to
-/// keep or list. The lists are laid out flat rather than in a submenu — this app never gets a
-/// simulator run, so the one shape that is certain to render is the one it uses.
+/// The menu a song answers to wherever it was found: keep it, and put it in a list. Long press is the
+/// reference's own gesture for a row (`ChatContextMenus.swift:83`); the verbs are Doni's. Playlists are
+/// laid out flat rather than in a submenu — the one shape certain to render without a simulator run.
 struct TrackActions<Additional: View>: ViewModifier {
     let track: any Playable
     @ObservedObject var library: Library
     /// What the screen holding the row wants on top of the two verbs every row has.
     @ViewBuilder var additional: () -> Additional
 
-    /// The song whose new list is being named. It is held here rather than in the alert's text
-    /// because the alert can be dismissed by anything else that takes focus.
+    /// The song whose new list is being named — held here because anything taking focus can dismiss
+    /// the alert.
     @State private var naming: (any Playable)?
     @State private var name = ""
 
@@ -57,8 +54,8 @@ struct TrackActions<Additional: View>: ViewModifier {
         Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
     }
 
-    /// An empty or all-space name is refused by the store, which is what `nil` here means; the
-    /// song is only put in the list once the list really exists.
+    /// A blank name is refused by the store, so `nil` means there is no list: the song goes in only
+    /// once the list really exists.
     private func create(_ target: any Playable) {
         guard let created = library.createPlaylist(named: name) else {
             naming = nil

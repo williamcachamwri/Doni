@@ -4,14 +4,13 @@ import Foundation
 import Support
 import SwiftUI
 
-/// The three things Doni decides about words for itself, as opposed to the fifty-odd
-/// typography and motion numbers that belong to the screen and live in its own settings.
+/// The three things Doni decides about words for itself, apart from the fifty-odd typography and motion
+/// numbers that belong to the screen's own settings.
 @MainActor
 final class LyricsPreferences: ObservableObject {
     static let shared = LyricsPreferences()
 
-    /// Whether words may be fetched from lrclib at all. Off, the screen shows only what is already
-    /// on the phone — a `.lrc` beside the song, or nothing.
+    /// Whether words may be fetched from lrclib at all; off, the screen shows only what is on the phone.
     @Published var networkAllowed = true { didSet { write("network", networkAllowed) } }
     /// Seconds added to every stamp, for a file whose lyrics were timed against another mastering.
     @Published var offset = 0.0 { didSet { write("offset", offset) } }
@@ -33,22 +32,20 @@ final class LyricsPreferences: ObservableObject {
     }
 }
 
-/// The words of the song that is playing.
-///
-/// Four sources answer together: lrclib, NetEase, AMLL and QQ Music. The cache keeps the richest
-/// answer rather than only the first one, and it keeps misses too — a song with no lyric anywhere
-/// is asked about once, not on every trip back to the Now Playing screen.
+/// The words of the song that is playing. Four sources answer together — lrclib, NetEase, AMLL and QQ
+/// Music — and the cache keeps the richest answer, misses included: a song with no lyric anywhere is
+/// asked about once, not on every trip back to Now Playing.
 @MainActor
 final class Lyrics: ObservableObject {
     static let shared = Lyrics()
 
     @Published private(set) var lines: [LyricLine] = []
-    /// Why there are no words, when there are none — the screen shows this instead of a blank
-    /// column, so a refused network and a song nobody has ever typed out look different.
+    /// Why there are no words when there are none, so a refused network and a song nobody has typed out
+    /// look different on the screen.
     @Published private(set) var errorMessage: String?
     @Published private(set) var isLoading = false
-    /// Which song the published state belongs to. Without it a lookup still in flight for the song
-    /// the user skipped would answer for the one now playing.
+    /// Which song the published state belongs to; without it a lookup still in flight for a skipped song
+    /// would answer for the one now playing.
     @Published private(set) var key: String?
 
     /// The settings the copied screen reads. One instance for the whole app: it is the user's
@@ -62,11 +59,10 @@ final class Lyrics: ObservableObject {
         Self.settleCacheRevision()
     }
 
-    /// A miss is only worth remembering while the pipeline that missed it is the pipeline that would
-    /// be asked again. Four of these songs' `N`s were written by a build that knew lrclib alone and
-    /// sent its titles with the upload's `(320kbps)` still glued to them, and lrclib has had those
-    /// words the whole time. So the revision travels with the question, and the answers it invalidates
-    /// are only the misses — found lyrics are never thrown away.
+    /// A miss is only worth remembering while the pipeline that missed it is the one that would be asked
+    /// again, so the revision travels with the question. Four of these songs' `N`s came from a build that
+    /// knew lrclib alone and sent titles with `(320kbps)` still glued to them, and lrclib had those words
+    /// the whole time. Only misses are dropped — found lyrics are never thrown away.
     nonisolated private static let revisionKey = "lyrics.revision"
     nonisolated private static let revision = 2
 
@@ -89,8 +85,8 @@ final class Lyrics: ObservableObject {
     /// The words for one song, from wherever they can come cheapest.
     func load(_ track: any Playable) {
         let song = Self.cacheKey(track)
-        // Asked and answered already, or being asked right now: a row that redraws must not start a
-        // second lookup for the song it is already showing.
+        // Asked and answered already, or being asked: a redraw must not start a second lookup for the song
+        // it is already showing.
         guard song != key else { return }
         key = song
         task?.cancel()
@@ -117,9 +113,9 @@ final class Lyrics: ObservableObject {
             guard !Task.isCancelled, self.key == song else { return }
             switch outcome {
             case .failed:
-                // None of the sources answered. That says nothing about whether this song has
-                // words, so nothing is written down and the song's key is handed back: opening it
-                // again asks the question again, which is what a lost connection has to mean.
+                // None of the sources answered, which says nothing about whether the song has words:
+                // nothing is written and the key is handed back, so a lost connection means the next
+                // opening asks again.
                 isLoading = false
                 key = nil
                 lines = []
@@ -161,9 +157,9 @@ final class Lyrics: ObservableObject {
 
     // MARK: What goes out, and what stays
 
-    /// The name the words are kept under. The song's own `file_unique_id`, which is the only id that
-    /// means the same file in two databases — the row number does not survive a rebuild, and a cache
-    /// keyed by it hands one song another song's words.
+    /// The words kept under the song's own `file_unique_id` — the only id that means the same file in two
+    /// databases. The row number does not survive a rebuild, and a cache keyed by it hands one song another
+    /// song's words.
     private static func cacheKey(_ track: any Playable) -> String { track.uniqueId }
 
     private static func metadata(_ track: any Playable) -> LyricSongMetadata {
@@ -171,9 +167,8 @@ final class Lyrics: ObservableObject {
                           album: "", durationSeconds: Int(track.duration ?? 0))
     }
 
-    /// The lyrics directory, made on the way in. Not `Caches`: these are words the site may stop
-    /// serving, and a song the user has to look up again because iOS tidied a folder is the same
-    /// complaint they already have about artwork.
+    /// The lyrics directory, made on the way in. Not `Caches`: these are words the site may stop serving,
+    /// and iOS tidying the folder would lose them for good.
     nonisolated static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let url = base.appendingPathComponent("Doni/Lyrics", isDirectory: true)

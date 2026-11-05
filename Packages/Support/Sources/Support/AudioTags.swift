@@ -3,10 +3,9 @@ import Foundation
 
 /// What an audio file says about itself.
 ///
-/// A Telegram post brings its title and artist in the schema (`td_api.tl:583` has both, and a bot
-/// that posts a bare file puts them in the caption). A file the user picks out of the Files app
-/// brings nothing until its container is opened, and this is the one read that gets them: the same
-/// `APIC`/`©nam` pass the cover is read through, resolved without decoding any audio.
+/// A Telegram post brings title and artist in the schema (`td_api.tl:583` has both; a bot posting a
+/// bare file puts them in the caption). A file picked out of the Files app brings nothing until its
+/// container is opened — this read, the same `APIC`/`©nam` pass, without decoding any audio.
 public struct AudioTags: Equatable, Sendable {
     public var title: String
     public var performer: String
@@ -29,10 +28,8 @@ public struct AudioTags: Equatable, Sendable {
                          performer: await text(.commonIdentifierArtist, in: items))
     }
 
-    /// The first item carrying this identifier, asked for its string.
-    ///
-    /// `load(.stringValue)` rather than reading `item.value`: the property accessors were deprecated
-    /// in iOS 16, and an item whose metadata has not been resolved yet answers nil through them.
+    /// The first item carrying this identifier, asked for its string: `load(.stringValue)` rather than
+    /// `item.value`, whose accessors were deprecated in iOS 16 and answer nil for unresolved metadata.
     private static func text(_ identifier: AVMetadataIdentifier,
                              in items: [AVMetadataItem]) async -> String {
         guard let item = AVMetadataItem.metadataItems(

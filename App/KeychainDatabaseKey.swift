@@ -2,13 +2,10 @@ import Foundation
 import Security
 import TdSession
 
-/// The TDLib database key, created once and kept in the Keychain.
-///
-/// TDLib keeps the logged-in session in its own database under Application
-/// Support. That file is only secret while the device is locked if the key is
-/// not stored next to it, which is the whole reason this class exists.
-/// `bytes` fields in the JSON interface are base64, so that is the form
-/// TDLib is handed.
+/// The TDLib database key, created once and kept in the Keychain. TDLib keeps the logged-in session in
+/// its database under Application Support, and that file is only secret while the device is locked if
+/// the key is not stored next to it. `bytes` fields in the JSON interface are base64, so that is the
+/// form TDLib is handed.
 struct KeychainDatabaseKey: TdDatabaseKeyProviding {
     enum Failure: Error, Equatable {
         case randomBytes(status: Int)
@@ -35,10 +32,8 @@ struct KeychainDatabaseKey: TdDatabaseKeyProviding {
         return try store()
     }
 
-    /// The key goes with the database it opened. Leaving it behind would keep a 32-byte secret on
-    /// the phone for a file that no longer exists, and the next session would build its database
-    /// under a key nothing else can read — which is exactly as bad as it sounds if the user ever
-    /// restores the app without this Keychain.
+    /// The key goes with the database it opened. Leaving it behind strands a 32-byte secret for a file
+    /// that no longer exists, and the next session builds its database under a key nothing else can read.
     func erase() {
         SecItemDelete([
             kSecClass as String: kSecClassGenericPassword,
@@ -47,8 +42,8 @@ struct KeychainDatabaseKey: TdDatabaseKeyProviding {
         ] as CFDictionary)
     }
 
-    /// Generates 32 random bytes, writes them, and returns the value to use
-    /// now — reading it back after the add would only race with itself.
+    /// Generates 32 random bytes, writes them and returns the value to use now — reading it back after
+    /// the add would only race with itself.
     private func store() throws -> String {
         var raw = [UInt8](repeating: 0, count: 32)
         let random = SecRandomCopyBytes(kSecRandomDefault, raw.count, &raw)

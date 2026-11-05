@@ -4,12 +4,9 @@ import TelegramDesignSystem
 import UIKit
 
 /// The chat-list row, worn by every list this app shows.
-///
-/// The geometry is the chat list's, down to the title sitting 8 pt from the top instead of
-/// centred: `rawContentRect.origin.y = floor(base × 8 / 17)` at the app's `base` of 17, the
-/// preview at `minY + lineHeight − 2`, the timestamp at `minY + 2`, and the rule inset to where the
-/// text column begins. The library, the hearts and
-/// the lists all draw it, so a song looks the same wherever it is found.
+/// The geometry is the chat list's, down to the title sitting 8 pt from the top instead of centred:
+/// `rawContentRect.origin.y = floor(base × 8 / 17)` at `base` 17, preview at `minY + lineHeight − 2`,
+/// timestamp at `minY + 2`, rule inset to where the text column begins.
 struct TrackRow: View {
     let track: any Playable
     let query: String
@@ -21,9 +18,8 @@ struct TrackRow: View {
     /// The right-hand slot's first line. The list rather than the row decides it, because a
     /// favourited slice has a range to show where the library has a duration.
     let headline: String
-    /// Doni's own mark — the chat list has no heart in a row. It takes the accent the design lab
-    /// picked (`#3e88f7`) at 12 pt, small enough to sit beside the 14 pt number without widening
-    /// the column.
+    /// Doni's own mark — the chat list has no heart in a row. 12 pt at the accent the design lab picked
+    /// (`#3e88f7`), small enough beside the 14 pt number not to widen the column.
     let isFavorite: Bool
     let artwork: CoverArtwork
     let play: () -> Void
@@ -102,13 +98,9 @@ struct TrackRow: View {
     }
 }
 
-/// The icon column: the sharp cover when TDLib has fetched it, the minithumbnail the message
-/// carried until then, Telegram's avatar gradient when the post has no artwork at all — always
-/// clipped as a rounded square.
-///
-/// The column used to be a circle, which is what a chat list puts its avatars in. A song's cover is
-/// not an avatar: the reference draws every piece of artwork in the app as the same rounded square,
-/// at `cornerRadius: 10` (`ArtworkImage.swift:7`), and so does every other surface here.
+/// The icon column: the sharp cover once TDLib has fetched it, the message's minithumbnail until then,
+/// Telegram's avatar gradient when the post has no artwork — always clipped as a rounded square, the
+/// shape the reference gives every artwork (`ArtworkImage.swift:7`).
 struct ArtworkTile: View {
     let track: any Playable
     let artwork: CoverArtwork
@@ -138,8 +130,7 @@ struct ArtworkTile: View {
         )
         .clipShape(.rect(cornerRadius: MusicArtworkMetrics.radius))
         .overlay {
-            // A pale cover on a black list needs an edge; the list already draws its rules one
-            // physical pixel wide.
+            // A pale cover on a black list needs an edge; the list draws its rules one pixel wide.
             RoundedRectangle(cornerRadius: MusicArtworkMetrics.radius)
                 .strokeBorder(palette.chatListSeparator, lineWidth: hairline)
         }
@@ -168,10 +159,9 @@ struct ChatListHighlight: ButtonStyle {
     }
 }
 
-/// The unread-bubble slot, telling the user whether tapping plays now or waits, and which row
-/// is making noise. In dark the two controls are white and white at 0.4 with a `#262628` glyph
-/// inside them (`DefaultDarkPresentationTheme.swift:559`), the way Telegram's own play button is a
-/// dark triangle in a white circle.
+/// The unread-bubble slot: whether a tap plays now or waits, and which row is making noise. In dark the
+/// two controls are white, and white at 0.4 with a `#262628` glyph inside
+/// (`DefaultDarkPresentationTheme.swift:559`), like Telegram's own play button.
 struct StateBubble: View {
     let ready: Bool
     let playing: Bool
@@ -197,9 +187,8 @@ struct StateBubble: View {
     }
 }
 
-/// The query, coloured where it matches. Telegram paints the matched text of a search in its
-/// accent colour; the hit is found through `SearchHighlight`, which folds each character the
-/// same way the matcher does, so a toneless query still lights up the accented title.
+/// The query, coloured where it matches. The hit comes from `SearchHighlight`, which folds each
+/// character the way the matcher does, so a toneless query still lights up the accented title.
 struct HighlightedText: View {
     let text: String
     let query: String
@@ -211,9 +200,8 @@ struct HighlightedText: View {
         Text(runs).font(font)
     }
 
-    /// The line with its matched runs lit, carried as attributes rather than built by adding
-    /// `Text` to `Text`: that operator is deprecated on iOS 26, and one attributed string is what
-    /// the SDK points at instead — same two colours, and the row still wraps.
+    /// The matched runs, carried as attributes rather than built by adding `Text` to `Text`: that
+    /// operator is deprecated on iOS 26, and the SDK points at attributed strings instead.
     private var runs: AttributedString {
         var line = AttributedString()
         for segment in SearchHighlight.segments(of: query, in: text) {

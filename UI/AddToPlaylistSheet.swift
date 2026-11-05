@@ -2,13 +2,11 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The sheet MeloX puts behind the ⋯ menu's "add to" button: an inline title, a "+" that makes a
-/// new list, a cancel, and rows of a 52 pt cover at radius 7 beside the name with the song count
-/// under it in `caption` secondary (`AddToPlaylistSheet.swift:13-121`, `:86-98`).
-///
-/// The reference's empty state offers a reload, because its lists live on a server that may simply
-/// not have answered yet. A list that lives in Doni's own SQLite has nothing to reload, so the empty
-/// state says the only true thing: make one — with the same button the toolbar holds.
+/// MeloX's "add to" sheet: inline title, a "+" that makes a new list, a cancel, and rows of a 52 pt
+/// cover at radius 7 beside the name with the song count under it in `caption` secondary
+/// (`AddToPlaylistSheet.swift:13-121`, `:86-98`).
+/// The reference's empty state offers a reload because its lists are remote; Doni's are local SQLite,
+/// so it offers "make one" using the toolbar's own button.
 struct AddToPlaylistSheet: View {
     let track: any Playable
     @ObservedObject var artwork: CoverArtwork
@@ -16,10 +14,9 @@ struct AddToPlaylistSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    /// The naming sheet sits over this one, exactly as `PlaylistCreationSheet` sits over
-    /// `AddToPlaylistSheet` in the reference (`AddToPlaylistSheet.swift:30-35`).
+    /// The naming sheet presents over this one, as in the reference (`AddToPlaylistSheet.swift:30-35`).
     @State private var showsCreation = false
-    /// The first song each list wears, read once per row rather than on every redraw.
+    /// Each list's first song, cached per row instead of re-read on every redraw.
     @State private var covers: [Int64: StoreTrack] = [:]
 
     var body: some View {
@@ -96,10 +93,8 @@ struct AddToPlaylistSheet: View {
         }
     }
 
-    /// A list made from here is not left empty for the user to fill afterwards: the song being
-    /// listened to goes in, which also makes it the cover the list wears until one is chosen
-    /// (`PlaylistArt`'s second tier). The picker stays open over the new row, the way the reference
-    /// leaves it open over a list that has just been created.
+    /// A list made here gets this song immediately, so it also wears it as a cover (`PlaylistArt`'s
+    /// second tier); the picker stays open over the new row, as in the reference.
     private func create(_ name: String) {
         guard let list = library.createPlaylist(named: name) else { return }
         library.add(track, to: list.id)

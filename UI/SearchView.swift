@@ -22,19 +22,13 @@ enum DoniSearchScope: String, CaseIterable, Identifiable {
 }
 
 /// The search tab, worn the way the reference wears it (`SearchView.swift:25-111`).
-///
 /// The chrome is all the system's: `.navigationTitle`, a `.searchable` field in the nav drawer and
-/// `.searchScopes` for the facets — and because this tab is the one with `role: .search`, iOS 26 puts
-/// the field in the tab bar's own search circle, takes the keyboard the moment the tab is tapped, and
-/// shrinks the bar away as the results scroll. An empty field is not an empty screen: it is the
-/// discovery view (`SearchDiscoveryView.swift:16-45`).
-///
-/// What differs is where the answers come from, and that is why there are no completions here. MeloX
-/// asks a network and waits 350 ms on it, so a list of suggested strings is what fills the gap
-/// (`SearchView.swift:113-126`); Doni asks its own index, which already holds the rows. A
-/// `.searchSuggestions` list therefore covers the results with a text-only copy of them, and typing
-/// shows suggestions instead of music — so the field answers with the artwork rows themselves, one
-/// keystroke at a time.
+/// `.searchScopes` for the facets. Because this tab carries `role: .search`, iOS 26 puts the field in
+/// the tab bar's own search circle, opens the keyboard the moment the tab is tapped and shrinks the bar
+/// as results scroll; an empty field shows the discovery view (`SearchDiscoveryView.swift:16-45`).
+/// No `.searchSuggestions`: MeloX needs them because it waits 350 ms on a network
+/// (`SearchView.swift:113-126`), while Doni's index already holds the rows — a suggestion list would
+/// cover the results with a text-only copy of them.
 struct SearchView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -45,8 +39,8 @@ struct SearchView: View {
     @State private var query = ""
     @State private var scope: DoniSearchScope = .songs
 
-    /// How many of a result set's covers are worth ordering before anyone looks at them. The rows
-    /// ask for themselves too; the point of this is that it outlives a keystroke.
+    /// How many of a result set's covers are worth ordering before anyone looks. The rows ask for
+    /// themselves too; the point here is that this batch outlives a keystroke.
     private static let coverWarm = 40
 
     var body: some View {
@@ -118,11 +112,10 @@ struct SearchView: View {
             }
         }
         .listStyle(.plain)
-        // The result set asks for its own covers, once, through the cache's pool. A row's `.task`
-        // belongs to the row: every keystroke rebuilds this list, cancels what the rows had started
-        // and starts it again, so a fast typist never lets a single cover finish downloading — which
-        // is what "it loads but it stays blurry for ages" turns out to be. The pool's queue belongs
-        // to no row, so it keeps working while the list is being retyped under it.
+        // The result set prefetches through the cache's pool rather than per-row `.task`s: every
+        // keystroke rebuilds this list and cancels what the rows had started, so a fast typist never
+        // lets one cover finish — the real shape of "it loads but stays blurry for ages". A pool queue
+        // belongs to no row and keeps working while the list is retyped under it.
         .task(id: songMatches.prefix(Self.coverWarm).map(\.uniqueId)) {
             artwork.prefetch(Array(songMatches.prefix(Self.coverWarm)),
                              via: session.covers(), side: MusicSearchMetrics.songArt)
@@ -156,9 +149,8 @@ struct SearchView: View {
     }
 
     /// An artist has no picture of its own here, so it wears a song it is on. The reference cuts that
-    /// one to a circle (`SearchView.swift:180-191`, `:394`); this app squares it instead, because an
-    /// artist's tile here is a cover rather than an avatar and every cover in the app is a rounded
-    /// square.
+    /// to a circle (`SearchView.swift:180-191`, `:394`); this app squares it, because every cover here
+    /// is a rounded square.
     private var artistResults: some View {
         List {
             ForEach(artistMatches) { artist in
@@ -197,8 +189,8 @@ struct SearchView: View {
         allArtists.filter { matches($0.name) }
     }
 
-    /// Songs whose *performer* is what the field found, which is the one thing the artists scope can
-    /// hand the songs scope.
+    /// Songs whose *performer* the field found — the one thing the artists scope can hand the songs
+    /// scope.
     private var performerMatches: [any Playable] {
         artistMatches.flatMap(\.tracks)
     }
@@ -214,8 +206,7 @@ struct SearchView: View {
         SearchTextFold.normalized(text).contains(SearchTextFold.normalized(trimmed))
     }
 
-    /// Tapping a tile or an artist row puts that name in the field, which is what MeloX's tile does
-    /// with a genre.
+    /// Tapping a tile or an artist row puts that name in the field, as MeloX's tile does with a genre.
     private func search(_ text: String) {
         scope = .songs
         query = text

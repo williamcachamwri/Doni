@@ -1,12 +1,10 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// MeloX's media card: the cover, then two lines of words under it, the card exactly as wide as
-/// its own artwork (`MediaCardView.swift:11-28`, sized by `HomeRecommendationSections.swift:119-127`
-/// and `HomeComponents.swift:99-114`).
-///
-/// The cover is a song's, whatever the card stands for: a playlist card wears the first song it
-/// holds, which is the closest Doni gets to the artwork MeloX reads off the network.
+/// MeloX's media card: a cover, then two lines of words, the card as wide as its own artwork
+/// (`MediaCardView.swift:11-28`, sized by `HomeRecommendationSections.swift:119-127` and
+/// `HomeComponents.swift:99-114`). Every card wears a song's cover, so a playlist card shows the
+/// first song it holds.
 struct HomeCard: View {
     let cover: any Playable
     let title: String
@@ -20,15 +18,10 @@ struct HomeCard: View {
         VStack(alignment: .leading, spacing: MusicFeedMetrics.cardTextGap) {
             TrackCover(track: cover, side: side,
                        radius: MusicArtworkMetrics.radius, artwork: artwork)
-            // Both text lines are always laid out, and both reserve their space whether or not there
-            // is anything to say in them.
-            //
-            // A card that skipped the artist line was shorter than one that had it, and a horizontal
-            // `LazyHStack` takes its height from the items it measures first — so the strip was as
-            // tall as the earliest card and the `ScrollView` clipped every taller one after it. What
-            // got clipped was the bottom of the artist's name, which is the one line a song with no
-            // performer does not have. Reserving both lines makes the cards one height by construction
-            // rather than by luck.
+            // Both text lines always reserve their space, empty or not. A card that skipped the artist
+            // line was shorter, and a horizontal `LazyHStack` takes its height from the items it
+            // measures first — so the strip was as tall as the earliest card, and the `ScrollView`
+            // clipped every taller one after it.
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)

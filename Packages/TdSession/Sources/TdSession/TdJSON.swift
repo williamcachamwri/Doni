@@ -1,11 +1,8 @@
 import Foundation
 
-/// A JSON tree that is `Sendable`, which `[String: Any]` from `JSONSerialization`
-/// is not. Every TDLib payload crosses a thread boundary, so the type that
-/// carries it has to be sendable by construction rather than by assertion.
-///
-/// Integers stay `Int64` because Telegram ids exceed 32 bits and lose precision
-/// if they are routed through `Double`.
+/// A JSON tree that is `Sendable`, which `[String: Any]` from `JSONSerialization` is not: every TDLib
+/// payload crosses a thread boundary, so the type carrying it has to be sendable by construction rather
+/// than by assertion. Integers stay `Int64` — Telegram ids exceed 32 bits and lose precision in `Double`.
 public enum TdJSON: Sendable, Equatable {
     case string(String)
     case int(Int64)
@@ -33,11 +30,9 @@ public enum TdJSON: Sendable, Equatable {
     public var type: String? { self["@type"]?.string }
 
     public var string: String? { if case .string(let v) = self { v } else { nil } }
-    /// The integer this is meant to be.
-    ///
-    /// JSON has no integer type, and a Telegram id that arrives written as `1.0` or as `"123"` is
-    /// still the same id. Reading only the case the parser happened to choose turns a real number
-    /// into "no id", and the app then says something untrue about the account.
+    /// The integer this is meant to be. JSON has no integer type, and a Telegram id written as `1.0`
+    /// or `"123"` is still the same id; reading only the case the parser chose turns a real number into
+    /// "no id", and the app then says something untrue about the account.
     public var int: Int64? {
         switch self {
         case .int(let value): value

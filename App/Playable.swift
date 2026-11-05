@@ -2,13 +2,10 @@ import Foundation
 import Support
 import TdSession
 
-/// What the player, the artwork cache and a list row all need from a song — whether TDLib handed
-/// it over this second or the store remembered it from the last launch.
-///
-/// The two sources cannot be one type: `TdTrack` carries what a channel post says about a file
-/// (its mime type, its caption, who uploaded it) and `StoreTrack` carries what survives a relaunch
-/// (`file:id:int32` is TDLib's per-database number, so the id that is stable across both is
-/// `file_unique_id`). This is the overlap, and nothing else.
+/// What the player, the artwork cache and a list row all need from a song, live or stored.
+/// The two sources cannot be one type: `TdTrack` carries what the channel post says (mime type, caption,
+/// uploader) and `StoreTrack` carries what survives a relaunch. This is the overlap and nothing else —
+/// the id stable across both is `file_unique_id`, since `file:id:int32` is TDLib's per-database number.
 protocol Playable {
     var uniqueId: String { get }
     /// The channel it came from, which is the row the store keys its tracks by.
@@ -27,13 +24,13 @@ protocol Playable {
     /// What the file is called, which is the name a search has to reach for a captionless post.
     var fileName: String { get }
     var fileExtension: String { get }
-    /// What the post says the bytes are. A live row has this from Telegram; a stored row does not
-    /// keep it, and its file name is what the container has to be read from.
+    /// What the post says the bytes are. A stored row does not keep it, so its file name is what the
+    /// container has to be read from.
     var mimeType: String { get }
     var miniArtwork: Data? { get }
     var coverFileId: Int? { get }
-    /// The cover's MTProto identity — the only part of it that means the same thing in two
-    /// databases, and so the only part worth filing a cached picture under.
+    /// The cover's MTProto identity — the only part of it that means the same thing in two databases, so
+    /// the only part worth filing a cached picture under.
     var coverUniqueId: String? { get }
 }
 
@@ -57,9 +54,8 @@ extension TdFile {
 extension StoreTrack: Playable {
     var isDownloaded: Bool { localPath != nil }
 
-    /// The store keeps a name rather than a mime type, and for the rows it holds that is the same
-    /// information: a song posted as `messageAudio` with no name at all is not in this table, it is
-    /// in the live list.
+    /// The store keeps a name rather than a mime type, and that is the same information here: a song
+    /// posted as `messageAudio` with no name at all is in the live list, not in this table.
     var mimeType: String { "" }
 
     /// The same fallback order the live row uses: tags, then the file name without its extension.
@@ -73,12 +69,10 @@ extension StoreTrack: Playable {
 }
 
 extension StoreTrack {
-    /// Any song the app is holding, written down the way the store keeps it, so a track the walk
-    /// only just brought back can be put in a list without the list knowing which of the two
-    /// sources it came from.
-    ///
-    /// `displayTitle` and `displayPerformer` rather than the raw fields: what the row showed live is
-    /// what the same row has to show after a relaunch.
+    /// Any song the app is holding, written the way the store keeps it, so a track the walk only just
+    /// brought back can go in a list without the list knowing which of the two sources it came from.
+    /// `displayTitle`/`displayPerformer` rather than the raw fields: the row must show the same thing after
+    /// a relaunch as it showed live.
     init(_ track: any Playable) {
         self.init(uniqueId: track.uniqueId, chatId: track.chatId, messageId: track.messageId,
                   fileId: track.fileId, coverFileId: track.coverFileId,

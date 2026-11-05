@@ -1,9 +1,7 @@
 import Foundation
 
-/// What a lyrics lookup can come back with, in the order the app has to treat them.
-///
-/// Both cases carry the text itself rather than a parsed shape: turning LRC into timed lines is
-/// the lyrics screen's own parser, which is the one the user sees working.
+/// What a lyrics lookup can come back with, in the order the app has to treat them. Both cases carry
+/// the text rather than a parsed shape: turning LRC into timed lines is the lyrics screen's own parser.
 public enum LyricText: Equatable, Sendable {
     /// LRC text with stamps in it. What the screen scrolls.
     case synced(String)

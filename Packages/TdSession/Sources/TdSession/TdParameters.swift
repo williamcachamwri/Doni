@@ -1,12 +1,10 @@
 import Foundation
 
-/// The fields of `setTdlibParameters`, which is flat in the current schema
-/// (`td_api.tl:12185`): TDLib 1.8.0 wrapped them in a `tdlibParameters` object
-/// and asked for the encryption key in a second request; both are gone now.
+/// The fields of `setTdlibParameters`, flat in the current schema (`td_api.tl:12185`): TDLib 1.8.0
+/// wrapped them in a `tdlibParameters` object and asked for the key in a second request.
 ///
-/// `use_message_database` and `use_chat_info_database` have to be on: the whole
-/// product is a local index of a channel's audio posts. `use_file_database` is
-/// on so TDLib remembers which files are already downloaded.
+/// `use_message_database` and `use_chat_info_database` have to be on — the product is a local index of
+/// a channel's audio posts — and `use_file_database` so TDLib remembers which files are downloaded.
 public struct TdParameters: Sendable {
     public var apiId: Int32
     public var apiHash: String
@@ -62,17 +60,12 @@ public struct TdParameters: Sendable {
     }
 }
 
-/// Where the TDLib database key comes from.
-///
-/// The implementation in the app reads it from the Keychain and creates it on
-/// first run — the session database in Application Support is the user's
-/// logged-in Telegram session, so it is only unreadable while the device is
-/// locked if the key is not sitting next to it in a plist.
+/// Where the TDLib database key comes from. The app reads it from the Keychain and creates it on
+/// first run: the session database in Application Support is the user's logged-in Telegram session,
+/// unreadable while the device is locked only if the key is not sitting next to it in a plist.
 public protocol TdDatabaseKeyProviding: Sendable {
-    /// Base64: the JSON interface encodes TDLib's `bytes` fields that way
-    /// (`setTdlibParameters ... database_encryption_key:bytes`, `td_api.tl:12185`).
-    ///
-    /// Throws, because the real implementation reads the Keychain and a
-    /// hardware keystore can genuinely refuse.
+    /// Base64: the JSON interface encodes TDLib's `bytes` fields that way (`setTdlibParameters ...
+    /// database_encryption_key:bytes`, `td_api.tl:12185`). Throws because the real implementation reads
+    /// the Keychain and a hardware keystore can genuinely refuse.
     func databaseEncryptionKey() throws -> String
 }

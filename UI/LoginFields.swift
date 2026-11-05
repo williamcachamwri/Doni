@@ -16,8 +16,7 @@ struct LoginHairline: View {
     }
 }
 
-/// A dial code plus the name it belongs to. Names are taken from `Locale`, so they follow
-/// the device language instead of being hard-coded English labels.
+/// A dial code plus its `Locale` name, so the labels follow the device language.
 struct DialCountry: Identifiable, Hashable {
     let isoCode: String
     let dialCode: String
@@ -148,12 +147,11 @@ struct UnderlineField: View {
     }
 }
 
-/// The segmented digit boxes. The real `UITextField` is invisible and sits on top of them:
-/// Telegram draws the caret by highlighting the box being filled, not by letting the field
-/// show its own.
+/// The segmented digit boxes. The real `UITextField` is invisible on top of them: Telegram draws the
+/// caret by highlighting the box being filled, not by letting the field show its own.
 struct CodeBoxes: View {
-    /// `isFailed` and `isSucceeded` recolour *every* border at once, which is how the view
-    /// reports a rejected or accepted code before it resets.
+    /// `failed` and `succeeded` recolour *every* border at once — how a rejected or accepted code
+    /// is shown.
     enum Entry: Equatable { case normal, failed, succeeded }
 
     @Environment(\.displayScale) private var displayScale
@@ -161,8 +159,7 @@ struct CodeBoxes: View {
 
     let palette: TelegramListPalette
     let length: Int
-    /// The band the row has to live in, so the boxes are chosen by what fits instead of by a guess
-    /// at how wide a phone is.
+    /// The band the row has to live in, so box width is fitted to it rather than guessed per phone.
     let availableWidth: CGFloat
     var entry: Entry = .normal
     var isGhost = false
@@ -194,14 +191,11 @@ struct CodeBoxes: View {
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
                 .focused($isEditing)
-                // One per cent still paints the digits and the caret: at 23 pt on a black canvas a
-                // hundredth of white is a legible ghost of the code, sitting outside the boxes. The
-                // text and the tint go clear and the opacity stays, because it is the opacity that
-                // keeps the field hit-testable and first responder.
+                // Text and tint go clear but the 0.01 opacity stays: opacity is what keeps the field
+                // hit-testable and first responder, so hiding it outright would lose both.
                 .foregroundStyle(.clear)
                 .tint(.clear)
-                // Filling the row is what makes a tap anywhere in the boxes land on the field;
-                // at its intrinsic height it would only cover a band through their middle.
+                // Filling the row is what makes a tap anywhere in the boxes land on the field.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(0.01)
         }
@@ -304,9 +298,8 @@ struct TelegramPrimaryButton: View {
     }
 }
 
-/// The wrong-code shake. `addShakeAnimation` is a keyframe animation on `position.x` with the
-/// keyframes evenly spaced, so the track is sampled from a progress value that the caller
-/// animates linearly from 0 to 1 rather than replayed as a SwiftUI keyframe track.
+/// The wrong-code shake. `addShakeAnimation` keyframes `position.x` with evenly spaced keyframes, so
+/// the track is sampled from a linearly animated 0→1 progress rather than replayed as a keyframe track.
 struct LoginShake: GeometryEffect {
     var progress: Double
     let offsets: [CGFloat]
@@ -322,10 +315,9 @@ struct LoginShake: GeometryEffect {
     }
 }
 
-/// A digit rides in from below its own baseline, growing out of the box's bottom edge
-/// (`CodeInputView.swift:82-86`), and the one being deleted fades out while it falls half a
-/// box (`:90-95`). One modifier because `AnyTransition.modifier` needs both ends of the same
-/// type; the ends differ only in their numbers.
+/// A digit rides in from the box's bottom edge (`CodeInputView.swift:82-86`); the one being deleted
+/// fades out while falling half a box (`:90-95`). One modifier because `AnyTransition.modifier` needs
+/// both ends of the same type.
 private struct DigitMotion: ViewModifier {
     let alpha: Double
     let scaleY: CGFloat

@@ -6,24 +6,20 @@ import TelegramDesignSystem
 import TdSession
 
 /// The player's panel, page for page as MeloX builds it.
-///
 /// The reference's portrait shell is a 34 pt handle over a page stack with the controls hung on its
 /// bottom edge as a 341 pt overlay — a 62 pt utility band and a 279 pt core of progress, transport,
 /// volume and page selector — and the cover is sized from whatever height that leaves
 /// (`NowPlayingView.swift:317-329`, `NowPlayingBottomControls.swift:4-6`,
-/// `NowPlayingArtworkPage.swift:39-50`). Every number here is that file's, transcribed.
-///
-/// What Doni adds is only what a Telegram library forces: the cover is fetched through TDLib rather
-/// than an HTTP URL, the volume bar moves `AVAudioPlayer`'s own volume instead of the
-/// `MPVolumeView` the reference had to settle for, and the verbs inside the ⋯ disc are Doni's.
+/// `NowPlayingArtworkPage.swift:39-50`). Every number here is that file's.
+/// Doni adds only what a Telegram library forces: the cover comes through TDLib rather than an HTTP
+/// URL, and the volume bar moves `AVAudioPlayer`'s own volume instead of the reference's `MPVolumeView`.
 struct NowPlayingView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-    /// The words are a page of this panel. The panel's job stops at asking for them for the song it
-    /// is showing; reading the player's clock and deciding which line is being sung is the screen's
-    /// own, and it does both far more finely than a tick of this timer could.
+    /// The words are a page of this panel: the panel only asks for them for the song it shows, and
+    /// deciding which line is being sung is the lyrics screen's own, finer than a tick of this timer.
     @ObservedObject private var lyrics = Lyrics.shared
     /// The panel is presented by a zoom from the strip's cover, so the shell owns that transition
     /// source and this view only has to be the destination (`ContentView.swift:105-110`).
@@ -33,9 +29,8 @@ struct NowPlayingView: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
     @State private var page = NowPlayingPage.artwork
-    /// Where the artwork page's cover slot landed, in the page's own coordinate space. The cover is
-    /// not drawn by the page any more, so this is the only way the panel knows where to put it
-    /// (`NowPlayingView.swift:614-630`).
+    /// Where the artwork page's cover slot landed, in the page's own space. The cover is no longer
+    /// drawn by the page, so this is how the panel knows where to put it (`NowPlayingView.swift:614-630`).
     @State private var artworkPageFrame: CGRect = .zero
     /// Whether the transport row is on screen while the words are. The reference drops it after a
     /// few seconds of reading and brings it back on a tap or a scroll (`NowPlayingView.swift:18`).
@@ -56,9 +51,8 @@ struct NowPlayingView: View {
         .gesture(pan)
         .preferredColorScheme(.dark)
         .task(id: player.current?.uniqueId) {
-            // The panel wants a cover the size of the screen, which is a tier no row ever asked
-            // for; without this order the hero and the blurred backdrop are drawn from the 192 px
-            // a row fetched.
+            // The panel wants a cover the size of the screen, a tier no row ever asked for; without
+            // this order the hero and the blurred backdrop are drawn from the 192 px a row fetched.
             if let track = player.current {
                 await artwork.load(track: track, via: session.covers(),
                                    side: MusicArtworkMetrics.heroSide)
@@ -159,8 +153,8 @@ struct NowPlayingView: View {
                         .transition(.opacity)
                         // The reference keys the wash by its artwork
                         // (`NowPlayingAppleMusicBackground.swift:153`), and so must this: without an
-                        // identity the new cover is the same view with different pixels, which is a
-                        // swap and not a cross-fade, and no curve can fix that.
+                        // identity the new cover is the same view with different pixels — a swap, not a
+                        // cross-fade, which no curve can fix.
                         .id(track.uniqueId)
                 }
                 Color.black.opacity(MusicNowPlayingMetrics.veilOpacity)
@@ -194,13 +188,11 @@ struct NowPlayingView: View {
         .animation(reduceMotion ? nil : NowPlayingPageTransition.animation, value: page)
     }
 
-    /// The reference's stack (`NowPlayingView.swift:486-559`): the page, then the song header over
-    /// it when the page is not the cover's own, then the cover over everything.
-    ///
-    /// The cover is hoisted out of both pages because the two of them want it at different sizes —
-    /// the hero on the artwork page, a 72 pt thumb in the header — and one view whose frame is
-    /// measured from the page underneath is what makes it travel between them instead of being
-    /// replaced there.
+    /// The reference's stack (`NowPlayingView.swift:486-559`): the page, then the song header over it
+    /// when the page is not the cover's own, then the cover over everything. The cover is hoisted out
+    /// of both pages because they want it at different sizes — the hero on the artwork page, a 72 pt
+    /// thumb in the header — and one measured view travelling between them is what makes it move rather
+    /// than be replaced.
     private func pageContent(_ track: any Playable) -> some View {
         ZStack(alignment: .top) {
             switch page {
@@ -228,12 +220,10 @@ struct NowPlayingView: View {
             }
         }
         .background {
-            // A copy of the artwork page that is never seen and never transitioned, which is the
-            // only instance whose geometry is the settled layout. The page the user is looking at
-            // is drawn with its transition offset while the switch runs, so measuring it would
-            // send the cover to where the page is on its way in rather than where it will rest —
-            // the reference keeps the same two sources and simply distrusts the visible one while
-            // a transition is in flight (`NowPlayingView.swift:586-612`).
+            // A copy of the artwork page that is never seen and never transitioned: the only instance
+            // whose geometry is the settled layout. The visible page is drawn with its transition
+            // offset while the switch runs, so measuring it would send the cover to where the page is
+            // on its way in rather than where it will rest (`NowPlayingView.swift:586-612`).
             ArtworkPage(track: track, session: session, player: player, artwork: artwork,
                         library: library, onArtworkFrameChange: recordArtworkPageFrame)
                 .hidden()
@@ -257,8 +247,8 @@ struct NowPlayingView: View {
                         .allowsHitTesting(false)
                 }
             }
-            // Clipped against the page so a travelling cover is cut off vertically by the panel,
-            // while the horizontal margin is given back so it can still be wider than the text
+            // Clipped against the page so a travelling cover is cut off vertically by the panel, with
+            // the horizontal margin given back so it can still be wider than the text
             // (`NowPlayingView.swift:543-556`).
             .clipped()
             .padding(.horizontal, -MusicNowPlayingMetrics.horizontal)
@@ -285,9 +275,8 @@ struct NowPlayingView: View {
         )
     }
 
-    /// The page's own geometry is only trusted once the transition has settled, because the artwork
-    /// page enters with an offset and would otherwise report where it is on its way in
-    /// (`NowPlayingView.swift:600-612`).
+    /// The page's geometry is only trusted once the transition has settled: the artwork page enters
+    /// with an offset and would report where it is on its way in (`NowPlayingView.swift:600-612`).
     private func recordArtworkPageFrame(_ frame: CGRect) {
         guard frame.width.isFinite, frame.height.isFinite,
               frame.minX.isFinite, frame.minY.isFinite,
@@ -356,11 +345,9 @@ struct NowPlayingView: View {
 }
 
 /// The cover page: the artwork at whatever height the controls leave, and the title block under it
-/// (`NowPlayingArtworkPage.swift`).
-///
-/// The size is the reference's own expression, `max(1, min(width + 16, max(170, height − 279 − 92)))`
-/// (`:39-50`), and on a phone the height term is the one that binds — which is why the cover in the
-/// reference's screenshot is about two thirds of the screen rather than all of it.
+/// (`NowPlayingArtworkPage.swift`). The size is the reference's own expression
+/// `max(1, min(width + 16, max(170, height − 279 − 92)))` (`:39-50`), and on a phone the height term
+/// binds — which is why the reference's cover is about two thirds of the screen rather than all of it.
 private struct ArtworkPage: View {
     let track: any Playable
     /// Passed down to the song's own menu, which is the one place a song is put into

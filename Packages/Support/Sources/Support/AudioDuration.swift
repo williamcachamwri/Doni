@@ -4,24 +4,16 @@ import Foundation
 
 /// How long a song is, in whole seconds.
 ///
-/// Telegram only says it when the post is a `messageAudio` (`td_api.tl:583` has `duration`). The
-/// same song posted as a `messageDocument` (`:594`) arrives with a name, a mime type and a size and
-/// nothing else — the schema has no duration there, and TDLib does not open the container to fill
-/// one in. So the app measures, in one of two ways:
+/// Telegram says it only for a `messageAudio` (`td_api.tl:583` has `duration`); the same song posted
+/// as a `messageDocument` (`:594`) has a name, a mime type and a size, and TDLib does not open the
+/// container to fill one in. So the app measures: `seconds(ofPath:)` on a file the phone holds whole,
+/// `read(head:totalSize:)` on a few hundred bytes of one it does not.
 ///
-/// * `seconds(ofPath:)` reads a file the phone already holds whole;
-/// * `read(head:totalSize:)` reads a few hundred bytes of a file it does not, which is the only way
-///   a list of songs nobody has ever played can show a timestamp at all.
-///
-/// A measurement is written into the store and kept: the walk that re-reads the channel sends a
-/// `NULL` duration for a document row, and the upsert's `COALESCE` leaves the number the app
-/// measured alone.
+/// The measurement is kept: a re-read walk sends `NULL` for a document row and the upsert's
+/// `COALESCE` leaves the app's number alone.
 public enum AudioDuration {
-    /// The length of a file that is on the device.
-    ///
-    /// `AVURLAsset` rather than a hand-rolled parse: the file is whole here, so the answer is the
-    /// container's own, and Apple's readers already know a 32-bit `mvhd` from a 64-bit one. The
-    /// metadata is resolved without loading the audio, so this is a header read and not a decode.
+    /// The length of a file that is on the device, via `AVURLAsset` rather than a hand-rolled parse:
+    /// the file is whole here so the answer is the container's own. A header read, not a decode.
     public static func seconds(ofPath path: String) async -> Int? {
         let asset = AVURLAsset(url: URL(fileURLWithPath: path))
         guard let time = try? await asset.load(.duration) else { return nil }
@@ -29,9 +21,8 @@ public enum AudioDuration {
         return checked(seconds)
     }
 
-    /// A song is between these. Outside them the bytes that made the number were not a duration,
-    /// which is the whole defence against reading a length out of an audio sample that happens to
-    /// spell the right pattern.
+    /// A song is between these; outside them the bytes that made the number were not a duration. This
+    /// is the defence against an audio sample that happens to spell the right pattern.
     private static func checked(_ seconds: Double) -> Int? {
         guard seconds.isFinite, seconds >= 1, seconds <= 3 * 3600 else { return nil }
         return Int(seconds.rounded())
@@ -43,9 +34,8 @@ public enum AudioDuration {
     public enum Reading: Equatable {
         /// The container said it.
         case seconds(Int)
-        /// An MP3 whose ID3v2 tag is bigger than the bytes handed over. The cover art lives inside
-        /// that tag, and the first audio frame — where the length is written — starts after it, so
-        /// the ask has to be made again for `bytes`.
+        /// An MP3 whose ID3v2 tag is bigger than the bytes handed over: the cover art lives inside it
+        /// and the first audio frame, where the length is written, starts after — ask again for `bytes`.
         case headTooSmall(bytes: Int)
         /// An MP4 written with the audio first: its `moov`, and the `mvhd` inside it, are at the
         /// other end of the file, where the head cannot reach.
@@ -64,9 +54,8 @@ public enum AudioDuration {
         }
         var start = 0
         if bytes[0] == 0x49, bytes[1] == 0x44, bytes[2] == 0x33 {  // "ID3", three letters not four
-            // Bytes 6 through 9 are the tag's size, and synchsafe: seven bits per byte, so the
-            // ordinary read of the same four is 128× too big. Everything after the ten-byte header,
-            // extended header included, is inside that size.
+            // Bytes 6 through 9 are the tag's size and synchsafe — seven bits per byte, so an ordinary
+            // read of the same four is 128× too big. Everything after the ten-byte header is inside it.
             let size = (Int(bytes[6]) << 21) | (Int(bytes[7]) << 14) | (Int(bytes[8]) << 7) | Int(bytes[9])
             start = 10 + size
             guard start < bytes.count else { return .headTooSmall(bytes: start + 4096) }
@@ -85,12 +74,10 @@ public enum AudioDuration {
         ["ftyp", "styp", "moov", "mdat", "free", "skip", "uuid", "pnot"].contains(ascii(bytes, 4))
     }
 
-    /// The `mvhd` header: a timescale and a duration, whose quotient is the length.
+    /// The `mvhd` header: a timescale and a duration whose quotient is the length.
     ///
-    /// Scanned for rather than walked to, because a tail slice holds no box tree — the atom is
-    /// somewhere in the middle of what was read and only its own four letters say so. Both the 32-bit
-    /// and the 64-bit forms are read, and every candidate has to come out as a length a song could
-    /// actually be before it is believed.
+    /// Scanned for rather than walked to, because a tail slice holds no box tree — the atom is in the
+    /// middle of what was read and only its four letters say so. Both the 32-bit and 64-bit forms are.
     private static func mvhdSeconds(in bytes: [UInt8]) -> Int? {
         let tag: [UInt8] = [0x6D, 0x76, 0x68, 0x64]  // "mvhd"
         var at = 0
@@ -100,9 +87,8 @@ public enum AudioDuration {
             defer { at += 4 }
             let version = bytes[found + 4]
             guard version < 2 else { continue }
-            // After the tag: version and flags (4), then two dates, then the timescale and the
-            // duration. Version 1 makes the dates 64-bit, which shifts both fields along — and makes
-            // the duration 64-bit too.
+            // After the tag: version and flags (4), two dates, then the timescale and duration.
+            // Version 1 makes the dates 64-bit, which shifts both fields along, and the duration too.
             let timescale = version == 0 ? be32(bytes, found + 16) : be32(bytes, found + 24)
             let duration = version == 0 ? be32(bytes, found + 20) : be64(bytes, found + 28)
             guard timescale > 0, timescale < 10_000_000, duration > 0 else { continue }
@@ -113,14 +99,12 @@ public enum AudioDuration {
 
     // MARK: MP3
 
-    /// The length from the first MPEG layer III frame: the encoder's own frame count when it wrote
-    /// one, and the bitrate divided into the file's size when it did not.
+    /// The length from the first MPEG layer III frame: the encoder's own frame count when it wrote one,
+    /// and the bitrate divided into the file's size when it did not.
     ///
-    /// LAME — what every bot here encodes with — writes a `Xing` tag into the first frame for
-    /// variable-bitrate files, and that count is exact. Without any tag the file is constant bitrate
-    /// and the division is exact too. `VBRI` is the one case where neither holds: it also means
-    /// variable bitrate but keeps its count in a layout of its own, so it is refused rather than
-    /// guessed at.
+    /// LAME writes a `Xing` tag into the first frame for variable bitrate and that count is exact;
+    /// with no tag the file is constant bitrate and the division is exact too. `VBRI` means variable
+    /// bitrate but keeps its count in a layout of its own, so it is refused rather than guessed.
     private static func mp3Seconds(in bytes: [UInt8], from start: Int,
                                    totalSize: Int64) -> Reading {
         guard let frame = firstMp3Frame(in: bytes, from: start) else { return .nothing }
@@ -131,9 +115,8 @@ public enum AudioDuration {
         case .unreadable:
             return .nothing
         case nil:
-            // Constant bitrate: every frame is the same size, so the whole file is one long frame.
-            // A trailing ID3v1 tag of 128 bytes is counted as audio, which is a fifth of a second at
-            // 128 kbps and rounds away.
+            // Constant bitrate: every frame is the same size, so the file is one long frame. A
+            // trailing 128-byte ID3v1 tag counts as audio — a fifth of a second at 128 kbps, rounds away.
             let audio = totalSize - Int64(frame.at)
             guard audio > 0 else { return .nothing }
             return checked(Double(audio) * 8 / Double(frame.bitrate * 1000))
@@ -190,11 +173,9 @@ public enum AudioDuration {
 
     /// The encoder's tag inside the first frame, if there is one.
     ///
-    /// `Xing` and `Info` sit 36 bytes into a stereo MPEG-1 frame and 21 into a mono one, two later
-    /// still when a CRC follows the header, and the `VBRI` that some encoders write instead of them
-    /// sits nearer the start again — so it is a run of a few dozen bytes rather than a position that
-    /// can be re-derived from the header. Anything in that run that spells a tag is read, and a
-    /// number that turns out not to be a song length is rejected by the same gate as everything else.
+    /// `Xing` and `Info` sit 36 bytes into a stereo MPEG-1 frame and 21 into a mono one, two later when
+    /// a CRC follows the header, and `VBRI` sits nearer the start again — a run of a few dozen bytes,
+    /// not a position re-derivable from the header. Whatever spells a tag in it is read.
     private enum VbrTag {
         case frames(Int)
         /// A tag that means variable bitrate and does not say how many frames.

@@ -2,15 +2,13 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The strip of player that rides in the tab bar's own glass accessory, as MeloX builds it: a 40 pt
-/// cover at radius 6, the title in `subheadline.semibold` over the artist in `caption` at secondary,
-/// then play/pause and next as 36 pt circles — no progress line, which the reference leaves to the
-/// panel. A flick of 28 pt across the strip skips a track. `MiniPlayerView.swift` measures all of it.
-///
-/// The container is the system's, so the strip adds no background of its own: it is the accessory's
-/// glass that is being looked through. What the strip does watch is its `placement`, because the
-/// reference shrinks it when the tab bar minimises — a 30 pt cover, one line of text, no next
-/// button (`MiniPlayerView.swift:106-112`).
+/// The player strip in the tab bar's glass accessory, as MeloX builds it: a 40 pt cover at radius 6,
+/// the title in `subheadline.semibold` over the artist in `caption` secondary, then play/pause and next
+/// as 36 pt circles — no progress line, which the reference leaves to the panel. A 28 pt flick across
+/// the strip skips a track; `MiniPlayerView.swift` measures all of it.
+/// The container is the system's, so the strip adds no background. It does watch `placement`, because
+/// the reference shrinks the bar when the tab bar minimises — 30 pt cover, one line, no next button
+/// (`MiniPlayerView.swift:106-112`).
 struct MiniPlayerBar: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
@@ -53,8 +51,7 @@ struct MiniPlayerBar: View {
         }
     }
 
-    /// The cover and the two lines of text are one button: everything left of the transport is the
-    /// way into the panel.
+    /// Cover and text are one button: everything left of the transport opens the panel.
     private func opener(track: any Playable) -> some View {
         Button(action: open) {
             HStack(spacing: spacing) {

@@ -25,15 +25,11 @@ public struct AudioCacheRow: Sendable, Equatable {
 
 /// Which songs the disk has to give back.
 ///
-/// Eviction is whole-file because that is the only granularity TDLib offers, which makes this a
-/// choice about *people*, not about bytes — and the order it chooses in is recency, not completeness.
-/// A half-downloaded song is worth exactly as much as a whole one to a listener who is about to play
-/// it, because the missing parts come from the network while the song is already playing; deleting
-/// the song that is 90 % there to keep one that was fetched and never opened is how a cache built on
-/// "prefer complete files" throws away the work that mattered.
-///
-/// Inside one moment of equal recency the half file does go first, and a sweep of the same library
-/// always names the same victims.
+/// Eviction is whole-file because that is the only granularity TDLib offers, so this is a choice about
+/// *people*, not bytes, and its order is recency rather than completeness: a half-downloaded song is
+/// worth as much as a whole one to a listener about to play it, since the missing parts arrive while
+/// the song plays. Inside one moment of equal recency the half file does go first, and the same
+/// library always names the same victims.
 public enum AudioCachePolicy {
     public static func evictions(_ rows: [AudioCacheRow], quotaBytes: Int64) -> [String] {
         let total = rows.reduce(Int64(0)) { $0 + $1.bytes }

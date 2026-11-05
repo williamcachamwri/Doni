@@ -3,15 +3,10 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The songs Telegram has indexed and this phone does not hold — MeloX's downloads screen
-/// (`Features/Downloads/DownloadsView.swift`, `Features/Library/LibraryDownloadsView.swift`), wearing
-/// Doni's meaning: the transfer is a fetch rather than a queue, and the list is the whole catalogue
-/// that has not been brought home yet.
-///
-/// It sat in the Cloud Music tab until that tab went back to being what the reference's cloud is —
-/// the files the user brought themselves. What is left of the old screen is the honest half of it:
-/// the rows the app knows about, the swipe that takes one of them onto the phone, and the walk that
-/// fills the list. Reached from Settings, under the three numbers it is the second half of.
+/// Songs Telegram has indexed that this phone does not hold — MeloX's downloads screen
+/// (`Features/Downloads/DownloadsView.swift`, `Features/Library/LibraryDownloadsView.swift`), where the
+/// transfer is a fetch rather than a queue. Reached from Settings, under the three numbers it is the
+/// second half of.
 struct PendingSongsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
@@ -21,16 +16,15 @@ struct PendingSongsView: View {
 
     @State private var query = ""
     @State private var showsAddChannel = false
-    /// The rows this screen has asked TDLib for and is still waiting on, in the order they were
-    /// pressed. MeloX holds the same idea as one `isUploading` flag on its store
-    /// (`CloudMusicView.swift:110-115`); here the wait is per row, so the row that landed can leave
-    /// while the others keep their spinner.
+    /// Row ids this screen has asked TDLib for and is still waiting on, in press order. The reference
+    /// has one `isUploading` flag (`CloudMusicView.swift:110-115`); here the wait is per row, so a row
+    /// that lands leaves while the others keep their spinner.
     @State private var fetching: [String] = []
 
     var body: some View {
         List {
-            // The reference's progress row, at the head of the list rather than inside a row, so a
-            // swipe that is still running stays visible while the list scrolls under it.
+            // The progress row heads the list rather than sitting inside a row, so it stays visible
+            // while the list scrolls under it.
             if !fetching.isEmpty {
                 HStack(spacing: 12) {
                     ProgressView()
@@ -104,17 +98,14 @@ struct PendingSongsView: View {
 
     // MARK: What the list is
 
-    /// Every indexed song the phone does not hold, newest first — the order `Library` reads its
-    /// track table in, and the same order the home feed's shelves use.
-    ///
-    /// A file the user imported is left out even when its copy has gone missing: there is no channel
-    /// to fetch it back from and no `file_id` to ask with, so it would be a row that can never leave.
+    /// Every indexed song the phone does not hold, newest first — `Library`'s track-table order, same
+    /// as the home feed's shelves. Imported files stay out even when their copy is missing: there is
+    /// no channel to fetch them from and no `file_id` to ask with, so such a row could never leave.
     private var pending: [StoreTrack] {
         library.storedTracks.filter { !$0.isDownloaded && !$0.isLocal }
     }
 
-    /// The same fold the favourites and playlist screens use, so "tinh yeu" still finds "Tình yêu"
-    /// while the field is only being asked about this list.
+    /// The same fold the favourites and playlist screens use, so "tinh yeu" still finds "Tình yêu".
     private var visible: [StoreTrack] {
         let key = SearchTextFold.normalized(query)
         guard !key.isEmpty else { return pending }
@@ -125,9 +116,8 @@ struct PendingSongsView: View {
         }
     }
 
-    /// The line over the list. The reference's is its drive quota; the number this app can say in
-    /// the same slot is how much of the catalogue is still out on Telegram, and what the phone has
-    /// already spent on the rest.
+    /// The reference's quota slot, filled with what this app can say: how much of the catalogue is
+    /// still out on Telegram, and what the phone has spent on the rest.
     private var headline: String {
         if !query.isEmpty {
             return localized("%@ kết quả", visible.count.formatted())
@@ -144,10 +134,9 @@ struct PendingSongsView: View {
 
     // MARK: Foot and empty
 
-    /// MeloX's pagination footer (`CloudMusicView.swift:216-248`): a centred line of `subheadline`
-    /// over a hidden separator while it is still working, and a `bordered` retry button when the
-    /// read broke. A walk is what makes new rows appear here, so this is the list's version of
-    /// "loading more".
+    /// MeloX's pagination footer (`CloudMusicView.swift:216-248`): a centred `subheadline` line over a
+    /// hidden separator while it works, a `bordered` retry when the read broke. A walk is what fills
+    /// this list, so it is the list's version of "loading more".
     @ViewBuilder
     private var footer: some View {
         if indexer.isReading {
@@ -171,9 +160,8 @@ struct PendingSongsView: View {
         }
     }
 
-    /// The three empties this screen can be, in the reference's own shape
-    /// (`CloudMusicView.swift:178-199`): a search with no answer, a library nothing has been read
-    /// into, and a phone that already holds everything.
+    /// The three empties, in the reference's shape (`CloudMusicView.swift:178-199`): no search answer,
+    /// no channel read yet, and a phone that already holds everything.
     @ViewBuilder
     private var emptyState: some View {
         if !query.isEmpty {
@@ -216,8 +204,8 @@ struct PendingSongsView: View {
         player.play(first, in: visible.map { $0 as any Playable })
     }
 
-    /// One swipe, one file. The row stops being a pending row when the path lands — `Library` patches
-    /// the published row in place — so this list drains as its downloads finish.
+    /// One swipe, one file. The row stops being pending once the path lands, because `Library` patches
+    /// the published row in place — so the list drains as its downloads finish.
     private func download(_ track: StoreTrack) {
         guard !fetching.contains(track.uniqueId) else { return }
         fetching.append(track.uniqueId)

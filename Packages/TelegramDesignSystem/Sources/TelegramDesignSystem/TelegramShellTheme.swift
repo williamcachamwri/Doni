@@ -1,26 +1,22 @@
 import SwiftUI
 
-/// The shell's own numbers, the ones that are not the music screens'.
-///
-/// The chrome this file used to carry — a floating bar, a drawn header, a strip stacked on a tab bar
-/// with a clearance handed down to every list — is gone: on iOS 26 the system's `TabView` accessory,
-/// navigation bar and scroll insets do all of it, and the screens ask for it directly. What is left
-/// is the two things Doni still sizes itself.
+/// The shell's numbers that are not the music screens'. On iOS 26 the system's `TabView` accessory,
+/// navigation bar and scroll insets do the floating-bar chrome, so only what Doni still measures
+/// itself is left here.
 public enum TelegramShellMetrics {
     /// `buttonSize = CGSize(width: 64.0, height: 64.0)` for the transport row
     /// (`OverlayAudioPlayerControlsNode.swift:887`).
     public static let transportButton: CGFloat = 64
 }
 
-/// The player bar's fonts, taken from the calls that set them in
-/// `OverlayAudioPlayerControlsNode.swift`.
+/// The player bar's fonts, from the calls that set them in `OverlayAudioPlayerControlsNode.swift`.
 public enum TelegramShellTypography {
     /// `Font.medium(12.0)` on both timestamp labels (`:267`, `:270`).
     public static let timestamp = Font.system(size: 12, weight: .medium)
 }
 
-/// Motion lifted from `ChatListBadgeNode.swift` — the bubble Telegram animates into the
-/// unread-bubble slot this app reuses for a track's download state.
+/// Motion lifted from `ChatListBadgeNode.swift` — the bubble Telegram animates into the unread-bubble
+/// slot this app reuses for a track's download state.
 public enum TelegramShellMotion {
     /// `:205` alpha 0 → 1 and `:206` the position easing in, both 0.15 s.
     public static let appear = Animation.easeInOut(duration: 0.15)
@@ -28,8 +24,7 @@ public enum TelegramShellMotion {
     public static let disappear = Animation.easeInOut(duration: 0.15)
     /// `:170` scale 1.0 → 0.0001, 0.12 s.
     public static let collapse = Animation.easeInOut(duration: 0.12)
-    /// `:128`/`:134` entrance scale 0.0001 → 1.2, 0.2 s — the overshoot Telegram lets a bubble
-    /// land with before it settles at 1.
+    /// `:128`/`:134` entrance scale 0.0001 → 1.2, 0.2 s — the overshoot a bubble lands with before it settles at 1.
     public static let pop = Animation.easeOut(duration: 0.2)
     /// `:206` — a bubble enters from 8 pt above where it rests.
     public static let slideIn: CGFloat = 8

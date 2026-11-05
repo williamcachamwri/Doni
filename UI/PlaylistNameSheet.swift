@@ -1,12 +1,10 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// The sheet MeloX puts behind the "+" of both the playlist list and the add-to-playlist picker:
-/// a medium detent, an inline title, and a grouped form whose only field is the name
-/// (`PlaylistCreationSheet.swift:13-52`).
-///
-/// The reference's second row is a privacy toggle for a server it uploads the list to; a list that
-/// lives in Doni's own SQLite has nothing to keep private, so the form has the one field it needs.
+/// The sheet behind the "+" of both the playlist list and the add-to-playlist picker: a medium detent,
+/// an inline title, a grouped form whose only field is the name (`PlaylistCreationSheet.swift:13-52`).
+/// The reference's second row is a privacy toggle for a list it uploads to a server; Doni's list is
+/// local SQLite, so there is nothing to keep private.
 struct PlaylistNameSheet: View {
     let title: String
     let verb: String

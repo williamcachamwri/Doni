@@ -1,11 +1,8 @@
 import SwiftUI
 
-/// Colour tokens transcribed from the Telegram-iOS reference as *values*.
-/// Every entry cites the `file:line` it was read from in `Docs/design-tokens.md`;
-/// the reference checkout is read-only and none of its code is copied here.
-///
-/// Both palettes are measured, not mirrored: Doni is a dark app, and the day values are kept
-/// because the login screens were measured against the day theme.
+/// Colour tokens transcribed from the Telegram-iOS reference as *values*; every entry cites the
+/// `file:line` in `Docs/design-tokens.md` and none of its code is copied here. Doni is a dark app — the
+/// day values are kept because the login screens were measured on the day theme.
 public struct TelegramPalette: Sendable {
     public let accent: Color
     public let chatListBackground: Color
@@ -30,19 +27,19 @@ public struct TelegramPalette: Sendable {
     public let searchClearButton: Color
     /// `rootNav.opaqueBackground`, `#f7f7f7` mixed with white at 0.14 → `#f8f8f8` (`:420`).
     public let navOpaqueBackground: Color
-    /// `messages.mediaActiveControlColor` and `mediaInactiveControlColor` — the audio row's
-    /// played and idle states: day `:632`/`:633`, dark `:559`.
+    /// `messages.mediaActiveControlColor` / `mediaInactiveControlColor` — the audio row's played and idle
+    /// states: day `:632`/`:633`, dark `:559`.
     public let mediaActiveControl: Color
     public let mediaInactiveControl: Color
-    /// The glyph inside those controls, i.e. `messages.mediaControlInnerBackgroundColor`:
-    /// white on a blue bubble by day (`:634`) and `#262628` on a white one by dark (`:559`).
+    /// The glyph inside those controls, `messages.mediaControlInnerBackgroundColor`: white on a blue
+    /// bubble by day (`:634`), `#262628` on a white one by dark (`:559`).
     public let mediaControlGlyph: Color
-    /// `rootNav.blurredBackground` — the bar is a blur, not a fill, so content reads through it
-    /// (day `:419`, dark `:345`). `rootTabBar.backgroundColor` is this same colour in both
-    /// themes (day `:434`, dark `:359`).
+    /// `rootNav.blurredBackground` — the bar is a blur, not a fill, so content reads through it (day
+    /// `:419`, dark `:345`). `rootTabBar.backgroundColor` is the same colour in both themes (day `:434`,
+    /// dark `:359`).
     public let barBlurredBackground: Color
-    /// `rootTabBar.selectedIconColor` — by day selection is blue, by dark it is weight and the
-    /// glass capsule alone (day `:437`, dark `:363`).
+    /// `rootTabBar.selectedIconColor` — by day selection is blue, by dark it is weight and the glass
+    /// capsule alone (day `:437`, dark `:363`).
     public let tabBarSelectedIcon: Color
     /// `rootTabBar.textColor` (day `:438`, dark `:364`).
     public let tabBarText: Color
@@ -64,20 +61,18 @@ public struct TelegramPalette: Sendable {
     public let unreadBadgeFill: Color
     public let unreadBadgeText: Color
     /// `chatList.unreadBadgeInactiveBackgroundColor` / `…TextColor` (day `:561`/`:562`,
-    /// dark `:501`/`:502`) — the *muted* bubble. Doni borrows it for a track whose file is not on
-    /// the phone, because that is the photo's grey pill: it measures `#666666` at 3x with black
-    /// digits inside.
+    /// dark `:501`/`:502`) — the *muted* bubble, which Doni borrows for a track whose file is not on
+    /// the phone: the photo's grey pill measures `#666666` at 3x with black digits inside.
     public let unreadBadgeInactiveFill: Color
     public let unreadBadgeInactiveText: Color
-    /// What a Liquid Glass capsule reads as on this screen. The photo's own bar and tab capsules
-    /// measure `#3e3e40` inside with a `#686869` rim (`box`/`vedges` inside the capsules at
-    /// y 172…302 px), which is what `glassEffect(.regular)` composites to over the app's black.
-    /// On a device without Liquid Glass the shell paints this instead, under a thin material.
+    /// What a Liquid Glass capsule reads as on this screen: the photo's bar and tab capsules measure
+    /// `#3e3e40` inside with a `#686869` rim (`box`/`vedges` at y 172…302 px) — what `glassEffect(.regular)`
+    /// composites to over the app's black. Without Liquid Glass the shell paints this, under a thin
+    /// material.
     public let glassFallback: Color
-    /// Doni's own blue, chosen for what the app lights up rather than what Telegram does:
-    /// a matched run, the row that is playing, the selected chip and the glass capsule's tint.
-    /// It is Telegram's colour-customised dark accent (`DefaultDarkPresentationTheme.swift:7`),
-    /// and the day accent, so the blue is a hue the theme file already contains.
+    /// Doni's own blue, for what the app lights up: a matched run, the playing row, the selected chip,
+    /// the glass capsule's tint. It is Telegram's colour-customised dark accent
+    /// (`DefaultDarkPresentationTheme.swift:7`), so the hue already sits in the theme file.
     public let highlight: Color
 
     public init(
@@ -208,12 +203,10 @@ public struct TelegramPalette: Sendable {
         highlight: Color(rgb: 0x0088ff)
     )
 
-    /// `DefaultDarkPresentationTheme.swift` in the reference checkout — the mode Doni ships in.
-    ///
-    /// The accent here is white, not blue: Telegram's *plain* dark theme makes its accent white
-    /// (`:344`, `:420`), and the blue `#3e88f7` exists only in the colour-customised variant
-    /// (`:7`). Doni keeps both — white where Telegram puts white, blue where the user asked for
-    /// the app to light something up.
+    /// `DefaultDarkPresentationTheme.swift` — the mode Doni ships in. The accent here is white, not blue:
+    /// Telegram's *plain* dark theme makes its accent white (`:344`, `:420`) and `#3e88f7` exists only in
+    /// the colour-customised variant (`:7`). Doni keeps both — white where Telegram puts white, blue
+    /// where the app lights something up.
     public static let dark = TelegramPalette(
         accent: Color(rgb: 0xffffff),
         chatListBackground: Color(rgb: 0x000000),
@@ -258,8 +251,8 @@ public struct TelegramPalette: Sendable {
     )
 }
 
-/// Splits a `0xRRGGBB` literal into sRGB components. Broken out of the
-/// initialiser so the bit arithmetic is testable without a UI framework.
+/// Splits a `0xRRGGBB` literal into sRGB components, outside the initialiser so the bit arithmetic is
+/// testable without a UI framework.
 public struct SRGBComponents: Sendable {
     public let red: Double
     public let green: Double
@@ -275,9 +268,8 @@ public struct SRGBComponents: Sendable {
 }
 
 extension Color {
-    /// Telegram's `UIColor(rgb:)` takes a `UInt32` literal in sRGB, so the same
-    /// number has to resolve in sRGB here; the default `Color(red:…)` is not
-    /// guaranteed to be sRGB and would shift every hue slightly.
+    /// Telegram's `UIColor(rgb:)` takes a `UInt32` literal in sRGB, so the same number has to resolve in
+    /// sRGB here: the default `Color(red:…)` is not guaranteed sRGB and shifts every hue slightly.
     public init(rgb: UInt32, alpha: Double = 1.0) {
         let c = SRGBComponents(rgb: rgb, alpha: alpha)
         self.init(.sRGB, red: c.red, green: c.green, blue: c.blue, opacity: c.alpha)

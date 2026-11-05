@@ -1,19 +1,17 @@
 import Foundation
 
-/// The release notes bundled with this build.
-///
-/// `Scripts/release-notes.py` writes them out of `RELEASE_NOTES.md` at `make notes`, and the JSON is
-/// committed rather than generated during a build: XcodeGen decides the bundle's resources when it
-/// makes the project, so a file a build phase creates first is not in the package that build
-/// produces.
+/// The release notes bundled with this build: `Scripts/release-notes.py` writes them out of
+/// `RELEASE_NOTES.md` at `make notes`. The JSON is committed, not generated during a build — XcodeGen
+/// decides the bundle's resources when it makes the project, so a file a build phase creates first is
+/// not in the package that build produces.
 struct AppReleaseNotes: Equatable, Sendable {
     let version: String
     let entries: [String]
 
     static let empty = AppReleaseNotes(version: "", entries: [])
 
-    /// The notes for the language the phone is set to, English for anything else. Vietnamese is the
-    /// app's development language, so it is what the strings in the table are keyed by.
+    /// Notes for the phone's language, English for anything else; Vietnamese is the development language
+    /// the table's strings are keyed by.
     static func load() -> AppReleaseNotes {
         guard let url = Bundle.main.url(forResource: "ReleaseNotes", withExtension: "json"),
               let data = try? Data(contentsOf: url),
@@ -34,11 +32,8 @@ struct AppReleaseNotes: Equatable, Sendable {
     }
 }
 
-/// Whether this version's notes have already been shown.
-///
-/// A sheet that comes back on every launch is a sheet that gets dismissed without being read, so
-/// the version it was last shown for is written down — and a build whose notes cannot be read says
-/// nothing at all rather than opening an empty page.
+/// Whether this version's notes have already been shown. A sheet that returns on every launch gets
+/// dismissed unread, so the last version shown is written down; notes with no entries never present.
 enum AppReleaseNotesStore {
     private static let key = "releaseNotes.lastPresentedVersion"
 

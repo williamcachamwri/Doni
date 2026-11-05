@@ -2,16 +2,9 @@ import Foundation
 
 /// One file, named both ways it can be named.
 ///
-/// `fileId` is TDLib's row number in the database it happened to be using when it handed the number
-/// out (`td_api.tl:326`); `uniqueId` is MTProto's name for the bytes themselves and is the same in
-/// every database on every device. This app keeps its library in its own SQLite file, which outlives
-/// TDLib's database by however many times that one is rebuilt — and a row number kept across a
-/// rebuild is a number that now answers with a different file's bytes. That is how one song ends up
-/// wearing another song's cover, permanently: the wrong bytes are filed under the right song's name.
-///
-/// So a `uniqueId` is asked for first and the number is only ever used to reach the bytes it has
-/// been confirmed against. A caller that knows no identity says so, and gets the behaviour the
-/// number alone ever had.
+/// `fileId` is TDLib's row number in whichever database handed it out (`td_api.tl:326`) and is not
+/// stable across a rebuild; `uniqueId` is MTProto's name for the bytes, the same in every database on
+/// every device. A `uniqueId` is asked for first and the number only reaches bytes confirmed against it.
 public struct TdFile: Sendable, Hashable {
     /// The message that can give a stale row number back its current file.
     public struct Message: Sendable, Hashable {
@@ -53,11 +46,9 @@ public struct TdFile: Sendable, Hashable {
 
 /// What TDLib says about one file's bytes at the moment it was asked.
 ///
-/// A `localFile` describes a file that may be *partly* on the device: TDLib writes each part at its
-/// own offset in the file (`FileDownloader.cpp:281`), so the path is real and readable, and everything
-/// outside the parts it declares ready is garbage that happens to sit at the right distance from the
-/// start (`td_api.tl:305`). This is the difference between "not downloaded" and "downloaded", and it is
-/// the difference streaming has to respect.
+/// A `localFile` may be *partly* on the device: TDLib writes each part at its own offset
+/// (`FileDownloader.cpp:281`), so the path reads, and everything outside the ready parts is garbage
+/// (`td_api.tl:305`) — the difference streaming has to respect.
 public struct TdFileState: Sendable, Equatable {
     public let fileId: Int
     /// TDLib's own file. Empty while it has no local location yet.
@@ -77,10 +68,9 @@ public struct TdFileState: Sendable, Equatable {
 
 /// Watches TDLib's file downloads until the bytes are on the device.
 ///
-/// `downloadFile` (`td_api.tl:15001`) answers straight away with a `file` that is still in flight,
-/// and the progress arrives afterwards as `updateFile` (`td_api.tl:11596`) — which is why
-/// `TdClient` copies those updates onto a stream of their own. One task reads that stream for
-/// everybody here, because two consumers would take turns on the same updates.
+/// `downloadFile` (`td_api.tl:15001`) answers straight away with a `file` still in flight and progress
+/// arrives later as `updateFile` (`td_api.tl:11596`), which `TdClient` streams. One task reads that
+/// stream for everybody here, because two consumers would take turns on the same updates.
 public actor TdFileDownloader {
     private struct Waiting: Sendable {
         let uniqueId: String?
@@ -94,33 +84,31 @@ public actor TdFileDownloader {
     /// Row numbers confirmed during this TDLib process, keyed by durable file identity.
     private var rows: [String: Int] = [:]
 
-    /// TDLib's priority is 1-32 and the higher wins (`td_api.tl:15001`). Cover art is a few tens
-    /// of kilobytes and must never hold up the song the user pressed play on.
+    /// TDLib's priority is 1-32 and the higher wins (`td_api.tl:15001`); cover art must never hold up
+    /// the song the user pressed play on.
     public static let coverPriority = 1
     public static let audioPriority = 16
 
-    /// A file TDLib has stopped talking about should not pin a row's placeholder forever, so the
-    /// first wait is short and ends the way it always did.
+    /// A file TDLib has stopped talking about should not pin a row's placeholder, so the first wait is short.
     private static let patience: Duration = .seconds(20)
 
     /// A probe asks for the least of anything this actor will fetch, so it shares the cover's rung.
     private static let probePoll: Duration = .milliseconds(400)
     private static let probePatience: Duration = .seconds(15)
 
-    /// How a streaming window is watched: a megabyte of song is sixteen parts and a phone's
-    /// connection lands them over tens of seconds, so the window is asked about often and given long.
+    /// A megabyte of song is sixteen parts landing over tens of seconds, so the window is asked
+    /// often and given long.
     public static let windowPoll: Duration = .milliseconds(300)
     public static let windowPatience: Duration = .seconds(25)
 
-    /// It is not, though, the last word: a one-hour set is a hundred and forty megabytes, and on a
-    /// phone's connection it outlasts any fixed wait that could be promised. So after the first
-    /// patience the file is asked for itself, and only a run of answers that report the same
-    /// `downloaded_size` ends the wait. Bytes that move are a download that works.
+    /// Not the last word: a one-hour set is a hundred and forty megabytes and outlasts any fixed wait,
+    /// so after the first patience the file is asked for itself and only a run of answers reporting the
+    /// same `downloaded_size` ends it.
     private static let poll: Duration = .seconds(4)
     private static let stallWindow: Duration = .seconds(60)
 
-    /// One caller's seat at one file. The stream is `.unbounded` so that an update landing while
-    /// the caller is still waiting for its own response is kept rather than dropped.
+    /// One caller's seat at one file; the stream is `.unbounded` so an update landing before the
+    /// caller's own response is kept rather than dropped.
     private struct Listener: Sendable {
         let fileId: Int
         let token: UUID
@@ -189,10 +177,8 @@ public actor TdFileDownloader {
         return nil
     }
 
-    /// The bytes a `file` object says it holds.
-    ///
-    /// `fileRemoteUnknown` carries no `unique_id` at all, and that is answered as no identity rather
-    /// than as an empty one: a file TDLib cannot name is a file it cannot vouch for.
+    /// The bytes a `file` object says it holds. `fileRemoteUnknown` carries no `unique_id` and is
+    /// answered as no identity, not an empty one: TDLib cannot vouch for a file it cannot name.
     private static func identity(of file: TdJSON) -> String? {
         guard let unique = file["remote"]?["unique_id"]?.string, !unique.isEmpty else { return nil }
         return unique
@@ -203,9 +189,8 @@ public actor TdFileDownloader {
         return identity(of: file) == uniqueId
     }
 
-    /// The local path once the file is on the device, `nil` if it never gets there — TDLib
-    /// rejecting the request, giving up on the file, the client closing under it, or the bytes not
-    /// being the ones the caller named.
+    /// The local path once the file is on the device, `nil` if it never gets there — TDLib rejecting,
+    /// giving up, the client closing, or the bytes not the ones the caller named.
     public func path(_ file: TdFile, priority: Int = TdFileDownloader.coverPriority) async -> String? {
         guard let fileId = await row(of: file) else { return nil }
         let listener = install(fileId, uniqueId: file.uniqueId)
@@ -220,8 +205,7 @@ public actor TdFileDownloader {
                     "priority": .int(Int64(priority)),
                     "offset": .int(0),
                     "limit": .int(0),
-                    // False, because the response is only the start of the download; the answer
-                    // this method returns is the one TDLib sends through `updateFile`.
+                    // False: the response is only the start; the answer comes through `updateFile`.
                     "synchronous": .bool(false)
                 ]
             )
@@ -243,9 +227,8 @@ public actor TdFileDownloader {
             return nil
         }
 
-        // Silence is a give-up — but only silence. A file TDLib pauses or abandons never sends
-        // the update that would end this wait, and a file that is merely slow keeps sending bytes
-        // that no update carries, so the watch switches from the clock to the file's own progress.
+        // Silence is a give-up — but only silence: a file TDLib pauses or abandons never sends the
+        // ending update, so the watch switches from the clock to the file's own progress.
         // A Task born inside an actor method keeps that isolation, so none of this needs a hop.
         let timer = Task {
             do {
@@ -291,8 +274,8 @@ public actor TdFileDownloader {
                 }
             }
         }
-        // `AsyncStream` does not end on its own when the caller goes away, so cancellation is
-        // answered by the same door the timer uses: an explicit `nil` into the listener's stream.
+        // `AsyncStream` does not end when the caller goes away, so cancellation enters through the
+        // timer's door: an explicit `nil` into the listener's stream.
         let path = await withTaskCancellationHandler {
             await receive(from: listener)
         } onCancel: {
@@ -315,15 +298,11 @@ public actor TdFileDownloader {
 
     /// Tells TDLib to throw its own copy of a file away.
     ///
-    /// This is the only way to empty TDLib's directory that leaves TDLib knowing it has been emptied:
-    /// `deleteFile` (`td_api.tl:15052`) marks the file's row in TDLib's own database as gone, so a
-    /// later `downloadFile` fetches it again. Deleting the bytes from under a running TDLib instead
-    /// leaves it holding a path that no longer exists, and it goes on answering `downloadFile` with
-    /// that path — the song would look downloaded forever and never play.
-    ///
-    /// Offline, TDLib says `Ok` and does nothing until the next connection
-    /// (`td_api.tl:15045-15052`), which is why the caller keeps the row's own state as the truth
-    /// about the phone rather than this answer.
+    /// The only way to empty TDLib's directory that leaves TDLib knowing: `deleteFile`
+    /// (`td_api.tl:15052`) marks the row gone in its database so a later `downloadFile` refetches it,
+    /// while deleting the bytes under a running TDLib leaves it answering `downloadFile` with a path
+    /// that no longer exists — downloaded forever and never playing. Offline it says `Ok` until the
+    /// next connection (`td_api.tl:15045-15052`), so the caller keeps the row's own state instead.
     public func remove(_ file: TdFile) async -> Bool {
         guard let fileId = await row(of: file) else { return false }
         return (try? await flow.request("deleteFile", ["file_id": .int(Int64(fileId))])) != nil
@@ -331,28 +310,22 @@ public actor TdFileDownloader {
 
     /// A few bytes out of a file the phone does not have, and does not get.
     ///
-    /// `downloadFile`'s `limit` is not a hint: it is the number of bytes after which the fetch is
-    /// canceled by itself (`td_api.tl:14998`), which is what lets the app read a container header
-    /// out of a song it has no intention of downloading. The answer is whatever is readable at the
-    /// offset, which may be fewer bytes than were asked for — a caller that wants a header can
-    /// usually work with the beginning of one.
+    /// `downloadFile`'s `limit` is not a hint: it is the number of bytes after which the fetch cancels
+    /// itself (`td_api.tl:14998`), which lets a container header be read out of a song nobody intends
+    /// to download; the answer is whatever is readable, possibly fewer bytes than were asked.
     ///
-    /// The state is read back from `getFile` rather than from the request's own reply, because a
-    /// download that ended on its limit is not one that "succeeded", and because the window that is
-    /// actually readable is only ever in `download_offset` and `downloaded_prefix_size`
-    /// (`td_api.tl:303-304`): the partial file on disk is longer than the bytes TDLib has, and the
-    /// rest of it is garbage (`:305`).
-    ///
-    /// Nothing here calls `cancelDownloadFile`. The limit already did the cancelling, and telling
-    /// TDLib to stop a file id stops the whole file — a probe that cancelled under a row the user
-    /// then pressed play on would leave that row waiting for nothing.
+    /// The state is read back from `getFile`, not the reply: a download that ended on its limit did not
+    /// "succeed", and the readable window is only ever `download_offset` and `downloaded_prefix_size`
+    /// (`td_api.tl:303-304`) — the partial file on disk is longer and the rest is garbage (`:305`).
+    /// Nothing calls `cancelDownloadFile`: the limit already cancelled, and cancelling a file id stops
+    /// the whole file, which would leave a row the user then plays waiting for nothing.
     public func part(_ file: TdFile, offset: Int64, bytes: Int,
                      priority: Int = TdFileDownloader.coverPriority) async -> Data? {
         guard bytes > 0, offset >= 0 else { return nil }
         guard let fileId = await row(of: file) else { return nil }
         // TDLib keeps exactly one offset and limit per file id and the newest request overwrites them
-        // (`FileManager.cpp:3103-3107`). A row waiting on the whole file is a song someone is about
-        // to listen to, so it is not probed: the ask would truncate its fetch and drop its priority.
+        // (`FileManager.cpp:3103-3107`), so a row waiting on the whole file is not probed: the ask
+        // would truncate its fetch and drop its priority.
         guard listeners[fileId] == nil else { return nil }
 
         let ask: [String: TdJSON] = ["file_id": .int(Int64(fileId))]
@@ -366,8 +339,8 @@ public actor TdFileDownloader {
                     "priority": .int(Int64(priority)),
                     "offset": .int(offset),
                     "limit": .int(Int64(bytes)),
-                    // False, so this reply is the file's state right now — a file already on the
-                    // phone is answered here and costs no second round trip.
+                    // False, so this reply is the file's state right now: a file already on the
+                    // phone costs no second round trip.
                     "synchronous": .bool(false)
                 ]
             )
@@ -398,8 +371,8 @@ public actor TdFileDownloader {
             }
             if Self.isUnavailable(file) { return nil }
         }
-        // Out of patience, not necessarily out of use: the header may well have landed in the first
-        // few kilobytes, which is as good an answer as the whole ask would have been.
+        // Out of patience, not out of use: a header in the first kilobytes is as good an answer as
+        // the whole ask would have been.
         return Self.slice(in: file, from: offset, bytes: bytes)
     }
 
@@ -418,11 +391,8 @@ public actor TdFileDownloader {
     ///
     /// `getFileDownloadedPrefixSize` (`td_api.tl:15006`) decodes TDLib's ready-part bitmask, so unlike
     /// `downloaded_prefix_size` in an `updateFile` it answers for a range in the *middle* of a file —
-    /// which is the whole reason a seek can be served from what is already here instead of from what
-    /// happens to be contiguous with the start.
-    ///
-    /// `nil` is not zero. It means TDLib did not answer, and a caller that reads anyway is reading
-    /// garbage that only looks like the song (`td_api.tl:305`).
+    /// why a seek can be served from what is already here. `nil` is not zero: TDLib did not answer, and
+    /// reading anyway reads garbage (`td_api.tl:305`).
     public func readyBytes(_ file: TdFile, at offset: Int64) async -> Int64? {
         guard offset >= 0, let fileId = await row(of: file) else { return nil }
         guard let answer = try? await flow.request(
@@ -435,10 +405,8 @@ public actor TdFileDownloader {
     /// Moves the window TDLib downloads for this file to `offset` and keeps the file's priority there.
     ///
     /// TDLib holds exactly one offset and one limit per row number and the newest ask overwrites them
-    /// (`FileManager.cpp:3103-3107`), so this is a *move*, not an extra fetch: whoever is streaming the
-    /// song owns the window for as long as it is streaming, and a second caller would take the window
-    /// away from it. That is why it is not guarded the way `part` is — `part` must not touch a row
-    /// someone is waiting on whole, and a stream is the thing that row is now waiting for.
+    /// (`FileManager.cpp:3103-3107`), so this is a *move*: whoever streams the song owns the window and
+    /// a second caller would take it away — why it is not guarded the way `part` is.
     ///
     /// `bytes` is what the caller needs, not a promise about the rest: this build answers `download`
     /// with `run_download(node, true)` (`FileManager.cpp:3111`), which sets `ignore_download_limit`
@@ -469,14 +437,10 @@ public actor TdFileDownloader {
     }
 
     /// The bytes at `offset`, cut off at whatever TDLib says is ready, so a read can never hand back
-    /// the hole next to a part it has not fetched.
-    ///
-    /// Fewer bytes than asked is a normal answer — near the end of the file, or when only part of the
-    /// window has landed. A caller that needs the whole range asks again after the next `updateFile`.
-    ///
-    /// Two kinds of nothing are told apart, because a streaming caller has to behave differently for
-    /// each: an empty answer is "not on the phone yet" and is worth waiting through, while `nil` is
-    /// "TDLib will not fetch this", and waiting for it is how a spinner never ends.
+    /// the hole next to a part it has not fetched. Fewer bytes than asked is normal near the end of the
+    /// file or mid-window; a caller needing the whole range asks again after the next `updateFile`. An
+    /// empty answer is "not on the phone yet" and is waited through; `nil` is "TDLib will not fetch
+    /// this", and waiting on it is a spinner that never ends.
     public func read(_ file: TdFile, at offset: Int64, upTo bytes: Int) async -> Data? {
         guard bytes > 0, offset >= 0, let state = await state(file) else { return nil }
         guard !state.path.isEmpty else { return Data() }
@@ -500,21 +464,16 @@ public actor TdFileDownloader {
     /// `downloadFile`'s `limit` does not stop the fetch for a caller: `download_impl` hands the node
     /// `run_download(node, true)` (`FileManager.cpp:3111`), which is `ignore_download_limit`
     /// (`FileManager.cpp:657-661`), so the limit only decides when the *asker* is answered
-    /// (`FileManager.cpp:3019-3029`) and TDLib then carries on with `upload.getFile` from the first
-    /// part it has never fetched (`PartsManager.cpp:292-296`). Measured on a phone over a 166 MB set:
-    /// the window at the playhead was being fetched at one hundred megabytes while the rest of the
-    /// file was being pulled on from ninety-seven — the same link, and the listener starving in the
-    /// middle of the song. So the window is followed by `cancelDownloadFile`, which stops the file
-    /// without taking anything back: the parts already landed were written at their own offsets
-    /// (`FileDownloader.cpp:281`) and stay, and the ready bitmask in TDLib's database goes on
-    /// counting them (`FileManager.cpp:3170-3196`).
-    ///
-    /// A fetch that is cancelled on the way back does not cancel the file — the caller that took its
-    /// place wants those bytes still coming.
-    ///
-    /// `patience` is the caller's because the uses are not the same bet: the song under the playhead
-    /// is worth waiting half a minute for, a song merely guessed to be next is not, and a test
-    /// should not have to wait at all.
+    /// (`FileManager.cpp:3019-3029`) and TDLib carries on with `upload.getFile` from its first
+    /// unfetched part (`PartsManager.cpp:292-296`). Measured over a 166 MB set on a phone: the playhead
+    /// window was being fetched at one hundred megabytes while the rest of the file was pulled on from
+    /// ninety-seven — one link, the listener starving mid-song. So the window is followed by
+    /// `cancelDownloadFile`, which stops the file without taking anything back: the parts already
+    /// landed were written at their own offsets (`FileDownloader.cpp:281`) and stay, and the ready
+    /// bitmask goes on counting them (`FileManager.cpp:3170-3196`). A fetch cancelled on the way back
+    /// does not cancel the file — the caller that took its place wants those bytes still coming.
+    /// `patience` is the caller's because the bets differ: the playhead song is worth half a minute, a
+    /// guessed next song is not, and a test should not wait at all.
     public func fetch(_ file: TdFile, window offset: Int64, bytes: Int64,
                       priority: Int = TdFileDownloader.audioPriority,
                       patience: Duration = TdFileDownloader.windowPatience) async -> Int64 {
@@ -526,8 +485,7 @@ public actor TdFileDownloader {
             if let answer = await readyBytes(file, at: offset) {
                 ready = answer
                 if ready >= bytes || state.size > 0 && offset + ready >= state.size { return ready }
-                // A window that has moved at all is making progress; only a window that has not
-                // moved for the whole patience is a fetch that is not coming.
+                // A window that moved is progress; one that never moved for the whole patience is not coming.
                 if ContinuousClock.now > deadline { return ready }
             }
             try? await Task.sleep(for: Self.windowPoll)
@@ -587,13 +545,10 @@ public actor TdFileDownloader {
         waiting.continuation.finish()
     }
 
-    /// A row that scrolled away is a caller that has gone and a download nobody wants. TDLib keeps
-    /// fetching until it is told otherwise, and a hundred covers at priority 1 still running after
-    /// one flick of a finger is what holds up the song the user actually pressed play on — which is
-    /// why the wait ends with `cancelDownloadFile` as well as with a `nil`.
-    ///
-    /// Only when this was the last seat at the file: a shelf card and a list row often want the same
-    /// cover, and stopping the fetch under the one that is still waiting would leave it stranded.
+    /// A row that scrolled away is a caller gone and a download nobody wants, so the wait ends with
+    /// `cancelDownloadFile` as well as a `nil`: a hundred covers at priority 1 still running after one
+    /// flick of a finger hold up the song the user pressed play on. Only when this was the last seat at
+    /// the file — stopping under a caller still waiting would leave it stranded.
     private func abandon(_ listener: Listener) {
         fail(listener)
         guard listeners[listener.fileId]?.isEmpty != false else { return }
@@ -668,10 +623,8 @@ public actor TdFileDownloader {
     }
 
     /// The stretch of the file that is on the device and can be read: its path, the first byte that
-    /// means what it says, and the one past the last.
-    ///
-    /// A completed download is readable whole. A partial one is readable from `download_offset` for
-    /// `downloaded_prefix_size` bytes and nowhere else (`td_api.tl:304`).
+    /// means what it says, and the one past the last. A completed download reads whole; a partial one
+    /// reads from `download_offset` for `downloaded_prefix_size` bytes and nowhere else (`td_api.tl:304`).
     private static func readable(in file: TdJSON) -> (path: String, from: Int64, to: Int64)? {
         guard let local = file["local"], let path = local["path"]?.string, !path.isEmpty else {
             return nil
@@ -700,9 +653,8 @@ public actor TdFileDownloader {
         return read(path: window.path, from: from, bytes: Int(to - from))
     }
 
-    /// A range read straight off the file system, which is what TDLib itself recommends over
-    /// `readFilePart` (`td_api.tl:14944`): the app has the directory, so the bytes do not need to
-    /// come back through JSON.
+    /// A range read straight off the file system, which TDLib itself recommends over `readFilePart`
+    /// (`td_api.tl:14944`): the app has the directory, so the bytes need not come back through JSON.
     private static func read(path: String, from offset: Int64, bytes: Int) -> Data? {
         guard let handle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: path)) else {
             return nil
@@ -713,15 +665,12 @@ public actor TdFileDownloader {
     }
 
     /// The one thing in a `localFile` that means "this is never coming": `can_be_downloaded` is
-    /// documented as "if it is possible to download or generate the file" (`td_api.tl:299`), and it
-    /// says so whatever TDLib is or is not doing with it right now.
+    /// documented as "if it is possible to download or generate the file" (`td_api.tl:299`), and says
+    /// so whatever TDLib is or is not doing with the file right now.
     ///
-    /// `is_downloading_active` was read as this, and it is not: it means the file is being fetched
-    /// *at this moment*, which a download TDLib has queued but not started is not (`td_api.tl:301`).
-    /// `downloadFile` with `synchronous: false` answers "immediately, just after the download has
-    /// been started" (`td_api.tl:15000`) — for a cover still waiting its turn that answer is
-    /// inactive, and every one of those was being reported as a give-up. That is why the list stayed
-    /// on its 40×30 minithumbnail: the tiles were not missing, they were queued.
+    /// `is_downloading_active` was read as this and is not: it means being fetched *at this moment*,
+    /// which a queued download is not (`td_api.tl:301`) — and `synchronous: false` answers "immediately,
+    /// just after the download has been started" (`td_api.tl:15000`), so a queued cover reads inactive.
     private static func isUnavailable(_ file: TdJSON) -> Bool {
         guard let local = file["local"] else { return false }
         return local["can_be_downloaded"]?.bool == false

@@ -3,13 +3,11 @@ import Foundation
 /// Byte counting for a storage screen, on the reference's rules
 /// (`StorageMaintenance.swift:203-253`, `:179-199`).
 ///
-/// Allocated size rather than logical size, because allocated is what the system charges an app for
-/// in its own Settings panel — and the reason this exists is that the numbers the library kept in its
-/// rows had stopped agreeing with that panel.
+/// Allocated size rather than logical: allocated is what the system charges an app for in its own
+/// Settings panel, so it is the number the screen has to agree with.
 public enum DiskUsage {
     /// Everything a path holds, in allocated bytes: a file's own size, or every regular file under a
-    /// directory. A path that is not there is nothing rather than a failure, which is what a first
-    /// launch looks like.
+    /// directory. A path that is not there is nothing rather than a failure, as a first launch looks.
     public static func bytes(at url: URL, fileManager: FileManager = .default) -> Int64 {
         guard fileManager.fileExists(atPath: url.path) else { return 0 }
         if let size = allocated(of: url) { return size }

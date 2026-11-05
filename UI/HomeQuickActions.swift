@@ -1,14 +1,11 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// The row of gradient tiles at the head of the feed, in the form MeloX ships: `compactHomeQuickActions`
-/// defaults to *true* (`AppSettings.swift:1799-1801`), so the tile is the 132 pt one — glyph, spacer,
-/// two lines of copy, all of it white on a diagonal gradient, 14 pt of padding inside a 14 pt corner
-/// and at most 230 pt wide (`HomeComponents.swift:25-54`, `HomeQuickActionsView.swift:107-146`).
-///
-/// What the six tiles *are* is Doni's own: MeloX's are Netease recommendations, and this app's
-/// library is one Telegram channel. The count is MeloX's, and so is the mix — three of the six open
-/// a screen, three start playing (`HomeQuickActionsView.swift:149-158`).
+/// The feed's gradient tiles, in MeloX's shipped form: `compactHomeQuickActions` defaults to true
+/// (`AppSettings.swift:1799-1801`), so the tile is the 132 pt one — white copy on a diagonal gradient,
+/// 14 pt padding inside a 14 pt corner, at most 230 pt wide (`HomeComponents.swift:25-54`,
+/// `HomeQuickActionsView.swift:107-146`). Six tiles: three open a screen, three start playing
+/// (`HomeQuickActionsView.swift:149-158`); their content is Doni's own.
 struct HomeQuickActions: View {
     let subtitle: (DoniHomeAction) -> String
     let perform: (DoniHomeAction) -> Void
@@ -69,8 +66,7 @@ struct HomeQuickActions: View {
     }
 }
 
-/// The six, in the order they appear, each wearing one of MeloX's gradient pairs in MeloX's own
-/// sequence (`HomeQuickActionsView.swift:81-96`).
+/// The six, in order, each wearing one of MeloX's gradient pairs (`HomeQuickActionsView.swift:81-96`).
 enum DoniHomeAction: String, CaseIterable, Identifiable {
     case shuffle
     case newest
@@ -103,8 +99,8 @@ enum DoniHomeAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The pairs are the reference's, in the reference's order: pink/red, orange/red, pink/purple,
-    /// indigo/purple, cyan/blue, mint/teal.
+    /// MeloX's gradient pairs, in MeloX's order: pink/red, orange/red, pink/purple, indigo/purple,
+    /// cyan/blue, mint/teal.
     var colors: [Color] {
         let pair = MusicQuickActionMetrics.gradientPairs[
             DoniHomeAction.allCases.firstIndex(of: self) ?? 0

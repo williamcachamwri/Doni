@@ -2,22 +2,16 @@ import SwiftUI
 import TelegramDesignSystem
 import TdSession
 
-/// Login: one screen per authorization state, driven by TDLib's state rather than by a step
-/// counter, so a session that resumes at the code step or at the password step shows the right
-/// field without extra bookkeeping.
-///
-/// The layout follows `Docs/design-tokens.md`, "Login (authorization sequence)": measured type,
-/// ruled fields, a capsule button 24 pt above the keyboard, content hanging from the top with its
-/// gaps stretching to their maxima, which is how `layoutAuthorizationItems` distributes the space a
-/// screen leaves over. What it does not follow is the reference's white canvas: this is the front
-/// door of a dark music app, so it wears the shell's black, the shell's accent and a backdrop that
-/// moves, and the mark sits in the slot the reference keeps for its 100×100 intro sticker.
-///
-/// The hand-over between two screens is Telegram's snapshot choreography: the outgoing screen is
-/// kept on stage as a frozen copy, thrown 100–140 pt up while the field block shrinks to 30 % and
-/// both fade out, and the incoming screen fades up over it — growing its own mark from 30 % the way
-/// the incoming sticker does. The button is the one element that belongs to no screen, so it is
-/// hidden in the copy and never fades.
+/// Login: one screen per authorization state, driven by TDLib's state rather than a step counter, so a
+/// session resuming at the code or password step shows the right field with no extra bookkeeping.
+/// Layout follows `Docs/design-tokens.md`, "Login (authorization sequence)": measured type, ruled
+/// fields, a capsule 24 pt above the keyboard, gaps stretching to their maxima the way
+/// `layoutAuthorizationItems` distributes them — but not the reference's white canvas: this is a dark
+/// music app's front door, and the mark takes the slot kept for its 100×100 intro sticker.
+/// The hand-over is Telegram's snapshot choreography: the outgoing screen stays on stage as a frozen
+/// copy, thrown 100–140 pt up while the field block shrinks to 30 % and both fade out; the incoming
+/// one fades up with its mark growing from 30 %. The button belongs to no screen, so it is hidden
+/// in the copy.
 struct LoginView: View {
     @ObservedObject var session: TelegramSession
 
@@ -70,8 +64,8 @@ struct LoginView: View {
         var crestScale: CGFloat = 1
     }
 
-    /// Two updates of the same screen must not replay the hand-over — TDLib resends the code
-    /// state when a code is reissued, and Telegram does not animate for that.
+    /// Two updates of the same screen must not replay the hand-over: TDLib resends the code state when
+    /// a code is reissued, and Telegram does not animate for that.
     private enum Screen: Equatable {
         case phone, code, password, otherDevice, signUp, ready, busy, other(String)
     }
@@ -110,10 +104,9 @@ struct LoginView: View {
             }
         }
         // The backdrop belongs behind the sequence, not beside it. A ZStack proposes its own width to
-        // what it holds, and this one is 520 pt wide on its own account — its glows are fixed squares
-        // — so as a sibling it handed the reader a canvas 130 pt wider than the phone. The field block
-        // was laid out for that and then centred in the real one, which put the country name and the
-        // dial code off the left edge; `proxy.size.width` was wrong for the code boxes too.
+        // what it holds, and this one is 520 pt wide on its own account, so as a sibling it handed the
+        // reader a canvas 130 pt wider than the phone and pushed the country name and dial code off the
+        // left edge.
         .background { LoginBackdrop(canvas: list.background) }
         .overlay(alignment: .topLeading) {
             if offersBack(session.step), !isPickingANewNumber {
@@ -147,11 +140,9 @@ struct LoginView: View {
         }
         .task(id: ghostToken) {
             guard ghost != nil else { return }
-            // The copy is gone once its longest animation, the 0.4 s shrink, has finished.
-            //
-            // `try await` with the throw caught, not `try?`: a cancelled sleep has to *leave*, and
-            // swallowing the error let the lines below run anyway. A new ghost arriving on top of
-            // the old one's timer used to erase the outgoing slide before it had moved.
+            // The copy is gone once its longest animation, the 0.4 s shrink, has finished. `try await`
+            // with the throw caught, not `try?`: a cancelled sleep has to *leave*, since swallowing the
+            // error let the lines below run and a new ghost could erase the outgoing slide mid-flight.
             do {
                 try await Task.sleep(for: .seconds(0.4))
             } catch {
@@ -161,10 +152,9 @@ struct LoginView: View {
         }
         .task(id: isCodeFailed) {
             guard isCodeFailed else { return }
-            // Same trap, worse cost. This one clears the code field after the shake, and anything
-            // that re-IDs the task — TDLib re-announcing a step, the user pressing "Dừng" to
-            // change number — cancelled the timer while its body went on to wipe the digits being
-            // typed at that moment.
+            // Same trap, worse cost: this one clears the code field after the shake, and anything that
+            // re-IDs the task — TDLib re-announcing a step, or "Dừng" to change number — the timer
+            // was cancelled while its body went on to wipe the digits being typed then.
             do {
                 try await Task.sleep(for: .seconds(TelegramLoginMotion.failedResetDelay))
             } catch {
@@ -286,9 +276,8 @@ struct LoginView: View {
             .scaleEffect(motion.fieldScale)
             .opacity(motion.alpha)
 
-            // Not `minLength: 0`. The keyboard's suggestion strip — the "Từ Nicegram 97539" bar — is
-            // part of the height iOS takes back, and a spacer that can close to nothing pressed the
-            // button straight onto the bottom of the boxes.
+            // Not `minLength: 0`: the keyboard's suggestion strip is part of the height iOS takes back,
+            // and a spacer that closes to nothing pressed the button onto the bottom of the boxes.
             Spacer(minLength: TelegramLoginMetrics.buttonToBottom)
 
             TelegramPrimaryButton(
@@ -300,12 +289,10 @@ struct LoginView: View {
             )
             .opacity(isGhost ? 0 : 1)
         }
-        // The block has to be told to take the width it is offered. A VStack sizes itself to its
-        // widest child's ideal width, and a subtitle like "Chúng tôi đã gửi mã 5 chữ số cho
-        // +84562106190." asks for more than the screen, so the block grew past the canvas and the
-        // ZStack centred it — which pulled every other row, including the country name and the
-        // dial code, off the left edge. Clamped here, the text wraps and the absolute insets below
-        // (`dialCodeLeading`, `countryLeading`) land where they are measured to land.
+        // The block has to be told to take the width it is offered: a VStack sizes to its widest
+        // child's ideal width, so a long subtitle grew the block past the canvas and the ZStack
+        // centred it — pulling the country name and dial code off the left edge. Clamped here, the
+        // text wraps and the absolute insets (`dialCodeLeading`, `countryLeading`) land as measured.
         .frame(maxWidth: .infinity)
         .padding(.horizontal, TelegramLoginMetrics.horizontalInset)
         .padding(.bottom, TelegramLoginMetrics.buttonToBottom)
@@ -374,9 +361,8 @@ struct LoginView: View {
         }
     }
 
-    /// The mark keeps the sticker's slot and gives up height when the keyboard takes the lower half
-    /// of the screen — the same trade the phone screen makes by swapping 30 pt light type for 28 pt
-    /// bold, made here without moving anything the eye is following.
+    /// The mark keeps the sticker's slot and gives up height when the keyboard takes the lower half —
+    /// the same trade the phone screen makes by swapping 30 pt light type for 28 pt bold.
     private var liveCrestSide: CGFloat {
         isKeyboardVisible ? TelegramLoginMetrics.crestTuckedSide : TelegramLoginMetrics.crestSide
     }
@@ -634,9 +620,8 @@ struct LoginView: View {
     }
 }
 
-/// The app's mark, standing in the slot the reference keeps for its 100×100 intro sticker. Doni
-/// ships no Lottie and no asset catalog, so this is drawn from the same accent tile the settings
-/// header wears — which is also the one thing on this screen that says whose app the login opens.
+/// The app's mark, in the slot the reference keeps for its 100×100 intro sticker: the same accent tile
+/// the settings header wears, since Doni ships no Lottie and no asset catalog.
 private struct LoginCrest: View {
     let side: CGFloat
 
@@ -654,13 +639,9 @@ private struct LoginCrest: View {
     }
 }
 
-/// The canvas the sequence is read on: the shell's black, and two soft colours drifting slowly
-/// behind the words.
-///
-/// They move because nothing here sits under the content as a panel — a light that never travels is
-/// a background card, and the fields already have their own rules to stand on. Two radial gradients
-/// rather than blurred discs for the same reason: they are soft by construction, so an eleven-second
-/// drift costs a fill instead of a Gaussian pass every frame.
+/// The canvas the sequence is read on: the shell's black, and two soft colours drifting behind the
+/// words. They move because nothing here sits under the content as a panel. Radial gradients rather
+/// than blurred discs are soft by construction, so an eleven-second drift costs a fill, not a blur.
 private struct LoginBackdrop: View {
     let canvas: Color
 
@@ -677,9 +658,8 @@ private struct LoginBackdrop: View {
             glow(Color(rgb: 0x3e88f7), opacity: 0.20, side: 520)
                 .offset(x: drift ? 92 : -70, y: drift ? 176 : 108)
         }
-        // Sized to what it is given, never to its own art: the glows are fixed squares and would
-        // otherwise make this the widest thing in any stack that holds it, and a stack hands its own
-        // width down to its siblings.
+        // Sized to what it is given, never to its own art: the glows are fixed squares and would make
+        // this the widest thing in any stack holding it, and a stack hands its width down to siblings.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .onAppear {

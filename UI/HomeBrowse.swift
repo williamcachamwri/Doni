@@ -3,11 +3,8 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The Home tab's two segments, which is how the reference splits the same screen
-/// (`HomeView.swift:18-33`, `:36-47`): a `.segmented` picker over the section's own content.
-///
-/// MeloX's third segment is podcasts, and a Telegram music channel has no such thing, so the picker
-/// has the two sections whose content this app actually holds.
+/// The Home tab's two segments, from the reference's `.segmented` picker over its own content
+/// (`HomeView.swift:18-33`, `:36-47`). MeloX's third segment is podcasts; a Telegram channel has none.
 enum DoniHomeSection: String, CaseIterable, Identifiable {
     case forYou
     case music
@@ -30,20 +27,16 @@ struct HomeFacet: Identifiable {
     var id: String { title }
 }
 
-/// The second segment, in the shape of the reference's discover screen (`ExploreView.swift:44-102`):
-/// a row of capsule chips, the first thing the chosen chip leads with drawn as a full-width card, and
-/// everything after it in a two-column grid.
-///
-/// The numbers are the reference's and are in `MusicExploreMetrics`. What differs is only where the
-/// lists come from: MeloX asks Netease for a category's playlists, and Doni's categories are the four
-/// groups its own store keeps plus the performers that appear most in it — the facets a channel
-/// really has.
+/// The second segment, shaped on the reference's discover screen (`ExploreView.swift:44-102`): capsule
+/// chips, a full-width hero card for the chosen chip, then a two-column grid. The numbers live in
+/// `MusicExploreMetrics`; only the source differs — Doni's facets are its store's own groups plus its
+/// most frequent performers, not NetEase categories.
 struct HomeBrowse: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     let facets: [HomeFacet]
-    /// The door the empty screen opens, which is the Home tab's sheet rather than this segment's own.
+    /// The empty screen's action: the Home tab's sheet, not this segment's own.
     let addChannel: () -> Void
     let reload: () async -> Void
 
@@ -105,8 +98,8 @@ struct HomeBrowse: View {
     @ViewBuilder
     private func content(_ facet: HomeFacet) -> some View {
         if facet.tracks.isEmpty {
-            // One chip with nothing in it is a chip to leave; nothing anywhere is a library that has
-            // never been pointed at a channel, and that has exactly one answer.
+            // An empty facet keeps a plain empty view; a wholly empty library gets the
+            // add-channel prompt.
             if facets.allSatisfy({ $0.tracks.isEmpty }) {
                 AddChannelPrompt("Thư viện đang trống", action: addChannel)
                     .padding(.top, 60)
@@ -120,9 +113,8 @@ struct HomeBrowse: View {
         }
     }
 
-    /// The first song of the chip, drawn as the reference's featured card: the cover at 1.55, a
-    /// scrim that darkens toward the bottom, and the words laid over it
-    /// (`ExplorePlaylistComponents.swift:44-81`).
+    /// The chip's first song as the reference's featured card: cover at 1.55, a scrim darkening
+    /// toward the bottom, words over it (`ExplorePlaylistComponents.swift:44-81`).
     private func hero(_ facet: HomeFacet) -> some View {
         let track = facet.tracks[0]
         return Button {
@@ -205,8 +197,8 @@ struct HomeBrowse: View {
                 .overlay { art(track) }
                 .clipShape(.rect(cornerRadius: MusicExploreMetrics.cardRadius))
                 .overlay(alignment: .topTrailing) {
-                    // The reference puts a play count here. Doni has no counts, so the pill carries
-                    // the one number the post does have — how long the song is.
+                    // The reference shows a play count here; Doni has none, so the pill shows the
+                    // song's length instead.
                     if let text = MediaClock.duration(track.duration) {
                         Label(text, systemImage: "play.fill")
                             .font(.caption2.weight(.semibold))
@@ -237,11 +229,9 @@ struct HomeBrowse: View {
         }
     }
 
-    /// The cover itself, filled into whatever box the card or the hero turned out to be.
-    ///
-    /// `scaledToFill` sizes the layout box, not only the pixels, so it is put in an `overlay` — the
-    /// box is the `Color.clear`'s aspect ratio, and the picture that overflows it is clipped by the
-    /// `clipShape` the caller applies.
+    /// The cover, filled into whatever box the card or the hero turned out to be.
+    /// `scaledToFill` sizes the layout box, not only the pixels, so it goes in an `overlay`: the box
+    /// stays the `Color.clear` aspect ratio and the overflow is clipped by the caller's `clipShape`.
     @ViewBuilder
     private func art(_ track: any Playable) -> some View {
         ZStack {

@@ -2,14 +2,14 @@ import Foundation
 
 /// The container names AVFoundation has to be told, keyed by the extension a Telegram file carries.
 ///
-/// A resource loader is not a URL the player will probe: answering the content-information request
-/// without a type gets -11850 "the server is not correctly configured", which reads like a broken
-/// network and is really a missing string. So the list is deliberately short and says nothing about a
-/// format iOS cannot decode — an answer here is a promise that `AVPlayer` can play the bytes.
+/// A resource loader is not a URL the player probes: answering content-information without a type gets
+/// -11850 "the server is not correctly configured", which reads like a broken network and is really a
+/// missing string. The list says nothing about a format iOS cannot decode — an answer here is a promise
+/// that `AVPlayer` can play the bytes.
 public enum AudioContentType {
-    /// The uniform type identifier for an extension, `nil` when the container is not one
-    /// AVFoundation opens. `nil` is not "try it": the caller has to put the song on the whole-file
-    /// path instead, because a format nobody can decode cannot be streamed by ranges either.
+    /// The uniform type identifier for an extension, `nil` when AVFoundation cannot open the container.
+    /// `nil` is not "try it": a format nobody can decode cannot be streamed by ranges either, so the
+    /// caller takes the whole-file path.
     public static func uti(forExtension extension_: String) -> String? {
         switch extension_.lowercased() {
         case "mp3": return "public.mp3"
@@ -48,14 +48,11 @@ public enum AudioContentType {
 
     /// The container of a song, from whichever of the two the row actually carries.
     ///
-    /// The mime type first, because a channel's `messageAudio` so often has no file name at all —
-    /// the post is a song, not a file — and a gate that only looked at the extension called every
-    /// one of those "not streamable" and quietly went back to downloading the whole file. The
-    /// extension is the fallback, and it is what a document post carries when its mime type is the
-    /// meaningless `application/octet-stream`.
-    ///
-    /// The pair is returned together because the player needs both: the type for the content
-    /// information AVFoundation insists on, and a name for the URL it is asked to load.
+    /// The mime type first, because a channel's `messageAudio` so often has no file name at all: a gate
+    /// looking only at the extension called every one of those "not streamable" and went back to
+    /// downloading the whole file. The extension is the fallback, and what a document post carries when
+    /// its mime type is the meaningless `application/octet-stream`. Both come back because the player
+    /// needs the type for content information and a name for the URL it loads.
     public static func resolve(mimeType: String, fileName: String) -> (uti: String, ext: String)? {
         if let uti = uti(forMIMEType: mimeType), let ext = `extension`(forMIMEType: mimeType) {
             return (uti, ext)

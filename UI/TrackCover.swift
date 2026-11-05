@@ -1,20 +1,12 @@
 import SwiftUI
 import TelegramDesignSystem
 
-/// A song's artwork at whatever side the surface draws it, with Telegram's avatar gradient
-/// underneath.
-///
-/// A track with no cover still gets colour, and it gets it the way a peer with no avatar does: one
-/// of seven gradient pairs picked by id (`PeerAvatar.swift:403-424`), drawn vertically with the
-/// lighter stop on top. The Library row uses its own tile because that one also carries the
-/// download bubble; this is the plain version the player surfaces need.
-///
-/// The gradient is also the placeholder, which is where this diverges from the reference on purpose:
-/// `ArtworkImage` shows `Color.secondary.opacity(0.12)` with a `ProgressView` inside until the bytes
-/// arrive (`ArtworkImage.swift:59-63`), and twenty spinners is a noisier screen than twenty colours.
-/// What is transcribed is how the cover comes in — `.transition(.opacity)` carried by
-/// `.easeOut(duration: 0.18)` (`:45-47`), the animation the loader hands its own transaction — because
-/// that is what makes a screen filling with artwork read as one motion instead of twenty pops.
+/// A song's artwork at the side the surface draws it, over Telegram's avatar gradient: one of seven
+/// pairs picked by id, lighter stop on top (`PeerAvatar.swift:403-424`). The Library row has its own
+/// tile because it also carries the download bubble.
+/// The gradient doubles as the placeholder, unlike `ArtworkImage`'s grey plus `ProgressView`
+/// (`ArtworkImage.swift:59-63`): twenty spinners are noisier than twenty colours. What is copied is the
+/// arrival — `.transition(.opacity)` under `.easeOut(duration: 0.18)` (`:45-47`).
 struct TrackCover: View {
     let track: any Playable
     let side: CGFloat

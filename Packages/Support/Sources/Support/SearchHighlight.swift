@@ -2,10 +2,9 @@ import Foundation
 
 /// Where a folded query actually sits inside the accented original.
 ///
-/// `SearchTextFold.normalized` is the key both sides are matched on, but it collapses runs of
-/// whitespace, so a range found in its output cannot be mapped back. This builds the same key
-/// one character at a time and remembers which character of the original each emitted
-/// character came from, which makes a hit in the key a range in the text.
+/// `SearchTextFold.normalized` is the key both sides match on, but it collapses runs of whitespace, so
+/// a range found in its output cannot be mapped back. This builds the same key one character at a time,
+/// remembering which original character each emitted one came from.
 public enum SearchHighlight {
     public static func ranges(of rawQuery: String, in text: String) -> [Range<String.Index>] {
         let query = Array(SearchTextFold.normalized(rawQuery))

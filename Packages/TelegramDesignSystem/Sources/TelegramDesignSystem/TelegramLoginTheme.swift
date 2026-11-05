@@ -1,11 +1,8 @@
 import SwiftUI
 
-/// `theme.list.*` — the colours the authorization screens read.
-///
-/// Login is not a chat screen: `AuthorizationSequenceController` sets its background to
-/// `list.plainBackgroundColor` and every node on it takes its text colour from the same
-/// `list.*` block. Sources are the line numbers in `Docs/design-tokens.md`,
-/// "Palette — day, `list.*`".
+/// `theme.list.*` — the colours the authorization screens read. Login is not a chat screen:
+/// `AuthorizationSequenceController` sets its background to `list.plainBackgroundColor` and every node
+/// takes its text from the same block. Sources: `Docs/design-tokens.md`, "Palette — day, `list.*`".
 public struct TelegramListPalette: Sendable {
     public let background: Color
     public let primaryText: Color
@@ -17,8 +14,8 @@ public struct TelegramListPalette: Sendable {
     public let separator: Color
     public let checkFill: Color
     public let checkForeground: Color
-    /// `plainBackground` mixed with `disabledText` at 0.15, which `SolidRoundedButtonTheme`
-    /// uses for a disabled button. 255·0.85 + 142·0.15 ≈ 238 per channel, so `#eeeeee`.
+    /// `plainBackground` mixed with `disabledText` at 0.15, as `SolidRoundedButtonTheme` does for a
+    /// disabled button: 255·0.85 + 142·0.15 ≈ 238 per channel, so `#eeeeee`.
     public let disabledCheckFill: Color
     /// `itemDisclosureActions.constructive.fillColor`, which the code boxes take on for the
     /// ~0.4 s after an accepted code.
@@ -67,18 +64,11 @@ public struct TelegramListPalette: Sendable {
         constructive: Color(rgb: 0x00c900)
     )
 
-    /// The same block in the appearance Doni actually ships in.
-    ///
-    /// The authorization sequence was never meant to be a screen of its own app: it is the front
-    /// door of the music one, so it wears the shell's black (`chatListBackground`,
-    /// `TelegramPalette.dark`) and the shell's accent (`MusicTint.accent`, MeloX's `.tint(.red)`
-    /// resolved in dark), with white type on top. Every other value is the dark counterpart of the
-    /// day one above, taken from `TelegramPalette.dark` where it has a sibling there — the
-    /// separator, the secondary text, the placeholder and the destructive red are all numbers this
-    /// file already owned in the other palette rather than new guesses.
-    ///
-    /// `disabledCheckFill` is derived the way the day one is: background mixed with disabled text
-    /// at 0.15, which on black is 0·0.85 + 141·0.15 ≈ 21 per channel.
+    /// The same block in the appearance Doni ships in: the sequence is the music app's front door, so it
+    /// wears the shell's black (`chatListBackground`, `TelegramPalette.dark`) and accent
+    /// (`MusicTint.accent`, MeloX's `.tint(.red)` in dark) with white type; every other value is the dark
+    /// sibling already in `TelegramPalette.dark`. `disabledCheckFill` derives as the day one does:
+    /// 0·0.85 + 141·0.15 ≈ 21 per channel.
     public static let night = TelegramListPalette(
         background: Color(rgb: 0x000000),
         primaryText: Color(rgb: 0xffffff),
@@ -95,11 +85,9 @@ public struct TelegramListPalette: Sendable {
     )
 }
 
-/// Typography of the authorization screens, in Telegram's own weights.
-///
-/// The weight is part of the token: `Font.light(30.0)` is the phone title with the keyboard
-/// closed and `Font.bold(28.0)` is the same label once it opens, so a single `.title` would
-/// be wrong in both states.
+/// Typography of the authorization screens, in Telegram's own weights: `Font.light(30.0)` is the phone
+/// title with the keyboard closed and `Font.bold(28.0)` the same label once it opens, so a single
+/// `.title` would be wrong in both states.
 public enum TelegramLoginTypography {
     public static let phoneTitleIdle = Font.system(size: 30, weight: .light)
     public static let phoneTitleActive = Font.system(size: 28, weight: .bold)
@@ -114,24 +102,21 @@ public enum TelegramLoginTypography {
     public static let buttonTitle = Font.system(size: 15, weight: .bold, design: .rounded)
 }
 
-/// Geometry of the authorization screens. See "Login (authorization sequence)" in
-/// `Docs/design-tokens.md` for the line each number was read from.
+/// Geometry of the authorization screens; `Docs/design-tokens.md`, "Login (authorization sequence)"
+/// states the line each number was read from.
 public enum TelegramLoginMetrics {
     public static let horizontalInset: CGFloat = 24
     public static let topInset: CGFloat = 18
-    /// Where the reference stands its 100×100 `IntroPhone` sticker
-    /// (`AuthorizationSequencePhoneEntryControllerNode.swift:627`, read into
-    /// `Docs/design-tokens.md:204`). Doni ships no Lottie, so the app's own mark wears that slot —
-    /// which is also what makes the sequence a screen of this app rather than a gate in front of it.
+    /// Where the reference stands its 100×100 `IntroPhone` sticker (`AuthorizationSequencePhoneEntryControllerNode.swift:627`,
+    /// `Docs/design-tokens.md:204`); Doni ships no Lottie, so the app's own mark wears that slot.
     public static let crestSide: CGFloat = 100
-    /// Doni's own: the phone screen swaps 30 pt light type for 28 pt bold when the keyboard comes
-    /// up, which is the reference reclaiming the same band. The mark tucks down instead, so the
-    /// field block never has to move.
+    /// Doni's own: the reference swaps 30 pt light type for 28 pt bold when the keyboard comes up;
+    /// the mark tucks instead, so the field block never has to move.
     public static let crestTuckedSide: CGFloat = 64
     /// The sequence's own 32 pt rhythm (`subtitleToField` is 30, the password gap 32).
     public static let crestToTitle: CGFloat = 32
-    /// A logo tile is rounder than a cover — `MusicArtworkMetrics.radius` is 10 at 154 pt — so the
-    /// clip is carried as a ratio and stays the same shape while the mark tucks.
+    /// A logo tile is rounder than a cover (`MusicArtworkMetrics.radius` is 10 at 154 pt), so the
+    /// clip is carried as a ratio and keeps its shape while the mark tucks.
     public static let crestRadiusRatio: CGFloat = 0.22
     public static let titleToSubtitle: CGFloat = 18
     public static let subtitleToField: CGFloat = 30
@@ -143,9 +128,8 @@ public enum TelegramLoginMetrics {
 
     public static let countryRowHeight: CGFloat = 57
     public static let numberRowHeight: CGFloat = 58
-    /// Both rows sit at their own offset, not at the content inset: the dial code is
-    /// 18 pt from the screen edge and the digits 107 pt, so the columns line up under
-    /// the mask Telegram draws them with.
+    /// Both rows sit at their own offset, not the content inset: the dial code 18 pt from the screen
+    /// edge, the digits 107 pt, so the columns line up under the mask Telegram draws them with.
     public static let dialCodeLeading: CGFloat = 18
     public static let numberLeading: CGFloat = 107
     /// The country title is inset a further 16 inside the content band.
@@ -160,12 +144,9 @@ public enum TelegramLoginMetrics {
     public static let codeBoxSpacing: CGFloat = 15
     public static let codeBoxCornerRadius: CGFloat = 15
 
-    /// The box size a row of `digits` boxes has to use to live inside `available`.
-    ///
-    /// The reference has two box sizes and picks between them by phone width; a row of 43 pt boxes
-    /// with 15 between them is 333 pt at six digits and 391 at seven, so a width rule alone lets a
-    /// longer code draw past both edges of the screen. Picking by fit instead, the row is never
-    /// wider than the band it was given — and the band is measured, not guessed.
+    /// The box size a row of `digits` boxes must use to live inside `available`. The reference picks by
+    /// phone width, but 43 pt boxes 15 apart are 333 pt at six digits and 391 at seven, so a width rule
+    /// alone lets a longer code draw past both edges.
     public static func fitCodeBoxWidth(digits: Int, available: CGFloat) -> CGFloat {
         let count = CGFloat(max(digits, 1))
         let spacing = CGFloat(max(digits - 1, 0)) * codeBoxSpacing
@@ -176,23 +157,22 @@ public enum TelegramLoginMetrics {
         return max(12, (available - spacing) / count)
     }
 
-    /// The authorization screens run under a transparent navigation bar (`separatorColor`
-    /// and `opaqueBackgroundColor` are both `.clear`, `AuthorizationSequenceController.swift:84`).
-    /// The compact code layout pushes its content below the bar — `insets.top = navigationBarHeight`
-    /// (`AuthorizationSequenceCodeEntryControllerNode.swift:655`) — which is what Doni does on every
-    /// screen that offers the back chevron, since the 100 pt `IntroMessage` sticker that keeps the
-    /// wide layout clear is an asset this app does not carry.
+    /// The screens run under a transparent navigation bar (`separatorColor` and `opaqueBackgroundColor`
+    /// are both `.clear`, `AuthorizationSequenceController.swift:84`), and the compact code layout pushes
+    /// content below it — `insets.top = navigationBarHeight`
+    /// (`AuthorizationSequenceCodeEntryControllerNode.swift:655`) — which Doni does on every screen
+    /// offering the back chevron: the 100 pt `IntroMessage` sticker that keeps the reference's wide
+    /// layout clear is an asset this app does not carry.
     public static let navigationBarHeight: CGFloat = 44
     /// The back button is a 44 pt square at the leading edge; `NavigationBackButtonNode` grows its
     /// touch area the same way (`hitTestSlop`, `NavigationBackButtonNode.swift:57`).
     public static let backButtonSide: CGFloat = 44
 }
 
-/// Motion tokens, read off the reference's animation calls rather than guessed at.
-///
-/// `kCAMediaTimingFunctionSpring` is not one curve: `CAAnimationUtils.swift:119-204` routes a
-/// 0.5 s animation through a real `CASpringAnimation` and *every other duration* through the
-/// bezier below, so the 0.3 s hand-over is a bezier even though the call site says "spring".
+/// Motion tokens, read off the reference's animation calls. `kCAMediaTimingFunctionSpring` is not one
+/// curve: `CAAnimationUtils.swift:119-204` routes a 0.5 s animation through a real `CASpringAnimation`
+/// and *every other duration* through the bezier below, so the 0.3 s hand-over is a bezier even though
+/// the call site says "spring".
 public enum TelegramLoginMotion {
     /// `CAMediaTimingFunction(controlPoints: 0.380, 0.700, 0.125, 1.000)` (`CAAnimationUtils.swift:186`).
     public static let spring = Animation.timingCurve(0.380, 0.700, 0.125, 1.000, duration: 0.3)
@@ -203,10 +183,9 @@ public enum TelegramLoginMotion {
         Animation.timingCurve(0.42, 0.0, 0.58, 1.0, duration: duration)
     }
 
-    /// `make26SpringAnimationImpl` (`UIKitUtils.m:68-77`): mass 1, stiffness 555.027,
-    /// damping 47.118. That is ζ = 47.118 / (2·√555.027) = 1.000 and ω₀ = √555.027 =
-    /// 23.559 rad/s, i.e. critically damped with a 2π/ω₀ = 0.2667 s response, which is how
-    /// SwiftUI's `spring(response:dampingFraction:)` has to be fed to reproduce it.
+    /// `make26SpringAnimationImpl` (`UIKitUtils.m:68-77`): mass 1, stiffness 555.027, damping
+    /// 47.118 — ζ = 47.118 / (2·√555.027) = 1.000, ω₀ = √555.027 = 23.559 rad/s, so critically
+    /// damped with a 2π/ω₀ = 0.2667 s response, which is how SwiftUI's `spring(response:)` is fed.
     public static let presentation = Animation.spring(response: 0.2667, dampingFraction: 1.0)
 
     /// The outgoing text block (title + notice) thrown 140 pt up (`PhoneEntryControllerNode.swift:555`).
@@ -223,18 +202,16 @@ public enum TelegramLoginMotion {
     public static let fadeIn = easeInOut(0.3)
 
     /// …and the incoming sticker grows from 30 % of its size through the same 0.3 s
-    /// (`Docs/design-tokens.md:261`), which is why the mark arrives rather than appearing.
+    /// (`Docs/design-tokens.md:261`).
     public static let crestFrom: CGFloat = 0.3
 
-    /// Doni's own: the sequence does not end with a root swap. The last screen lifts off the shell
-    /// that has already appeared under it, growing a fifth on the way out so the hand-over reads as
-    /// a door rather than a cross-fade. The curve is the reference's `presentation` spring, which is
-    /// what a 0.5 s animation of this kind is routed through (`CAAnimationUtils.swift:119-204`).
+    /// Doni's own: the sequence does not end with a root swap — the last screen lifts off the shell
+    /// already under it. The curve is the reference's `presentation` spring (`CAAnimationUtils.swift:119-204`).
     public static let leaveScale: CGFloat = 1.18
 
-    /// Wrong code: the boxes shake. `addShakeAnimation` (`ShakeAnimation.swift:9-39`) builds
-    /// a keyframe animation on `position.x` — 0, then `amplitude · sign · 1/(i+1)` for `count`
-    /// alternating steps, then 0 again, keyframes evenly spaced over the duration.
+    /// Wrong code: the boxes shake. `addShakeAnimation` (`ShakeAnimation.swift:9-39`) builds a keyframe
+    /// animation on `position.x`: 0, then `amplitude · sign · 1/(i+1)` for `count` alternating steps,
+    /// then 0, keyframes evenly spaced over the duration.
     public static func shakeOffsets(amplitude: CGFloat, count: Int, decay: Bool) -> [CGFloat] {
         var values: [CGFloat] = [0]
         for i in 0..<count {
@@ -246,8 +223,7 @@ public enum TelegramLoginMotion {
         return values
     }
 
-    /// `amplitude: -30, duration: 0.5, count: 6, decay: true`
-    /// (`AuthorizationSequenceCodeEntryControllerNode.swift:953`).
+    /// `amplitude: -30, duration: 0.5, count: 6, decay: true` (`AuthorizationSequenceCodeEntryControllerNode.swift:953`).
     public static let codeShake = shakeOffsets(amplitude: -30, count: 6, decay: true)
     public static let codeShakeDuration: Double = 0.5
     /// The word and phrase fields shake with the helper's own defaults (`:919`, `:945`).
@@ -258,31 +234,28 @@ public enum TelegramLoginMotion {
     public static let successPulse: [CGFloat] = [1.0, 1.1, 1.0]
     public static let successPulseDuration: Double = 0.4
 
-    /// A rejected code stays red for 0.85 s before the boxes are emptied
-    /// (`CodeInputView.swift:193`).
+    /// A rejected code stays red for 0.85 s before the boxes are emptied (`CodeInputView.swift:193`).
     public static let failedResetDelay: Double = 0.85
     /// Box borders cross-fade their colour over 0.15 s linear (`CodeInputView.swift:72`).
     public static let borderColour = Animation.linear(duration: 0.15)
 
-    /// The error line sits 11 pt under the field, plus 13 more once the screen is wider
-    /// than 320 pt (`AuthorizationSequenceCodeEntryControllerNode.swift:967`).
+    /// The error line sits 11 pt under the field, plus 13 more once the screen is wider than 320 pt
+    /// (`AuthorizationSequenceCodeEntryControllerNode.swift:967`).
     public static func errorOffset(screenWidth: CGFloat) -> CGFloat {
         screenWidth > 320 ? 24 : 11
     }
 
-    /// A digit entering its box fades and grows from the box's bottom edge over 0.25 s while
-    /// it rises 35 % of the box height on a spring (`CodeInputView.swift:82-86`). That spring
-    /// is `mass 5, stiffness 900, damping 70` (`UIKitUtils.m:86-90`, `CAAnimationUtils.swift:338`),
-    /// i.e. ω₀ = √(900/5) = 13.416 rad/s → response 0.468 s, ζ = 70 / 2√4500 = 0.522.
+    /// A digit entering its box fades over 0.25 s and rises 35 % of the box height on a spring
+    /// (`CodeInputView.swift:82-86`): `mass 5, stiffness 900, damping 70` (`UIKitUtils.m:86-90`,
+    /// `CAAnimationUtils.swift:338`) — ω₀ = √(900/5) = 13.416 rad/s → response 0.468, ζ = 0.522.
     public static let digitEnter = Animation.spring(response: 0.4683, dampingFraction: 0.5218)
     public static let digitRiseFraction: CGFloat = 0.35
-    /// A digit leaving its box is snapshotted, faded over 0.2 s and dropped half a box
-    /// (`CodeInputView.swift:90-95`).
+    /// A digit leaving its box is snapshotted, faded over 0.2 s and dropped half a box (`CodeInputView.swift:90-95`).
     public static let digitLeave = easeInOut(0.2)
     public static let digitFallFraction: CGFloat = 0.5
 
-    /// `addShakeAnimation` spaces its keyframes evenly, so the offset at progress `t` is a
-    /// plain linear interpolation between two neighbours in `offsets`.
+    /// `addShakeAnimation` spaces keyframes evenly, so the offset at progress `t` interpolates linearly
+    /// between two neighbours in `offsets`.
     public static func shakeOffset(at t: Double, offsets: [CGFloat]) -> CGFloat {
         guard offsets.count > 1 else { return 0 }
         let position = min(max(t, 0), 1) * Double(offsets.count - 1)

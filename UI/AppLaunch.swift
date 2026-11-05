@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The three answers a version check can produce, presented the same way wherever one is asked.
+/// The three answers a version check can produce, shown the same way wherever one is asked.
 struct UpdateAlert: Identifiable, Equatable {
     let id = UUID()
     let title: String
@@ -29,18 +29,14 @@ struct UpdateAlert: Identifiable, Equatable {
 }
 
 extension View {
-    /// The alert a check answers with. A release page is offered only when there is one to open, so
-    /// "you are up to date" and "the check failed" get a single button rather than a dead link.
+    /// The alert a check answers with. The release-page button appears only when a URL exists, so
+    /// "up to date" and "check failed" get one button rather than a dead link.
     func updateAlert(_ alert: Binding<UpdateAlert?>) -> some View {
         modifier(UpdateAlertModifier(alert: alert))
     }
 
-    /// What the app does once per launch: show the notes of a version this phone has not seen, and
-    /// ask GitHub whether a newer one exists.
-    ///
-    /// Both are one-shot by construction. A sheet that returns on every launch is dismissed without
-    /// being read, and the automatic check is silent on failure — an app that interrupts a listener
-    /// because its own network is down has made the network somebody else's problem.
+    /// Once per launch: show the release notes of a version this phone has not seen, then ask GitHub
+    /// whether a newer build exists. Both are one-shot, and a failed check stays silent.
     func appLaunchChecks() -> some View { modifier(AppLaunchModifier()) }
 }
 
@@ -97,7 +93,7 @@ private struct AppLaunchModifier: ViewModifier {
             let result = try await AppUpdateService.check()
             if result.hasUpdate { alert = .available(result, version: AppVersion.current) }
         } catch {
-            // Nothing to say: the check is a courtesy, and a failed one is not the listener's news.
+            // Intentionally silent: a failed check stays the app's problem, not the listener's.
         }
     }
 }

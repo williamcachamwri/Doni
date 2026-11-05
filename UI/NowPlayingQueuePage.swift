@@ -3,17 +3,11 @@ import SwiftUI
 import TelegramDesignSystem
 import TdSession
 
-/// The up-next page, transcribed from MeloX's `NowPlayingQueuePage.swift`.
-///
-/// The structure the reference builds is a plain `List` whose first row is nothing but reserved
-/// space — the pinned header's height plus the 60 pt band the mode pills live in (`:44-49`) — with
-/// the header and the pills drawn as two overlays on top of it and slid back by however far the
-/// list has scrolled (`:100-126`). That is why the header stays put without the list resizing under
-/// it, and why a mask rather than a fade hides the rows that have gone past it (`:96-99`).
-///
-/// Edit mode is pinned on, which is what puts the ≡ handles on every row and makes the whole list
-/// reorderable by hand (`:95`). Doni keeps that, and drops the swipe-to-delete the reference does not
-/// have either: a row leaves the queue by being dragged, not by being thrown away.
+/// The up-next page, transcribed from MeloX's `NowPlayingQueuePage.swift`: a plain `List` whose first
+/// row is reserved space — the pinned header's height plus the 60 pt pill band (`:44-49`) — with the
+/// header and pills as two overlays slid back by the scroll offset (`:100-126`), so the header stays
+/// put without the list resizing and a mask, not a fade, hides the rows gone past it (`:96-99`).
+/// Edit mode is pinned on so the tail reorders by drag (`:95`); there is no swipe-to-delete.
 struct NowPlayingQueuePage: View {
     /// The song under the header, which is the one the pills act on.
     let track: any Playable
@@ -182,10 +176,8 @@ private struct QueueRowView: View {
     }
 }
 
-/// The header the queue scrolls under: the song that is playing, at the reference's pinned size
-/// (`NowPlayingSongHeader.swift:65-97`).
-///
-/// The layout is the one MeloX calls `usesReferenceLayout`, which is also the one that drops the
+/// The header the queue scrolls under: the playing song at the reference's pinned size
+/// (`NowPlayingSongHeader.swift:65-97`). MeloX's `usesReferenceLayout` is the variant that drops the
 /// star and keeps only the ⋯ disc (`:117-119`, `NowPlayingSongActions.swift:16`).
 private struct QueueSongHeader: View {
     let track: any Playable
@@ -217,11 +209,8 @@ private struct QueueSongHeader: View {
 }
 
 /// The three mode pills, in the chrome MeloX gives all four of its own
-/// (`NowPlayingQueuePage.swift:225-329`).
-///
-/// The reference's fourth and fifth are autoplay and AutoMix, which are Netease features — a radio
-/// that keeps feeding songs and a crossfade between them. Doni's queue ends where the list does, so
-/// its third slot is the cut: the one thing a Telegram channel's hour-long mixes actually need.
+/// (`NowPlayingQueuePage.swift:225-329`). Autoplay and AutoMix are Netease features a Telegram channel
+/// has no use for, so Doni's third slot is the cut.
 private struct ModePills: View {
     @ObservedObject var player: Player
 

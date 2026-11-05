@@ -3,14 +3,10 @@ import Foundation
 import SwiftUI
 import TelegramDesignSystem
 
-/// The words page: the reference's column, with the room for the panel's header kept free above it.
-///
-/// The header is not decoration. The column is a viewport and the line being sung is held a quarter
-/// of the way down it, so whatever is above the column pushes the words down and whatever is below
-/// them is where they fade out. Give the column the whole panel and the fade lands on the transport
-/// buttons and the words start under the grip; reserve the header's 88 pt and the last readable line
-/// stops above the controls, which is where the reference puts both
+/// The words page: the reference's column, with room kept free above it for the panel's header
 /// (`NowPlayingLyricsPage.swift:60-76`, `:148-154`).
+/// The column is a viewport holding the sung line a quarter down it, so an unreserved header pushes the
+/// fade onto the transport buttons and starts the words under the grip.
 struct LyricsPage: View {
     @ObservedObject var player: Player
     @ObservedObject var lyrics: Lyrics
@@ -22,24 +18,17 @@ struct LyricsPage: View {
         LyricsView(player: player, lyrics: lyrics, isInterfaceHidden: isInterfaceHidden,
                    onInterfaceInteraction: onInterfaceInteraction,
                    onInterfaceVisibilityChange: onInterfaceVisibilityChange)
-            // The header is drawn over this page by the panel, so the column reserves the room for
-            // it rather than drawing it — 72 pt of header and the 16 the reference puts under it
-            // (`NowPlayingLyricsPage.swift:70`, `:148-154`).
+            // The panel draws the header over this page, so the column only reserves its room: 72 pt
+            // of header plus the 16 under it (`NowPlayingLyricsPage.swift:70`, `:148-154`).
             .padding(.top, MusicNowPlayingMetrics.lyricsHeaderSide
                             + MusicNowPlayingMetrics.lyricsColumnGap)
             .padding(.bottom, MusicNowPlayingMetrics.lyricsBottomInset)
     }
 }
 
-/// The column itself.
-///
-/// The screen is the reference's, line for line: `AppleMusicLyricsView` does the scroll, the focus
-/// cascade, the glow that fills each line as it is sung, and the tap-to-seek. What is Doni's is only
-/// what it is fed — the lines found for this song, and a mirror of the player for it to watch.
-///
-/// That mirror exists because the copied screen is written against an `@Observable` player and
-/// Doni's is a `Publisher` one, and because the reference interpolates the position between ticks
-/// rather than waiting for the next one.
+/// The column itself: `AppleMusicLyricsView`, copied line for line for its scroll, focus cascade,
+/// per-line glow and tap-to-seek. Only its inputs are Doni's — this song's lines, plus a `PlayerStore`
+/// mirror, because the copied screen wants an `@Observable` player while Doni's is a `Publisher` one.
 private struct LyricsView: View {
     @ObservedObject var player: Player
     @ObservedObject var lyrics: Lyrics
@@ -55,9 +44,8 @@ private struct LyricsView: View {
             highlightedLyricID: nil,
             isActive: true,
             isInterfaceHidden: isInterfaceHidden,
-            // The transport row floats over this page rather than taking its own band, so the column
-            // has to be told how much of its own bottom is not really its bottom: that is where the
-            // fade stops and where the last line is allowed to rest.
+            // The transport row floats over this page, so the column has to be told how much of its
+            // bottom is not really its bottom: that is where the fade stops and the last line may rest.
             bottomOverlayHeight: MusicNowPlayingMetrics.overlayHeight,
             focusAnchorOffset: nil,
             onInterfaceInteraction: onInterfaceInteraction,
@@ -67,9 +55,8 @@ private struct LyricsView: View {
         .environment(Lyrics.settings)
         .environment(store)
         .onAppear(perform: publish)
-        // The reference's own clock: it is asked where the song is, and answers from the last
-        // position it was told plus the time that has gone by since. Four ticks a second from
-        // Doni's player would be a stutter under a screen that redraws at sixty.
+        // The reference's clock: it answers from the last position it was told plus the time since.
+        // Four ticks a second from Doni's player would stutter under a screen redrawing at sixty.
         .onChange(of: player.elapsed) { _, seconds in store.progress = seconds }
         .onChange(of: player.isPlaying) { _, playing in
             store.isPlaying = playing
@@ -78,11 +65,9 @@ private struct LyricsView: View {
         .onChange(of: player.current?.uniqueId) { _, _ in publish() }
     }
 
-    /// Hand the screen the song it is looking at, and the way back to the player when a line is
-    /// tapped.
-    ///
-    /// The seek closes over the store weakly on purpose: it is the store that holds the closure, and
-    /// a strong `self` here is a cycle the panel would never break.
+    /// Hand the screen the song it is looking at, and the way back to the player when a line is tapped.
+    /// The seek holds the store weakly on purpose: the store owns the closure, so a strong `self` is a
+    /// cycle the panel would never break.
     private func publish() {
         store.currentSong = player.current.map {
             Song(

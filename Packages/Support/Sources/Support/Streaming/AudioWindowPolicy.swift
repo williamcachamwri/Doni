@@ -2,21 +2,18 @@ import Foundation
 
 /// Where TDLib's one download window has to sit for the sound to stay ahead of the playhead.
 ///
-/// The mapping from seconds to bytes is `size / duration`, which is exact for the constant-bitrate
-/// MP3s these channels post and a few percent off for a variable-bitrate one. That is allowed here
-/// and nowhere else: this number only decides *which bytes to fetch next*, and a few hundred
-/// kilobytes of overshoot is invisible, while the position the user sees and the position a seek
-/// lands at come from the player's own clock, never from this estimate.
+/// Seconds map to bytes as `size / duration`: exact for the constant-bitrate MP3s these channels post,
+/// a few percent off for a variable-bitrate one. That is allowed here and nowhere else — this number
+/// only decides *which bytes to fetch next*, while the position the user sees and a seek lands at come
+/// from the player's own clock.
 ///
 /// TDLib holds exactly one offset and one limit per file (`FileManager.cpp:3103-3107`) and moves the
-/// window of a download already in place rather than adding a second one, so the whole job of this
-/// type is to say when the window has to move and where — and, just as much, when it does not,
-/// because a window re-asked every quarter-second is a stream of requests that cancels and restarts
-/// its own parts.
+/// window of a download already in place rather than adding a second one, so the job is saying when it
+/// has to move and when it must not: a window re-asked every quarter-second cancels and restarts its
+/// own parts.
 public struct AudioWindowPolicy: Sendable {
-    /// TDLib's part size for anything under 250 MB (`PartsManager.cpp:132`, `MAX_PART_SIZE` at `:56`).
-    /// Windows start on this grid: a part is fetched whole and its bytes are only readable from the
-    /// start of the part, so a window at an odd offset buys bytes the reader cannot use on its own.
+    /// TDLib's part size under 250 MB (`PartsManager.cpp:132`, `MAX_PART_SIZE` at `:56`). Windows start
+    /// on this grid: a part is readable only from its start, so an odd offset buys unusable bytes.
     public static let partBytes: Int64 = 64 << 10
 
     /// A quarter of a minute at 320 kbps. Under this the sound runs out on a hiccup.
@@ -30,9 +27,7 @@ public struct AudioWindowPolicy: Sendable {
     /// the track lengths at all. One megabyte covers the metadata of any file these channels post.
     public static let tailBytes: Int64 = 1 << 20
 
-    /// The lead the next window will be planned with. Grows on a rebuffer, shrinks when the buffer
-    /// was comfortable, so a phone on a train buys more of the song up front and a phone on Wi-Fi
-    /// does not buy the whole thing twice.
+    /// The lead the next window is planned with: grows on a rebuffer, shrinks when the buffer held.
     public private(set) var leadBytes: Int64
 
     /// The window last asked for, so a plan that has not moved is detected rather than re-sent.
@@ -55,18 +50,13 @@ public struct AudioWindowPolicy: Sendable {
         return min(aligned(max(0, wanted - partBytes)), max(0, fileBytes - 1))
     }
 
-    /// The window to ask for at the playhead, or `nil` when the one already asked for is still worth
-    /// keeping.
+    /// The window to ask for at the playhead, or `nil` when the one asked for is still worth keeping.
     ///
-    /// Kept until half of it has been listened to, and asked again after that: a window covers
-    /// `leadBytes` of song, so a rule as strict as "re-ask when the playhead leaves it" would re-ask
-    /// every quarter second and a window re-asked cancels the parts outside it that were already
-    /// arriving (`FileDownloader.cpp:469-474`). Half is the point where the remaining cover is no
-    /// longer enough to survive the next few seconds of listening, and it works out at one request
-    /// per half-window of audio — about one every twelve seconds of a song at 320 kbps.
-    ///
-    /// The playhead sits inside the window rather than at its start, one part behind, so a scrub back
-    /// is answered from the phone instead of from the network.
+    /// Kept until half of it has been listened to: a window covers `leadBytes` of song, and re-asking
+    /// when the playhead leaves it would re-ask every quarter second, cancelling the parts outside it
+    /// that were already arriving (`FileDownloader.cpp:469-474`). Half is one request per half-window —
+    /// about one every twelve seconds at 320 kbps. The playhead sits inside the window, one part
+    /// behind, so a scrub back is answered from the phone.
     public mutating func window(atSeconds seconds: Double, bytesPerSecond: Double,
                                 fileBytes: Int64) -> AudioByteRange? {
         guard fileBytes > 0, bytesPerSecond > 0 else { return nil }
@@ -110,9 +100,8 @@ public struct AudioWindowPolicy: Sendable {
         leadBytes = max(Self.minimumLeadBytes, leadBytes / 2)
     }
 
-    /// Forget the window last asked for, so the next plan is asked again even though the playhead
-    /// has not moved. A retry after a stopped download is exactly that moment: the same bytes, from
-    /// the same place, and the only new thing about it is that somebody is asking again.
+    /// Forget the window last asked for, so the next plan is asked again with the playhead unmoved —
+    /// which is exactly a retry after a stopped download.
     public mutating func forgetAsked() {
         asked = nil
     }

@@ -6,53 +6,42 @@ import Support
 import TdSession
 import UIKit
 
-/// The cover art a surface shows, decoded at the size that surface actually draws.
+/// The cover art a surface shows, decoded at the size that surface actually draws. There are three covers
+/// to choose between, and the old pipeline looked at only the worst-served one of them:
 ///
-/// There are three covers to choose between, and the old pipeline looked at only the worst-served
-/// one of them:
+/// * **The song's own tags.** A downloaded MP3 or M4A carries its album cover inside it, usually far bigger
+///   than anything the server thumbed, and that is the artwork Telegram's own player shows. No download
+///   needed, so it is asked for first on any track the phone holds.
+/// * **TDLib's cover file** (`TdTrack.coverFileId`): a real server thumbnail — 320 px on the measured
+///   channel's 112 audios that have one — or a generated 600 px cover on those that do not.
+/// * **The `minithumbnail` the message carries**: 40×30 (`td_api.tl:361`), a few hundred bytes of JPEG. A
+///   placeholder, not artwork, and what made the whole list look smeared: a 40 px tile across a 166 pt
+///   shelf card is a 12× upscale.
 ///
-/// * **The song's own tags.** A downloaded MP3 or M4A carries its album cover inside it, usually far
-///   bigger than anything the server thumbed for it, and that is the artwork Telegram's own player
-///   shows. It needs no download, so it is the first thing asked for on any track the phone already
-///   holds.
-/// * **TDLib's cover file** (`TdTrack.coverFileId`): a real thumbnail on the server, 320 px on the
-///   measured channel's 112 audios that have one, or a generated 600 px cover on those that do not.
-/// * **The `minithumbnail` the message carries**: 40×30 (`td_api.tl:361`), a few hundred bytes of
-///   JPEG. It is a placeholder, not artwork, and it is what made the whole list look smeared — a 40
-///   px tile drawn across a 166 pt shelf card is a 12× upscale.
-///
-/// The third is therefore only allowed on the smallest tier: rows, bubbles and the strip are drawn
-/// from arm's length and forgive it, while a card or a hero is not, and shows Telegram's gradient
-/// until something real arrives.
-///
-/// Three levels hold the result, because none of them alone survives a phone. `NSCache` is process
-/// memory, and iOS empties it as soon as a backgrounded app is asked for room back — which is why
-/// every cover used to be missing on the way out of Now Playing. The last screens' tiles are
-/// therefore *also* held in a plain byte-capped dictionary, which is the one thing here the system
-/// cannot take back on its own. Underneath both sits a directory of the cover's **own bytes**: the
-/// tag's JPEG, the server's thumbnail, copied once and then decoded at whatever tier a surface next
-/// asks for. Nothing is re-encoded, so the quality is the channel's rather than a copy of a copy,
-/// and nothing is re-fetched, so the second time a cover appears it costs one ImageIO read instead of
-/// one round trip.
+/// The third is therefore allowed only on the smallest tier — rows, bubbles and the strip are read at
+/// arm's length and forgive it, while a card or a hero shows Telegram's gradient until something real
+/// arrives. Three levels hold the result because none alone survives a phone: `NSCache` is process memory
+/// and iOS empties it as soon as a backgrounded app is asked for room (which is why every cover used to be
+/// missing on the way out of Now Playing), so the last screens' tiles also live in a byte-capped
+/// dictionary the system cannot take back; underneath both sits a directory of the cover's **own bytes**,
+/// decoded at whatever tier a surface next asks for. Nothing is re-encoded, so quality stays the channel's
+/// rather than a copy of a copy, and nothing is re-fetched, so a cover's second appearance costs one
+/// ImageIO read instead of a round trip.
 @MainActor
 final class CoverArtwork: ObservableObject {
-    /// The pixel sides a cover is decoded at, smallest first. A surface takes the smallest tier
-    /// that still covers its own pixels — 60 pt rows and the 40 pt strip land in the first, the
-    /// 154/166 pt cards in the second, and anything hero-sized in the last.
+    /// The pixel sides a cover is decoded at, smallest first. A surface takes the smallest tier that still
+    /// covers its own pixels: 60 pt rows and the 40 pt strip land in the first, the 154/166 pt cards in the
+    /// second, anything hero-sized in the last.
     static let tiers = [192, 512, 768]
 
-    /// The most pixels the 40×30 minithumbnail is allowed to fill.
-    ///
-    /// It used to be the whole first tier — 192 — which is a 4.8× upscale of a 40 px source, and a
-    /// 4.8× upscale is exactly the smear being reported on search rows: the picture had arrived, and
-    /// it was not worth looking at while the sharp one was still coming. Held to 96 px it stays what
-    /// it is for, a placeholder for the 24-32 pt marks where nobody can count the pixels, and any
-    /// surface bigger than that waits for something real instead of pretending.
+    /// The most pixels the 40×30 minithumbnail may fill. It used to be the whole first tier — 192, a 4.8×
+    /// upscale of a 40 px source, which is exactly the smear reported on search rows: the picture had
+    /// arrived and was not worth looking at while the sharp one was coming. At 96 px it stays what it is for,
+    /// a placeholder for the 24-32 pt marks, and anything bigger waits for something real.
     private static let miniCeiling = 96
 
-    /// The pixels a surface of this point size actually wants, before it is rounded up to a tier.
-    /// Three is this app's own screen scale: Doni is a portrait iPhone and `UIScreen.main.scale` is
-    /// on its way out of the SDK.
+    /// The pixels a surface of this point size actually wants, before it is rounded up to a tier. Three is
+    /// this app's own screen scale: Doni is a portrait iPhone and `UIScreen.main.scale` is leaving the SDK.
     static func neededPixels(forSide points: CGFloat) -> Int {
         Int((points * 3).rounded(.up))
     }
@@ -66,78 +55,68 @@ final class CoverArtwork: ObservableObject {
     /// Bumped whenever a tile can be drawn, so the list re-reads the cache.
     @Published private(set) var revision = 0
 
-    /// One cache for the app: the list, the cards, the mini player and the lock screen all want
-    /// the same cover, though not at the same size.
+    /// One cache for the app: the list, the cards, the mini player and the lock screen all want the same
+    /// cover, though not at the same size.
     static let shared = CoverArtwork()
 
-    /// Kept so the surfaces that hold only this object — the player, the hero — can order a cover
-    /// of their own, at their own size, instead of living off whatever a row fetched.
+    /// Kept so the surfaces that hold only this object — the player, the hero — can order a cover of their
+    /// own, at their own size, instead of living off whatever a row fetched.
     var downloader: TdFileDownloader?
 
     private let cache = NSCache<NSString, UIImage>()
 
-    /// The last few dozen tiles, held outside `NSCache` where the system cannot take them back.
-    ///
-    /// This is the whole of the "artwork vanishes when I leave and come back" complaint. `NSCache`
-    /// is the app's own memory and iOS empties it the moment a suspended app is asked for room —
-    /// which is precisely the moment the user is about to look at again, so the list, the strip and
-    /// Now Playing all went back to the flat gradient while the phone was in the pocket, and every
-    /// cover had to be decoded again before anything could be drawn. The same `UIImage`s are kept
-    /// alive here for the covers the last screens actually wore, and because it is a hard cap rather
-    /// than a limit the OS may ignore, the byte budget below is what keeps this from ever being the
-    /// reason the app is killed.
+    /// The last few dozen tiles, held outside `NSCache` where the system cannot take them back: `NSCache` is
+    /// the app's own memory and iOS empties it the moment a suspended app is asked for room, which is
+    /// precisely the moment the user is about to look again — so the list, the strip and Now Playing went
+    /// back to the flat gradient and every cover had to be decoded again. It is a hard cap rather than a
+    /// limit the OS may ignore, so the byte budget below is what keeps this from being why the app is killed.
     private var pinned: [NSString: UIImage] = [:]
 
-    /// The pinned keys, oldest first — a dictionary has no order, and the set needs to drop what was
-    /// looked at longest ago rather than an arbitrary member of it.
+    /// The pinned keys, oldest first: a dictionary has no order, and the set must drop what was looked at
+    /// longest ago rather than an arbitrary member of it.
     private var pinnedOrder: [NSString] = []
 
     private var pinnedBytes = 0
 
-    /// The surfaces that have asked since the app was last in front, oldest first. Coming back from
-    /// the background refills exactly these: a SwiftUI `.task` that is still on screen does not run
-    /// again, so without this a row would go on drawing a gradient over a cache the system emptied.
+    /// The surfaces that have asked since the app was last in front, oldest first. Coming back from the
+    /// background refills exactly these: a SwiftUI `.task` still on screen does not run again, so without
+    /// this a row would go on drawing a gradient over a cache the system emptied.
     private var recent: [(track: any Playable, points: CGFloat)] = []
 
-    /// Sources the phone holds but ImageIO cannot turn into a picture. Without this the self-healing
-    /// read would retry one forever — it exists, so it is asked for; it decodes to nothing, so the
-    /// next frame asks again — for the handful of files the old writers got wrong before the sweep
-    /// above clears them.
+    /// Sources the phone holds but ImageIO cannot turn into a picture. Without this the self-healing read
+    /// would retry one forever: it exists, so it is asked for; it decodes to nothing, so the next frame asks
+    /// again.
     private var unreadableSources: Set<NSString> = []
 
-    /// Tiles whose fetch came back with nothing, and how many more times the cache will ask.
-    ///
-    /// This is what the newest posts of a channel run into. Their cover is a thumbnail Telegram
-    /// generates on its side (`FileManager.cpp:4361`), and the first ask answers a file with no bytes
-    /// yet — TDLib has not made it. Without a second try the row keeps its placeholder for the whole
-    /// session: the picture exists by the time anybody looks at it, and nothing asks again, because a
-    /// row's `.task` runs once per song and the foreground refill only replays what was on screen.
+    /// Tiles whose fetch came back with nothing, and how many more times the cache will ask. This is what a
+    /// channel's newest posts run into: their cover is a thumbnail Telegram generates on its side
+    /// (`FileManager.cpp:4361`) and the first ask answers a file with no bytes yet, because TDLib has not
+    /// made it. Without a second try the row keeps its placeholder for the whole session — a row's `.task`
+    /// runs once per song and the foreground refill only replays what was on screen.
     private var retries: [NSString: Int] = [:]
 
-    /// How many extra asks a missing cover gets, and how long between them. Three tries over a
-    /// minute is longer than Telegram's generation takes for the posts this app has measured, and
-    /// short enough that a song with no cover at all stops asking before the user notices.
+    /// How many extra asks a missing cover gets, and how long between them: three tries over a minute is
+    /// longer than Telegram's generation takes for the posts this app has measured, and short enough that a
+    /// song with no cover stops asking before the user notices.
     private static let coverRetries = 3
     private static let coverRetryDelay = Duration.seconds(20)
 
     /// Asks waiting for the pool, the one the user is looking at first.
     private var queued: [Ask] = []
 
-    /// Whether a pool is already working through `queued`. Starting a second one would only put
-    /// more workers on the same list, and the width below is the point of the exercise.
+    /// Whether a pool is already working through `queued`: starting a second one would only put more workers
+    /// on the same list.
     private var draining = false
 
-    /// Tiles whose bytes are on their way. A row, a shelf card and the Now Playing hero all want the
-    /// same picture at different sizes, and before this each of them opened its own download of the
-    /// same file and its own decode of the same bytes.
+    /// Tiles whose bytes are on their way. A row, a shelf card and the Now Playing hero all want the same
+    /// picture at different sizes, and before this each opened its own download of the same file and its own
+    /// decode of the same bytes.
     private var inFlight: Set<NSString> = []
 
-    /// The container reads already happening, one per song.
-    ///
-    /// `inFlight` is keyed by the tile — a song at 192 and the same song at 768 are two tiles — and
-    /// that is the wrong key for the expensive half, which is opening the song itself. Two tiers
-    /// asking at once were two `AVURLAsset` walks of the same hundred-and-forty megabytes, both
-    /// writing the same source file. This is the key that matches the work.
+    /// The container reads already happening, one per song. `inFlight` is keyed by the tile — a song at 192
+    /// and the same song at 768 are two tiles — which is the wrong key for the expensive half, opening the
+    /// song itself: two tiers asking at once were two `AVURLAsset` walks of the same 140 MB, both writing
+    /// the same source file.
     private var fileArtReads: [NSString: Task<Bool, Never>] = [:]
 
     /// One surface's ask, which is what the pool carries.
@@ -147,56 +126,45 @@ final class CoverArtwork: ObservableObject {
         let points: CGFloat
     }
 
-    /// How many covers are worked on at once.
-    ///
-    /// TDLib queues its own downloads and a cover is tens of kilobytes, so this is not a limit on
-    /// the network — it is a limit on how many decodes and how many file waits the app puts on the
-    /// phone at a time. Six is enough to fill a screen at once, and it is far below the number of
-    /// rows that ask, so the queue in front of it is what does the ordering.
+    /// How many covers are worked on at once. TDLib queues its own downloads and a cover is tens of
+    /// kilobytes, so this bounds decodes and file waits, not the network: six fills a screen at once and is
+    /// far below the number of rows that ask, so the queue in front of it does the ordering.
     private static let fetchWidth = 6
 
-    /// How many asks the queue is allowed to hold. A channel of a thousand songs is not an order for
-    /// a thousand covers: the rows ask for themselves when they are reached, so the queue only has to
-    /// stay ahead of the finger, and an unbounded one would spend the download queue on screens the
-    /// user may never open.
+    /// How many asks the queue may hold. A channel of a thousand songs is not an order for a thousand
+    /// covers: rows ask when they are reached, so the queue only has to stay ahead of the finger, and an
+    /// unbounded one would spend the download queue on screens the user may never open.
     private static let queueLimit = 150
 
     /// The re-warms, held so the singleton keeps both of its observers alive.
     private var foreground: [Task<Void, Never>] = []
 
-    /// Whether a refill is already on the way. Coming back fires `willEnterForeground` and then
-    /// `didBecomeActive` a frame apart, and the second would otherwise start the same decodes again
-    /// while the first is still running.
+    /// Whether a refill is already on the way: coming back fires `willEnterForeground` and then
+    /// `didBecomeActive` a frame apart, and the second would start the same decodes again.
     private var refilling = false
 
-    /// How many asks are worth remembering. A flick through a thousand-row list is not a request to
-    /// hold a thousand rows; the last screens the user actually looked at are what matter.
-    ///
-    /// The count has to cover a whole screen of the home feed, which is not as few rows as it looks:
-    /// three shelves of cards, the quick-action tiles and the strip all ask at their own `points`, and
-    /// `recent` keys on the pair — one song drawn at 154 pt and at 60 pt is two entries. Forty was
-    /// enough when only visible surfaces asked; the same song asked twice is what used to push the
-    /// hero off the end of the list.
+    /// How many asks are worth remembering — a flick through a thousand-row list is not a request to hold a
+    /// thousand rows. The count has to cover a whole home screen: three shelves of cards, the quick-action
+    /// tiles and the strip each ask at their own `points`, and `recent` keys on the pair, so one song at
+    /// 154 pt and at 60 pt is two entries. Forty was enough when only visible surfaces asked.
     private static let recentLimit = 80
 
-    /// 16 MB of pinned tiles. A 192 px row tile is 147 KB and a 768 px hero is 2.3 MB, so the byte
-    /// cap and not the count is what decides. It used to be 8 MB, which held eight of the 512 px
-    /// shelf cards the home feed draws — and the feed has three shelves on screen at once, so a
-    /// flick back to a strip that was visible two seconds ago was still a gradient.
+    /// 16 MB of pinned tiles: a 192 px row tile is 147 KB and a 768 px hero is 2.3 MB, so the byte cap and
+    /// not the count decides. It was 8 MB, which held eight of the 512 px shelf cards the home feed draws —
+    /// the feed has three shelves on screen at once, so a flick back to a strip visible two seconds ago was
+    /// still a gradient.
     private static let pinnedBudget = 16 * 1024 * 1024
 
     init() {
-        // First, and on this thread: the read path takes the disk before the network, so a sweep
-        // that ran later would let the first screens draw the bytes it is about to throw away.
+        // First, and on this thread: the read path takes the disk before the network, so a sweep that ran
+        // later would let the first screens draw the bytes it is about to throw away.
         Self.discardUnverifiedSources()
-        // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero is 2.3 MB, and a
-        // flat count would either starve the list or let a handful of heroes walk past the
-        // process's memory. 64 MB is a couple of hundred rows and a roomful of cards.
+        // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero 2.3 MB, so a flat count
+        // would either starve the list or let a handful of heroes walk past the process's memory.
         cache.totalCostLimit = 64 * 1024 * 1024
-        // Two hooks rather than one. `willEnterForeground` is the earlier of the pair and lands
-        // before anything here is drawn again, so the covers are already decoding while the system's
-        // snapshot is still on the screen; `didBecomeActive` is the one that also fires on a cold
-        // launch and after a system dialog, where the first of the two never arrives.
+        // Two hooks rather than one: `willEnterForeground` is the earlier and lands before anything here is
+        // drawn again, so covers are already decoding while the system's snapshot is still on screen;
+        // `didBecomeActive` also fires on a cold launch and after a system dialog, where the first never does.
         foreground = [UIApplication.willEnterForegroundNotification,
                       UIApplication.didBecomeActiveNotification].map { name in
             Task { [weak self] in
@@ -211,25 +179,20 @@ final class CoverArtwork: ObservableObject {
         }
     }
 
-    /// The tile's content, best first: a cover that can fill this surface, then the inline
-    /// minithumbnail where it is small enough to still be worth showing, then nothing — which is
-    /// where the gradient takes over.
-    ///
-    /// "Nothing" is a promise this used to break. A cover whose bytes are on the phone is a cover the
-    /// phone can draw, but only the asking paths (`load`, `prefetch`, the foreground re-warm) knew how
-    /// to turn those bytes back into a tile, so a surface that merely read went flat and stayed flat:
-    /// its row's `.task` had already run, the re-warm only replays the last forty asks, and nothing was
-    /// ever going to ask for this cover again. The read now heals itself off the disk, which is the
-    /// only arrangement that does not depend on somebody having remembered to ask.
+    /// The tile's content, best first: a cover that can fill this surface, then the inline minithumbnail
+    /// where it is small enough to be worth showing, then nothing — where the gradient takes over.
+    /// "Nothing" is a promise this used to break: only the asking paths (`load`, `prefetch`, the foreground
+    /// re-warm) knew how to turn bytes on the phone back into a tile, so a surface that merely read went
+    /// flat and stayed flat. The read now heals itself off the disk, the only arrangement that does not
+    /// depend on somebody having remembered to ask.
     func image(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
         if let image = sharp(for: track, side: points) { return image }
         return mini(for: track, side: points)
     }
 
     /// A picture that is not a song's — the cover a user chose for a list — read from the file it was
-    /// written to and kept in the same cache, because a list row redraws on every scroll and the
-    /// decode is the part worth not doing twice. A path names one picture for its whole life: a new
-    /// choice is a new file, so nothing here has to be invalidated.
+    /// written to and kept in the same cache, because a list row redraws on every scroll. A path names one
+    /// picture for its whole life: a new choice is a new file, so nothing here needs invalidating.
     func image(at path: String) -> UIImage? {
         let key = Self.pathKey(path)
         if let image = held(key) { return image }
@@ -238,18 +201,12 @@ final class CoverArtwork: ObservableObject {
         return image
     }
 
-    /// A cover at this surface's own size, or the biggest one the phone holds for it: the art read
-    /// out of the song, then the file TDLib fetched.
-    ///
-    /// The song's own art is asked for at *this* tier or a bigger one, and only then borrowed down:
-    /// a 192 px tile is a 192 px tile on a 768 px hero, and the two are not the same promise. A server
-    /// thumbnail is allowed to be borrowed at any size, because the pipeline that fetches it already
-    /// asks for the biggest version of it there is, so the biggest held is the closest to what the
-    /// surface wanted.
-    ///
-    /// A tier that is not held still books its own decode before anything is borrowed. Returning the
-    /// stopgap and stopping there is how a hero ends up permanently soft: the row's 192 px answers the
-    /// first frame, and nothing is ever asked for the 768 again.
+    /// A cover at this surface's own size, or the biggest the phone holds for it: the art read out of the
+    /// song, then the file TDLib fetched. The song's own art is asked for at *this* tier or a bigger one and
+    /// only then borrowed down — a 192 px tile is not the same promise on a 768 px hero — while a server
+    /// thumbnail may be borrowed at any size, because the pipeline that fetches it already asks for the
+    /// biggest version there is. A tier that is not held still books its own decode before anything is
+    /// borrowed: returning the stopgap and stopping there is how a hero ends up permanently soft.
     func sharp(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
         let pixels = Self.pixels(forSide: points)
         if let embedded = fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) { return embedded }
@@ -261,12 +218,12 @@ final class CoverArtwork: ObservableObject {
         return largestFileArt(uniqueId: track.uniqueId)
     }
 
-    /// The 40×30 the message carried, which is what a row shows until the sharp file lands — and
-    /// only on a surface small enough that four pixels of tile is still four pixels of cover.
+    /// The 40×30 the message carried, which is what a row shows until the sharp file lands — and only on a
+    /// surface small enough that four pixels of tile is still four pixels of cover.
     func mini(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
-        // Measured against what the surface wants, not against the tier it will be drawn at: the
-        // smallest tier is 192, and comparing a 96 px ceiling to it would switch the placeholder off
-        // everywhere, including the 24 pt marks it was made for.
+        // Measured against what the surface wants, not the tier it will be drawn at: the smallest tier is
+        // 192, so comparing a 96 px ceiling to it would switch the placeholder off even for the 24 pt marks
+        // it was made for.
         guard Self.neededPixels(forSide: points) <= Self.miniCeiling else { return nil }
         let key = Self.miniKey(uniqueId: track.uniqueId)
         if let image = held(key) { return image }
@@ -275,21 +232,15 @@ final class CoverArtwork: ObservableObject {
         return image
     }
 
-    /// Turning a read miss into the decode the phone can already do, without touching the network.
-    ///
-    /// Called from `body`, so it has to be cheap on the way in and silent on the way out: one
-    /// existence check per candidate and no task at all when the phone does not hold the bytes. That
-    /// last part matters more than it looks — a song with no cover would otherwise start a decode on
-    /// every frame of a scroll, find nothing, and be asked again on the next one, forever.
-    ///
-    /// The song's own art is no longer gated on `localPath`. That field belongs to the snapshot the row
-    /// is holding, not to the phone: a song that has just finished downloading has its bytes extracted
-    /// and filed under its `unique_id`, while the list it came from goes on showing the `TdTrack` that
-    /// was read before the download — `localPath == nil`, and a source file sitting right there. The
-    /// file's own existence is the honest question, and it is the cheap one.
-    ///
-    /// One source per ask, best first, rather than both: the two candidates are two decodes of the same
-    /// surface's same tier, and the first one that exists is by construction the better picture.
+    /// Turning a read miss into the decode the phone can already do, without touching the network. Called
+    /// from `body`, so it has to be cheap on the way in and silent on the way out: one existence check per
+    /// candidate and no task at all when the phone does not hold the bytes — otherwise a song with no cover
+    /// would start a decode on every frame of a scroll, find nothing, and be asked again forever.
+    /// The song's own art is no longer gated on `localPath`: that field belongs to the snapshot the row is
+    /// holding, not to the phone, and a song that just finished downloading has its bytes filed under its
+    /// `unique_id` while the list still shows the pre-download `TdTrack`. The file's own existence is the
+    /// honest question, and the cheap one. One source per ask, best first: the two candidates are two
+    /// decodes of the same tier, and the first that exists is by construction the better picture.
     private func warm(_ track: any Playable, at points: CGFloat) {
         let pixels = Self.pixels(forSide: points)
         var candidates: [(key: NSString, source: URL)] = [
@@ -307,70 +258,58 @@ final class CoverArtwork: ObservableObject {
         }
     }
 
-    /// The decode itself, and the booking it releases either way. `put` bumps the revision, which is
-    /// what makes the row that asked come back with a picture instead of waiting for someone to
-    /// scroll past it again.
+    /// The decode itself, and the booking it releases either way. `put` bumps the revision, which is what
+    /// makes the row that asked come back with a picture instead of waiting for someone to scroll past it.
     private func decode(_ source: URL, forKey key: NSString, pixels: Int) async {
         defer { inFlight.remove(key) }
         guard !Task.isCancelled else { return }
         guard let image = await tile(from: source, pixels: pixels) else {
-            // Bounded rather than exact: these are leftovers from before the writers checked, and
-            // the launch sweep deletes them anyway.
+            // Bounded rather than exact: these are leftovers from before the writers checked, and the launch
+            // sweep deletes them anyway.
             if unreadableSources.count < 512 { unreadableSources.insert(key) }
             return
         }
         put(image, forKey: key)
     }
 
-    /// Whether this row is showing a real cover, which is what tells the view whether to cross-fade
-    /// at all.
+    /// Whether this row is showing a real cover, which is what tells the view whether to cross-fade at all.
     func isSharp(for track: any Playable, side points: CGFloat = 60) -> Bool {
         sharp(for: track, side: points) != nil
     }
 
-    /// The biggest picture this track has, however it was obtained — the 40×30 the message carried
-    /// included, since nothing better exists for some posts.
-    ///
-    /// A surface that blurs a cover whole or averages its colour is not reading it for detail, so
-    /// a small source still tells it the artwork's colour, which is more than a gradient does. The
-    /// tiers are walked largest first because `sharp` already takes any server thumbnail it holds,
-    /// while the art read out of the song is cached one tier at a time.
+    /// The biggest picture this track has, however it was obtained — the 40×30 the message carried included,
+    /// since nothing better exists for some posts. A surface that blurs a cover whole or averages its colour
+    /// is not reading it for detail, so a small source still tells it the artwork's colour. Tiers are walked
+    /// largest first because `sharp` already takes any server thumbnail it holds, while the art read out of
+    /// the song is cached one tier at a time.
     func largest(for track: any Playable) -> UIImage? {
         for tier in Self.tiers.reversed() {
             if let image = sharp(for: track, side: CGFloat(tier) / 3) { return image }
         }
         if let image = mini(for: track) { return image }
-        // Same promise as `image`: whatever the phone holds the bytes of, it can show — here at the
-        // smallest tier, which is all a colour or a blurred wash ever needed.
+        // Same promise as `image`: whatever the phone holds the bytes of, it can show — at the smallest tier,
+        // which is all a colour or a blurred wash ever needed.
         warm(track, at: CGFloat(Self.tiers.first ?? 192) / 3)
         return nil
     }
 
-    /// Orders whatever this track still needs, at this surface's size, and stops as soon as the
-    /// surface is filled. Called from a row's `.task`, so scrolling past a track is what orders the
-    /// fetches and a row that disappears cancels its own. `via` wins over the attached downloader,
-    /// because a row already holds the session's.
+    /// Orders whatever this track still needs, at this surface's size, and stops as soon as the surface is
+    /// filled. Called from a row's `.task`, so scrolling past a track orders the fetches and a row that
+    /// disappears cancels its own. `via` wins over the attached downloader: a row already holds the session's.
     func load(track: any Playable, via: TdFileDownloader? = nil,
               side points: CGFloat = 60) async {
         remember(track, at: points)
         await fill(track: track, via: via, points: points)
     }
 
-    /// Ordering the covers of a whole page before its rows are drawn.
-    ///
-    /// A row asks when it appears, which is a round trip paid while the user is still looking at the
-    /// gap. These go into the same queue the foreground refill uses, so a screen's worth of fetches
-    /// runs side by side instead of one per row, and the tiles are on the phone before the rows are.
-    ///
-    /// A prefetch is *not* a record of what the user looked at, so it does not touch `recent`. It used
-    /// to `remember` every track it ordered, and a channel walk prefetches a page at a time — a hundred
-    /// songs the screen never showed, pushed through a list whose whole job is to say which forty
-    /// covers the foreground refill owes the user. That is why coming back from the background refilled
-    /// the wrong screens and left the one on screen a gradient.
-    ///
-    /// They also go on the *back* of the queue for the same reason: the asks already waiting are the
-    /// ones a finger is looking at, and a page ordered ahead of them spends the six workers on covers
-    /// that may never be drawn.
+    /// Ordering the covers of a whole page before its rows are drawn: a row asks when it appears, which is a
+    /// round trip paid while the user is still looking at the gap. These go into the same queue the
+    /// foreground refill uses, so a screen's worth of fetches runs side by side and the tiles are on the
+    /// phone before the rows are.
+    /// A prefetch is *not* a record of what the user looked at, so it does not touch `recent`: a channel walk
+    /// orders a page at a time — a hundred songs the screen never showed — through a list whose whole job is
+    /// to say which covers the foreground refill owes the user. They also go on the *back* of the queue: the
+    /// asks already waiting are the ones a finger is looking at.
     func prefetch(_ tracks: [any Playable], via: TdFileDownloader?, side points: CGFloat) {
         let asks = tracks.map { Ask(track: $0, via: via, points: points) }
         guard !asks.isEmpty else { return }
@@ -382,11 +321,9 @@ final class CoverArtwork: ObservableObject {
         Task { await drain() }
     }
 
-    /// Working through the queue with at most `fetchWidth` covers in flight.
-    ///
-    /// The workers pull from the front rather than being handed a slice of it, so an ask that turns
-    /// out to be cached already costs a dictionary read and frees its worker for the next one at
-    /// once, instead of leaving a seat empty for the length of a download.
+    /// Working through the queue with at most `fetchWidth` covers in flight. Workers pull from the front
+    /// rather than being handed a slice, so an ask that turns out already cached costs a dictionary read and
+    /// frees its worker for the next one at once instead of leaving a seat empty for a download.
     private func drain() async {
         guard !draining, !queued.isEmpty else { return }
         draining = true
@@ -405,14 +342,11 @@ final class CoverArtwork: ObservableObject {
         }
     }
 
-    /// Throwing away every cached picture — the tiles in memory, the pinned ones, and the cover
-    /// bytes on disk — and reporting the room that made.
-    ///
-    /// Everything here is recomputable: a song's own art is decoded out of its container again and a
-    /// Telegram thumbnail is fetched again by the row that wants it. That is what makes this the safe
-    /// half of the app's storage. The picture a user chose for a list is deliberately not in this
-    /// directory: that file is theirs, it came out of their own photo library, and nothing else on
-    /// the phone holds a copy.
+    /// Throwing away every cached picture — memory tiles, pinned tiles and the cover bytes on disk — and
+    /// reporting the room that made. Everything here is recomputable: a song's art decodes out of its
+    /// container again and a Telegram thumbnail is fetched again by the row that wants it, which is what makes
+    /// this the safe half of the app's storage. The picture a user chose for a list is deliberately not in
+    /// this directory: it came out of their own photo library and nothing else holds a copy.
     func clearCache() -> Int64 {
         cache.removeAllObjects()
         pinned.removeAll()
@@ -420,8 +354,8 @@ final class CoverArtwork: ObservableObject {
         pinnedBytes = 0
         recent.removeAll()
         queued.removeAll()
-        // Decodes already on their way would otherwise land their tiles back into the cache this
-        // call just emptied, under keys of songs the library no longer holds.
+        // Decodes already on their way would otherwise land their tiles back into the cache this call just
+        // emptied, under keys of songs the library no longer holds.
         inFlight.removeAll()
         unreadableSources.removeAll()
         retries.removeAll()
@@ -430,36 +364,32 @@ final class CoverArtwork: ObservableObject {
         return freed
     }
 
-    /// The work of an ask, without the booking. The foreground re-warm needs exactly this half: it is
-    /// refilling asks that were already booked, and booking them again would move them to the back of
-    /// a queue whose whole purpose is to say which cover the user is looking at.
-    ///
-    /// The three steps are in order of what they cost: the song on the phone, the bytes the phone has
-    /// already fetched, and only then the network.
-    ///
-    /// Every step asks for the tier it was given *or a bigger one*, never just its own: a card that
-    /// holds the 512 px tile has nothing to learn from a 192 px decode, and ordering one anyway is how
-    /// the queue spends six workers on pictures the screen will not draw.
+    /// The work of an ask, without the booking: the foreground re-warm needs exactly this half, since its
+    /// asks are already booked and booking them again would move them to the back of a queue whose whole
+    /// purpose is to say which cover the user is looking at. The three steps run in cost order — the song on
+    /// the phone, the bytes the phone already has, then the network — and every step asks for the tier it was
+    /// given *or a bigger one*: a card holding the 512 px tile has nothing to learn from a 192 px decode, and
+    /// ordering one anyway spends a worker on a picture the screen will not draw.
     private func fill(track: any Playable, via: TdFileDownloader?, points: CGFloat) async {
         let pixels = Self.pixels(forSide: points)
         // The song itself first: no network, and the biggest cover Telegram ever sent for it.
         if fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) == nil {
             var path = track.localPath
-            // TDLib is only asked when neither the row nor the cache knows: the source file being on
-            // the phone already means the container was opened once, and asking again buys nothing.
+            // TDLib is only asked when neither the row nor the cache knows: the source file being on the phone
+            // already means the container was opened once, and asking again buys nothing.
             if path == nil, !Self.exists(Self.fileSource(uniqueId: track.uniqueId)) {
                 path = await onDevicePath(for: track, via: via)
             }
             await loadFileArt(uniqueId: track.uniqueId, localPath: path, pixels: pixels)
         }
-        // A surface filled by the tags has no reason to fetch a server thumbnail over it, and one that
-        // holds the tier it asked for — or a bigger one — has nothing left to order.
+        // A surface filled by the tags has no reason to fetch a server thumbnail over it, and one holding the
+        // tier it asked for — or a bigger one — has nothing left to order.
         guard fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) == nil else { return }
         guard let cover = Self.token(for: track) else { return }
         guard atLeast(cover, than: pixels) == nil else { return }
         let key = Self.coverKey(cover, pixels: pixels)
-        // One ask per tile. Without this, a row, the card it is also drawn in and the hero the same
-        // song opens each fetched and decoded the identical bytes.
+        // One ask per tile: without this, a row, the card it is also drawn in and the hero the same song
+        // opens each fetched and decoded the identical bytes.
         guard !inFlight.contains(key) else { return }
         inFlight.insert(key)
         defer { inFlight.remove(key) }
@@ -467,8 +397,8 @@ final class CoverArtwork: ObservableObject {
             put(tile, forKey: key)
             return
         }
-        // A generated cover may not have a remote identity yet. Its message is then the proof that
-        // this row belongs to this song; named covers are checked by `remote.unique_id` as well.
+        // A generated cover may not have a remote identity yet. Its message is then the proof that this row
+        // belongs to this song; named covers are checked by `remote.unique_id` as well.
         guard let file = TdFile(cover: track) else { return }
         let source = Self.coverSource(cover)
         guard let path = await (via ?? downloader)?.path(
@@ -483,11 +413,10 @@ final class CoverArtwork: ObservableObject {
         put(image, forKey: key)
     }
 
-    /// Booking one more ask for a cover that was not ready, until its tries run out.
-    ///
-    /// The retry goes back through the queue rather than into a task of its own: the pool is what
-    /// decides how many covers are being fetched at once, and six of them plus a screenful of rows
-    /// asking again at the same moment is how a retry turns into the reason the next cover is slow.
+    /// Booking one more ask for a cover that was not ready, until its tries run out. The retry goes back
+    /// through the queue rather than into a task of its own: the pool decides how many covers are fetched at
+    /// once, and six of them plus a screenful of rows asking again at the same moment is how a retry becomes
+    /// the reason the next cover is slow.
     private func retry(_ track: any Playable, via: TdFileDownloader?, points: CGFloat) {
         guard let cover = Self.token(for: track) else { return }
         let key = Self.coverKey(cover, pixels: Self.pixels(forSide: points))

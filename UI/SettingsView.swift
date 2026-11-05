@@ -3,30 +3,19 @@ import Support
 import TelegramDesignSystem
 import TdSession
 
-/// The screen MeloX builds its settings root out of: a `VStack(spacing: 32)` of cards on
-/// `systemGroupedBackground`, 16 pt on the sides, 14 above and 88 below, the app's mark in the
-/// navigation bar's principal slot and a search field under it that prunes the cards
-/// (`SettingsView.swift:27-45`, `:38`).
-///
-/// Every card is a `.headline` in `.secondary` over one 26 pt continuous rectangle of
-/// `secondarySystemGroupedBackground`; every row in it is a 30 pt tinted glyph, a
-/// `body.weight(.semibold)` title with a `caption` line under it and 18 × 13 pt of padding in a 68 pt
-/// minimum height, separated by a divider that starts 58 pt in (`SettingsHomeComponents.swift:19-92`).
-///
-/// First on the screen is the account block — the identity card and, 32 pt under it, the red
-/// sign-out, neither of them carrying a header (`SettingsAccountSection.swift:17-31`, `:142-153`,
-/// `:163-196`). The round things here are the marks that stand for somebody rather than for a cover:
-/// the account mark, which is MeloX's own (`SettingsAccountSection.swift:213-214`), and the photo each
-/// channel wears in the list below. The rule that made every artwork a rounded square never reaches
-/// them.
-///
-/// The search field is the reference's behaviour, not its decoration: a query is split on whitespace
-/// and a row survives only when every piece of it turns up in that row's own text, and a card with
-/// nothing left in it goes away (`SettingsCatalog.swift:120-148`, `SettingsView.swift:99-106`).
-///
-/// Logout is the screen's reason to exist. `file_id` is TDLib's number inside its own database
-/// (`td_api.tl:326`), so rows written against one session point at nothing once another starts —
-/// the library goes with the session rather than being left behind to fail.
+/// The settings root, after MeloX: a `VStack(spacing: 32)` of cards on `systemGroupedBackground`, 16 pt
+/// on the sides, 14 above and 88 below, the app's mark in the nav bar's principal slot and a search
+/// field under it that prunes the cards (`SettingsView.swift:27-45`, `:38`).
+/// A card is a `.headline` in `.secondary` over one 26 pt continuous rectangle of
+/// `secondarySystemGroupedBackground`; its rows are a 30 pt tinted glyph, a `body.weight(.semibold)`
+/// title with a `caption` line under it, 18 × 13 pt of padding in a 68 pt minimum height, dividers
+/// starting 58 pt in (`SettingsHomeComponents.swift:19-92`). First comes the account block and, 32 pt
+/// under it, the red sign-out, neither with a header (`SettingsAccountSection.swift:17-31`, `:142-153`,
+/// `:163-196`); the round marks here stand for a person or a channel, so the rounded-square artwork
+/// rule never reaches them. The search field prunes with `SettingsSearch`'s own rule, not as decoration.
+/// Logout is the screen's reason to exist: `file_id` is TDLib's number inside its own database
+/// (`td_api.tl:326`), so rows written against one session point at nothing once another starts — the
+/// library goes with the session rather than being left behind to fail.
 struct SettingsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -55,9 +44,8 @@ struct SettingsView: View {
                     card("Ứng dụng") { languageRow }
                 }
 
-                // The reference puts the version, the update check and the licences behind one row
-                // at the foot of the same screen (`SettingsCatalog.swift:150-167`), and Doni has no
-                // reason to say it differently.
+                // The reference puts the version, the update check and the licences behind one row at
+                // the foot of the same screen (`SettingsCatalog.swift:150-167`).
                 card("Giới thiệu") {
                     row("info.circle", "Giới thiệu Doni",
                         subtitle: "Phiên bản, cập nhật, giấy phép", disclosure: true) {
@@ -118,9 +106,8 @@ struct SettingsView: View {
         .searchable(text: $searchText, prompt: "Tìm kiếm cài đặt")
         .toolbar {
             ToolbarItem(placement: .principal) { brandMark }
-            // The panel is presented as a sheet, so there is no back button to lean on: the close
-            // mark sits where the reference puts it, at the trailing edge of the bar
-            // (`SettingsView.swift:48-56`).
+            // The panel is a sheet, so there is no back button to lean on: the close mark sits where
+            // the reference puts it, at the bar's trailing edge (`SettingsView.swift:48-56`).
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     dismiss()
@@ -156,9 +143,9 @@ struct SettingsView: View {
             AboutView()
         }
         .alert("Đổi ngôn ngữ", isPresented: $needsRestart) {
-            // One button, and it ends the process. A language is read out of `AppleLanguages` when
-            // the process starts, so an app that only *asks* to be reopened leaves the reader
-            // guessing — and swiping away from the switcher is the one gesture that may not kill it.
+            // One button, and it ends the process: the language is read out of `AppleLanguages` when
+            // the process starts, so only *asking* to reopen leaves the reader guessing — and swiping
+            // away from the switcher is the one gesture that may not kill the app.
             Button("Thoát ra") { exit(EXIT_SUCCESS) }
         } message: {
             Text(localized("Doni sẽ mở lại bằng %@.", language.nativeName))
@@ -284,8 +271,7 @@ struct SettingsView: View {
         card(title, accessory: { EmptyView() }, content: content)
     }
 
-    /// The same card with one thing at the right edge of its header, which is where a list you add
-    /// to wants its add.
+    /// The same card with one thing at the header's right edge — where a list you add to wants its add.
     private func card<Accessory: View, Content: View>(
         _ title: String,
         @ViewBuilder accessory: () -> Accessory,
@@ -295,8 +281,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 // `Text(_ String)` does not look anything up; only `Text(_ LocalizedStringKey)` does.
                 // These helpers take a `String` because a channel's own name arrives through them too,
-                // so the key is made here rather than at every call site. A name that is not in the
-                // catalog comes back unchanged, which is the only right answer for a name.
+                // so the key is made here rather than at every call site.
                 Text(LocalizedStringKey(title))
                     .font(.headline)
                     .foregroundStyle(.secondary)
@@ -332,8 +317,8 @@ struct SettingsView: View {
             action: action)
     }
 
-    /// The same row with a mark of the caller's own rather than a glyph, which is what lets a channel
-    /// wear its Telegram photo in the column the placeholder used to fill.
+    /// The same row with the caller's own mark instead of a glyph, so a channel can wear its Telegram
+    /// photo in the column the placeholder used to fill.
     private func row<Mark: View>(_ title: String,
                                  @ViewBuilder mark: () -> Mark,
                                  subtitle: String? = nil, value: String? = nil,
@@ -357,9 +342,9 @@ struct SettingsView: View {
             .layoutPriority(1)
             Spacer(minLength: 8)
             if let value {
-                // One line, at its own width, whatever the title column wants. A byte count that
-                // wraps is worse than a title that truncates: "209," over "1 MB" reads as two numbers,
-                // and the system's own rows never break a value — they shorten the words instead.
+                // One line, at its own width, whatever the title column wants: a byte count that wraps
+                // reads as two numbers, and the system's own rows shorten the words rather than break
+                // a value.
                 Text(value)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
@@ -394,9 +379,8 @@ struct SettingsView: View {
         }
     }
 
-    /// The language, chosen from the system's own menu — the glass popup a `Picker` gets on iOS 26,
-    /// not a screen of Doni's. Six names in six scripts fit a menu and do not fit a row, and the
-    /// menu is the one control here that a reader who cannot read the current language can still use.
+    /// The language, chosen from the system's own menu — the glass popup a `Picker` gets on iOS 26, not
+    /// a screen of Doni's. Six names in six scripts fit a menu and do not fit a row.
     private var languageRow: some View {
         HStack(spacing: MusicSettingsMetrics.rowIconGap) {
             Image(systemName: "globe")
@@ -428,10 +412,9 @@ struct SettingsView: View {
 
     // MARK: What is on the phone
 
-    /// The library's numbers, in the two-line shape every other row on the screen wears. The first
-    /// two carry a value and nowhere to go; the last two each have a screen of their own, because a
-    /// song waiting to be fetched is a queue and a queue wants rows, and because bytes that have to
-    /// be counted off the disk want a screen that can throw them away.
+    /// The library's numbers in the two-line shape every other row on the screen wears. The first two
+    /// carry a value and nowhere to go; the last two each have a screen of their own, since a queue
+    /// wants rows and bytes counted off the disk want a screen that can throw them away.
     private var lines: [SettingLine] {
         [
             SettingLine(symbol: "doc.text", title: "Bài đã chỉ mục",
@@ -455,9 +438,9 @@ struct SettingsView: View {
         ].filter { $0.matches(searchText) }
     }
 
-    /// The songs the channels hold and the phone does not. Read off the rows the library already
-    /// publishes — the same list the pending screen filters — rather than a new store query for one
-    /// number. A file the user imported is not in it: nothing can fetch such a song back.
+    /// The songs the channels hold and the phone does not, read off the rows the library already
+    /// publishes rather than a new store query for one number. Imported files are not in it: nothing
+    /// can fetch such a song back.
     private var pendingCount: Int {
         library.storedTracks.reduce(0) { $1.isDownloaded || $1.isLocal ? $0 : $0 + 1 }
     }
@@ -484,9 +467,8 @@ struct SettingsView: View {
             && !SettingsSearch.isActive(searchText))
     }
 
-    /// The language row is searchable by both its Vietnamese name and the English one, which is the
-    /// point of a screen whose whole subject is languages: the person looking for it may be reading
-    /// the app in any of the six.
+    /// Searchable by both the Vietnamese and the English name: whoever is looking for it may be reading
+    /// the app in any of the six languages.
     private var showsAppCard: Bool {
         SettingsSearch.matches(searchText, in: ["ngôn ngữ", "language", "i18n", "app"])
     }
@@ -497,19 +479,15 @@ struct SettingsView: View {
                                                 session.account?.username ?? ""])
     }
 
-    /// The rows go first, then the session: a database emptied under a live client would be read
-    /// back into memory by whatever is still walking a channel.
-    ///
-    /// The player goes before all of it. A song still playing is a file still open and a queue whose
-    /// rows have just been deleted, which is how signing out used to leave the music running.
-    /// TDLib's own directory and the Keychain key that opens its database go with the session — from
-    /// the session, once its client has closed.
+    /// The rows go first, then the session: a database emptied under a live client would be read back
+    /// into memory by whatever is still walking a channel. The player goes before all of it — a song
+    /// still playing is a file still open over rows just deleted. TDLib's directory and the Keychain
+    /// key that opens its database go with the session, once its client has closed.
     private func signOut() async {
-        // Nothing may write rows while the file is being thrown away: a walk still running, or a
-        // post still arriving, would put the library back into the empty database it just got. And
-        // nothing may keep showing the rows it already wrote — Home, the search and the "Nhạc" grid
-        // read the walk's own list rather than the store, so that list is the last sight of a
-        // library the user has just signed out of.
+        // Nothing may write rows while the files are being thrown away: a walk still running, or a post
+        // still arriving, would put the library back into the empty database it just got. And nothing
+        // may keep showing the rows it wrote — Home, search and the "Nhạc" grid read the walk's own
+        // list, so that list is the last sight of a library the user just signed out of.
         indexer.reset()
         player.stop()
         // Awaited rather than fired off: the answer says whether the files actually went, and the
@@ -519,9 +497,9 @@ struct SettingsView: View {
         _ = CoverArtwork.shared.clearCache()
         session.logOut()
         if !wiped {
-            // The library's files are still on the phone. `wipe` left its own flag for the next
-            // launch to finish, so this is not a leak that will be forgotten — but the user was
-            // promised a clean slate and deserves to hear that the slate is not clean yet.
+            // `wipe` left its own flag for the next launch to finish, so this is not a leak that will
+            // be forgotten — but the user was promised a clean slate and deserves to hear it is not
+            // clean yet.
             session.noteCleanupPending(
                 "Chưa xoá hết dữ liệu trên máy — Doni sẽ thử lại khi bạn mở app")
         }
@@ -529,8 +507,7 @@ struct SettingsView: View {
 }
 
 /// One row of a card that carries a value. `action` is the difference between a number and a door:
-/// the rows that have one open a screen and wear the chevron that says so, and the ones that do not
-/// only report what the library holds.
+/// rows that have one open a screen and wear the chevron that says so.
 private struct SettingLine: Identifiable {
     let symbol: String
     let title: String
@@ -570,13 +547,9 @@ private enum SettingsSearch {
 /// A channel's own Telegram picture, in the mark column of its row: 30 pt because that is the column
 /// every other row on this screen has (`SettingsHomeComponents.swift:58-88`), and round because it
 /// stands for a chat rather than for a cover.
-///
 /// What is drawn is a file on the phone, not a request in flight: `chat.photo`'s `small` variant is a
-/// 160×160 JPEG (`td_api.tl:784`, `:779`) — five times the pixels this mark is drawn at, which is the
-/// difference between a photo and a smear — and `Library.loadAvatar` copies it into a directory this
-/// app owns the first time the row appears. So a visit to this screen after the first one costs one
-/// read and no round trip at all, which is what "cực nhanh" has to mean when the picture lives on a
-/// server in Amsterdam.
+/// 160×160 JPEG (`td_api.tl:784`, `:779`), and `Library.loadAvatar` copies it into a directory this app
+/// owns the first time the row appears — so a later visit costs one read and no round trip.
 private struct ChannelAvatar: View {
     let channel: StoreChannel
     @ObservedObject var library: Library

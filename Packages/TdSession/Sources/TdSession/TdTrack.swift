@@ -1,13 +1,9 @@
 import Foundation
 
-/// One playable thing a channel message carries.
-///
-/// The shape comes from the pinned schema: a music channel posts the same song
-/// as `messageAudio` (uploaded as audio, so it has tags) or as
-/// `messageDocument` (uploaded as a file, so it has only a name and a size), and
-/// the dedupe key both of them share is `file.remote.unique_id` — TDLib's
-/// `file:id:int32` (`td_api.tl:326`) is per-database, while MTProto's
-/// `file_unique_id` is what repeats across messages, channels and re-uploads.
+/// One playable thing a channel message carries. A music channel posts the same song as `messageAudio`
+/// (uploaded as audio, so it has tags) or `messageDocument` (a file, so only a name and a size), and both
+/// share the dedupe key `file.remote.unique_id`: TDLib's `file:id:int32` (`td_api.tl:326`) is
+/// per-database, while MTProto's `file_unique_id` repeats across messages, channels and re-uploads.
 public struct TdTrack: Equatable, Sendable {
     public enum Origin: Equatable, Sendable {
         /// `messageAudio` — has duration and, when the uploader set them, title and performer tags.
@@ -37,34 +33,25 @@ public struct TdTrack: Equatable, Sendable {
     /// Set once TDLib has the file on the device.
     public let localPath: String?
     public let isDownloaded: Bool
-    /// TDLib's `minithumbnail` for the cover tag: a few hundred bytes of JPEG the
-    /// message itself carries, so the list can show real artwork without asking for
-    /// a file. `nil` when the post has no cover, which is a third of a real channel.
+    /// TDLib's `minithumbnail` for the cover tag: a few hundred bytes of JPEG the message itself
+    /// carries, so the list shows real artwork without asking for a file. `nil` for a bare post.
     public let miniArtwork: Data?
-    /// The cover worth fetching, picked from TDLib's three of them — `album_cover_thumbnail` and
-    /// the two `external_album_covers` (`td_api.tl:583`).
+    /// The cover worth fetching, picked from TDLib's three — `album_cover_thumbnail` and the two
+    /// `external_album_covers` (`td_api.tl:583`).
     ///
-    /// A thumbnail that already reports bytes wins over a bigger one that reports none, because
-    /// the external covers are *generated* files: TDLib builds their location out of the title and
-    /// the performer (`FileManager.cpp:4361`, `AudiosManager.cpp:53-67`) and answers `size` and
-    /// `expected_size` as 0 until the server has made the bytes. In the measured channel they are
-    /// on 168 of 168 audios with no size on any of them, while 112 audios carry a 320×240 or
-    /// 320×180 `album_cover_thumbnail` of 6.6-31 KB — which this app never used to read at all.
+    /// One that already reports bytes wins over a bigger one that reports none: the external covers are
+    /// *generated* files, located out of the title and performer (`FileManager.cpp:4361`,
+    /// `AudiosManager.cpp:53-67`), answering `size` and `expected_size` as 0 until the server has made
+    /// the bytes — measured on 168 of 168 audios, while 112 carry a 320×240 thumbnail of 6.6-31 KB.
     public let coverFileId: Int?
-    /// The same cover's MTProto identity, which is the half worth caching.
-    ///
-    /// `file:id:int32` (`td_api.tl:326`) counts rows in *this* database, so it is only good while
-    /// the database is; `remote:unique_id` (`:318`) is the file's name on Telegram's side and is the
-    /// same in every database, channel and re-upload. The picture kept on the phone outlives the
-    /// numbers, so it has to be filed under the identity rather than the row number — keyed on the
+    /// The same cover's MTProto identity, the half worth caching. `file:id:int32` (`td_api.tl:326`)
+    /// counts rows in *this* database, so it is only good while the database is; `remote:unique_id`
+    /// (`:318`) is the file's name on Telegram's side, the same in every database and re-upload. The
+    /// copy on the phone outlives the numbers, so it is filed under the identity — keyed on the row
     /// number, a re-index hands one song another song's cover.
-    ///
-    /// `nil` only for a row written before this was recorded; the covers in the measured channel all
-    /// carry one, on both the 112 `album_cover_thumbnail` and the 336 `external_album_covers`.
     public let coverUniqueId: String?
 
-    /// The cover a post carries: TDLib's row number for the download, and MTProto's identity for
-    /// everything worth keeping.
+    /// A post's cover: TDLib's row number for the download, MTProto's identity for what is kept.
     private typealias Cover = (fileId: Int, uniqueId: String?)
 
     /// `message` is a `message` object; nil for anything that is not a file the
@@ -96,10 +83,9 @@ public struct TdTrack: Equatable, Sendable {
             mimeType = audio?["mime_type"]?.string ?? ""
             caption = content["caption"]?["text"]?.string ?? ""
             duration = Int(audio?["duration"]?.int ?? 0)
-            // TDLib serialises `bytes` as base64; this is the only artwork that comes
-            // with the message rather than as a file that has to be fetched
-            // (`td_api.tl:583`, `audio.album_cover_minithumbnail`). A document's own
-            // minithumbnail is a drawn file icon, so it is not artwork and stays unread.
+            // TDLib serialises `bytes` as base64; this is the only artwork that comes with the
+            // message rather than as a file to fetch (`td_api.tl:583`,
+            // `audio.album_cover_minithumbnail`). A document's minithumbnail is a drawn file icon.
             let encodedArtwork = audio?["album_cover_minithumbnail"]?["data"]?.string
             miniArtwork = encodedArtwork.flatMap { Data(base64Encoded: $0) }
             cover = Self.bestCover(audio)
@@ -145,9 +131,8 @@ public struct TdTrack: Equatable, Sendable {
         self.fileId = Int(fileId)
         self.uniqueId = uniqueId
         self.title = Self.fullTitle(title, from: caption)
-        // A document post has no performer field of its own (`td_api.tl:594`), and the bot that names
-        // the singer at all names it in the caption. The tag still comes first where both exist: the
-        // caption is prose a bot typed, the tag is what the file was made with.
+        // A document post has no performer field of its own (`td_api.tl:594`), and a bot naming the
+        // singer at all names it in the caption; the tag still comes first where both exist.
         self.performer = performer.isEmpty
             ? (Self.captionValue(caption, keys: Self.artistKeys) ?? "")
             : performer
@@ -164,13 +149,9 @@ public struct TdTrack: Equatable, Sendable {
         self.coverUniqueId = cover?.uniqueId
     }
 
-    /// The cover to ask TDLib for, out of every thumbnail the post carries, with the identity of the
-    /// file it picked.
-    ///
-    /// Ones with bytes are considered first and, among them, the widest: a 320 px `album_cover_thumbnail`
-    /// is a download that can start now, and a 600 px generated cover that never starts is worth less
-    /// than nothing to a row. Only when the post has no sized cover at all does the generated one get
-    /// its turn, which is the whole of what a track posted without a proper tag has to offer.
+    /// The cover to ask TDLib for, out of every thumbnail the post carries, with its identity. Ones with
+    /// bytes come first and, among them, the widest: a 320 px `album_cover_thumbnail` is a download that
+    /// can start now, where a 600 px generated cover that never starts is worth less than nothing.
     private static func bestCover(_ audio: TdJSON?) -> Cover? {
         var candidates: [TdJSON] = []
         if let thumbnail = audio?["album_cover_thumbnail"] { candidates.append(thumbnail) }
@@ -179,19 +160,17 @@ public struct TdTrack: Equatable, Sendable {
         return Self.widest(sized) ?? Self.widest(candidates)
     }
 
-    /// Bytes TDLib is willing to promise about a thumbnail right now. `size` once it has seen the
-    /// file, `expected_size` while it has not — and a generated cover promises neither.
+    /// Bytes TDLib will promise about a thumbnail now: `size` once it has seen the file,
+    /// `expected_size` while it has not; a generated cover promises neither.
     private static func bytes(of thumbnail: TdJSON) -> Int64 {
         guard let file = thumbnail["file"] else { return 0 }
         return max(file["size"]?.int ?? 0, file["expected_size"]?.int ?? 0)
     }
 
-    /// The widest of TDLib's `thumbnail` objects (`td_api.tl:393`), which is the one worth a
-    /// download: a 54 pt tile at @3x wants 162 pixels, and 100×100 is not enough.
-    ///
-    /// The remote identity comes from the same `file` object as the number, so the two can never be
-    /// a pair from different thumbnails. A `fileRemoteUnknown` remote — what TDLib answers before it
-    /// has looked the file up — has no identity, and the caller then has only the number to work with.
+    /// The widest of TDLib's `thumbnail` objects (`td_api.tl:393`), the one worth a download: a 54 pt
+    /// tile at @3x wants 162 pixels, and 100×100 is not enough. The identity comes from the same `file`
+    /// object as the number, so the two are never a pair from different thumbnails; a
+    /// `fileRemoteUnknown` remote has none and the caller has only the number.
     private static func widest(_ thumbnails: [TdJSON]) -> Cover? {
         let ranked = thumbnails.compactMap { entry -> (width: Int, cover: Cover)? in
             guard let width = entry["width"]?.int, let file = entry["file"],
@@ -202,12 +181,9 @@ public struct TdTrack: Equatable, Sendable {
         return ranked.max { $0.width < $1.width }?.cover
     }
 
-    /// The bots that post these files write the name twice — into the audio tag and into the
-    /// caption — and cut the tag at about 64 characters: 93 of the 168 audios in the real
-    /// channel arrive with a title ending in "…" while the same message's caption still holds
-    /// the whole name. Telegram would show the cut tag; a library should not, so the cut is
-    /// replaced only where the caption is that same name with its ending put back. A caption
-    /// that is cut as well keeps its own "…" — the list never claims a name it does not have.
+    /// These bots write the name twice — into the audio tag, cut at about 64 characters, and into the
+    /// caption: 93 of the 168 audios in the real channel arrive ending in "…" while the caption holds
+    /// the whole name. The cut is replaced only where the caption is that name with its ending back.
     private static func fullTitle(_ title: String, from caption: String) -> String {
         guard title.hasSuffix(ellipsis) else { return title }
         let cut = String(title.dropLast())
@@ -219,9 +195,8 @@ public struct TdTrack: Equatable, Sendable {
 
     private static let ellipsis = "…"
 
-    /// The caption's own name line: `Tiêu đề:` over a mix, `Bài hát:` over a song. Only those
-    /// keys count, so `Thời lượng: 1:11:37` — a value that carries a second colon — is never
-    /// read as a title.
+    /// The caption's own name line: `Tiêu đề:` over a mix, `Bài hát:` over a song. Only those keys
+    /// count, so `Thời lượng: 1:11:37` is never read as a title.
     private static func captionName(_ caption: String) -> String? {
         captionValue(caption, keys: nameKeys)
     }
@@ -229,11 +204,8 @@ public struct TdTrack: Equatable, Sendable {
     private static let nameKeys = ["Tiêu đề", "Bài hát"]
 
     /// Who sang it, out of the caption. `Thể hiện:` is the one these channels write — 59 of the 168
-    /// measured posts — and the others are the keys the same bots use when they post in English or
-    /// copy a description off a streaming service.
-    ///
-    /// A row with no singer named stays unnamed rather than being called by the app's own name; the
-    /// screens that need a second line decide what to say when there is nothing to say.
+    /// measured posts — the rest are keys the same bots use in English or copy off a streaming service.
+    /// A row with no singer named stays unnamed rather than being called by the app's own name.
     private static let artistKeys = ["Thể hiện", "Ca sĩ", "Trình bày", "Singer", "Artist", "Vocal"]
 
     /// The value of the first caption line whose key is one of `keys`, compared with case, diacritics
@@ -249,22 +221,17 @@ public struct TdTrack: Equatable, Sendable {
         return nil
     }
 
-    /// A bot writes names in caps and another in sentence case, and a caption's spacing is not
-    /// the tag's, so the two are compared with case, diacritics, width and runs of space
-    /// folded away. What is *shown* stays exactly as the caption wrote it.
+    /// Caps against sentence case and a caption's spacing against the tag's: compared with case,
+    /// diacritics, width and space runs folded. What is *shown* stays as the caption wrote it.
     private static func folded(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
     }
 
-    /// The name the list shows. Tags first, then the caption's own name line, then the caption as
-    /// written, then the file name without its extension — the order Telegram's own audio row falls
-    /// back through.
-    ///
-    /// The name line comes before the whole caption because a caption that has keys is not a name:
-    /// `Tiêu đề: …\nThể hiện: …\nKênh: …` is a form, and showing it as a title puts four lines of a
-    /// bot's bookkeeping on the row where a song's name should be.
+    /// The name the list shows: tags, then the caption's name line, then the caption, then the file
+    /// name without its extension — Telegram's own fallback order. The name line comes before the whole
+    /// caption because a caption with keys is a form, not a name.
     public var displayTitle: String {
         if !title.isEmpty { return title }
         if let named = Self.captionName(caption) { return named }
@@ -272,8 +239,7 @@ public struct TdTrack: Equatable, Sendable {
         return fileNameStem
     }
 
-    /// Who sang it. Empty when neither the file's tag nor the caption named anyone, and the row then
-    /// shows the title alone.
+    /// Who sang it; empty when neither the tag nor the caption named anyone.
     public var displayPerformer: String {
         performer
     }
@@ -302,11 +268,8 @@ public struct TdTrack: Equatable, Sendable {
     ]
 }
 
-/// A chat the app reads songs out of.
-///
-/// The name is the app's, not Telegram's: the walk is one request whatever the chat is, so a
-/// channel, a group, a person and a bot are all the same kind of source here, and only the label
-/// the picker puts on the row differs.
+/// A chat the app reads songs out of. The name is the app's, not Telegram's: the walk is one request
+/// whatever the chat is, so a channel, a group, a person and a bot are the same kind of source.
 public struct TdChannel: Equatable, Sendable {
     /// What the chat is, which is what the picker says it is.
     public enum Kind: String, Equatable, Sendable {
@@ -317,9 +280,8 @@ public struct TdChannel: Equatable, Sendable {
     public let username: String
     public let title: String
     public let kind: Kind
-    /// The chat's own picture, or nil when it has never set one. Every request that answers a `chat`
-    /// carries it — `searchPublicChat`, `getChat`, the chat list — so a row picked out of one of them
-    /// knows its avatar without a second round trip.
+    /// The chat's own picture, or nil when it has never set one. Every request answering a `chat`
+    /// carries it — `searchPublicChat`, `getChat`, the chat list — so no second round trip is needed.
     public let photo: TdChatPhoto?
 
     /// A handle only comes from a search by handle; the chat list has none to give
@@ -334,17 +296,13 @@ public struct TdChannel: Equatable, Sendable {
     }
 }
 
-/// A chat's own picture, as TDLib describes it.
+/// A chat's own picture, as TDLib describes it. `chat.photo` (`td_api.tl:4080`) is a `chatPhotoInfo`
+/// (`:784`) with two still variants: `small` at 160×160 and `big` at 640×640 (`:779`, `:780`), and the
+/// smaller is asked for — five times the pixels a 30 pt mark needs, a fraction of the other's bytes.
 ///
-/// `chat.photo` (`td_api.tl:4080`) is a `chatPhotoInfo` (`:784`) with two still variants: `small` at
-/// 160×160 and `big` at 640×640 (`:779`, `:780`). The smaller is what Telegram's own list avatars are
-/// drawn from and is the one asked for — it is five times the pixels a 30 pt mark needs and a
-/// fraction of the bytes of the other.
-///
-/// `fileId` is TDLib's row number in its own database (`:326`), which is what a download is asked for
-/// by; `uniqueId` is MTProto's identity for the same bytes and is what the copy kept on the phone is
-/// named after, because a picture filed under a row number is a picture that one day belongs to a
-/// different chat.
+/// `fileId` is TDLib's row number (`:326`), what a download is asked for by; `uniqueId` is MTProto's
+/// identity for the same bytes, what the kept copy is named after — a picture filed under a row number
+/// one day belongs to a different chat.
 public struct TdChatPhoto: Equatable, Sendable {
     public let fileId: Int
     public let uniqueId: String?
@@ -354,13 +312,10 @@ public struct TdChatPhoto: Equatable, Sendable {
         self.uniqueId = uniqueId
     }
 
-    /// The `photo` of a `chat`, or nil for a chat that has no picture. TDLib answers an empty
-    /// `chatPhotoInfo` for those and a `file` of id 0 for a variant it does not have, so the number
-    /// is what decides rather than the presence of the object.
-    ///
-    /// The identity is read out of the same variant as the number: pairing one file's id with
-    /// another's `unique_id` would name the bytes being downloaded after a picture that was never
-    /// asked for.
+    /// The `photo` of a `chat`, or nil for a chat with no picture. TDLib answers an empty
+    /// `chatPhotoInfo` for those and a `file` of id 0 for a variant it lacks, so the number decides
+    /// rather than the object's presence. The identity comes from the same variant as the number, so
+    /// one file's id is never paired with another's `unique_id`.
     public init?(chat: TdJSON) {
         guard let photo = chat["photo"] else { return nil }
         for variant in ["small", "big"] {
@@ -383,11 +338,10 @@ public struct TdHistoryPage: Equatable, Sendable {
     /// The lowest message id in the page — the cursor for the next one. TDLib
     /// sends pages in whatever order the server had them, so it is computed, not assumed.
     public let oldestMessageId: Int64?
-    /// TDLib's own count of the messages it looked at; `nil` when it did not say.
+    /// TDLib's count of the messages it looked at; `nil` when it did not say.
     public let totalCount: Int?
-    /// The walk is over when nothing older came back. A *short* page is not the
-    /// end: TDLib returns the messages it has, so a channel with gaps answers
-    /// with fewer than the limit and still has older posts.
+    /// The walk is over when nothing older came back. A *short* page is not the end: TDLib returns the
+    /// messages it has, so a channel with gaps answers under the limit and still has older posts.
     public let isLast: Bool
 
     init(messages: [TdJSON], totalCount: Int?) {

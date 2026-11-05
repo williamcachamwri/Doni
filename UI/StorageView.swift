@@ -2,19 +2,12 @@ import SwiftUI
 import Support
 import TelegramDesignSystem
 
-/// The screen MeloX puts behind its settings' storage entry: an overview of what the app holds and
-/// what the phone has left, one row per kind of byte, and a button for each of the two things that
-/// can be thrown away (`StorageManagementView.swift:10-467`).
-///
-/// The reference's numbers come from a server it owns, so its screen is a maintenance panel for a
-/// cache that always refills itself. Doni's is the same shape with a different job: the app had been
-/// quoting its own rows — a report of what it meant to keep — while TDLib went on holding several
-/// hundred megabytes of streamed songs that no row ever marked. Every figure here is measured off the
-/// disk, which is the number the system's own panel charges the app.
-///
-/// The two buckets that are not here on purpose: a file the user imported, which no server can hand
-/// back, and the picture a user chose for a list, whose only copy is the file this app wrote. Both
-/// are counted, and neither is a button.
+/// MeloX's storage screen: an overview of what the app holds and what the phone has left, one row per
+/// kind of byte, and a button for each of the two things that can be thrown away
+/// (`StorageManagementView.swift:10-467`). Every figure here is measured off the disk rather than
+/// quoted from the app's own rows, so it matches the number the system's panel charges the app.
+/// Two buckets are counted but never get a button: a file the user imported, which no server can hand
+/// back, and the cover a user chose for a list, whose only copy is this app's file.
 struct StorageView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
@@ -28,8 +21,8 @@ struct StorageView: View {
     @State private var isMeasuring = false
     /// The cleanup running right now, which is the row wearing a spinner.
     @State private var active: StorageCleanup?
-    /// The cleanup being asked about. Held as the dialog's item rather than a plain flag, because
-    /// the dialog can be dismissed by anything else that takes focus.
+    /// The cleanup being asked about. Kept as the dialog's item rather than a flag, because anything
+    /// else taking focus can dismiss the dialog.
     @State private var confirming: StorageCleanup?
     @State private var message: String?
     @State private var failure: String?
@@ -129,8 +122,8 @@ struct StorageView: View {
             LabeledContent("Xoá được",
                            value: DataSize.string(usage?.reclaimableBytes ?? 0))
 
-            // The number the cache is held to. Said here because a listener who cannot see the
-            // ceiling has no way to tell a cache that is working from one that is growing.
+            // The ceiling the cache is held to: without it, a listener cannot tell a cache that is
+            // working from one that is growing.
             LabeledContent("Hạn mức cache", value: DataSize.string(library.cacheQuota))
 
             if let message {
@@ -159,9 +152,9 @@ struct StorageView: View {
                  "Ảnh bìa và ảnh kênh, tự tải lại", usage?.pictureBytes)
             item("heart.text.square", "Thư viện của bạn",
                  "Danh sách, bài yêu thích, ảnh bìa bạn chọn", usage?.libraryBytes)
-            // Its own row, because a fresh TDLib spends several megabytes on its database, its
-            // binary log and its sticker folders before it has been told anything at all. Counted
-            // with the library, that made a sign-out that worked look like one that failed.
+            // Its own row: a fresh TDLib spends several megabytes on its database, binary log and
+            // sticker folders before being told anything. Counted with the library, a sign-out that
+            // worked looked like one that failed.
             item("gearshape.2", "Phần Telegram của app",
                  "Cơ sở dữ liệu TDLib tự tạo — không xoá được khi đang đăng nhập",
                  usage?.engineBytes)

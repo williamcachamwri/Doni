@@ -2,11 +2,9 @@ import Foundation
 
 /// File sizes the way a Telegram row prints them.
 ///
-/// `DefaultPresentationStrings.swift:72-97` divides by 1024 and prints *one floored* decimal
-/// digit, so 1 572 864 bytes is "1,5 MB" and never "1,6". Its kilobyte branch divides the
-/// remainder by 102 rather than 102.4, which can disagree with the other two by a tenth of a
-/// kilobyte; the difference only ever shows on files under 1 MB, so this follows the uniform
-/// rule instead of the artefact.
+/// `DefaultPresentationStrings.swift:72-97` divides by 1024 and prints *one floored* decimal digit, so
+/// 1 572 864 bytes is "1,5 MB" and never "1,6". Its kilobyte branch divides the remainder by 102 rather
+/// than 102.4; that only shows under 1 MB, so this follows the uniform rule instead of the artefact.
 public enum DataSize {
     public static func string(
         _ bytes: Int64,
@@ -45,8 +43,7 @@ public enum DataSize {
 
 /// A duration in the timestamp slot.
 ///
-/// `StringForDuration.swift:3-19`: minutes and seconds are `%d:%02d`, and an hour adds a third
-/// group rather than rolling the minutes over.
+/// `StringForDuration.swift:3-19`: minutes and seconds are `%d:%02d`, and an hour adds a third group.
 public enum MediaClock {
     public static func duration(_ seconds: Int?) -> String? {
         guard let seconds, seconds >= 0 else { return nil }

@@ -7,18 +7,14 @@ import TelegramDesignSystem
 import TdSession
 import UIKit
 
-/// The one thing that makes noise.
-///
-/// `AVAudioPlayer` rather than `AVPlayer`: these are whole files TDLib has already put on the
-/// device, there is no streaming or DRM to negotiate, and a segment favourite needs a seek that
-/// lands exactly. Background audio works because `UIBackgroundModes` lists `audio` and the
-/// session is `.playback`, which is the only category that survives the app being suspended.
+/// The one thing that makes noise: `AVAudioPlayer` over whole files TDLib has already put on the
+/// device, where a segment favourite needs a seek that lands exactly. Background audio needs the
+/// `.playback` session plus `UIBackgroundModes` listing `audio`.
 @MainActor
 final class Player: ObservableObject {
     /// What the end of the queue is: an ending, a loop of the whole list, or a loop of this song.
-    ///
-    /// A `String` raw value because the mode is written into the resume snapshot, where the
-    /// reference keeps it as text (`PlaybackQueue.swift:3`, `PlaybackPersistence.swift:7`).
+    /// `String` raw value because the resume snapshot keeps it as text
+    /// (`PlaybackQueue.swift:3`, `PlaybackPersistence.swift:7`).
     enum RepeatMode: String, Equatable, Sendable, Codable {
         case off, all, one
     }
@@ -32,8 +28,7 @@ final class Player: ObservableObject {
     /// The slice being played, when the user favoured one: the player holds itself inside it.
     @Published var segment: ClosedRange<Double>?
     /// The start of a cut the user is marking, before they have reached its end. Held here rather
-    /// than in the panel because the panel's two pages — the chip and the queue's pill — both show
-    /// it, and a cut marked on one has to read the same on the other.
+    /// than in the panel because the chip and the queue's pill both show the same cut.
     @Published private(set) var markIn: TimeInterval?
     /// The queue as the up-next page shows it, in the order it will be played.
     @Published private(set) var queue: [any Playable] = []
@@ -41,18 +36,16 @@ final class Player: ObservableObject {
     @Published private(set) var index = 0
     @Published private(set) var isShuffled = false
     @Published private(set) var repeatMode: RepeatMode = .off
-    /// Why a stream stopped without being asked to, and what to say about it. `nil` means nothing is
-    /// wrong, or the user is the one who stopped it — the two are not the same and only one of them
-    /// needs a sentence on the screen.
+    /// Why a stream stopped without being asked to. `nil` means nothing is wrong, or the user
+    /// stopped it themselves — only one of those needs a sentence on the screen.
     @Published private(set) var playbackProblem: PlaybackProblem?
-    /// Whether the song is playing but waiting for bytes. The screen shows a spinner for this and
-    /// nothing else: it is the one state that is neither paused nor broken.
+    /// Whether the song is playing but waiting for bytes: the one state that is neither paused
+    /// nor broken, and the only one this spinner answers for.
     @Published private(set) var isBuffering = false
     private let network = Network.shared
     /// How long the engine has not been producing sound, counted in ticks.
     private var stalledSeconds: TimeInterval = 0
-    /// The player's own volume, 0…1. `AVAudioPlayer` has a real one, which is why Doni's volume bar
-    /// moves sound instead of being the prop the reference had to settle for.
+    /// The player's own volume, 0…1 — `AVAudioPlayer` has a real one, so the bar moves sound.
     @Published var volume: Float = 1 {
         didSet {
             engine?.volume = volume
@@ -63,14 +56,13 @@ final class Player: ObservableObject {
 
     /// The order the list was played in, kept so turning shuffle off puts it back.
     private var source: [any Playable] = []
-    /// The system's media controls. A property rather than a local in `init`, because the favourite's
-    /// state has to be written back to the command from inside the app as well — the row's heart and
-    /// the lock screen's button are the same fact.
+    /// The system's media controls, held as a property because the favourite's state is written back
+    /// to the command from inside the app: the row's heart and the lock screen's button are one fact.
     private let commands = MPRemoteCommandCenter.shared()
     private var engine: (any SongEngine)?
     private var ticker: Timer?
-    /// The song currently streamed rather than played from a whole file: which file the one download
-    /// window belongs to, how far ahead of the sound it has to stay, and the fetch that is filling it.
+    /// The song currently streamed rather than played from a whole file, and the one download window
+    /// it owns.
     private struct Streaming {
         let file: TdFile
         let size: Int64
@@ -86,9 +78,8 @@ final class Player: ObservableObject {
     /// Whether sound was going when something else took the session. Only that question decides
     /// whether to give it back: a pause the user pressed themselves is not a pause to undo.
     private var wantsResumeAfterInterruption = false
-    /// The lead-time fetch of the song queued behind this one, and the song it was started for. The
-    /// id is what stops a timer that fires four times a second asking for the same file forty times
-    /// over.
+    /// The lead-time fetch of the song queued behind this one, and the song it was started for; the
+    /// id stops the quarter-second tick re-asking for the same file.
     private var prefetch: Task<Void, Never>?
     private var prefetchingId: String?
     /// The second last written into the resume snapshot, so the clock saves once per second of
@@ -97,8 +88,8 @@ final class Player: ObservableObject {
     /// `restore()` runs once per launch, however many views ask for it
     /// (`PlayerStore.swift:184, 277-278`).
     private var hasRestoredPlayback = false
-    /// A play press that arrived while the file was still being fetched: the load honours it when
-    /// it lands, because the press meant it and the row was only too early.
+    /// A play press that arrived while the file was still being fetched; the load honours it when it
+    /// lands.
     private var wantsPlayWhenReady = false
     /// The lock screen's cover, and the bitmap it was made from. See `artwork(for:)`.
     private var artworkItem: (uniqueId: String, image: UIImage, item: MPMediaItemArtwork)?
@@ -125,7 +116,7 @@ final class Player: ObservableObject {
 
     init(library: Library = .shared) {
         self.library = library
-        // Background audio only survives if the category is `.playback` before the first file is
+        // Background audio survives only with the `.playback` category set before the first file is
         // opened; `UIBackgroundModes` lists `audio` for the same reason.
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         let center = commands
@@ -156,14 +147,9 @@ final class Player: ObservableObject {
             Task { @MainActor in self.seek(to: event.positionTime) }
             return .success
         }
-        // The star the system draws in its own media controls — the lock screen, Control Centre and
-        // the Dynamic Island's Now Playing. It is `likeCommand`, one of the three feedback commands
-        // (`MPRemoteCommandCenter.h:54-58`), and it is the only one of them whose glyph the system
-        // also fills in: `isActive` is documented as "the user already liked this item", so the same
-        // control says both "favourite this" and "this is favourited" without a private key.
-        //
-        // `ratingCommand` was tried first and draws nothing at all on this system, which is what the
-        // screenshots of other apps have been showing.
+        // The system's own favourite button: `likeCommand`, one of the three feedback commands
+        // (`MPRemoteCommandCenter.h:54-58`), and the only one whose glyph the system also fills in —
+        // `isActive` means "the user already liked this item", so one control carries both states.
         center.likeCommand.localizedTitle = "Thêm vào yêu thích"
         center.likeCommand.localizedShortTitle = "Yêu thích"
         center.likeCommand.addTarget { _ in
@@ -171,9 +157,8 @@ final class Player: ObservableObject {
             return .success
         }
         center.likeCommand.isEnabled = true
-        // The session has two things to say that the player cannot learn any other way, and both of
-        // them used to arrive in silence. They are held here rather than in a local because an
-        // `AsyncStream` of notifications dies with whoever is reading it.
+        // Held as properties rather than locals because an `AsyncStream` of notifications dies with
+        // whoever is reading it.
         sessionObservers = [
             Task { [weak self] in
                 for await note in NotificationCenter.default.notifications(
@@ -189,10 +174,8 @@ final class Player: ObservableObject {
                     self?.handleRouteChange(note.userInfo)
                 }
             },
-            // Background audio keeps the *sound* going while the app is away, but it does not keep
-            // the main run loop servicing timers: the clock stops mid-song and does not pick itself
-            // back up when the app returns, which is the frozen bar and the frozen time label.
-            // Re-arming on every return is what makes the tick honest again.
+            // Background audio keeps the sound going but not the run loop servicing timers, so the
+            // clock stops mid-song; re-arming on every return is what makes the tick honest again.
             Task { [weak self] in
                 for await _ in NotificationCenter.default.notifications(
                     named: UIApplication.didBecomeActiveNotification
@@ -201,8 +184,7 @@ final class Player: ObservableObject {
                 }
             },
             // The connection coming back is the one event that makes a stopped stream worth another
-            // look: the reason the app gave is no longer true, and the window has to be asked for
-            // again before the play button means anything.
+            // look: the window has to be asked for again before the play button means anything.
             Task { [weak self] in
                 guard let self else { return }
                 for await _ in self.network.$isOnline.values {
@@ -215,10 +197,8 @@ final class Player: ObservableObject {
 
     /// Something else took the audio session: a call, Siri, an alarm, another app's sound.
     ///
-    /// `AVAudioPlayer` stops on its own and says nothing about it to the app, so the row kept its play
-    /// glyph, the lock screen kept running its clock forward over silence — `tick()` publishes a rate
-    /// of 1.0 while `isPlaying` holds — and the position written into the resume snapshot kept
-    /// advancing through a part of the song nobody had heard.
+    /// `AVAudioPlayer` stops on its own and says nothing to the app, so the play glyph, the lock
+    /// screen's clock and the saved position would all keep advancing over silence.
     private func handleInterruption(_ info: [AnyHashable: Any]?) {
         guard let raw = info?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
@@ -230,9 +210,8 @@ final class Player: ObservableObject {
         }
         guard type == .ended, wantsResumeAfterInterruption else { return }
         wantsResumeAfterInterruption = false
-        // TDLib's own answer is not enough: the system says whether the interruption ended in a way
-        // this app may take the session back. A call that has moved to another device ends with the
-        // flag clear, and resuming into it is the other half of the embarrassment.
+        // The system's flag, not TDLib's answer, says whether this app may take the session back: a
+        // call that moved to another device ends with `.shouldResume` clear.
         let options = (info?[AVAudioSessionInterruptionOptionKey] as? UInt)
             .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
         guard options.contains(.shouldResume) else { return }
@@ -241,9 +220,8 @@ final class Player: ObservableObject {
 
     /// The output the song was going to has gone away — AirPods taken out, headphones unplugged.
     ///
-    /// Nothing stops here by itself: a `.playback` session simply moves to the built-in speaker,
-    /// which is how a phone in a pocket starts playing out loud at full volume. Only the *old* device
-    /// going is a reason to stop; a new one arriving (CarPlay, a speaker) is a reason to carry on.
+    /// A `.playback` session silently moves to the built-in speaker, so only the *old* device going
+    /// is a reason to stop; a new one arriving (CarPlay, a speaker) is a reason to carry on.
     private func handleRouteChange(_ info: [AnyHashable: Any]?) {
         guard let raw = info?[AVAudioSessionRouteChangeReasonKey] as? UInt,
               AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable,
@@ -252,9 +230,8 @@ final class Player: ObservableObject {
         pause()
     }
 
-    /// Plays one track out of `list`, fetching its file first if the phone does not have it.
-    /// The whole list becomes the queue so next/previous walk the channel the way a listener
-    /// expects, newest first.
+    /// Plays one track out of `list`, fetching its file first if the phone does not have it. The
+    /// whole list becomes the queue, so next/previous walk the channel newest first.
     func play(_ track: any Playable, in list: [any Playable]) {
         source = list
         queue = list
@@ -327,8 +304,8 @@ final class Player: ObservableObject {
         set(order: target, pinAsSource: true)
     }
 
-    /// Taking rows out of the queue. The song that is playing keeps playing even when its row goes:
-    /// the queue is a plan for what comes next, not the thing making noise.
+    /// Taking rows out of the queue. The song that is playing keeps playing: the queue is a plan for
+    /// what comes next, not the thing making noise.
     func remove(at offsets: IndexSet) {
         guard !offsets.isEmpty else { return }
         let leaving = Set(offsets.map { queue[$0].uniqueId })
@@ -413,9 +390,8 @@ final class Player: ObservableObject {
         wantsResumeAfterInterruption = false
         PlaybackPersistence.clear()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        // The engine went above, so this is the moment the session can be handed back. A player that
-        // stops making noise and keeps the session holds every other app on the phone silent until
-        // this one is killed, and `notifyOthersOnDeactivation` is what tells them they may speak.
+        // The engine went above, so this is when the session can be handed back: holding it after
+        // silence keeps every other app on the phone mute until this one is killed.
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -434,10 +410,9 @@ final class Player: ObservableObject {
     }
 
     func resume() {
-        // Pressing play on a row that has no engine behind it and no fetch in flight means it: the
-        // load is asked for again rather than being a silent no-op. A fetch that is still running
-        // needs no second one — TDLib would be told to stop and start over on the same file — but
-        // it does need the press remembered, or the play that arrived early is never answered.
+        // Play with no engine and no fetch in flight means the load: ask again rather than be a
+        // silent no-op. A fetch already running must not be restarted — TDLib would cancel and
+        // re-open the same file — so only the press is remembered.
         if engine == nil {
             guard current != nil else { return }
             if isFetchingFile { wantsPlayWhenReady = true } else { startCurrent() }
@@ -450,8 +425,8 @@ final class Player: ObservableObject {
         }
         engine?.play()
         isBuffering = false
-        // Pressing play is the listener saying the reason does not matter any more, so the sentence
-        // goes with it — and the stall count restarts, because this is a fresh attempt.
+        // A play press is the listener saying the reason does not matter: the sentence goes, and the
+        // stall count restarts on a fresh attempt.
         playbackProblem = nil
         stalledSeconds = 0
         isPlaying = true
@@ -461,10 +436,8 @@ final class Player: ObservableObject {
 
     /// The one action a stopped stream answers: start the same song again from where it stopped.
     ///
-    /// Not `resume()` — a loading request answered with an error takes its `AVPlayerItem` down with
-    /// it, and pressing play on a failed item is silence behind a different icon. A new load is a
-    /// new asset, a new loader and a new ask for the same bytes, which is what "try again" has to
-    /// mean to the network.
+    /// Not `resume()` — a failed load takes its `AVPlayerItem` down with it, and play on a dead item
+    /// is silence. A new load is a new asset and a new ask for the same bytes.
     func retry() {
         playbackProblem = nil
         stalledSeconds = 0
@@ -482,8 +455,7 @@ final class Player: ObservableObject {
 
     func previous() {
         guard hasPrevious else { return }
-        // A song more than three seconds in goes back to its own start first, the way every player
-        // the user already knows behaves; the press after that leaves it.
+        // More than three seconds in, the press goes back to this song's own start; the next one leaves.
         if elapsed > 3 {
             seek(to: 0)
             return
@@ -528,9 +500,8 @@ final class Player: ObservableObject {
 
     /// Writing the plan down, in the reference's shape (`PlayerStore.swift:1591-1610`).
     ///
-    /// An empty player clears the note only once it has actually been running: a volume slider on
-    /// the Settings sheet can move before `restore()` has read the snapshot, and clearing then
-    /// would throw away the very song the launch was supposed to bring back.
+    /// An empty player clears the note only once `restore()` has run, because a volume slider can
+    /// move before it does and clear the snapshot the launch was meant to read.
     private func persist() {
         guard !queue.isEmpty else {
             if hasRestoredPlayback { PlaybackPersistence.clear() }
@@ -547,13 +518,13 @@ final class Player: ObservableObject {
         ))
     }
 
-    /// Reloading the last session — the same rows in the same order, at the second the song had
-    /// reached, loaded and left paused (`PlayerStore.swift:276-312`, which ends with
+    /// Reloading the last session: the same rows in the same order, at the second the song had
+    /// reached, loaded and left paused (`PlayerStore.swift:276-312`, ending with
     /// `loadCurrentSong(autoplay: false, startAt: progress)`).
     ///
-    /// The snapshot holds `unique_id`s rather than whole songs on purpose: a row re-read from the
-    /// store carries the `file_id` that is true *now*, and a song the walk has since deleted drops
-    /// out of the restored queue instead of becoming a row that cannot play.
+    /// The snapshot holds `unique_id`s, not whole songs: a row re-read from the store carries the
+    /// `file_id` that is true now, and a song the walk deleted drops out instead of becoming an
+    /// unplayable row.
     func restore() {
         guard !hasRestoredPlayback else { return }
         hasRestoredPlayback = true
@@ -563,13 +534,13 @@ final class Player: ObservableObject {
             PlaybackPersistence.clear()
             return
         }
-        // Turning shuffle off goes back to the order the list was opened in, and that is not the
-        // order it plays in — so both lists are read back, not just the one under the finger.
+        // Turning shuffle off goes back to the order the list was opened in, which is not the order
+        // it plays in, so both lists are read back.
         let opened = snapshot.source.compactMap { library.store.track(uniqueId: $0) }
         source = opened.isEmpty ? tracks : opened
         queue = tracks
-        // The playhead follows the song it was on rather than the number it was at: rows that left
-        // the library shift the index, and the id is the only thing that survives that.
+        // The playhead follows the song it was on, not the number it was at: rows that left the
+        // library shift the index, and only the id survives that.
         let held = snapshot.queue.indices.contains(snapshot.currentIndex)
             ? snapshot.queue[snapshot.currentIndex]
             : nil
@@ -587,11 +558,9 @@ final class Player: ObservableObject {
 
     // MARK: Bringing a song onto the phone
 
-    /// Takes a song the list is showing but the phone does not have yet. Playing it fetches the same
-    /// file as a side effect; this is the press that wants the file without wanting the noise, which
-    /// is what the Cloud Music tab's swipe is for. It answers when the file is on the device, so the
-    /// screen that asked can stop showing its spinner. The downloader coalesces waiters per file, so
-    /// a play that arrives mid-download does not start a second copy.
+    /// Takes a song the list shows but the phone does not have yet: the press that wants the file
+    /// without the noise. Answers when the file is on the device. The downloader coalesces waiters
+    /// per file, so a play arriving mid-download does not start a second copy.
     func download(_ track: any Playable) async {
         guard !track.isDownloaded, let downloader else { return }
         guard let onDisk = await downloader.path(
@@ -600,22 +569,16 @@ final class Player: ObservableObject {
         library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
     }
 
-    /// How much of a song has to be left before the one behind it is brought onto the phone.
-    ///
-    /// Ten seconds is about what a file takes to land on a phone's connection, and asking earlier
-    /// would spend the download on songs the listener may never reach.
+    /// How much of a song has to be left before the one behind it is fetched: ten seconds is about
+    /// what a file takes to land, and asking earlier spends downloads on songs never reached.
     private static let prefetchLead: TimeInterval = 10
 
-    /// The lead-time fetch, asked for once per song.
+    /// The lead-time fetch, asked for once per song: a threshold the quarter-second tick crosses, not
+    /// an event TDLib sends. A press landing mid-fetch is answered by the same file, which is what
+    /// makes prefetching before a song is wanted safe.
     ///
-    /// A quarter-second timer is the only clock the player has, so this is a threshold the tick
-    /// crosses rather than an event TDLib sends. `download` is the ask every other surface uses, and
-    /// a press that lands mid-fetch is answered by the same file rather than a second copy of it —
-    /// which is the whole reason prefetching the next song is safe to start before it is wanted.
-    ///
-    /// A song that can be streamed only gets its head at the cover's priority: the point of the lead
-    /// time is that the next song starts instantly, not that the queue spends a minute and a half
-    /// pulling a file the listener may never reach.
+    /// A streamable song only gets its head, at cover priority: the lead time exists so the next song
+    /// starts instantly, not so the queue pulls a file the listener may never reach.
     private func prefetchAhead(remaining: TimeInterval) {
         guard isPlaying, remaining <= Self.prefetchLead, let track = nextUp else { return }
         guard !track.isDownloaded, track.uniqueId != prefetchingId else { return }
@@ -625,8 +588,8 @@ final class Player: ObservableObject {
 
     /// The head of the next song, or the whole of it when the container cannot be streamed.
     ///
-    /// Bounded on purpose: a prefetch that keeps downloading is a second song eating the link the
-    /// first one is playing on, and TDLib only stops when it is told to (`fetch`'s note).
+    /// Bounded: a prefetch that keeps downloading is a second song eating the link the first one is
+    /// playing on, and TDLib only stops when it is told to (`fetch`'s note).
     private func prepare(_ track: any Playable) async {
         guard let downloader else { return }
         let file = TdFile(audio: track)
@@ -642,9 +605,8 @@ final class Player: ObservableObject {
         await downloader.quiet(file)
     }
 
-    /// MP4-family containers put their table of contents at the end of the file, so a player that has
-    /// only the head cannot find the track lengths at all. Everything else — MP3 foremost — is
-    /// self-describing from its first frame.
+    /// MP4-family containers put their table of contents at the end of the file, so a head-only read
+    /// cannot find the track length; everything else is self-describing from its first frame.
     private func keepsTail(_ track: any Playable) -> Bool {
         guard let ext = AudioContentType.resolve(mimeType: track.mimeType,
                                                  fileName: track.fileName)?.ext else { return false }
@@ -654,8 +616,7 @@ final class Player: ObservableObject {
     // MARK: Loading
 
     /// Loading the row under the playhead. `autoplay: false` is the relaunch case: the song is
-    /// fetched and wound to `startAt` but left still, because an app that starts making noise by
-    /// itself is an app that has just insulted everyone in the room.
+    /// fetched and wound to `startAt` but left still, so the app never starts making noise by itself.
     private func startCurrent(autoplay: Bool = true, startAt: TimeInterval? = nil) {
         guard index >= 0, index < queue.count else { return }
         let track = queue[index]
@@ -663,23 +624,18 @@ final class Player: ObservableObject {
         // An early play press belonged to the song before this one.
         wantsPlayWhenReady = false
         loading?.cancel()
-        // The song before this one is put down now rather than when the next arrives: an
-        // `AVAudioPlayer` holds its file open, a one-hour mix is a hundred and forty megabytes, and
-        // the fetch below can take a minute — a gap in which the app was carrying two of them at
-        // once with only one of them audible.
+        // The song before this one is put down now, not when the next arrives: `AVAudioPlayer` holds
+        // its file open, a one-hour mix is ~140 MB, and the fetch below can take a minute.
         engine?.stop()
         engine = nil
-        // A cut is a decision about one song, so it does not travel: the row the chip is describing
-        // is the row under the finger, and a new song has no slice until one is marked on it.
+        // A cut is a decision about one song, so it does not travel to the next one.
         segment = nil
         markIn = nil
         current = track
         library.recordPlay(track)
-        // The words are asked for here rather than by the lyrics panel. The lock screen and the
-        // Dynamic Island sing the current line, and a listener who plays a song and locks the phone
-        // never opens the panel — so the panel was the only thing that ever asked, and the island had
-        // nothing to say. `load` is keyed by the song and keeps its own cache, so a panel opening
-        // later costs nothing extra.
+        // The words are asked for here rather than by the lyrics panel: the lock screen and the
+        // Dynamic Island sing the current line even when the panel never opens. `load` is keyed by
+        // the song and keeps its own cache, so a panel opening later costs nothing.
         Lyrics.shared.load(track)
         // The row keeps its place when the same song is asked for again — that is the press that
         // retries a fetch — and starts at zero when the queue has moved on.
@@ -692,9 +648,9 @@ final class Player: ObservableObject {
         lastPersistedSecond = Int(elapsed)
         persist()
 
-        // A lead-time fetch for the song the playhead has just arrived on stays: the seat it holds at
-        // TDLib is the one the load below needs anyway. One that has been left behind goes, because
-        // it shares the download queue with the song the user actually pressed.
+        // A lead-time fetch for the song the playhead has just arrived on stays: it holds the TDLib
+        // seat the load below needs anyway. One left behind goes, since it shares the download queue
+        // with the song the user actually pressed.
         if let prefetchingId, prefetchingId != track.uniqueId, prefetchingId != nextUp?.uniqueId {
             self.prefetchingId = nil
             prefetch?.cancel()
@@ -704,25 +660,19 @@ final class Player: ObservableObject {
         let path = track.localPath
         let file = TdFile(audio: track)
         let downloader = self.downloader
-        // The song left behind is put down, not finished off: what it already has on the phone is
-        // kept by TDLib either way, and pulling the remaining hundred megabytes of a mix at the
-        // cover's priority is exactly the bandwidth the song now playing is asking for.
+        // The song left behind is put down, not finished off: TDLib keeps its bytes either way, and
+        // the rest of a mix is exactly the bandwidth the current song is asking for.
         streaming?.fetch?.cancel()
         streaming = nil
         loading = Task {
-            // A stored path is a note that the file was once on the phone, not proof it is still
-            // there: TDLib empties its own cache when the device runs short, and a one-hour set at
-            // a hundred and forty megabytes is the first thing it throws away. The note used to be
-            // trusted blindly and the `try?` in `open` answered a missing file with silence — which
-            // is what "an hour-long song never plays, it just waits" turns out to be.
+            // A stored path is a note that the file was once here, not proof it still is: TDLib
+            // empties its own cache when the device runs short, and the biggest files go first.
             if let path, FileManager.default.fileExists(atPath: path),
                await open(path: path, track: track, startAt: startAt, play: autoplay) {
                 return
             }
             isFetchingFile = true
-            // Then the song is played from what is arriving rather than from what has arrived. This
-            // is the whole difference between pressing play and waiting: everything the row did
-            // before knew only the second shape.
+            // Otherwise the song is played from what is arriving rather than from what has arrived.
             if await stream(track, file: file, startAt: startAt, play: autoplay) { return }
             guard !Task.isCancelled, let onDisk = await downloader?.path(
                 file, priority: TdFileDownloader.audioPriority
@@ -730,17 +680,16 @@ final class Player: ObservableObject {
                 isFetchingFile = false
                 return
             }
-            // The path that was asked for is the one written down: a stored path that turned out to
-            // be stale is corrected here rather than left to fail again next time.
+            // The path actually answered is written down, so a stale stored path is corrected here
+            // rather than failing again next time.
             library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
             _ = await open(path: onDisk, track: track, startAt: startAt, play: autoplay)
         }
     }
 
-    /// Playing a song out of its bytes as they land. `false` is not a failure — it is the answer for
-    /// a container iOS cannot decode, for a file whose length TDLib has not been told, for a file the
-    /// phone already has whole, and for a head that never arrives, and in each of those cases the
-    /// caller does what it always did and fetches the file.
+    /// Playing a song out of its bytes as they land. `false` is not a failure: it means the caller
+    /// falls back to fetching the whole file, which covers an undecodable container, a length TDLib
+    /// has not been told, a file the phone already has whole, and a head that never arrives.
     private func stream(_ track: any Playable, file: TdFile,
                         startAt: TimeInterval?, play: Bool) async -> Bool {
         guard let downloader, !Task.isCancelled, track.size > 0,
@@ -749,9 +698,8 @@ final class Player: ObservableObject {
         guard let state = await downloader.state(file), state.size > 0, !state.isComplete
         else { return false }
         let seconds = Double(track.duration ?? 0)
-        // The window plan needs a bitrate to turn the playhead into a byte; a row with no length in
-        // the schema has one at `size / duration` once the container has been read, and until then
-        // the loader's own asks are the only steering there is, which still plays.
+        // The window plan needs a bitrate to turn the playhead into a byte; until the container is
+        // read, the loader's own asks are the only steering there is.
         let source = TelegramAudioSource(file: file, downloader: downloader)
         for window in AudioWindowPolicy.head(for: state.size, includingTail: keepsTail(track)) {
             _ = await downloader.ask(file, window: window.offset, bytes: window.count)
@@ -765,8 +713,8 @@ final class Player: ObservableObject {
         }
         streaming = Streaming(file: file, size: state.size,
                               bytesPerSecond: seconds > 0 ? Double(state.size) / seconds : 0)
-        // The one answer that means the bytes are not coming: then, and only then, fetch the file the
-        // way this app used to always do. A slow head is not that answer — a slow head is a spinner.
+        // `.unavailable` is the only answer that means the bytes are not coming: then, and only then,
+        // fall back to the whole file. A slow head is not that answer — a slow head is a spinner.
         engine.onTransportFailure = { [weak self] failure in
             guard failure == .unavailable else { return }
             print("stream unavailable \(track.fileName), fetching the file instead")
@@ -776,8 +724,7 @@ final class Player: ObservableObject {
         return true
     }
 
-    /// The whole file, fetched the old way, for the song the transport says is not obtainable in
-    /// pieces.
+    /// The whole file, for a song the transport says is not obtainable in pieces.
     private func fetchWhole(_ track: any Playable, file: TdFile,
                             startAt: TimeInterval?, play: Bool) {
         guard let downloader else { return }
@@ -795,11 +742,10 @@ final class Player: ObservableObject {
 
     /// Moving the one download window to where the sound has got to, and fetching exactly that much.
     ///
-    /// One fetch at a time: TDLib keeps a single window per file, so two tasks asking for two windows
-    /// is one task asking for the newer offset and a second that never finishes. And when the window
-    /// has landed the file is left quiet, because TDLib would otherwise carry on with the rest of a
-    /// hundred-and-sixty-megabyte set on the same link the listener is trying to hear (`fetch`'s note
-    /// says where that was measured).
+    /// One fetch at a time: TDLib keeps a single window per file id, so two tasks asking for two
+    /// windows is one task re-offsetting and a second that never finishes. When the window lands the
+    /// file is put back to `quiet`, or TDLib keeps pulling the rest of a 160 MB set on the same link
+    /// (`fetch`'s note has the measurement).
     private func steerWindow(to seconds: TimeInterval) {
         guard var streaming, let downloader, streaming.bytesPerSecond > 0 else { return }
         guard let plan = streaming.policy.window(atSeconds: seconds,
@@ -813,7 +759,7 @@ final class Player: ObservableObject {
             await downloader.quiet(file)
             guard let self, !Task.isCancelled else { return }
             // A window that came up short is the buffer running out ahead of the sound: buy further.
-            // One that landed whole and doubled its own cover is the only moment worth buying less.
+            // One that landed whole with double its own cover is the only moment worth buying less.
             if ready < plan.count { self.streaming?.policy.noteRebuffer() }
             else { self.streaming?.policy.noteComfortable(aheadBytes: ready * 2) }
         }
@@ -825,21 +771,18 @@ final class Player: ObservableObject {
     @discardableResult
     private func open(path: String, track: any Playable,
                       startAt: TimeInterval? = nil, play: Bool = true) async -> Bool {
-        // Opening a container is a read of the file — for the hour-long sets these channels post, a
-        // hundred and forty megabytes of it — and it used to happen on the main thread inside the tap
-        // that asked for it. The screen went dead for a beat before anything played.
+        // Opening a container reads the file — up to ~140 MB for the hour-long sets these channels
+        // post — so it happens off the main thread.
         guard let engine = await FileSongEngine.load(path: path) else {
-            // The row said the file was here, and it either is not or will not open. Forgetting the
-            // note is the only honest answer: the row goes back to "not downloaded" and the next
-            // tap fetches it, instead of failing quietly on the same path forever.
+            // The file is not there or will not open: forgetting the note puts the row back to "not
+            // downloaded" so the next tap fetches it instead of failing on the same path forever.
             library.forgetLocalPath(uniqueId: track.uniqueId)
             isFetchingFile = false
             return false
         }
         install(engine, for: track, startAt: startAt, play: play)
-        // A document post has no duration in the schema and the engine has just read the container's
-        // own, so the row that was showing a mime type and a byte count gets the number it should
-        // have had. Only a whole file's length is a measurement worth writing down.
+        // A document post has no duration in the schema, so the container's own length is recorded
+        // here. Only a whole file's length is a measurement worth writing down.
         if track.duration == nil, engine.durationIsExact, engine.duration > 0.5 {
             library.recordDuration(Int(engine.duration.rounded()), uniqueId: track.uniqueId)
         }
@@ -852,16 +795,14 @@ final class Player: ObservableObject {
                          startAt: TimeInterval?, play: Bool) {
         engine.onEnd = { [weak self] in self?.songEnded() }
         self.engine = engine
-        // One line per song, so a queue that eats memory is visible in the log rather than
-        // inferred from a phone that gets warm.
+        // One line per song, so a memory-hungry queue is visible in the log.
         MemoryWatch.note("start", track: track.displayTitle)
         duration = engine.duration
         isFetchingFile = false
-        // A fresh engine starts at full, so the slider's position has to be written into it before
-        // the first sample goes out — otherwise the second song of a queue jumps louder.
+        // A fresh engine starts at full, so the slider's position goes in before the first sample or
+        // the second song of a queue jumps louder.
         engine.volume = volume
-        // A restored position wins over a cut: the cut was the last thing the player did to a
-        // different song, and a slice does not travel across a launch.
+        // A restored position wins over a cut: a slice does not travel across a launch.
         if let startAt {
             engine.currentTime = min(startAt, engine.duration)
             elapsed = engine.currentTime
@@ -873,8 +814,8 @@ final class Player: ObservableObject {
         let wantsEarlyPress = wantsPlayWhenReady
         wantsPlayWhenReady = false
         guard play || wantsEarlyPress else {
-            // The relaunch leaves the row wound up and quiet: the clock never starts, so nothing
-            // advances the bar until the user presses play.
+            // The relaunch leaves the row wound up and quiet: nothing advances the bar until the user
+            // presses play.
             isPlaying = false
             publishNowPlaying(elapsed: engine.currentTime, track: track)
             return
@@ -892,22 +833,19 @@ final class Player: ObservableObject {
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
-        // `.common`, not the `.default` mode `scheduledTimer` puts it in. A scroll view runs the
-        // loop in its own tracking mode while a finger is down, so in `.default` the clock simply
-        // stops for the length of every flick: the bar and the time label froze mid-drag, and a
-        // saved cut overshot its own loop point until the finger lifted — the boundary is this
-        // timer's job, and it was not being run.
+        // `.common`, not the `.default` mode `scheduledTimer` picks: a scroll view runs the loop in
+        // its tracking mode while a finger is down, so in `.default` the clock stops for the length
+        // of every flick — and the cut's loop boundary, which is this timer's job, overshoots.
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer
     }
 
-    /// The clock the app came back to. A song that was playing when the phone left this app is
-    /// still playing — the sound never stopped — so the timer that reports where it has reached is
-    /// armed again rather than left wherever the background left it.
+    /// Re-arming the clock after a background spell: the sound never stopped, so the timer has to be
+    /// told where the song actually got to.
     private func rewarmTicker() {
         guard isPlaying, let engine else { return }
-        // The bar is told where the song really got to before the first new tick lands, so the
-        // return from ten minutes in the background is one jump rather than a freeze and a half.
+        // Set the real position before the first new tick, so a return from ten minutes in the
+        // background is one jump rather than a freeze.
         elapsed = engine.currentTime
         startTicker()
     }
@@ -919,18 +857,15 @@ final class Player: ObservableObject {
         // Only a cut is a boundary the timer can watch: nothing stops the file at the slice's end,
         // so the playhead goes on and the next tick is at most a quarter of a second late.
         if let segment, engine.currentTime >= segment.upperBound - 0.05 {
-            // A favourited slice loops: that is the point of saving three minutes of a
-            // one-hour set.
+            // A favourited slice loops; that is the point of saving one.
             engine.currentTime = segment.lowerBound
         }
-        // The bar moves when the song moves. A stream that has run dry keeps its rate at 1 and its
-        // clock where it is, and a progress bar driven by anything else than that is the report this
-        // app got: a song that had stopped for a minute still showing itself playing.
+        // The clock advances only when the engine is producing sound: a stream that has run dry keeps
+        // its rate at 1 and its position still, which is the false "still playing" this guards.
         if engine.isProducingSound { elapsed = engine.currentTime }
         watchStall(engine)
-        // The row and the transport button have to say the same thing: a song that is waiting for
-        // bytes is not paused and not playing, and showing either glyph over silence is what makes a
-        // listener reach for the phone to check the Wi-Fi.
+        // A song waiting for bytes is neither paused nor playing, and the row and the transport
+        // button have to say the same thing.
         let buffering = isPlaying && engine.isWaitingForData
         if buffering != isBuffering { isBuffering = buffering }
         // A stream is still "fetching" until the container has been read; a whole file never is.
@@ -944,20 +879,14 @@ final class Player: ObservableObject {
         if isPlaying { publishNowPlaying(elapsed: engine.currentTime) }
     }
 
-    /// Why the sound stopped, when it stops.
-    ///
-    /// Three answers and they are not the same fact: the phone has no path out (`offline`), the
-    /// path is there and Telegram is not sending (`stalled`), and Telegram says these bytes are not
-    /// coming any more (`gone`). Saying one of them is the difference between a song that appears
-    /// broken and a listener who knows what to do about it.
+    /// Why the sound stopped: no path out (`offline`), the path is there and Telegram is not sending
+    /// (`stalled`), or Telegram says these bytes are not coming any more (`gone`).
     enum PlaybackProblem: Equatable {
         case offline, stalled, gone
     }
 
-    /// How long a stream may sit still before it is called a problem, in the two very different
-    /// cases. Waiting for bytes on a working connection is buffering and gets the long one; waiting
-    /// for bytes that cannot possibly arrive — no network, or a transport that has already said so —
-    /// gets three seconds, because the rest of the silence is the app pretending.
+    /// How long a stream may sit still before it is called a problem: 30s while a working connection
+    /// buffers, 3s when the bytes cannot arrive at all — no network, or a transport that has said so.
     private static let bufferingPatience: TimeInterval = 30
     private static let hopelessPatience: TimeInterval = 3
 
@@ -974,26 +903,23 @@ final class Player: ObservableObject {
         playbackProblem = failure == .unavailable ? .gone
             : (network.isOnline ? .stalled : .offline)
         print("stall \(Int(stalledSeconds))s at \(Int(elapsed))s problem=\(playbackProblem!)")
-        // The song is stopped; the app has to stop saying it is playing. `pause()` is the one door
-        // that does all of it: the clock, the lock screen's rate, and the row's play glyph.
+        // `pause()` is the one door that also clears the clock, the lock screen's rate and the glyph.
         pause()
     }
 
-    /// The bytes are possible again, so the reason for stopping is not true any more. The song is
-    /// left paused — a speaker that starts by itself after the listener's pocket has been open is
-    /// the one thing this app should never do — but the window is asked for again so that pressing
-    /// play is a resume rather than a wait.
+    /// The bytes are possible again, so the stated reason is no longer true. The song stays paused —
+    /// it must never start by itself — but the window is asked for again so play is a resume, not a
+    /// wait.
     private func rearmAfterNetwork() {
         guard let problem = playbackProblem, network.isOnline, problem == .offline else { return }
         playbackProblem = nil
         steerWindow(to: elapsed)
     }
 
-    /// Give the cache back to the quota, once a song has ended and nothing is being fetched for the
-    /// press that just happened.
+    /// Give the cache back to the quota once a song has ended and nothing is being fetched.
     ///
-    /// Not while a song is starting: the sweep asks TDLib to throw files away, and a fetch that is
-    /// competing with an eviction is a song that waits longer for its first byte.
+    /// Not while a song is starting: the sweep asks TDLib to throw files away, and a fetch competing
+    /// with an eviction is a song that waits longer for its first byte.
     private func trimCache() {
         guard let files = downloader else { return }
         let keeping = current?.uniqueId
@@ -1003,20 +929,15 @@ final class Player: ObservableObject {
         }
     }
 
-    /// The file ran out, as `AVAudioPlayer` itself reports.
-    ///
-    /// This used to be the timer's job, and it is why a queue stopped after one song. The tick's test
-    /// was `currentTime >= duration - 0.05` — a window of fifty milliseconds — while the tick comes
-    /// every two hundred and fifty, and `AVAudioPlayer` rewinds its own `currentTime` to zero the
-    /// moment the file ends. Measured over three files out of the library: the playhead reads exactly
-    /// `duration` on a tick that happens to land inside the window and `0.00` on every one after it,
-    /// so roughly one song in five handed over to the next and the rest left the app playing silence
-    /// under a full progress bar. The delegate fires for all three.
+    /// The file ran out, as `AVAudioPlayer` itself reports rather than the timer: a
+    /// `duration - 0.05` test is a 50 ms window against a 250 ms tick, and the player rewinds
+    /// `currentTime` to 0 at the end, so only about 1 song in 5 handed over. The delegate fires for
+    /// all of them.
     private func songEnded() {
         // A song that was paused, seeked or replaced on the way here has nothing to answer for.
         guard let engine, isPlaying else { return }
         if repeatMode == .one {
-            // A player that has finished is not playing any more, so the loop has to ask for sound.
+            // A finished player is not playing, so the loop has to ask for sound again.
             engine.currentTime = 0
             engine.play()
         } else if hasNext {
@@ -1025,8 +946,7 @@ final class Player: ObservableObject {
             pause()
             engine.currentTime = 0
         }
-        // The queue has moved, so the song before it is no longer the one being heard and is allowed
-        // to be a victim of the quota.
+        // The queue moved, so the song before it is now evictable.
         trimCache()
     }
 
@@ -1034,9 +954,8 @@ final class Player: ObservableObject {
 
     /// The favourite, pressed from outside the app: the same heart the row wears.
     ///
-    /// A press is treated as a toggle rather than as the state the event carries, because the system
-    /// sends its own "liked" for every press — the only thing worth asking is what the library does
-    /// not yet have.
+    /// Treated as a toggle rather than the state the event carries, because the system sends its own
+    /// "liked" for every press.
     private func likeFromRemote() {
         guard let track = current else { return }
         library.toggleFavorite(track)
@@ -1047,10 +966,8 @@ final class Player: ObservableObject {
         let shown = track ?? current
         guard let shown else { return }
         var info: [String: Any] = [
-            // The line being sung, in the slot the song's name usually sits — MeloX's default
-            // now-playing title is the lyric token (`AppSettings.swift:18`), and the island and the
-            // lock screen are the system's now-playing UI, so that is what changes here. A song whose
-            // words nobody has written out keeps its name: a blank title is not an answer.
+            // The line being sung goes in the title slot — MeloX's default now-playing title is the
+            // lyric token (`AppSettings.swift:18`). With no words available the song keeps its name.
             MPMediaItemPropertyTitle: sungLine(for: shown, at: elapsed) ?? shown.displayTitle,
             MPMediaItemPropertyArtist: Self.byline(title: shown.displayTitle,
                                                    artist: shown.displayPerformer),
@@ -1063,24 +980,19 @@ final class Player: ObservableObject {
             info[MPMediaItemPropertyArtwork] = artwork
         }
         // The favourite's state lives on the command, not in the dictionary: `isActive` is what makes
-        // the system's button read as already liked. It is written here because this is the one place
-        // every change is already reported — a song that starts, a heart pressed in a row, a star
-        // pressed on the lock screen. The ticker comes through four times a second, so the write only
-        // happens when the answer actually moved, and the answer comes from the list the library
-        // publishes rather than a query against the store.
+        // the system's button read as already liked. This is the one place every change is already
+        // reported, and the ticker comes through four times a second, so it is only written when the
+        // answer actually moved — read from the list the library publishes, not from the store.
         let on = library.favorites.contains(where: { $0.track.uniqueId == shown.uniqueId })
         if commands.likeCommand.isActive != on { commands.likeCommand.isActive = on }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
-    /// The line the song is on right now, in the words the lyrics screen is highlighting.
+    /// The line the song is on right now, in the words the lyrics screen is highlighting. `nil` means
+    /// the words are not known — no answer yet, none for this song, or before the first line — and
+    /// the caller shows the song's name instead.
     ///
-    /// `nil` means the words are not known: no lookup has answered for this song, none exists for it,
-    /// or the song has not reached its first line yet. Every one of those is the song's name on the
-    /// lock screen rather than a blank, which is what the caller does with it.
-    ///
-    /// Asked of `Lyrics.shared` rather than of a copy the player keeps, because the lookup, the cache
-    /// and the four sources are that object's job — the player only has to say which song started.
+    /// Asked of `Lyrics.shared`: the lookup, the cache and the sources are that object's job.
     private func sungLine(for track: any Playable, at seconds: TimeInterval) -> String? {
         let lyrics = Lyrics.shared
         guard lyrics.key == track.uniqueId, !lyrics.lines.isEmpty else { return nil }
@@ -1091,24 +1003,19 @@ final class Player: ObservableObject {
         return line.text
     }
 
-    /// The second line of the media card: the song and the singer, in that order, joined the way the
-    /// reference joins them (`ui.lyrics.format.default.title_artist`, `"%@ · %@"`).
-    ///
-    /// The name is in it because the line above is now often a lyric, and a lock screen that shows a
-    /// line of words with no way back to the song is a lock screen that cannot be explained to
-    /// whoever is holding the phone.
+    /// The artist slot carries "title · artist" (`ui.lyrics.format.default.title_artist`,
+    /// `"%@ · %@"`), because the title above is often a lyric and the song's name still has to be
+    /// reachable from the lock screen.
     private static func byline(title: String, artist: String) -> String {
         artist.isEmpty ? title : "\(title) · \(artist)"
     }
 
-    /// The lock screen's cover, rebuilt only when the picture behind it actually changed.
+    /// The lock screen's cover, rebuilt only when the picture actually changed: `nowPlayingInfo`
+    /// crosses processes and the ticker writes it four times a second, which uncached made ~14 000
+    /// fresh `MPMediaItemArtwork` objects holding copies of one bitmap per hour, until the system
+    /// killed the app.
     ///
-    /// `nowPlayingInfo` crosses into another process and the ticker writes it four times a second,
-    /// so an hour of listening used to hand out fourteen thousand fresh `MPMediaItemArtwork` objects
-    /// holding fourteen thousand copies of one bitmap — which is how a player that plays fine ends up
-    /// killed by the system an hour in. The cache asks for the hero's size because that is the
-    /// biggest the lock screen can draw, and takes the row's minithumbnail only when nothing better
-    /// has arrived, because an artwork slot that is soft beats one that is empty.
+    /// Hero size is the biggest the lock screen can draw; the row's minithumbnail is the fallback.
     private func artwork(for track: any Playable) -> MPMediaItemArtwork? {
         let image = CoverArtwork.shared.sharp(for: track, side: MusicArtworkMetrics.heroSide)
             ?? CoverArtwork.shared.mini(for: track)
@@ -1121,15 +1028,10 @@ final class Player: ObservableObject {
         return item
     }
 
-    /// The artwork, built away from the main actor on purpose.
-    ///
-    /// MediaPlayer does not ask for the picture on the thread that handed it the dictionary: it
-    /// calls the handler from its own queue, inside `_onQueue_pushNowPlayingInfoAndRetry:` →
-    /// `jpegDataWithSize:`. A closure written in a `@MainActor` function carries that isolation, so
-    /// the call trips `dispatch_assert_queue` and the process dies of a `SIGTRAP` — which is what
-    /// every one of today's crash reports says, and why it was only ever songs *with* a cover that
-    /// died: a song without one never puts an artwork slot in the dictionary at all. The SDK does not
-    /// catch it because `requestHandler:` is not declared `@Sendable`.
+    /// `MPMediaItemArtwork`'s handler must be `nonisolated`: MediaPlayer calls it from its own queue
+    /// (`_onQueue_pushNowPlayingInfoAndRetry:` → `jpegDataWithSize:`), so a closure carrying
+    /// `@MainActor` trips `dispatch_assert_queue` and the process dies of a `SIGTRAP`. Only songs
+    /// with an artwork can hit it.
     private nonisolated static func mediaArtwork(_ image: UIImage) -> MPMediaItemArtwork {
         MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }

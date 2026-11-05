@@ -2,18 +2,15 @@ import Foundation
 import Network
 import SwiftUI
 
-/// Whether this phone has a path to the internet, for the one question it is worth asking: when a
-/// song stops in the middle, is the network to blame or is Telegram?
-///
-/// `NWPathMonitor` rather than a probe request, because a probe is a thing sent off the phone and
-/// the answer it gives is about one server rather than about the connection. Nothing here leaves
-/// the device.
+/// Whether this phone has a path to the internet, for when a song stops mid-playback: is the network to
+/// blame or Telegram? `NWPathMonitor` over a probe request — a probe answers about one server, not the
+/// connection, and nothing here leaves the device.
 @MainActor
 final class Network: ObservableObject {
     static let shared = Network()
 
-    /// The last path the system reported. Assumed up at launch: the monitor answers within a
-    /// heartbeat of starting, and a wrong "down" would stop a song that is playing fine.
+    /// The last path the system reported. Assumed up at launch: the monitor answers immediately, and a
+    /// wrong "down" would stop a song that is playing fine.
     @Published private(set) var isOnline = true
 
     private let monitor = NWPathMonitor()

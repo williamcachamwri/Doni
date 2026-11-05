@@ -2,25 +2,17 @@ import SwiftUI
 import TelegramDesignSystem
 import TdSession
 
-/// The screen the channel allow-list grows from: paste a channel's link and see what is in it
-/// before the app agrees to read all of it, or take one out of the channels this account is
-/// already in.
+/// The channel allow-list: probe a link before the app reads a whole channel, or pick from chats the
+/// account is already in.
 ///
-/// The probe is the reason this is a screen and not a text field. TDLib will not say how many
-/// songs a channel has ever posted — `getChatHistory` only hands over pages (`td_api.tl:12758`) —
-/// so the honest number is the one a single page can count, "≈38 bài trong 100 tin gần nhất". A
-/// walk that turns out to have been started on a channel of pictures is a walk of thousands of
-/// round trips wasted.
-///
-/// A channel picked from the joined list is added without a probe: the account is in it, so the
-/// user already knows what it holds, and a probe costs a page of history for one candidate where
-/// the list costs one request for all of them. The list is every chat the account is in — channel,
-/// group, person, bot — because the walk that follows is the same request for all four.
+/// TDLib never reports a channel's total song count — `getChatHistory` only hands over pages
+/// (`td_api.tl:12758`) — so the probe counts one page and reports "≈38 bài trong 100 tin gần nhất".
+/// Joined channels skip the probe: the account already knows what they hold, and the walk is the same
+/// request for channel, group, person and bot.
 struct AddChannelSheet: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var library: Library
-    /// What the screen that opened this asks for after an add: the walk starts straight away,
-    /// because a channel on the list but not yet read is a channel that is not on the list.
+    /// Caller's post-add hook: indexing starts straight away, not at the next Library refresh.
     let onAdd: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -32,12 +24,11 @@ struct AddChannelSheet: View {
     @State private var joined: [TdChannel] = []
     @State private var isListingJoined = false
     @State private var joinedFailure: String?
-    /// The chat list is the account's whole list, which on a busy account is hundreds of rows, so it
-    /// gets a filter rather than a scroll.
+    /// The account's whole chat list, which can run to hundreds of rows — hence the filter.
     @State private var query = ""
 
-    /// The rows take the reference's song row: 12 between the mark and the text, 3 between the two
-    /// lines (`Shared/Media/TrackRowView.swift:3-197`).
+    /// Reference song-row gaps: 12 mark-to-text, 3 line-to-line
+    /// (`Shared/Media/TrackRowView.swift:3-197`).
     private static let rowGap: CGFloat = 12
     private static let textGap: CGFloat = 3
 
@@ -113,8 +104,7 @@ struct AddChannelSheet: View {
 
     // MARK: Filter
 
-    /// The chat list under the query — every word has to turn up in the row's own name or handle,
-    /// which is the rule the settings screen filters its rows by too.
+    /// Every query word must appear in the row's name or handle — the settings screen's filter rule.
     private var visibleJoined: [TdChannel] {
         let words = query.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -128,8 +118,7 @@ struct AddChannelSheet: View {
 
     // MARK: Rows
 
-    /// The probe's answer and the only button on the screen: what is in the channel, and whether to
-    /// read it.
+    /// The probe's answer and its add button.
     private func probeRow(_ probe: TdChannelProbe) -> some View {
         HStack(spacing: Self.rowGap) {
             channelTitle(probe.channel,
@@ -150,8 +139,7 @@ struct AddChannelSheet: View {
         }
     }
 
-    /// Telegram's own word for each kind of chat, because the list is no longer only channels and a
-    /// person's chat row has to say so.
+    /// Telegram's own word per chat kind — the list holds groups, people and bots, not just channels.
     private static func kindLabel(_ kind: TdChannel.Kind) -> String {
         switch kind {
         case .channel: "Kênh"
@@ -212,8 +200,8 @@ struct AddChannelSheet: View {
         library.channels.contains { $0.chatId == channel.chatId }
     }
 
-    /// Resolve the handle, then count one page of it. Both are the reader's own requests; a failure
-    /// in either is a message rather than a state, because the only fix is a different handle.
+    /// Resolve the handle, then count one page of it. A failure is shown as a message, not a state:
+    /// the only fix is a different handle.
     private func probeLink() {
         let text = handle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isProbing else { return }
@@ -238,18 +226,13 @@ struct AddChannelSheet: View {
         do {
             joined = try await reader.channels()
         } catch {
-            // An empty list and a list that could not be read are different sentences, and the one
-            // that was wrong here said "you are in no chats".
+            // "No chats" and "could not read the chat list" are different sentences.
             joinedFailure = LibraryIndexer.describe(error)
         }
     }
 }
 
-/// The one thing a library with no songs can ask for: a channel to read.
-///
-/// Drawn as a button the finger can see rather than a line of grey text that happens to be tappable,
-/// because it is the only door on the screen — the account's own chat list, a link to probe, and a
-/// search over both. Both of the Home tab's segments hand out this one.
+/// Empty-library prompt: one prominent button to add a channel. Handed out by both Home segments.
 struct AddChannelPrompt: View {
     let title: String
     let action: () -> Void
