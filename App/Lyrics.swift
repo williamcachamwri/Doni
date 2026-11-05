@@ -4,6 +4,11 @@ import Foundation
 import Support
 import SwiftUI
 
+/// A lookup that never got an answer, as distinct from one that answered "no lyrics".
+private enum LyricsFetchFailure: Error {
+    case status
+}
+
 /// The three things Doni decides about words for itself, as opposed to the fifty-odd
 /// typography and motion numbers that belong to the screen and live in its own settings.
 @MainActor
@@ -88,7 +93,18 @@ final class Lyrics: ObservableObject {
         lines = []
         errorMessage = nil
         task = Task {
-            let found = await Self.fetch(query: Self.query(track))
+            guard let found = await Self.fetch(query: Self.query(track)) else {
+                // The site was not reached. That says nothing about whether this song has words,
+                // so nothing is written down and the song's key is handed back: opening it again
+                // asks the question again, which is what a lost connection has to mean. A one-off
+                // rate limit used to be filed as "no lyrics" and read back forever.
+                guard !Task.isCancelled, self.key == song else { return }
+                isLoading = false
+                key = nil
+                lines = []
+                errorMessage = "Không kết nối được tới lrclib"
+                return
+            }
             // The song moved on, or the screen went away, while the site was thinking.
             guard !Task.isCancelled, self.key == song else { return }
             Self.write(found, for: song)
@@ -207,16 +223,17 @@ final class Lyrics: ObservableObject {
         }
     }
 
+    /// The answer, or `nil` when the question never reached the site.
+    ///
     /// `/api/get` first, because it matches on the length as well and a wrong-length match is a
     /// different recording; `/api/search` when the exact one finds nothing, because a bot that posts
     /// these files spells the title differently from the site.
-    private nonisolated static func fetch(query: LyricQuery) async -> LyricText {
+    private nonisolated static func fetch(query: LyricQuery) async -> LyricText? {
         if let exact = LRClib.getURL(query), let hits = try? await send(exact), !hits.isEmpty {
             return LRClib.text(of: hits)
         }
-        guard let loose = LRClib.searchURL(query), let hits = try? await send(loose) else {
-            return .none
-        }
+        guard let loose = LRClib.searchURL(query) else { return LyricText.none }
+        guard let hits = try? await send(loose) else { return nil }
         return LRClib.text(of: hits)
     }
 
@@ -228,7 +245,13 @@ final class Lyrics: ObservableObject {
         // The site asks for something that identifies the client, and a generic one is how a
         // personal app gets rate limited into silence.
         request.setValue("Doni/1.0 (personal music player)", forHTTPHeaderField: "User-Agent")
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        // lrclib answers a rate limit with a body and a 429, and a body that is not a lyric decodes
+        // to the same empty list as "not in here" — so the status is the only thing that separates
+        // an answer from a refusal, and the refusal must not be filed as an answer.
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw LyricsFetchFailure.status
+        }
         return LRClib.entries(data)
     }
 }
