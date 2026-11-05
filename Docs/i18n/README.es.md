@@ -1,18 +1,18 @@
-<p align="center">
-  <img src="../doni-icon.png" width="128" alt="Icono de la app Doni: un avión de papel blanco sobre notas tenues, en rojo">
-</p>
+<div align="center">
+
+<img src="../doni-icon.png" width="128" alt="Icono de la app Doni: un avión de papel blanco sobre notas tenues, en rojo">
 
 # Doni
 
 [English](../../README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · **Español** ·
 [Français](README.fr.md) · [Русский](README.ru.md) · [العربية](README.ar.md)
 
-<p align="center">
-  <a href="https://github.com/williamcachamwri/Doni/releases/latest"><img src="https://img.shields.io/github/v/release/williamcachamwri/Doni?label=release&color=blue" alt="Última versión"></a>
-  <img src="https://img.shields.io/badge/iOS-26.0%2B-blue" alt="iOS 26.0 o posterior">
-  <a href="https://developer.apple.com/swift/"><img src="https://img.shields.io/badge/Swift-6-F05138" alt="Swift 6"></a>
-  <img src="https://img.shields.io/badge/arch-arm64-lightgrey" alt="solo arm64">
-</p>
+<a href="https://github.com/williamcachamwri/Doni/releases/latest"><img src="https://img.shields.io/github/v/release/williamcachamwri/Doni?label=release&color=blue" alt="Última versión"></a>
+<img src="https://img.shields.io/badge/iOS-26.0%2B-blue" alt="iOS 26.0 o posterior">
+<a href="https://developer.apple.com/swift/"><img src="https://img.shields.io/badge/Swift-6-F05138" alt="Swift 6"></a>
+<img src="https://img.shields.io/badge/arch-arm64-lightgrey" alt="solo arm64">
+
+</div>
 
 Un reproductor de música para iPhone que toca lo que ya tienes en Telegram: los canales que sigues y
 Saved Messages como biblioteca propia. Sin servidores detrás, sin registro, sin enviar datos a ningún lado.

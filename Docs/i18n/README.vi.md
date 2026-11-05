@@ -1,18 +1,18 @@
-<p align="center">
-  <img src="../doni-icon.png" width="128" alt="Icon của ứng dụng Doni: máy bay giấy màu trắng trên nền nốt nhạc mờ, sắc đỏ">
-</p>
+<div align="center">
+
+<img src="../doni-icon.png" width="128" alt="Icon của ứng dụng Doni: máy bay giấy màu trắng trên nền nốt nhạc mờ, sắc đỏ">
 
 # Doni
 
 [English](../../README.md) · **Tiếng Việt** · [中文](README.zh.md) · [Español](README.es.md) ·
 [Français](README.fr.md) · [Русский](README.ru.md) · [العربية](README.ar.md)
 
-<p align="center">
-  <a href="https://github.com/williamcachamwri/Doni/releases/latest"><img src="https://img.shields.io/github/v/release/williamcachamwri/Doni?label=release&color=blue" alt="Bản phát hành mới nhất"></a>
-  <img src="https://img.shields.io/badge/iOS-26.0%2B-blue" alt="iOS 26.0 trở lên">
-  <a href="https://developer.apple.com/swift/"><img src="https://img.shields.io/badge/Swift-6-F05138" alt="Swift 6"></a>
-  <img src="https://img.shields.io/badge/arch-arm64-lightgrey" alt="chỉ chạy trên arm64">
-</p>
+<a href="https://github.com/williamcachamwri/Doni/releases/latest"><img src="https://img.shields.io/github/v/release/williamcachamwri/Doni?label=release&color=blue" alt="Bản phát hành mới nhất"></a>
+<img src="https://img.shields.io/badge/iOS-26.0%2B-blue" alt="iOS 26.0 trở lên">
+<a href="https://developer.apple.com/swift/"><img src="https://img.shields.io/badge/Swift-6-F05138" alt="Swift 6"></a>
+<img src="https://img.shields.io/badge/arch-arm64-lightgrey" alt="chỉ chạy trên arm64">
+
+</div>
 
 Máy nghe nhạc cho iPhone, phát những bài đã có sẵn trong Telegram của bạn: kênh bạn theo dõi, và
 Saved Messages như thư viện riêng. Không có máy chủ đứng sau, không đăng ký tài khoản, không gửi số
