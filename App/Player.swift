@@ -63,7 +63,8 @@ final class Player: ObservableObject {
         Task { @MainActor in self?.songEnded() }
     }
     private var loading: Task<Void, Never>?
-    /// The audio session's own news, kept so the singleton holds both observers for its whole life.
+    /// What the audio session and the app's own life have to say, kept so the singleton holds every
+    /// observer for its whole life.
     private var sessionObservers: [Task<Void, Never>] = []
     /// Whether sound was going when something else took the session. Only that question decides
     /// whether to give it back: a pause the user pressed themselves is not a pause to undo.
@@ -169,6 +170,17 @@ final class Player: ObservableObject {
                     named: AVAudioSession.routeChangeNotification
                 ) {
                     self?.handleRouteChange(note.userInfo)
+                }
+            },
+            // Background audio keeps the *sound* going while the app is away, but it does not keep
+            // the main run loop servicing timers: the clock stops mid-song and does not pick itself
+            // back up when the app returns, which is the frozen bar and the frozen time label.
+            // Re-arming on every return is what makes the tick honest again.
+            Task { [weak self] in
+                for await _ in NotificationCenter.default.notifications(
+                    named: UIApplication.didBecomeActiveNotification
+                ) {
+                    self?.rewarmTicker()
                 }
             },
         ]
@@ -387,6 +399,8 @@ final class Player: ObservableObject {
     func pause() {
         engine?.pause()
         isPlaying = false
+        ticker?.invalidate()
+        ticker = nil
         publishNowPlaying(elapsed: elapsed)
         persist()
     }
@@ -408,6 +422,7 @@ final class Player: ObservableObject {
         }
         engine?.play()
         isPlaying = true
+        startTicker()
         publishNowPlaying(elapsed: elapsed)
     }
 
@@ -696,6 +711,17 @@ final class Player: ObservableObject {
         // timer's job, and it was not being run.
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer
+    }
+
+    /// The clock the app came back to. A song that was playing when the phone left this app is
+    /// still playing — the sound never stopped — so the timer that reports where it has reached is
+    /// armed again rather than left wherever the background left it.
+    private func rewarmTicker() {
+        guard isPlaying, let engine else { return }
+        // The bar is told where the song really got to before the first new tick lands, so the
+        // return from ten minutes in the background is one jump rather than a freeze and a half.
+        elapsed = engine.currentTime
+        startTicker()
     }
 
     private func tick() {
