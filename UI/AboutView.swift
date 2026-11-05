@@ -17,7 +17,7 @@ struct AboutView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .center, spacing: 10) {
+                VStack(spacing: 10) {
                     DoniLogo(side: 72)
                     Text("Doni").font(.title2.bold())
                     Text("Máy nghe nhạc Telegram của riêng bạn")
@@ -25,7 +25,7 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
+                .padding(.vertical, 8)
             }
 
             Section("Thông tin ứng dụng") {
@@ -37,7 +37,9 @@ struct AboutView: View {
                 NavigationLink {
                     ReleaseNotesView(notes: notes)
                 } label: {
-                    LabeledContent("Nhật ký cập nhật") {
+                    HStack {
+                        Label("Nhật ký cập nhật", systemImage: "doc.text")
+                        Spacer()
                         Text(verbatim: "Doni \(version)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
