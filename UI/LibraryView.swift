@@ -33,6 +33,41 @@ struct LibraryView: View {
 
     private let palette = TelegramPalette.dark
 
+    /// The feed's three verbs, under the title rather than in the bar's status row: shuffle the
+    /// library, stop or restart the walk, and open the account's settings.
+    ///
+    /// The first two were the reference's glass circles in the top bar, and they still are — except
+    /// that row belongs to the Dynamic Island while a song is playing, which is precisely when the
+    /// home tab gets used. The avatar stays a bare round photo, the way the bar showed it.
+    private var headerActions: some View {
+        HeaderActionRow {
+            Button(action: shuffleAll) {
+                HeaderCircle { Image(systemName: "shuffle") }
+            }
+            .accessibilityLabel("Phát ngẫu nhiên")
+
+            Button {
+                if indexer.isReading {
+                    indexer.stop()
+                } else {
+                    indexer.run(session, library: library)
+                }
+            } label: {
+                HeaderCircle {
+                    Image(systemName: indexer.isReading ? "stop.fill" : "arrow.clockwise")
+                }
+            }
+            .accessibilityLabel(indexer.isReading ? "Dừng đọc kênh" : "Đọc lại kênh")
+
+            Button {
+                showsSettings = true
+            } label: {
+                AccountAvatar(account: session.account, photo: session.accountPhoto, side: 32)
+            }
+            .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" } ?? "Cài đặt")
+        }
+    }
+
     /// How many cards a shelf shows before the flick starts. MeloX hands its strips the whole
     /// payload; Doni's library is one channel's thousand songs, so a shelf cuts itself.
     private static let shelfLimit = 20
@@ -43,6 +78,8 @@ struct LibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            headerActions
+
             // The split sits above the content in the reference's own bar: a segmented picker on a
             // strip of the screen's background, sixteen in from the edge (`HomeView.swift:44-47`).
             Picker("Phần", selection: $section) {
@@ -64,41 +101,6 @@ struct LibraryView: View {
             PlaylistDetailView(playlistId: id, session: session, player: player,
                                artwork: artwork, library: library)
                 .musicNavigationTransition(playlistID: id)
-        }
-        // The system's own bar: a large title, two glass circles and the account's own picture in a
-        // third one of its own, which is what MeloX draws (`ContentView.swift:377-379`, `:429-460`).
-        .navigationTitle("Trang chủ")
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button(action: shuffleAll) {
-                    Label("Phát ngẫu nhiên", systemImage: "shuffle").labelStyle(.iconOnly)
-                }
-                // The circle is the walk's brake as well as its restart: the ellipsis menu that used
-                // to carry "Dừng đọc kênh" is gone, and a read of a thousand messages is the one
-                // thing here a listener may want to stop rather than only start.
-                Button {
-                    if indexer.isReading {
-                        indexer.stop()
-                    } else {
-                        indexer.run(session, library: library)
-                    }
-                } label: {
-                    Label(indexer.isReading ? "Dừng đọc kênh" : "Đọc lại kênh",
-                          systemImage: indexer.isReading ? "stop.fill" : "arrow.clockwise")
-                        .labelStyle(.iconOnly)
-                }
-            }
-            // Its own item, so the glass circle around it does not join the pair: the account is not
-            // one of the feed's actions.
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showsSettings = true
-                } label: {
-                    AccountAvatar(account: session.account, photo: session.accountPhoto)
-                }
-                .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" }
-                    ?? "Cài đặt")
-            }
         }
         .navigationDestination(isPresented: $showsSettings) {
             SettingsView(session: session, indexer: indexer, player: player, library: library)
