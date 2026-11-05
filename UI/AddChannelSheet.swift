@@ -190,8 +190,11 @@ struct AddChannelSheet: View {
                     add(channel)
                 } label: {
                     Text("Thêm")
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 .buttonStyle(.glassProminent)
+                .fixedSize(horizontal: true, vertical: false)
                 .accessibilityLabel(localized("Thêm %@", channel.title))
             }
         }

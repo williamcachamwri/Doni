@@ -7526,6 +7526,41 @@
         }
       }
     },
+    "t.me/kenhnhac hoặc @kenhnhac": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.me/kenhnhac أو @kenhnhac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.me/kenhnhac o @kenhnhac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.me/kenhnhac ou @kenhnhac"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.me/kenhnhac или @kenhnhac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "t.me/kenhnhac 或 @kenhnhac"
+          }
+        }
+      }
+    },
     "tệp rỗng": {
       "extractionState": "manual",
       "localizations": {

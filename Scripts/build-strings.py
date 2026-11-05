@@ -83,9 +83,7 @@ NOT_TRANSLATED = {
     "tải offline file", "hồ sơ", "đăng xuất", "Tình yêu", "n bài",
     # A language's own name is written in its own script — that is the whole idea behind the
     # picker, and transliterating it would make the list unreadable to the one reader who needs it.
-    # The link example is a shape to type, not a sentence to read.
     "Tiếng Việt", "Español", "Français", "Русский", "简体中文", "العربية",
-    "t.me/kenhnhac hoặc @kenhnhac",
 }
 
 
@@ -165,7 +163,7 @@ def unlocalized_renders() -> list[str]:
     rather than by the build until this check existed.
     """
     call = re.compile(
-        r'\b(?:Text|Label|Button|Tab|navigationTitle|accessibilityLabel|accessibilityHint)\('
+        r'\b(Text|Label|Button|Tab|navigationTitle|accessibilityLabel|accessibilityHint)\('
         r'\s*([A-Za-z_][\w.]*)\s*[,)\]]')
     found = []
     for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
