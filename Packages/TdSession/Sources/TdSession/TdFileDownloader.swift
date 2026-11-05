@@ -107,6 +107,11 @@ public actor TdFileDownloader {
     private static let probePoll: Duration = .milliseconds(400)
     private static let probePatience: Duration = .seconds(15)
 
+    /// How a streaming window is watched: a megabyte of song is sixteen parts and a phone's
+    /// connection lands them over tens of seconds, so the window is asked about often and given long.
+    public static let windowPoll: Duration = .milliseconds(300)
+    public static let windowPatience: Duration = .seconds(25)
+
     /// It is not, though, the last word: a one-hour set is a hundred and forty megabytes, and on a
     /// phone's connection it outlasts any fixed wait that could be promised. So after the first
     /// patience the file is asked for itself, and only a run of answers that report the same
@@ -468,20 +473,76 @@ public actor TdFileDownloader {
     ///
     /// Fewer bytes than asked is a normal answer — near the end of the file, or when only part of the
     /// window has landed. A caller that needs the whole range asks again after the next `updateFile`.
+    ///
+    /// Two kinds of nothing are told apart, because a streaming caller has to behave differently for
+    /// each: an empty answer is "not on the phone yet" and is worth waiting through, while `nil` is
+    /// "TDLib will not fetch this", and waiting for it is how a spinner never ends.
     public func read(_ file: TdFile, at offset: Int64, upTo bytes: Int) async -> Data? {
-        guard bytes > 0, offset >= 0, let state = await state(file), !state.path.isEmpty
-        else { return nil }
+        guard bytes > 0, offset >= 0, let state = await state(file) else { return nil }
+        guard !state.path.isEmpty else { return Data() }
         // A whole file is readable to its end whatever the bitmask says, and the file's own length
         // bounds the read; `size` is only 0 when TDLib never learned it from the server.
         var ready = state.size - offset
         if state.isComplete {
             ready = state.size == 0 ? Int64.max : ready
         } else {
+            guard state.canDownload else { return nil }
             guard let prefix = await readyBytes(file, at: offset) else { return nil }
             ready = prefix
+            guard ready > 0 else { return Data() }
         }
         guard ready > 0 else { return nil }
         return Self.read(path: state.path, from: offset, bytes: Int(min(Int64(bytes), ready)))
+    }
+
+    /// Fetches one window and says how many bytes are readable there when it stops waiting.
+    ///
+    /// `downloadFile`'s `limit` does not stop the fetch for a caller: `download_impl` hands the node
+    /// `run_download(node, true)` (`FileManager.cpp:3111`), which is `ignore_download_limit`
+    /// (`FileManager.cpp:657-661`), so the limit only decides when the *asker* is answered
+    /// (`FileManager.cpp:3019-3029`) and TDLib then carries on with `upload.getFile` from the first
+    /// part it has never fetched (`PartsManager.cpp:292-296`). Measured on a phone over a 166 MB set:
+    /// the window at the playhead was being fetched at one hundred megabytes while the rest of the
+    /// file was being pulled on from ninety-seven — the same link, and the listener starving in the
+    /// middle of the song. So the window is followed by `cancelDownloadFile`, which stops the file
+    /// without taking anything back: the parts already landed were written at their own offsets
+    /// (`FileDownloader.cpp:281`) and stay, and the ready bitmask in TDLib's database goes on
+    /// counting them (`FileManager.cpp:3170-3196`).
+    ///
+    /// A fetch that is cancelled on the way back does not cancel the file — the caller that took its
+    /// place wants those bytes still coming.
+    ///
+    /// `patience` is the caller's because the uses are not the same bet: the song under the playhead
+    /// is worth waiting half a minute for, a song merely guessed to be next is not, and a test
+    /// should not have to wait at all.
+    public func fetch(_ file: TdFile, window offset: Int64, bytes: Int64,
+                      priority: Int = TdFileDownloader.audioPriority,
+                      patience: Duration = TdFileDownloader.windowPatience) async -> Int64 {
+        guard let state = await ask(file, window: offset, bytes: bytes, priority: priority),
+              state.canDownload else { return 0 }
+        var ready: Int64 = 0
+        let deadline = ContinuousClock.now.advanced(by: patience)
+        while !Task.isCancelled {
+            if let answer = await readyBytes(file, at: offset) {
+                ready = answer
+                if ready >= bytes || state.size > 0 && offset + ready >= state.size { return ready }
+                // A window that has moved at all is making progress; only a window that has not
+                // moved for the whole patience is a fetch that is not coming.
+                if ContinuousClock.now > deadline { return ready }
+            }
+            try? await Task.sleep(for: Self.windowPoll)
+            if Task.isCancelled { return 0 }
+        }
+        return 0
+    }
+
+    /// Stops TDLib fetching anything beyond what the listener has asked for.
+    public func quiet(_ file: TdFile) async {
+        guard let fileId = await row(of: file) else { return }
+        _ = try? await flow.request(
+            "cancelDownloadFile",
+            ["file_id": .int(Int64(fileId)), "only_if_pending": .bool(false)]
+        )
     }
 
     /// Releases everyone waiting on this file and tells TDLib to stop fetching it.

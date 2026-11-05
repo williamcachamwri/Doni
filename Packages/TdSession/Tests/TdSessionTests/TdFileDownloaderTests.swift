@@ -920,3 +920,63 @@ func askChecksIdentity() async throws {
     #expect(await waiting.value == nil)
     #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
 }
+
+@Test("a window fetch asks TDLib where the listener is and counts what landed")
+func fetchWaitsForTheWindow() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task {
+        await downloader.fetch(TdFile(fileId: 8020, uniqueId: nil), window: 65_536, bytes: 1_048_576)
+    }
+    let asked = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8020, active: true, completed: false, path: "/tmp/f20.mp3",
+                                     offset: 65_536, prefix: 0, size: 5_000_000, extra: asked))
+    let probed = try await downloadExtra(of: session.transport, type: "getFileDownloadedPrefixSize")
+    session.transport.queue(prefixJSON(size: 1_048_576, extra: probed))
+
+    #expect(await waiting.value == 1_048_576)
+    let request = try #require(requestFields(of: session.transport, type: "downloadFile"))
+    #expect(request["offset"]?.int == 65_536)
+    #expect(request["limit"]?.int == 1_048_576)
+    #expect(request["priority"]?.int == 16)
+    // The window is what this asks for; stopping the file is the caller's next move, not this one's.
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "cancelDownloadFile" })
+}
+
+@Test("a window that has not landed within the patience is reported as it is")
+func fetchReportsWhatArrived() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task {
+        await downloader.fetch(TdFile(fileId: 8021, uniqueId: nil), window: 0, bytes: 1_048_576,
+                               patience: .zero)
+    }
+    let asked = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8021, active: true, completed: false, path: "",
+                                     size: 5_000_000, extra: asked))
+    let probed = try await downloadExtra(of: session.transport, type: "getFileDownloadedPrefixSize")
+    session.transport.queue(prefixJSON(size: 4096, extra: probed))
+
+    // Only four kilobytes of the megabyte are there, and that is the answer — the caller decides
+    // whether to keep listening to what it has or to ask for more.
+    #expect(await waiting.value == 4096)
+}
+
+@Test("quiet stops the fetch and keeps every part already on the phone")
+func quietCancelsTheDownload() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    await downloader.quiet(TdFile(fileId: 8022, uniqueId: nil))
+    _ = try await downloadExtra(of: session.transport, type: "cancelDownloadFile")
+    let stopped = try #require(requestFields(of: session.transport, type: "cancelDownloadFile"))
+    #expect(stopped["file_id"]?.int == 8022)
+    // `only_if_pending` false is the point: a file that has sent a byte is exactly the one to stop,
+    // and stopping it leaves its parts where they are (`FileManager.cpp:3170-3196`).
+    #expect(stopped["only_if_pending"]?.bool == false)
+}
