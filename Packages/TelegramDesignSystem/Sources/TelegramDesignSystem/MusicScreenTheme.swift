@@ -604,6 +604,9 @@ public enum MusicNowPlayingMetrics {
     public static let lyricsHeaderGap: CGFloat = 12
     /// 16 between that header and the column, 12 below the column (`NowPlayingLyricsPage.swift:145`,
     /// `:132-137`).
+    /// The header's own discs, one step down from the player's: these sit in a row of content
+    /// under a large title, where the system had been drawing them at 40 pt in the bar.
+    public static let headerGlyph: CGFloat = 18
     public static let lyricsColumnGap: CGFloat = 16
     public static let lyricsBottomInset: CGFloat = 12
 

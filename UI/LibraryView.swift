@@ -44,11 +44,11 @@ struct LibraryView: View {
             Button(action: shuffleAll) {
                 Image(systemName: "shuffle")
                     .font(.title2.weight(.semibold))
-                    .frame(width: MusicPlaylistMetrics.actionGlyph, height: MusicPlaylistMetrics.actionGlyph)
+                    .frame(width: MusicNowPlayingMetrics.headerGlyph, height: MusicNowPlayingMetrics.headerGlyph)
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
-            .controlSize(.large)
+            .controlSize(.regular)
             .accessibilityLabel("Phát ngẫu nhiên")
 
             Button {
@@ -60,22 +60,22 @@ struct LibraryView: View {
             } label: {
                 Image(systemName: indexer.isReading ? "stop.fill" : "arrow.clockwise")
                     .font(.title2.weight(.semibold))
-                    .frame(width: MusicPlaylistMetrics.actionGlyph, height: MusicPlaylistMetrics.actionGlyph)
+                    .frame(width: MusicNowPlayingMetrics.headerGlyph, height: MusicNowPlayingMetrics.headerGlyph)
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
-            .controlSize(.large)
+            .controlSize(.regular)
             .accessibilityLabel(indexer.isReading ? "Dừng đọc kênh" : "Đọc lại kênh")
 
             Button {
                 showsSettings = true
             } label: {
                 AccountAvatar(account: session.account, photo: session.accountPhoto)
-                    .frame(width: MusicPlaylistMetrics.actionGlyph, height: MusicPlaylistMetrics.actionGlyph)
+                    .frame(width: MusicNowPlayingMetrics.headerGlyph, height: MusicNowPlayingMetrics.headerGlyph)
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
-            .controlSize(.large)
+            .controlSize(.regular)
             .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" } ?? "Cài đặt")
         }
     }
