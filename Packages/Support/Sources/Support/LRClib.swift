@@ -14,12 +14,13 @@ public struct LyricQuery: Equatable, Sendable {
     }
 }
 
-/// lrclib's public JSON API (`https://lrclib.net`), which is the only source of lyrics this app has.
+/// lrclib's public JSON API (`https://lrclib.net`) — one of the four sources Doni asks, and the one
+/// that carries Western and Vietnamese releases the Chinese catalogues do not.
 ///
-/// It is also the only thing in Doni that sends anything off the phone, so what goes is the least a
-/// lookup can work with: the song's name, its artist and its length. The `file_size` parameter the
-/// API accepts is deliberately not sent — it would identify the exact file rather than the song, and
-/// a song title is already enough to find its words. No album, no session, no device identifier.
+/// What goes is the least a lookup can work with: the song's name, its artist and its length. The
+/// `file_size` parameter the API accepts is deliberately not sent — it would identify the exact file
+/// rather than the song, and a song title is already enough to find its words. No album, no session,
+/// no device identifier.
 ///
 /// Two shapes matter here. `/api/get` answers **one object** and `/api/search` answers an **array**,
 /// and a caller that only reads one of them silently finds nothing half the time. And lrclib sends
@@ -65,16 +66,62 @@ public enum LRClib {
         }
     }
 
-    /// The answer, or `nil` when the request never reached the site.
+    /// The answer, or `nil` when no request reached the site.
+    ///
+    /// A channel's caption is not the song's name. The one that started this carried the upload's
+    /// bitrate as part of the title — `… & 2PILLZ (320kbps)` — and lrclib answers that string with
+    /// nothing while answering the same song without it with three synced entries. So every title is
+    /// asked twice: as the row spells it, and with the quality noise taken out.
     public static func fetch(_ query: LyricQuery,
                              session: URLSession = .shared) async -> LyricText? {
-        if let exact = getURL(query), let hits = try? await send(exact, session: session),
-           !hits.isEmpty {
-            return text(of: hits)
+        var reached = false
+        for title in titles(for: query) {
+            let probe = LyricQuery(artist: query.artist, title: title,
+                                   duration: query.duration)
+            // `/api/get` answers 400 for an empty artist, and a captionless channel post has none.
+            let hasArtist = !probe.artist.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if hasArtist, let exact = getURL(probe), let hits = await send(exact, session: session) {
+                reached = true
+                let found = text(of: hits)
+                if found != .none { return found }
+            }
+            if let loose = searchURL(probe), let hits = await send(loose, session: session) {
+                reached = true
+                let found = text(of: hits)
+                if found != .none { return found }
+            }
         }
-        guard let loose = searchURL(query) else { return LyricText.none }
-        guard let hits = try? await send(loose, session: session) else { return nil }
-        return text(of: hits)
+        return reached ? LyricText.none : nil
+    }
+
+    /// The spellings worth asking, in order: what the row says, then the same name with the
+    /// upload's own noise — a bitrate, a codec, an extension — taken out of it.
+    public static func titles(for query: LyricQuery) -> [String] {
+        let raw = query.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return [] }
+        let cleaned = removingUploadNoise(from: raw)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, cleaned != raw else { return [raw] }
+        return [raw, cleaned]
+    }
+
+    /// A bracketed group only says how the file was encoded, and a trailing `.mp3` only says what
+    /// the uploader called it. Neither is part of the song's name, and lrclib matches on the name.
+    private static func removingUploadNoise(from title: String) -> String {
+        var text = title
+        text = text.replacingOccurrences(
+            of: #"[\[(]\s*(?:\d+\s*k?bps|mp3|m4a|flac|aac|opus|hq|hd|4k|lossless|320|256|128)\s*[\])]"#,
+            with: "", options: [.regularExpression, .caseInsensitive]
+        )
+        text = text.replacingOccurrences(
+            of: #"\.(?:mp3|m4a|flac|aac|opus)$"#,
+            with: "", options: [.regularExpression, .caseInsensitive]
+        )
+        text = text.replacingOccurrences(
+            of: #"\s{2,}"#, with: " ", options: [.regularExpression]
+        )
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " -–—,_.•"))
     }
 
     /// Both shapes, in one call: an array, or the single object `/api/get` answers with.
@@ -84,15 +131,16 @@ public enum LRClib {
         return []
     }
 
-    private static func send(_ url: URL, session: URLSession) async throws -> [Entry] {
+    /// `nil` means the site was not reached. A `404` is the opposite: an answer, and the answer is
+    /// "not in here" — which is worth caching, while a refusal to connect is not.
+    private static func send(_ url: URL, session: URLSession) async -> [Entry]? {
         var request = URLRequest(url: url, timeoutInterval: 12)
         request.setValue("Doni/1.0 (personal music player)",
                          forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse,
-              (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse else { return nil }
+        if http.statusCode == 404 { return [] }
+        guard (200..<300).contains(http.statusCode) else { return nil }
         return entries(data)
     }
 

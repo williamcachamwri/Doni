@@ -58,7 +58,33 @@ final class Lyrics: ObservableObject {
     private var task: Task<Void, Never>?
     private let prefs = LyricsPreferences.shared
 
-    private init() {}
+    private init() {
+        Self.settleCacheRevision()
+    }
+
+    /// A miss is only worth remembering while the pipeline that missed it is the pipeline that would
+    /// be asked again. Four of these songs' `N`s were written by a build that knew lrclib alone and
+    /// sent its titles with the upload's `(320kbps)` still glued to them, and lrclib has had those
+    /// words the whole time. So the revision travels with the question, and the answers it invalidates
+    /// are only the misses — found lyrics are never thrown away.
+    nonisolated private static let revisionKey = "lyrics.revision"
+    nonisolated private static let revision = 2
+
+    private nonisolated static func settleCacheRevision() {
+        let defaults = UserDefaults.standard
+        guard defaults.integer(forKey: revisionKey) != revision else { return }
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: nil
+        )) ?? []
+        for file in files where storedMarker(in: file) == "N" {
+            try? FileManager.default.removeItem(at: file)
+        }
+        defaults.set(revision, forKey: revisionKey)
+    }
+
+    private nonisolated static func storedMarker(in file: URL) -> Character? {
+        try? String(contentsOf: file, encoding: .utf8).first
+    }
 
     /// The words for one song, from wherever they can come cheapest.
     func load(_ track: any Playable) {

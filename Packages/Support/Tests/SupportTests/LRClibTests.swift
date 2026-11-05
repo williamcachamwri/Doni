@@ -38,6 +38,24 @@ struct LRClibTests {
         #expect(LRClib.getURL(LyricQuery(artist: "", title: "", duration: 0)) != nil)
     }
 
+    @Test("the upload's bitrate is not part of the song's name")
+    func titlesDropUploadNoise() {
+        let query = LyricQuery(artist: "",
+                               title: "LAVIAI (REMIX) ft. HIEUTHUHAI & 2PILLZ (320kbps)",
+                               duration: 205)
+        #expect(LRClib.titles(for: query) == [
+            query.title,
+            "LAVIAI (REMIX) ft. HIEUTHUHAI & 2PILLZ",
+        ])
+    }
+
+    @Test("a remix tag is the song, a bitrate is the file")
+    func cleaningKeepsWhatMatters() {
+        let query = LyricQuery(artist: "Wxrdie",
+                               title: "LAVIAI [320 Kbps] [Official Audio].mp3", duration: 205)
+        #expect(LRClib.titles(for: query).last == "LAVIAI [Official Audio]")
+    }
+
     @Test("both answer shapes decode, because the two endpoints do not agree")
     func shapes() throws {
         let one = Data(#"{"id":1,"name":"x","syncedLyrics":"[00:01.00]a","plainLyrics":""}"#
