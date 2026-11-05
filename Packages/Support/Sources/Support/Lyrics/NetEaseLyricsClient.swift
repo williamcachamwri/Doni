@@ -49,13 +49,17 @@ struct NetEaseLyricsClient: Sendable {
             "/api/search/get",
             data: ["s": query, "type": 1, "limit": 30, "offset": 0]
         )
-        return (response.result?.songs ?? []).compactMap { song in
+        return Self.candidates(in: response)
+    }
+
+    static func candidates(in response: NetEaseSearchResponse) -> [NetEaseCandidate] {
+        (response.result?.songs ?? []).compactMap { song in
             guard song.id > 0, !song.name.isEmpty else { return nil }
             return NetEaseCandidate(
                 id: song.id,
                 name: song.name,
-                artist: song.artists.map(\.name).joined(separator: ","),
-                album: song.album?.name ?? "",
+                artist: song.artistList.map(\.name).joined(separator: ","),
+                album: song.albumInfo?.name ?? "",
                 durationSeconds: max(0, song.durationMS / 1_000)
             )
         }
@@ -168,7 +172,7 @@ struct NetEaseLyricsClient: Sendable {
     }
 }
 
-private struct NetEaseCandidate: Hashable {
+struct NetEaseCandidate: Hashable {
     let id: Int
     let name: String
     let artist: String
@@ -176,7 +180,7 @@ private struct NetEaseCandidate: Hashable {
     let durationSeconds: Int
 }
 
-private struct NetEaseSearchResponse: Decodable {
+struct NetEaseSearchResponse: Decodable {
     let result: Payload?
     struct Payload: Decodable {
         let songs: [Song]?
@@ -185,11 +189,14 @@ private struct NetEaseSearchResponse: Decodable {
         let id: Int
         let name: String
         let ar: [Artist]?
+        let artists: [Artist]?
         let al: Album?
+        let album: Album?
         let dt: Int?
-        var artists: [Artist] { ar ?? [] }
-        var album: Album? { al }
-        var durationMS: Int { dt ?? 0 }
+        let duration: Int?
+        var artistList: [Artist] { ar ?? artists ?? [] }
+        var albumInfo: Album? { al ?? album }
+        var durationMS: Int { dt ?? duration ?? 0 }
     }
     struct Artist: Decodable { let name: String }
     struct Album: Decodable { let name: String }

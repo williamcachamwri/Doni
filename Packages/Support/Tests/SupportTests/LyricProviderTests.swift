@@ -26,6 +26,20 @@ struct LyricProviderTests {
         #expect(LyricCandidateMatcher.bestCandidate(in: [candidate], for: song) == nil)
     }
 
+    @Test("NetEase search responses use both its artist and duration spellings")
+    func netEaseSearchDecoding() throws {
+        let data = Data(#"""
+        {"result":{"songs":[{"id":3453304463,"name":"降温",
+        "artists":[{"name":"Zzh"}],"album":{"name":"降温"},"duration":199229}]}}
+        """#.utf8)
+        let response = try JSONDecoder().decode(NetEaseSearchResponse.self, from: data)
+        let candidate = try #require(NetEaseLyricsClient.candidates(in: response).first)
+        #expect(candidate.id == 3453304463)
+        #expect(candidate.artist == "Zzh")
+        #expect(candidate.album == "降温")
+        #expect(candidate.durationSeconds == 199)
+    }
+
     @Test("rich provider payloads survive the disk cache")
     func cacheRoundTrip() {
         let netEase = NetEaseLyricPayload(
