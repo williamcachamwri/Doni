@@ -673,7 +673,7 @@ final class Player: ObservableObject {
         segment = nil
         markIn = nil
         current = track
-        library.recordPlay(uniqueId: track.uniqueId)
+        library.recordPlay(track)
         // The row keeps its place when the same song is asked for again — that is the press that
         // retries a fetch — and starts at zero when the queue has moved on.
         elapsed = startAt ?? (held == track.uniqueId ? elapsed : 0)

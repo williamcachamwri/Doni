@@ -27,6 +27,10 @@ final class Library: ObservableObject {
     /// What the phone knew when the app last closed, newest first — the rows the list shows before
     /// the walk has brought anything back.
     @Published private(set) var storedTracks: [StoreTrack] = []
+    /// The songs the phone has heard, most recently heard first. Kept as its own published list
+    /// because a shelf of what was just played is a different order from a library's own: the walk
+    /// sorts by the post, the shelf sorts by the listen.
+    @Published private(set) var recentlyPlayed: [StoreTrack] = []
     @Published private(set) var favorites: [StoredFavorite] = []
     @Published private(set) var playlists: [StoredPlaylist] = []
     @Published private(set) var channels: [StoreChannel] = []
@@ -99,6 +103,7 @@ final class Library: ObservableObject {
         downloadedBytes = store.downloadedBytes()
         trackCount = store.trackCount()
         storedTracks = store.tracks()
+        recentlyPlayed = store.recentlyPlayed(limit: Self.recentLimit)
     }
 
     /// Only the favourites, which is what a heart or a cut actually changed.
@@ -166,12 +171,22 @@ final class Library: ObservableObject {
         store.appendTracks(page.map { stored($0, chatId: chatId) })
     }
 
+    /// A page of the account's own chat, written down and marked as the listener's own.
+    ///
+    /// Not `remember(page:)`: that one files a song under the channel that posted it, and Saved
+    /// Messages holds songs a dozen channels posted. The flag is the difference — a song can be a
+    /// channel's row and the listener's cloud song at once, and neither list loses it.
+    func rememberCloud(page: [TdTrack], chatId: Int64) {
+        guard !page.isEmpty else { return }
+        store.saveCloud(page.map { stored($0, chatId: chatId) })
+    }
+
     /// One song a channel posted while the app was open, written down and put on the published rows.
     ///
-    /// `remember(page:)` says nothing about the published list because a walk publishes its own pages
-    /// as it goes; a post that lands with no walk running has nobody else to report it. Patched the
-    /// way a finished download is: `refresh()` would re-stat every file on the phone to prove that one
-    /// row appeared.
+    /// `remember(page:)` writes without publishing, because a walk re-reads the whole chat and every
+    /// screen reloads from the store when it finishes; a post that lands with no walk running has
+    /// nobody else to report it, so this one does. Patched the way a finished download is:
+    /// `refresh()` would re-stat every file on the phone to prove that one row appeared.
     ///
     /// It is also timed, when the post did not say how long it is. A channel's MP3s arrive as
     /// documents and a document carries no duration (`td_api.tl:594`), so without this the newest row
@@ -326,13 +341,6 @@ final class Library: ObservableObject {
     /// means the same MP3 picked twice updates the row it already has rather than spending the space
     /// a second time. Chunked because a one-hour set is 140 MB and `Data(contentsOf:)` would be asked
     /// to hold all of it at once; one megabyte is the size MeloX's uploader streams at, too.
-    /// The same bytes, the same name: what the app calls a file's identity, offered to the callers
-    /// that only have a path — the upload, which has to know whether it is sending a song the cloud
-    /// already holds.
-    static func fingerprint(path: String) -> String? {
-        fingerprint(URL(fileURLWithPath: path))
-    }
-
     private nonisolated static func fingerprint(_ url: URL) -> String? {
         do {
             let handle = try FileHandle(forReadingFrom: url)
@@ -429,9 +437,24 @@ final class Library: ObservableObject {
     private static let quotaKey = "cache.quota.bytes"
     private static let defaultQuota: Int64 = 2 * 1024 * 1024 * 1024
 
-    /// When a song was heard, written once per start rather than once per tick.
-    func recordPlay(uniqueId: String) {
-        store.markPlayed(uniqueId: uniqueId, at: Int64(Date().timeIntervalSince1970))
+    /// How many plays the shelf at the head of Home is allowed to hold: one strip's worth of cards,
+    /// which is also how many the other shelves cut themselves at.
+    private static let recentLimit = 20
+
+    /// When a song was heard, and what was heard.
+    ///
+    /// The whole row, not just its id: a song can be played from a message the walk has not written
+    /// down yet — TDLib hands over the bytes of a Saved Messages post nobody has listed — and an
+    /// update over no row is a song that never reaches the shelf. The row is then read back rather
+    /// than published from the live track, so the card wears what the store kept: a length it
+    /// measured, a name a channel wrote, a cover already on the phone.
+    func recordPlay(_ track: any Playable) {
+        let seconds = Int64(Date().timeIntervalSince1970)
+        let row = StoreTrack(track)
+        store.markPlayed(row, at: seconds)
+        var fresh = recentlyPlayed.filter { $0.uniqueId != row.uniqueId }
+        fresh.insert(store.track(uniqueId: row.uniqueId) ?? row, at: 0)
+        recentlyPlayed = Array(fresh.prefix(Self.recentLimit))
     }
 
     /// Give the cache back until it fits the quota, least-heard first.

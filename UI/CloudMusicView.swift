@@ -164,9 +164,14 @@ struct CloudMusicView: View {
     // MARK: What the list is
 
     /// The songs that are the user's own: what Telegram holds in Saved Messages, then what an older
-    /// build copied into the sandbox. Newest first, the order `Library` reads its track table in.
+    /// build copied into the sandbox. Newest first, the order `LibraryStore` reads its track table in.
+    ///
+    /// Folded through `CloudMusic.distinct` with the cloud rows first, because a song is often both:
+    /// downloaded from a channel, kept on the phone, and sent to Saved Messages as well. Listed twice
+    /// it reads as a library with two copies of one record, and the copy that is on Telegram is the
+    /// one worth showing — it plays on every device and the file on this phone is only a cache.
     private var kept: [StoreTrack] {
-        cloud.songs + library.storedTracks.filter(\.isLocal)
+        CloudMusic.distinct(cloud.songs + library.storedTracks.filter(\.isLocal))
     }
 
     /// The same fold the favourites and playlist screens use, so "tinh yeu" still finds "Tình yêu".

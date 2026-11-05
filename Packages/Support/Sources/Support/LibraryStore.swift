@@ -149,7 +149,7 @@ public final class LibraryStore: @unchecked Sendable {
     }
 
     /// `1` is the first schema; a column added later bumps this and the row below it migrates.
-    private static let schemaVersion = 6
+    private static let schemaVersion = 7
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
@@ -251,7 +251,8 @@ public final class LibraryStore: @unchecked Sendable {
             local_path TEXT,
             mini_artwork BLOB,
             cover_unique_id TEXT,
-            mime_type TEXT NOT NULL DEFAULT ''
+            mime_type TEXT NOT NULL DEFAULT '',
+            in_cloud INTEGER NOT NULL DEFAULT 0
         )
         """)
         sqlRun(handle, "CREATE INDEX IF NOT EXISTS track_chat ON track (chat_id, date DESC)")
@@ -321,6 +322,13 @@ public final class LibraryStore: @unchecked Sendable {
             // post's own date says when it was published, and the newest post in an old channel is
             // the last thing anybody should throw away.
             sqlRun(handle, "ALTER TABLE track ADD COLUMN last_played_at INTEGER")
+        }
+        if !hasColumn(handle, table: "track", column: "in_cloud") {
+            // Whether the account's own chat holds this song. A row belongs to one `chat_id` — the
+            // channel that posted it — so "and it is in Saved Messages as well" has to be its own
+            // fact: writing the chat's id into the row instead takes the song out of its channel's
+            // list, and a re-read of that channel takes it out of the cloud again.
+            sqlRun(handle, "ALTER TABLE track ADD COLUMN in_cloud INTEGER NOT NULL DEFAULT 0")
         }
     }
 
@@ -631,45 +639,37 @@ public final class LibraryStore: @unchecked Sendable {
                 mime_type = excluded.mime_type
             """) else { return }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_text(statement, 1, track.uniqueId, -1, Self.transient)
+        Self.bind(track: track, into: statement)
+        sqlite3_step(statement)
+    }
+
+    /// The fifteen columns, in `Self.columns` order, bound onto a statement.
+    ///
+    /// The walk's upsert and the cloud's upsert write the same row from the same struct and disagree
+    /// only about which columns they are allowed to overwrite, so the binding is the part worth
+    /// sharing — a list kept in two places is a list that one day gets out of order.
+    private static func bind(track: StoreTrack, into statement: OpaquePointer) {
+        sqlite3_bind_text(statement, 1, track.uniqueId, -1, transient)
         sqlite3_bind_int64(statement, 2, track.chatId)
         sqlite3_bind_int64(statement, 3, track.messageId)
         sqlite3_bind_int(statement, 4, Int32(track.fileId))
-        if let cover = track.coverFileId {
-            sqlite3_bind_int(statement, 5, Int32(cover))
-        } else {
-            sqlite3_bind_null(statement, 5)
-        }
-        sqlite3_bind_text(statement, 6, track.title, -1, Self.transient)
-        sqlite3_bind_text(statement, 7, track.performer, -1, Self.transient)
-        sqlite3_bind_text(statement, 8, track.fileName, -1, Self.transient)
-        if let duration = track.duration {
-            sqlite3_bind_int(statement, 9, Int32(duration))
-        } else {
-            sqlite3_bind_null(statement, 9)
-        }
+        bindOptional(statement, 5, track.coverFileId.map(Int64.init))
+        sqlite3_bind_text(statement, 6, track.title, -1, transient)
+        sqlite3_bind_text(statement, 7, track.performer, -1, transient)
+        sqlite3_bind_text(statement, 8, track.fileName, -1, transient)
+        bindOptional(statement, 9, track.duration.map(Int64.init))
         sqlite3_bind_int64(statement, 10, track.size)
         sqlite3_bind_int64(statement, 11, track.date)
-        if let path = track.localPath {
-            sqlite3_bind_text(statement, 12, path, -1, Self.transient)
-        } else {
-            sqlite3_bind_null(statement, 12)
-        }
+        bindOptional(statement, 12, track.localPath)
         if let artwork = track.miniArtwork {
             _ = artwork.withUnsafeBytes { buffer in
-                sqlite3_bind_blob(statement, 13, buffer.baseAddress, Int32(buffer.count),
-                                  Self.transient)
+                sqlite3_bind_blob(statement, 13, buffer.baseAddress, Int32(buffer.count), transient)
             }
         } else {
             sqlite3_bind_null(statement, 13)
         }
-        if let coverId = track.coverUniqueId {
-            sqlite3_bind_text(statement, 14, coverId, -1, Self.transient)
-        } else {
-            sqlite3_bind_null(statement, 14)
-        }
-        sqlite3_bind_text(statement, 15, track.mimeType, -1, Self.transient)
-        sqlite3_step(statement)
+        bindOptional(statement, 14, track.coverUniqueId)
+        sqlite3_bind_text(statement, 15, track.mimeType, -1, transient)
     }
 
     // MARK: Favourites
@@ -1001,17 +1001,152 @@ public final class LibraryStore: @unchecked Sendable {
         return found
     }
 
-    /// The moment a song was heard. One row, one write, and the only history the cache needs: a
-    /// library that never records what was listened to can only prune by what it likes best.
-    public func markPlayed(uniqueId: String, at seconds: Int64) {
+    /// The moment a song was heard, and the row it was heard from.
+    ///
+    /// The row is written as well as updated, because a file can reach the player before the walk has
+    /// read the message it came from — TDLib hands over the bytes of a Saved Messages post nobody has
+    /// listed yet — and an `UPDATE` over no row is a song that never appears on the shelf of things
+    /// just heard. Only the columns a listener needs are written: `mime_type`, `duration` and
+    /// `local_path` stay exactly as the walk put them, so noting a play cannot undo a container the
+    /// streaming gate reads.
+    public func markPlayed(_ row: StoreTrack, at seconds: Int64) {
         lock.lock()
         defer { lock.unlock() }
-        guard let statement = prepare("UPDATE track SET last_played_at = ? WHERE unique_id = ?")
-        else { return }
+        guard let statement = prepare("""
+            INSERT INTO track (unique_id, chat_id, message_id, file_id, title, performer,
+                               file_name, size, date, last_played_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(unique_id) DO UPDATE SET last_played_at = excluded.last_played_at
+            """) else { return }
         defer { sqlite3_finalize(statement) }
-        sqlite3_bind_int64(statement, 1, seconds)
-        sqlite3_bind_text(statement, 2, uniqueId, -1, Self.transient)
+        sqlite3_bind_text(statement, 1, row.uniqueId, -1, Self.transient)
+        sqlite3_bind_int64(statement, 2, row.chatId)
+        sqlite3_bind_int64(statement, 3, row.messageId)
+        sqlite3_bind_int(statement, 4, Int32(row.fileId))
+        sqlite3_bind_text(statement, 5, row.title, -1, Self.transient)
+        sqlite3_bind_text(statement, 6, row.performer, -1, Self.transient)
+        sqlite3_bind_text(statement, 7, row.fileName, -1, Self.transient)
+        sqlite3_bind_int64(statement, 8, row.size)
+        sqlite3_bind_int64(statement, 9, row.date)
+        sqlite3_bind_int64(statement, 10, seconds)
         sqlite3_step(statement)
+    }
+
+    /// The songs the phone has heard, most recently heard first.
+    ///
+    /// `limit` because this feeds a shelf of cards, not a list: the history keeps every song ever
+    /// played and the screen has room for a dozen.
+    public func recentlyPlayed(limit: Int) -> [StoreTrack] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("""
+            SELECT \(Self.columns) FROM track
+            WHERE last_played_at IS NOT NULL
+            ORDER BY last_played_at DESC LIMIT ?
+            """) else { return [] }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int(statement, 1, Int32(limit))
+        var rows: [StoreTrack] = []
+        while sqlite3_step(statement) == SQLITE_ROW { rows.append(Self.read(statement)) }
+        return rows
+    }
+
+    // MARK: The account's own chat
+
+    /// Writing the songs of Saved Messages into the library, and marking them as the listener's own.
+    ///
+    /// A row the store already has keeps the channel that posted it: `chat_id` answers where a song
+    /// came from, and a forward into Saved Messages does not move the post. The `in_cloud` flag is the
+    /// separate fact — this song is in the account's own chat as well — which is what lets one song
+    /// stand in its channel's list and in Cloud Music at the same time.
+    ///
+    /// The columns a re-read is not allowed to make worse are `COALESCE`d rather than replaced, so a
+    /// page that answers before TDLib has finished looking the file up cannot clear a length, a
+    /// cover or the mime type the streaming gate reads.
+    public func saveCloud(_ tracks: [StoreTrack]) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("""
+            INSERT INTO track (\(Self.columns), in_cloud)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ON CONFLICT(unique_id) DO UPDATE SET
+                in_cloud = 1,
+                file_id = excluded.file_id,
+                title = CASE WHEN track.title = '' THEN excluded.title ELSE track.title END,
+                duration = COALESCE(excluded.duration, track.duration),
+                local_path = COALESCE(excluded.local_path, track.local_path),
+                mini_artwork = COALESCE(excluded.mini_artwork, track.mini_artwork),
+                cover_file_id = COALESCE(excluded.cover_file_id, track.cover_file_id),
+                cover_unique_id = COALESCE(excluded.cover_unique_id, track.cover_unique_id),
+                mime_type = CASE WHEN track.mime_type = '' THEN excluded.mime_type
+                                 ELSE track.mime_type END
+            """) else { return }
+        defer { sqlite3_finalize(statement) }
+        sqlRun(handle, "BEGIN")
+        for track in tracks { Self.bind(track: track, into: statement); sqlite3_step(statement) }
+        sqlRun(handle, "COMMIT")
+    }
+
+    /// The songs the account's own chat holds, newest post first.
+    public func cloudTracks() -> [StoreTrack] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("""
+            SELECT \(Self.columns) FROM track WHERE in_cloud = 1
+            ORDER BY date DESC, message_id DESC
+            """) else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var rows: [StoreTrack] = []
+        while sqlite3_step(statement) == SQLITE_ROW { rows.append(Self.read(statement)) }
+        return rows
+    }
+
+    /// Whether the cloud already holds this exact song — the question a second Download asks.
+    public func isInCloud(uniqueId: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("SELECT 1 FROM track WHERE unique_id = ? AND in_cloud = 1")
+        else { return false }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, uniqueId, -1, Self.transient)
+        return sqlite3_step(statement) == SQLITE_ROW
+    }
+
+    /// Taking the flag off songs the chat no longer holds.
+    ///
+    /// Only ever called once a read has reached the oldest message: a page is not the whole chat, and
+    /// clearing against one page would call everything else gone. The ids go in as bound parameters
+    /// in chunks of five hundred, because SQLite's variable limit is a real number and a cloud of a
+    /// thousand songs is a normal one.
+    public func clearCloud(except uniqueIds: [String]) {
+        lock.lock()
+        defer { lock.unlock() }
+        let keep = Set(uniqueIds)
+        let held = cloudUniqueIdsLocked()
+        let gone = held.filter { !keep.contains($0) }
+        guard !gone.isEmpty else { return }
+        var index = 0
+        while index < gone.count {
+            let chunk = Array(gone[index..<min(index + 500, gone.count)])
+            index += chunk.count
+            let marks = repeatElement("?", count: chunk.count).joined(separator: ", ")
+            guard let statement = prepare(
+                "UPDATE track SET in_cloud = 0 WHERE unique_id IN (\(marks))"
+            ) else { return }
+            for (offset, key) in chunk.enumerated() {
+                sqlite3_bind_text(statement, Int32(1 + offset), key, -1, Self.transient)
+            }
+            sqlite3_step(statement)
+            sqlite3_finalize(statement)
+        }
+    }
+
+    private func cloudUniqueIdsLocked() -> [String] {
+        guard let statement = prepare("SELECT unique_id FROM track WHERE in_cloud = 1") else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var found: [String] = []
+        while sqlite3_step(statement) == SQLITE_ROW { found.append(Self.text(statement, 0)) }
+        return found
     }
 
     /// What the phone is holding for each song, in the four numbers an eviction decides with.
@@ -1101,12 +1236,9 @@ public final class LibraryStore: @unchecked Sendable {
               let statement
         else {
             Self.log(sql, in: handle)
-            // Only a real refusal, not the knock of a caller on a store that never opened — that
-            // one already has a better message from `open`, and overwriting it with the hundredth
-            // failed prepare would lose the reason.
-            if handle != nil {
-                failure = "Thư viện nhạc không đọc được câu truy vấn này: \(sql)"
-            }
+            // Worth reporting, because the store that gets here is an open one: a closed handle
+            // returned above and already has a better message from `open`.
+            failure = "Thư viện nhạc không đọc được câu truy vấn này: \(sql)"
             return nil
         }
         return statement

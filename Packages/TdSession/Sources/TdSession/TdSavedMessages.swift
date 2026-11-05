@@ -16,9 +16,13 @@ public struct TdSavedMessages: Sendable {
     public enum Failure: Error, Equatable {
         case noUserId
         case noChat
-        /// The message went out and TDLib answered with something that is not it. Said as its own
-        /// case because the caller has to keep the local file in that case rather than delete it.
+        /// TDLib answered a request with something that is not what the request makes.
         case unexpectedResponse(String)
+        /// The send came back with something other than a `message`. Its own case because the caller
+        /// has to keep the local file in that case rather than delete it — and because the first
+        /// build used this one for a send that had worked, on a `message` whose file TDLib had not
+        /// finished naming.
+        case notAMessage(String)
     }
 
     private let flow: TdLoginFlow
@@ -105,17 +109,24 @@ public struct TdSavedMessages: Sendable {
         return TdHistoryPage(messages: items, totalCount: answer["total_count"]?.int.map { Int($0) })
     }
 
-    /// Sends one file as a document, and answers with the message Telegram made.
+    /// Sends one file as a document, and answers with the message id Telegram gave it.
     ///
     /// `sendMessage` is the upload: TDLib reads `inputFileLocal` (`td_api.tl:340`), uploads it, and
     /// puts the resulting file — with its own `file_id` and its durable `file_unique_id` — in the
     /// message it returns. There is no separate `uploadFile` request to get wrong, and no second
     /// copy of the bytes to keep track of.
     ///
+    /// The message id is all this returns, and it is enough: a post that has just left the phone
+    /// carries TDLib's own `file` for a file the server has only just accepted, whose
+    /// `remote.unique_id` (`td_api.tl:318`) can still be absent or unknown. That is not a row — a row
+    /// is keyed by the identity, and a guessed one is a song that will be listed twice under two keys
+    /// the moment the chat is read again. So the answer is "the send was accepted" and the library
+    /// waits for the chat's own history, which is where the identity is written down.
+    ///
     /// The caption is the file's own name. A document post has no title field the way an audio post
     /// does, so without a caption the row would be named by nothing but the song's hash — and the
     /// name the user picked at the file panel is the one thing worth carrying over.
-    public func upload(chatId: Int64, path: String, caption: String) async throws -> TdTrack {
+    public func upload(chatId: Int64, path: String, caption: String) async throws -> Int64 {
         let answer = try await flow.request(
             "sendMessage",
             [
@@ -143,9 +154,12 @@ public struct TdSavedMessages: Sendable {
                 ])
             ]
         )
-        guard answer.type == "message", let track = TdTrack(message: answer) else {
-            throw Failure.unexpectedResponse(answer.type ?? "no @type")
+        // `message` (`td_api.tl:4063`) is the only answer that means the post exists. It used to be
+        // checked together with a decode of the file inside it, and a send TDLib had accepted was
+        // reported as a failure — on a song that had by then arrived in Saved Messages.
+        guard answer.type == "message", let id = answer["id"]?.int, id != 0 else {
+            throw Failure.notAMessage(Self.quote(answer))
         }
-        return track
+        return id
     }
 }

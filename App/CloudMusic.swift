@@ -16,7 +16,7 @@ import UIKit
 /// report that number on the storage screen.
 @MainActor
 final class CloudMusic: ObservableObject {
-    /// What the screen shows: the account's own chat, newest first.
+    /// What the screen shows: the account's own chat, newest first, one row per song.
     @Published private(set) var songs: [StoreTrack] = []
     /// Whether a read or an upload is running, which is the difference between a spinner and a
     /// button that does nothing for twenty seconds.
@@ -29,10 +29,15 @@ final class CloudMusic: ObservableObject {
     /// Resolved once per surface that asks: `createPrivateChat` is idempotent, and a second call
     /// costs one request the app does not need to make twice.
     private var chatId: Int64?
-    /// Uploads in flight, keyed by the file's own bytes rather than by its name: the same mix sent
-    /// twice from two different folders is the same song, and a listener who taps twice should get
-    /// one post, not two.
+    /// Uploads in flight, keyed by the name the file was picked under, so a second ask for the same
+    /// song waits for the first instead of sending a duplicate post.
     private var uploads: [String: Task<Void, Never>] = [:]
+
+    /// How many pages one read asks for. A hundred messages each, so twenty is two thousand — the
+    /// whole of a self-chat anybody keeps songs in. The loop gives up after that rather than walking
+    /// a chat full of screenshots for a minute: one page is a server round trip, and the songs below
+    /// two thousand messages are not what the screen was asked for.
+    private static let pageCap = 20
 
     /// The session is a parameter rather than a property, the way every other Telegram call in this
     /// app takes it: the library outlives a sign-out, and a cloud object holding a dead session is
@@ -41,17 +46,48 @@ final class CloudMusic: ObservableObject {
 
     // MARK: Reading
 
-    /// The newest page of the account's own chat, written into the same table every other song is
+    /// The account's own chat, read to its end, written into the same table every other song is
     /// written into.
+    ///
+    /// Pages, not one page: the newest hundred messages of a Saved Messages chat are usually voice
+    /// notes, screenshots and links, and a song posted last autumn is nowhere near the first of them.
+    /// Each page is published as it lands, so the list grows while the read runs instead of waiting
+    /// for the last round trip.
     func refresh(_ session: TelegramSession) async {
-        let id = await ensureChat(session)
-        guard let id, let saved = session.savedMessages() else { return }
-        guard let page = try? await saved.page(chatId: id) else {
-            failure = "Không đọc được Saved Messages"
-            return
+        guard let id = await ensureChat(session), let saved = session.savedMessages() else { return }
+        isBusy = true
+        defer { isBusy = false }
+        var cursor: Int64 = 0
+        var held: [String] = []
+        var reachedTheEnd = false
+        // Whether the chat actually answered with messages. A walk that got nothing at all is not a
+        // chat with nothing in it — TDLib can answer with an empty page while the server is still
+        // fetching — and a clear built on that would empty the screen of songs that are in Telegram
+        // perfectly well.
+        var sawMessages = false
+        for _ in 0..<Self.pageCap {
+            guard let page = try? await saved.page(chatId: id, cursor: cursor) else {
+                failure = "Không đọc được Saved Messages"
+                break
+            }
+            library.rememberCloud(page: page.tracks, chatId: id)
+            held.append(contentsOf: page.tracks.map(\.uniqueId))
+            sawMessages = sawMessages || !page.messages.isEmpty
+            reload()
+            guard let oldest = page.oldestMessageId, oldest != cursor else {
+                // The chat has stopped giving out older messages. Not an end — TDLib answers with
+                // what it has, so a stall is a stall — and so the flags below stay as they were.
+                break
+            }
+            cursor = oldest
+            if page.isLast {
+                reachedTheEnd = true
+                break
+            }
         }
-        library.remember(page: page.tracks, chatId: id)
-        await MainActor.run { self.reload() }
+        // Only a read that got to the oldest message may say which songs are gone. Clearing against
+        // one page would call every older song deleted.
+        if reachedTheEnd, sawMessages { library.store.clearCloud(except: held) }
     }
 
     /// The chat, created on first use. `nil` means it could not be had, and `failure` has by then
@@ -82,13 +118,14 @@ final class CloudMusic: ObservableObject {
         }
     }
 
-    /// The rows the store holds for this chat, in the order the store reads them.
+    /// The rows the store says are in the chat, newest first, one per song.
+    ///
+    /// Read from the database rather than from the library's published array: a walk writes rows
+    /// without republishing them, so a screen that filters a snapshot it was never told about shows
+    /// only what was already on the phone when it opened. That is how a song forwarded into Saved
+    /// Messages appeared in Telegram and not here.
     func reload() {
-        guard let chatId else {
-            songs = []
-            return
-        }
-        songs = library.storedTracks.filter { $0.chatId == chatId }
+        songs = Self.distinct(library.store.cloudTracks())
     }
 
     // MARK: Uploading
@@ -100,11 +137,9 @@ final class CloudMusic: ObservableObject {
     /// nothing; deleting first would leave a song that exists only in a temp directory.
     func upload(_ session: TelegramSession, urls: [URL]) async {
         guard !urls.isEmpty else { return }
+        guard let id = await ensureChat(session), let saved = session.savedMessages() else { return }
         isBusy = true
         defer { isBusy = false }
-        guard let id = await ensureChat(session), let saved = session.savedMessages() else {
-            return
-        }
         for url in urls {
             // The read goes through the same door the import used: a picker's URL is a promise about
             // a file, and only coordination makes the system hand over bytes that can be uploaded.
@@ -112,36 +147,36 @@ final class CloudMusic: ObservableObject {
                 failure = localized("Không mở được %@", url.lastPathComponent)
                 continue
             }
-            let hash = Library.fingerprint(path: path)
-            if let hash, await alreadyUploaded(hash: hash, named: url.lastPathComponent) {
-                print("cloud duplicate \(url.lastPathComponent)")
-                continue
-            }
-            if let running = uploads[hash ?? url.lastPathComponent] {
+            let name = url.lastPathComponent
+            if let running = uploads[name] {
                 await running.value
                 continue
             }
             let task: Task<Void, Never> = Task { [weak self] in
                 guard let self else { return }
-                await self.send(saved, path: path, caption: url.lastPathComponent,
-                                chatId: id, hash: hash)
+                await self.send(saved, path: path, caption: name, chatId: id)
             }
-            uploads[hash ?? url.lastPathComponent] = task
+            uploads[name] = task
             await task.value
-            uploads[hash ?? url.lastPathComponent] = nil
+            uploads[name] = nil
         }
         await refresh(session)
     }
 
     private func send(_ saved: TdSavedMessages, path: String, caption: String,
-                      chatId: Int64, hash: String?) async {
+                      chatId: Int64) async {
+        if alreadyUploaded(named: caption, path: path) {
+            print("cloud duplicate \(caption)")
+            failure = "Bài này đã ở Cloud Music rồi"
+            try? FileManager.default.removeItem(atPath: path)
+            return
+        }
         do {
-            let track = try await saved.upload(chatId: chatId, path: path, caption: caption)
-            print("cloud uploaded \(caption) as file \(track.fileId)")
+            let messageId = try await saved.upload(chatId: chatId, path: path, caption: caption)
+            print("cloud uploaded \(caption) as message \(messageId)")
             // Telegram has it. The staged copy is a temp file the app made, and the song now has a
             // home, so the phone keeps only what streaming caches on its own.
             try? FileManager.default.removeItem(atPath: path)
-            if let hash { CloudMusic.forget(hash: hash) }
         } catch {
             // TDLib's own words, because "upload failed" is a sentence the person standing in front
             // of the phone cannot act on and cannot send to anybody either.
@@ -150,16 +185,20 @@ final class CloudMusic: ObservableObject {
         }
     }
 
-    /// Whether these exact bytes are already in the cloud.
+    /// Whether the cloud already holds this song, under the name it was picked with.
     ///
-    /// Name and size are compared against the rows the store has for this chat, because that is the
-    /// pair a listener means by "the same song" and the only pair the app is sure of: Telegram gives
-    /// every post its own file id, so a second upload of one file has no id in common with the first.
-    private func alreadyUploaded(hash: String, named fileName: String) async -> Bool {
-        if let chatId, library.storedTracks.contains(where: {
-            $0.chatId == chatId && $0.fileName == fileName
-        }) { return true }
-        return CloudMusic.seen(hash: hash)
+    /// Asked of the rows rather than of a private ledger of file hashes: a list the user can neither
+    /// see nor clear is a list that goes on refusing an upload after they deleted the song from
+    /// Telegram, and the chat's own history is the one answer that says what is really there.
+    private func alreadyUploaded(named fileName: String, path: String) -> Bool {
+        let size = CloudMusic.size(ofPath: path)
+        return library.store.cloudTracks().contains { row in
+            guard row.fileName == fileName else { return false }
+            // The bytes have to agree too, unless one of the two numbers is missing: two songs can
+            // share a name across two albums, and a cloud that refuses the second is a cloud that
+            // lost a song nobody was told about.
+            return size == 0 || row.size == 0 || row.size == size
+        }
     }
 
     // MARK: Now Playing's Download
@@ -184,8 +223,7 @@ final class CloudMusic: ObservableObject {
             failure = "Không tải được file của bài này"
             return false
         }
-        let hash = Library.fingerprint(path: path)
-        if let hash, await alreadyUploaded(hash: hash, named: track.fileName) {
+        if library.store.isInCloud(uniqueId: track.uniqueId) {
             failure = "Bài này đã ở Cloud Music rồi"
             return false
         }
@@ -193,20 +231,43 @@ final class CloudMusic: ObservableObject {
             in: .whitespacesAndNewlines)
         do {
             guard let saved = session.savedMessages() else {
-            failure = "Chưa đăng nhập Telegram"
-            return false
-        }
-        let sent = try await saved.upload(chatId: id, path: path,
-                                             caption: name.isEmpty ? track.fileName : name)
-            if let hash { CloudMusic.remember(hash: hash) }
-            library.ingest(sent, with: session.covers())
+                failure = "Chưa đăng nhập Telegram"
+                return false
+            }
+            let messageId = try await saved.upload(chatId: id, path: path,
+                                                   caption: name.isEmpty ? track.fileName : name)
+            print("cloud published \(track.fileName) as message \(messageId)")
             await refresh(session)
-            print("cloud published \(track.fileName) as file \(sent.fileId)")
             return true
         } catch {
             failure = localized("Tải lên thất bại: %@ — %@", track.fileName, "\(error)")
             return false
         }
+    }
+
+    // MARK: One row per song
+
+    /// The list with its duplicates folded, the first of each pair kept.
+    ///
+    /// A song can reach the chat twice — forwarded once and uploaded once — and Telegram gives every
+    /// post its own `file_unique_id`, so the store's key cannot merge them and the screen would show
+    /// one record twice. The pair a listener means by "the same song" is its name and its size; a row
+    /// with no name falls back to the title and the length the app measured.
+    static func distinct(_ rows: [StoreTrack]) -> [StoreTrack] {
+        var seen: Set<String> = []
+        var kept: [StoreTrack] = []
+        for row in rows where seen.insert(Self.sameSongKey(row)).inserted {
+            kept.append(row)
+        }
+        return kept
+    }
+
+    private static func sameSongKey(_ row: StoreTrack) -> String {
+        if !row.fileName.isEmpty, row.size > 0 {
+            return "f:\(row.fileName.lowercased())@\(row.size)"
+        }
+        if !row.title.isEmpty { return "t:\(row.title.lowercased())/\(row.duration ?? 0)" }
+        return "u:\(row.uniqueId)"
     }
 
     // MARK: Staging
@@ -248,31 +309,8 @@ final class CloudMusic: ObservableObject {
         return url
     }
 
-    /// The fingerprints this app has already put in the cloud, kept because the store cannot: an
-    /// uploaded song's row is named by Telegram's file id, and the local file's hash is gone the
-    /// moment the staged copy is. One line per song, in the app's own preferences, holding nothing
-    /// but a hash.
-    nonisolated private static let seenKey = "cloud.uploaded.hashes"
-
-    private nonisolated static func seen(hash: String) -> Bool {
-        (UserDefaults.standard.stringArray(forKey: seenKey) ?? []).contains(hash)
-    }
-
-    private nonisolated static func remember(hash: String) {
-        let defaults = UserDefaults.standard
-        var list = defaults.stringArray(forKey: seenKey) ?? []
-        guard !list.contains(hash) else { return }
-        list.append(hash)
-        // Two hundred songs of hashes is 12 KB; a thousand is the point at which this stops being a
-        // note and starts being a database, so the oldest go.
-        if list.count > 1000 { list.removeFirst(list.count - 1000) }
-        defaults.set(list, forKey: seenKey)
-    }
-
-    private nonisolated static func forget(hash: String) {
-        let defaults = UserDefaults.standard
-        guard var list = defaults.stringArray(forKey: seenKey) else { return }
-        list.removeAll { $0 == hash }
-        defaults.set(list, forKey: seenKey)
+    private nonisolated static func size(ofPath path: String) -> Int64 {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: path)
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
     }
 }
