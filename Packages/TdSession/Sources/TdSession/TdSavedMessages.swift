@@ -1,0 +1,111 @@
+import Foundation
+
+/// The chat this account keeps for itself, which is where Doni's Cloud Music lives.
+///
+/// Saved Messages is not a special thing in TDLib's interface: it is the private chat with the
+/// account's own user id, and the schema says so in the one place a Saved Messages link is
+/// described — "Call `createPrivateChat` with `getOption("my_id")` and open the chat"
+/// (`td_api.tl:10301`). So the number is asked for once, the chat is created once, and everything
+/// after that is an ordinary chat call: the same `getChatHistory` (`:12758`) a channel walk uses,
+/// and a `sendMessage` (`:13143`) whose document is a local path TDLib uploads on the way.
+///
+/// Nothing here invents a second storage. A song in Saved Messages *is* the copy: the phone keeps
+/// only what streaming has needed so far, in TDLib's own file cache, and the bytes the user
+/// uploaded are dropped as soon as Telegram has them.
+public struct TdSavedMessages: Sendable {
+    public enum Failure: Error, Equatable {
+        case noUserId
+        case noChat
+        /// The message went out and TDLib answered with something that is not it. Said as its own
+        /// case because the caller has to keep the local file in that case rather than delete it.
+        case unexpectedResponse(String)
+    }
+
+    private let flow: TdLoginFlow
+
+    public init(flow: TdLoginFlow) {
+        self.flow = flow
+    }
+
+    /// The chat id, created if the account has never opened it. `nil` means the session is not
+    /// ready or the account cannot have Saved Messages, and the caller shows a library rather than
+    /// an error, because a missing cloud is not a missing app.
+    public func chatId() async -> Int64? {
+        do {
+            let option = try await flow.request("getOption", ["name": .string("my_id")])
+            guard let userId = option["value"]?.int, userId != 0 else { return nil }
+            let chat = try await flow.request(
+                "createPrivateChat", ["user_id": .int(userId), "force": .bool(false)]
+            )
+            guard chat.type == "chat", let id = chat["id"]?.int, id != 0 else { return nil }
+            return id
+        } catch {
+            return nil
+        }
+    }
+
+    /// One page of the chat's newest posts, in the shape the channel indexer already writes to the
+    /// store — which is the whole reason this returns `TdHistoryPage`: a Saved Messages song and a
+    /// channel song are the same row, and two code paths for them is how one of them gets a
+    /// different idea of what "downloaded" means.
+    public func page(chatId: Int64, cursor: Int64 = 0) async throws -> TdHistoryPage {
+        let answer = try await flow.request(
+            "getChatHistory",
+            [
+                "chat_id": .int(chatId),
+                "from_message_id": .int(cursor),
+                "offset": .int(0),
+                "limit": .int(Int64(TdChannelReader.pageSize)),
+                "only_local": .bool(false)
+            ]
+        )
+        guard answer.type == "messages", let items = answer["messages"]?.array else {
+            throw Failure.unexpectedResponse(answer.type ?? "no @type")
+        }
+        return TdHistoryPage(messages: items, totalCount: answer["total_count"]?.int.map { Int($0) })
+    }
+
+    /// Sends one file as a document, and answers with the message Telegram made.
+    ///
+    /// `sendMessage` is the upload: TDLib reads `inputFileLocal` (`td_api.tl:340`), uploads it, and
+    /// puts the resulting file — with its own `file_id` and its durable `file_unique_id` — in the
+    /// message it returns. There is no separate `uploadFile` request to get wrong, and no second
+    /// copy of the bytes to keep track of.
+    ///
+    /// The caption is the file's own name. A document post has no title field the way an audio post
+    /// does, so without a caption the row would be named by nothing but the song's hash — and the
+    /// name the user picked at the file panel is the one thing worth carrying over.
+    public func upload(chatId: Int64, path: String, caption: String) async throws -> TdTrack {
+        let answer = try await flow.request(
+            "sendMessage",
+            [
+                "chat_id": .int(chatId),
+                "topic_id": .null,
+                "reply_to": .null,
+                "options": .null,
+                "reply_markup": .null,
+                "input_message_content": .object([
+                    "@type": .string("inputMessageDocument"),
+                    "document": .object([
+                        "@type": .string("inputDocument"),
+                        "document": .object([
+                            "@type": .string("inputFileLocal"),
+                            "path": .string(path)
+                        ]),
+                        "thumbnail": .null,
+                        "disable_content_type_detection": .bool(false)
+                    ]),
+                    "caption": .object([
+                        "@type": .string("formattedText"),
+                        "text": .string(caption),
+                        "entities": .array([])
+                    ])
+                ])
+            ]
+        )
+        guard answer.type == "message", let track = TdTrack(message: answer) else {
+            throw Failure.unexpectedResponse(answer.type ?? "no @type")
+        }
+        return track
+    }
+}

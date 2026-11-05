@@ -206,6 +206,14 @@ final class TelegramSession: ObservableObject {
     /// The artwork cache keeps a reference for the surfaces that hold no session of their own —
     /// the player's hero and the lock screen both want a cover too big for any row to have asked
     /// for, and neither can reach this object.
+    /// The chat this account keeps for itself — Cloud Music's whole library. `nil` while the session
+    /// is still signing in, for the same reason `reader()` is: there is no flow to ask until TDLib
+    /// has answered.
+    func savedMessages() -> TdSavedMessages? {
+        guard let flow else { return nil }
+        return TdSavedMessages(flow: flow)
+    }
+
     func covers() -> TdFileDownloader? {
         if let downloader { return downloader }
         guard let flow else { return nil }

@@ -169,6 +169,19 @@ Hệ thống không cho phép xoá.|系统不允许删除。|El sistema no permi
 Khác|其他|Otros|Прочее|Autres|أخرى
 Không có cuộc trò chuyện nào.|没有会话。|No hay conversaciones.|Нет диалогов.|Aucune conversation.|لا توجد محادثات.
 Không có file nào được chọn.|未选择文件。|No se ha elegido ningún archivo.|Файлы не выбраны.|Aucun fichier choisi.|لم يتم اختيار أي ملف.
+Không có kết nối Internet|没有互联网连接|Sin conexión a Internet|Нет подключения к Интернету|Aucune connexion Internet|لا يوجد اتصال بالإنترنت
+Không tải được phần còn lại của bài hát|无法加载歌曲的其余部分|No se pudo cargar el resto de la canción|Не удалось загрузить остальную часть песни|Impossible de charger la suite de la chanson|تعذّر تحميل بقية الأغنية
+Bài hát này không còn trên Telegram|此歌曲已不在 Telegram 上|Esta canción ya no está en Telegram|Этой песни больше нет в Telegram|Cette chanson n’est plus sur Telegram|لم تعد هذه الأغنية على Telegram
+Bài này đã ở Cloud Music rồi|此歌曲已在 Cloud Music 中|Esta canción ya está en Cloud Music|Эта песня уже в Cloud Music|Cette chanson est déjà dans Cloud Music|هذه الأغنية موجودة في Cloud Music بالفعل
+Chưa đăng nhập Telegram nên không tải lên được|未登录 Telegram，无法上传|No has iniciado sesión en Telegram; no se puede subir|Не выполнен вход в Telegram, загрузка невозможна|Telegram non connecté, téléversement impossible|لم يتم تسجيل الدخول إلى Telegram لذا لا يمكن الرفع
+Không tải được file của bài này|无法下载此歌曲的文件|No se pudo descargar el archivo de esta canción|Не удалось скачать файл этой песни|Impossible de télécharger le fichier de cette chanson|تعذّر تنزيل ملف هذه الأغنية
+Không đọc được Saved Messages|无法读取 Saved Messages|No se pudo leer Saved Messages|Не удалось прочитать Saved Messages|Impossible de lire Saved Messages|تعذّر قراءة Saved Messages
+Lưu vào Cloud Music|保存到 Cloud Music|Guardar en Cloud Music|Сохранить в Cloud Music|Enregistrer dans Cloud Music|حفظ في Cloud Music
+Thêm vào thư viện trên máy|添加到本机资料库|Añadir a la biblioteca del dispositivo|Добавить в библиотеку на устройстве|Ajouter à la bibliothèque locale|إضافة إلى مكتبة الجهاز
+Tải lên Cloud Music|上传到 Cloud Music|Subir a Cloud Music|Загрузить в Cloud Music|Téléverser dans Cloud Music|رفع إلى Cloud Music
+Đang tải lên…|正在上传…|Subiendo…|Загружается…|Téléversement en cours…|جارٍ الرفع…
+Không mở được %@|无法打开 %@|No se pudo abrir %@|Не удалось открыть %@|Impossible d'ouvrir %@|تعذّر فتح %@
+Tải lên thất bại: %@|上传失败：%@|Error al subir: %@|Ошибка загрузки: %@|Échec du téléversement : %@|فشل الرفع: %@
 Không dọn được|无法清理|No se pudo limpiar|Не удалось очистить|Nettoyage impossible|تعذّر التنظيف
 Không kết nối được tới lrclib|无法连接 lrclib|No se pudo conectar a lrclib|Не удалось связаться с lrclib|Connexion à lrclib impossible|تعذّر الاتصال بـ lrclib
 Không kết nối được tới các nguồn lời|无法连接歌词源|No se pudo conectar a las fuentes de letras|Не удалось подключиться к источникам текста|Impossible de contacter les sources des paroles|تعذّر الاتصال بمصادر الكلمات

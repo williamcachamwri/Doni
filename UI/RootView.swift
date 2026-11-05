@@ -106,7 +106,7 @@ struct RootView: View {
             // needs neither the session nor the walk — only the library, the player and the covers.
             Tab(LocalizedStringKey(DoniTab.cloud.title), systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
                 NavigationStack {
-                    CloudMusicView(player: player, artwork: artwork, library: library)
+                    CloudMusicView(session: session, player: player, artwork: artwork, library: library)
                 }
             }
             // The reference's own search tab: a `Tab` with the search role, whose content is a

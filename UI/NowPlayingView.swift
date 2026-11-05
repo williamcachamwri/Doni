@@ -205,7 +205,8 @@ struct NowPlayingView: View {
         ZStack(alignment: .top) {
             switch page {
             case .artwork:
-                ArtworkPage(track: track, player: player, artwork: artwork, library: library)
+                ArtworkPage(track: track, session: session, player: player, artwork: artwork,
+                            library: library)
                     .transition(pageTransition(for: .artwork))
             case .lyrics:
                 LyricsPage(player: player, lyrics: lyrics,
@@ -220,8 +221,8 @@ struct NowPlayingView: View {
             }
 
             if page == .lyrics {
-                SharedSongHeader(track: track, player: player, artwork: artwork,
-                                 library: library)
+                SharedSongHeader(track: track, session: session, player: player,
+                                 artwork: artwork, library: library)
                     .clipped()
                     .transition(NowPlayingPageTransition.songHeader(reducesMotion: reduceMotion))
             }
@@ -233,8 +234,8 @@ struct NowPlayingView: View {
             // send the cover to where the page is on its way in rather than where it will rest —
             // the reference keeps the same two sources and simply distrusts the visible one while
             // a transition is in flight (`NowPlayingView.swift:586-612`).
-            ArtworkPage(track: track, player: player, artwork: artwork, library: library,
-                        onArtworkFrameChange: recordArtworkPageFrame)
+            ArtworkPage(track: track, session: session, player: player, artwork: artwork,
+                        library: library, onArtworkFrameChange: recordArtworkPageFrame)
                 .hidden()
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -362,6 +363,9 @@ struct NowPlayingView: View {
 /// reference's screenshot is about two thirds of the screen rather than all of it.
 private struct ArtworkPage: View {
     let track: any Playable
+    /// Passed down to the song's own menu, which is the one place a song is put into
+    /// the account's cloud.
+    var session: TelegramSession?
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
@@ -405,7 +409,8 @@ private struct ArtworkPage: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    SongActions(track: track, player: player, artwork: artwork, library: library)
+                    SongActions(track: track, player: player, artwork: artwork, library: library,
+                                session: session)
                 }
                 .padding(.bottom, MusicNowPlayingMetrics.coreHeight)
             }
@@ -442,7 +447,7 @@ private struct PortraitArtwork: View {
 
     var body: some View {
         ZStack {
-            TelegramTrackGradient.linear(track.messageId)
+            MissingArtwork(side: side)
             if let image = artwork.image(for: track, side: MusicArtworkMetrics.heroSide) {
                 Image(uiImage: image)
                     .resizable()
@@ -508,6 +513,9 @@ private struct PortraitArtwork: View {
 /// the same picture be the hero on one page and this thumb on the other.
 private struct SharedSongHeader: View {
     let track: any Playable
+    /// Passed down to the song's own menu, which is the one place a song is put into
+    /// the account's cloud.
+    var session: TelegramSession?
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
@@ -531,7 +539,8 @@ private struct SharedSongHeader: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            SongActions(track: track, player: player, artwork: artwork, library: library)
+            SongActions(track: track, player: player, artwork: artwork, library: library,
+                        session: session)
         }
     }
 }
@@ -554,7 +563,11 @@ struct SongActions: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
-
+    /// The session, for the one action that leaves the phone. Optional because the queue page has no
+    /// reason to thread a session through three views to reach it: a song can be liked and queued
+    /// from there, but it is put into the cloud from where it is actually playing.
+    var session: TelegramSession?
+    @StateObject private var cloud = CloudMusic()
     @State private var showsPlaylists = false
 
     var body: some View {
@@ -578,6 +591,22 @@ struct SongActions: View {
                 Label("Thêm vào danh sách", systemImage: "plus.circle")
             }
             Divider()
+            // Upload, not download: this app's cloud is the account's own chat, so keeping a song
+            // means sending it there. It says so on the row, because "Download" on an app whose
+            // library is Telegram is a word that means the opposite of what it looks like.
+            if let session {
+                Button {
+                    let track = track
+                    Task {
+                        await cloud.publish(session, track)
+                    }
+                } label: {
+                    Label(cloud.isBusy ? "Đang tải lên…" : "Lưu vào Cloud Music",
+                          systemImage: cloud.isBusy ? "hourglass" : "icloud.and.arrow.up")
+                }
+                .disabled(cloud.isBusy)
+                Divider()
+            }
             cutButtons
             if let path = track.localPath {
                 Divider()
@@ -646,7 +675,10 @@ private struct BottomControls: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Color.clear
+            // The band above the progress row is where a stopped stream says why. It is the one
+            // height in this layout that was already reserved for something other than the
+            // reference's own measured rows, so the sentence costs no band its number.
+            problemLine
                 .frame(height: MusicNowPlayingMetrics.utilityHeight, alignment: .top)
             VStack(spacing: 0) {
                 interfaceLayer(.progress) { ProgressRow(player: player) }
@@ -664,6 +696,32 @@ private struct BottomControls: View {
 
     private func gap(_ height: CGFloat) -> some View {
         Color.clear.frame(height: height)
+    }
+
+    /// Why the song is not playing, in one line, with the one action that can fix it.
+    ///
+    /// Inline rather than a banner over the interface: the reason belongs under the play button the
+    /// listener just pressed, not floating above the artwork they came to look at.
+    @ViewBuilder
+    private var problemLine: some View {
+        if let problem = player.playbackProblem {
+            HStack(spacing: 6) {
+                Image(systemName: problem.symbol)
+                    .font(.footnote)
+                Text(localized(problem.message))
+                    .font(.footnote)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button("Thử lại") { player.retry() }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.plain)
+            }
+            .foregroundStyle(.white.opacity(MusicNowPlayingMetrics.progressLabelOpacity))
+            .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
+        } else {
+            Color.clear
+        }
     }
 
     /// Each band leaves on its own offset and its own curve, which is what makes the row dissolve
@@ -796,7 +854,7 @@ private struct TransportRow: View {
             step("backward.fill", MusicNowPlayingMetrics.transportSkipGlyph,
                  enabled: player.hasPrevious, label: "Bài trước", action: player.previous)
             Spacer(minLength: 0)
-            if player.isFetchingFile {
+            if player.isFetchingFile, player.playbackProblem == nil {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.white)
@@ -1018,6 +1076,26 @@ struct PlayerTransportButtonStyle: ButtonStyle {
                 withAnimation(MusicMotion.highlightExpansion) { highlightScale = 1 }
                 withAnimation(.easeIn(duration: 0.4)) { highlightOpacity = 0 }
             }
+        }
+    }
+}
+
+/// The three reasons a stream stops by itself are not the same sentence, and saying the wrong one
+/// sends the listener to the wrong setting: the router, the Telegram post, or nothing at all.
+private extension Player.PlaybackProblem {
+    var symbol: String {
+        switch self {
+        case .offline: return "wifi.slash"
+        case .stalled: return "exclamationmark.arrow.circlepath"
+        case .gone: return "exclamationmark.triangle"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .offline: return "Không có kết nối Internet"
+        case .stalled: return "Không tải được phần còn lại của bài hát"
+        case .gone: return "Bài hát này không còn trên Telegram"
         }
     }
 }

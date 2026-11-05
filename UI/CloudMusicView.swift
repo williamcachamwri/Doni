@@ -4,23 +4,26 @@ import TelegramDesignSystem
 import UIKit
 import UniformTypeIdentifiers
 
-/// The tab MeloX puts its cloud drive in (`Features/Cloud/CloudMusicView.swift:99-206`), meaning the
-/// same thing here: **the files the user brought themselves**.
+/// The tab MeloX puts its cloud drive in (`Features/Cloud/CloudMusicView.swift:99-206`), and Doni's
+/// cloud is the thing Telegram actually has: **Saved Messages**.
 ///
-/// The reference's cloud is a NetEase drive — songs that live on someone else's server, listed with
-/// the same plain rows as its local library, with a quota over the top and a device-side copy made by
-/// tapping. Doni's is the mirror of that and the copy is the point: a song here was picked out of the
-/// Files app, copied into this app's own storage, and is on the phone until the user deletes it.
-/// Nothing is uploaded anywhere. The upload glyph therefore stays an upload — into the library, not
-/// out of the phone — and the destructive swipe is the one the reference can honestly make, because
-/// the row that goes here is gone for good rather than re-listed by the next page of a server query.
+/// The reference's cloud is a NetEase drive — songs on someone else's server, listed with the same
+/// plain rows as its local library, with a quota over the top and a device-side copy made by tapping.
+/// Here the server is the account's own chat, so the list is that chat's history and the upload is a
+/// `sendMessage` with the file in it. A song picked out of the Files app is therefore *sent*, not
+/// copied: once Telegram has the bytes the staged copy is deleted, so the song lives in one place and
+/// the phone keeps only what streaming needed.
 ///
-/// What the indexed-but-not-downloaded songs of a Telegram channel are for moved to
-/// `PendingSongsView`, which is the downloads screen this list used to be.
+/// Rows the earlier builds copied into the sandbox are still listed and still playable. They are the
+/// user's music and this screen has no right to forget them; what changed is where new songs go.
 struct CloudMusicView: View {
+    @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
+    /// The account's own chat, read and written by the same object the Now Playing menu uses, so the
+    /// two surfaces agree about what is already in the cloud.
+    @StateObject private var cloud = CloudMusic()
 
     @State private var query = ""
     @State private var showsFileImporter = false
@@ -36,6 +39,10 @@ struct CloudMusicView: View {
     /// error alert (`CloudMusicView.swift:72-86`), for the same reason — a picker that seemed to work
     /// and added nothing is a silent bug unless it says so.
     @State private var failure: String?
+    /// Which of the two destinations the next picker answer goes to: Telegram, or the phone only.
+    /// Held as state because the picker's callback is one function and the choice is made a tap
+    /// before it.
+    @State private var picksForCloud = true
 
     var body: some View {
         List {
@@ -70,10 +77,15 @@ struct CloudMusicView: View {
                         await artwork.load(track: track, side: MusicSearchMetrics.songArt)
                     }
                     .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            pendingDeletion = track
-                        } label: {
-                            Label("Xoá", systemImage: "trash")
+                        // Only a row the phone owns can be deleted here. A Saved Messages row is a
+                        // message in the user's Telegram, and taking it out of the app's list would
+                        // be a lie about what was removed — or, if it deleted for real, the song.
+                        if track.isLocal {
+                            Button(role: .destructive) {
+                                pendingDeletion = track
+                            } label: {
+                                Label("Xoá", systemImage: "trash")
+                            }
                         }
                     }
                 }
@@ -85,11 +97,22 @@ struct CloudMusicView: View {
                     prompt: "Tìm bài của bạn")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    print("cloud picker requested from toolbar")
-                    showsFileImporter = true
+                Menu {
+                    Button {
+                        picksForCloud = true
+                        print("cloud picker requested from toolbar")
+                        showsFileImporter = true
+                    } label: {
+                        Label("Tải lên Cloud Music", systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        picksForCloud = false
+                        showsFileImporter = true
+                    } label: {
+                        Label("Thêm vào thư viện trên máy", systemImage: "folder.badge.plus")
+                    }
                 } label: {
-                    if importing > 0 {
+                    if importing > 0 || cloud.isBusy {
                         ProgressView()
                     } else {
                         Label("Thêm nhạc từ file", systemImage: "square.and.arrow.up")
@@ -100,11 +123,12 @@ struct CloudMusicView: View {
                 .accessibilityLabel(importing > 0 ? "Đang thêm nhạc…" : "Thêm nhạc từ file")
             }
         }
+        .task {
+            await cloud.refresh(session)
+        }
         .sheet(isPresented: $showsFileImporter) {
             AudioDocumentPicker { urls in
-                print("cloud picker returned \(urls.count) urls")
-                importFiles(urls)
-                showsFileImporter = false
+                picked(urls)
             } onCancel: {
                 print("cloud picker cancelled")
                 showsFileImporter = false
@@ -120,13 +144,18 @@ struct CloudMusicView: View {
         } message: { _ in
             Text("Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.")
         }
+        .alert("Không thêm được bài", isPresented: cloudFailing) {
+            Button("OK", role: .cancel) { cloud.failure = nil }
+        } message: {
+            Text(cloud.failure ?? "")
+        }
         .alert("Không thêm được bài", isPresented: failing) {
             Button("OK", role: .cancel) { failure = nil }
         } message: {
             Text(failure ?? "File không đọc được.")
         }
         .overlay {
-            if visible.isEmpty && importing == 0 {
+            if visible.isEmpty && importing == 0 && !cloud.isBusy {
                 emptyState
             }
         }
@@ -134,9 +163,10 @@ struct CloudMusicView: View {
 
     // MARK: What the list is
 
-    /// The songs this app owns outright, newest first — the order `Library` reads its track table in.
+    /// The songs that are the user's own: what Telegram holds in Saved Messages, then what an older
+    /// build copied into the sandbox. Newest first, the order `Library` reads its track table in.
     private var kept: [StoreTrack] {
-        library.storedTracks.filter(\.isLocal)
+        cloud.songs + library.storedTracks.filter(\.isLocal)
     }
 
     /// The same fold the favourites and playlist screens use, so "tinh yeu" still finds "Tình yêu".
@@ -152,6 +182,9 @@ struct CloudMusicView: View {
 
     /// The reference's quota line, in the same slot (`CloudMusicView.swift:128-136`), saying the only
     /// thing this app can: how many files the user has brought and how much of the phone they cost.
+    ///
+    /// Cloud songs are counted by their size on Telegram's side, which is the honest number for a
+    /// library that is not on the phone.
     private var headline: String {
         if !query.isEmpty {
             return localized("%@ kết quả", visible.count.formatted())
@@ -169,6 +202,10 @@ struct CloudMusicView: View {
     private var deleting: Binding<Bool> {
         Binding(get: { pendingDeletion != nil },
                 set: { shown in if !shown { pendingDeletion = nil } })
+    }
+
+    private var cloudFailing: Binding<Bool> {
+        Binding(get: { cloud.failure != nil }, set: { if !$0 { cloud.failure = nil } })
     }
 
     private var failing: Binding<Bool> {
@@ -205,6 +242,19 @@ struct CloudMusicView: View {
     private func playAll() {
         guard let first = visible.first else { return }
         player.play(first, in: visible.map { $0 as any Playable })
+    }
+
+    /// Where a picker's answer goes. Split out because the sheet's own closure had grown to the
+    /// point the compiler gave up type-checking it, which is the sign a view body is carrying two
+    /// decisions rather than one.
+    private func picked(_ urls: [URL]) {
+        print("cloud picker returned \(urls.count) urls")
+        showsFileImporter = false
+        if picksForCloud {
+            Task { await cloud.upload(session, urls: urls) }
+        } else {
+            importFiles(urls)
+        }
     }
 
     /// One picker, as many files as were selected. Hashing and copying are a few hundred milliseconds
@@ -293,6 +343,7 @@ private struct AudioDocumentPicker: UIViewControllerRepresentable {
 
 #Preview {
     NavigationStack {
-        CloudMusicView(player: Player(), artwork: CoverArtwork.shared, library: Library.shared)
+        CloudMusicView(session: TelegramSession(), player: Player(),
+                       artwork: CoverArtwork.shared, library: Library.shared)
     }
 }
