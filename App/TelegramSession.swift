@@ -50,16 +50,24 @@ final class TelegramSession: ObservableObject {
     private var flow: TdLoginFlow?
     private var downloader: TdFileDownloader?
 
+    /// Whether the interrupted sign-out has already been resumed this launch.
+    private var eraseResumed = false
+
     /// Idempotent: the app calls this once from its root, and any screen that finds the client
     /// missing can ask again.
     func start() {
         guard client == nil else { return }
-        if UserDefaults.standard.bool(forKey: Self.eraseKey) {
+        // Once per launch. The deletion is retried inside `eraseStorage`; if it still cannot be
+        // done, starting a client anyway is better than a canvas that waits forever on an answer
+        // that will not come — and the flag is left set for the next launch.
+        if UserDefaults.standard.bool(forKey: Self.eraseKey), !eraseResumed {
             // A logout that was killed on the way out. TDLib must not get the chance to reopen the
             // database the user already threw away, so the promise is kept before a client exists.
+            eraseResumed = true
             Task {
-                await Self.eraseStorage()
-                UserDefaults.standard.removeObject(forKey: Self.eraseKey)
+                if await Self.eraseStorage() {
+                    UserDefaults.standard.removeObject(forKey: Self.eraseKey)
+                }
                 start()
             }
             return
@@ -120,9 +128,22 @@ final class TelegramSession: ObservableObject {
         account = nil
         accountPhoto = nil
         isWaiting = false
-        await Self.eraseStorage()
-        UserDefaults.standard.removeObject(forKey: Self.eraseKey)
+        if await Self.eraseStorage() {
+            UserDefaults.standard.removeObject(forKey: Self.eraseKey)
+        } else {
+            // TDLib's directory is still on the phone. Its Keychain key is gone, which is what
+            // makes what is left unreadable rather than a leak, but the space is real and the flag
+            // stays set so the next launch takes it back.
+            lastError = "Chưa xoá được dữ liệu Telegram — Doni sẽ thử lại khi bạn mở app lần tới"
+        }
         start()
+    }
+
+    /// The sign-out's own report that something on the phone could not be thrown away. It lands
+    /// here because this is the object the login screen reads its errors from, and a promise the app
+    /// intends to keep later still has to be said out loud now.
+    func noteCleanupPending(_ message: String) {
+        lastError = message
     }
 
     /// Set the moment the user asks to be signed out, and cleared once the deletion has actually
@@ -141,10 +162,29 @@ final class TelegramSession: ObservableObject {
     /// the database it opened; a new session makes its own.
     ///
     /// Several hundred megabytes of files, so it is not something to unlink on the main thread.
-    private nonisolated static func eraseStorage() async {
+    ///
+    /// `false` means the directory is still there. It used to be reported as success either way,
+    /// and the flag that exists to finish an interrupted sign-out was cleared on the strength of a
+    /// `try?` — so a busy file meant the next login reopened the database the user had thrown away,
+    /// which is exactly what the flag was added to prevent.
+    ///
+    /// The Keychain key goes whatever happens: an unreadable leftover is a space problem, a readable
+    /// one is a privacy problem.
+    private nonisolated static func eraseStorage() async -> Bool {
         await Task.detached(priority: .utility) {
-            try? FileManager.default.removeItem(at: telegramDirectory)
+            var erased = false
+            for attempt in 0..<3 {
+                // TDLib lets go of its own handles a moment after the client says it is closed, and
+                // an unlink inside that window comes back with the directory still busy.
+                if attempt > 0 { try? await Task.sleep(for: .milliseconds(300)) }
+                try? FileManager.default.removeItem(at: telegramDirectory)
+                if !FileManager.default.fileExists(atPath: telegramDirectory.path) {
+                    erased = true
+                    break
+                }
+            }
             KeychainDatabaseKey().erase()
+            return erased
         }.value
     }
 

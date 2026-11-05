@@ -103,7 +103,7 @@ struct SettingsView: View {
         }
         .confirmationDialog("Đăng xuất khỏi Telegram?", isPresented: $confirmingLogout,
                             titleVisibility: .visible) {
-            Button("Đăng xuất", role: .destructive) { signOut() }
+            Button("Đăng xuất", role: .destructive) { Task { await signOut() } }
             Button("Huỷ", role: .cancel) {}
         } message: {
             Text("Toàn bộ thư viện, danh sách phát, nhạc đã tải về máy và cache ảnh bìa sẽ bị xoá. "
@@ -417,7 +417,7 @@ struct SettingsView: View {
     /// rows have just been deleted, which is how signing out used to leave the music running.
     /// TDLib's own directory and the Keychain key that opens its database go with the session — from
     /// the session, once its client has closed.
-    private func signOut() {
+    private func signOut() async {
         // Nothing may write rows while the file is being thrown away: a walk still running, or a
         // post still arriving, would put the library back into the empty database it just got. And
         // nothing may keep showing the rows it already wrote — Home, the search and the "Nhạc" grid
@@ -425,10 +425,19 @@ struct SettingsView: View {
         // library the user has just signed out of.
         indexer.reset()
         player.stop()
-        library.wipe()
+        // Awaited rather than fired off: the answer says whether the files actually went, and the
+        // rest of the sign-out is only worth doing once that is known.
+        let wiped = await library.wipe()
         // How much room the pictures made is the storage screen's business, not this one's.
         _ = CoverArtwork.shared.clearCache()
         session.logOut()
+        if !wiped {
+            // The library's files are still on the phone. `wipe` left its own flag for the next
+            // launch to finish, so this is not a leak that will be forgotten — but the user was
+            // promised a clean slate and deserves to hear that the slate is not clean yet.
+            session.noteCleanupPending(
+                "Chưa xoá hết dữ liệu trên máy — Doni sẽ thử lại khi bạn mở app")
+        }
     }
 }
 

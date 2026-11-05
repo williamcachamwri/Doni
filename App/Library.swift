@@ -43,6 +43,22 @@ final class Library: ObservableObject {
     init(filename: String = "library.db") {
         self.filename = filename
         store = LibraryStore(path: Self.supportDirectory.appendingPathComponent(filename).path)
+        if UserDefaults.standard.bool(forKey: Self.eraseKey) {
+            // A sign-out the app did not get to finish. Nothing is read until the files are gone,
+            // because the first read is the first frame: refreshing here would put the old library
+            // on screen for the space of a run loop before it was thrown away.
+            Task { await self.resumeWipe() }
+        } else {
+            refresh()
+        }
+    }
+
+    /// Finishing what `wipe` could not finish, then reading what is actually left.
+    private func resumeWipe() async {
+        store.close()
+        let left = await Self.eraseOwnFiles(named: filename)
+        UserDefaults.standard.set(!left.isEmpty, forKey: Self.eraseKey)
+        store.reopen()
         refresh()
     }
 
@@ -604,16 +620,52 @@ final class Library: ObservableObject {
     /// library left behind to come back, because there is no library.
     ///
     /// The session itself is Keychain's business, and TDLib's directory goes with its client.
-    func wipe() {
+    ///
+    /// `false` means something is still on the phone that should not be. That used to be invisible:
+    /// the unlink was `try?` and the promise in the comment above was simply assumed, so a sign-out
+    /// that lost to a busy file reported a clean slate while the library was still readable in the
+    /// database it just "deleted". A failure now says so, and is finished on the next launch.
+    @discardableResult
+    func wipe() async -> Bool {
         store.close()
-        for name in [filename, "\(filename)-wal", "\(filename)-shm"] {
-            try? FileManager.default.removeItem(at: Self.supportDirectory.appendingPathComponent(name))
-        }
+        let left = await Self.eraseOwnFiles(named: filename)
         store.reopen()
-        try? FileManager.default.removeItem(at: Self.coverDirectory)
-        try? FileManager.default.removeItem(at: Self.avatarDirectory)
-        try? FileManager.default.removeItem(at: Self.musicDirectory)
         refresh()
+        guard !left.isEmpty else { return true }
+        UserDefaults.standard.set(true, forKey: Self.eraseKey)
+        return false
+    }
+
+    /// The same promise the session keeps for its own directory: an interrupted deletion is not
+    /// forgotten, it is finished the next time the app starts.
+    private static let eraseKey = "library.eraseOnLaunch"
+
+    /// Throwing away the library's files and reporting what refused to go.
+    ///
+    /// A file TDLib or the player still holds open comes back on the first try, so everything that
+    /// is left gets one more pass a fifth of a second later before it is admitted as a failure.
+    /// Several hundred megabytes of songs and pictures, so this is not main-thread work, and the
+    /// second pass waits on a task rather than on a thread.
+    private nonisolated static func eraseOwnFiles(named filename: String) async -> [URL] {
+        let targets = [Self.supportDirectory.appendingPathComponent(filename)]
+            + ["-wal", "-shm"].map {
+                Self.supportDirectory.appendingPathComponent(filename + $0)
+            }
+            + [coverDirectory, avatarDirectory, musicDirectory]
+        return await Task.detached(priority: .utility) {
+            var left = targets
+            for attempt in 0..<2 {
+                if attempt > 0 {
+                    try? await Task.sleep(for: .milliseconds(200))
+                }
+                for url in left where FileManager.default.fileExists(atPath: url.path) {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                left = left.filter { FileManager.default.fileExists(atPath: $0.path) }
+                if left.isEmpty { break }
+            }
+            return left
+        }.value
     }
 
     // MARK: Rows
