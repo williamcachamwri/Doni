@@ -92,6 +92,9 @@ final class TelegramSession: ObservableObject {
                 hasAnswered = true
                 self.step = step
                 if step == .ready {
+                    // An interrupted erase belongs to the previous session. Once a new one is
+                    // authorized, retrying that request on the next launch would delete it.
+                    UserDefaults.standard.removeObject(forKey: Self.eraseKey)
                     await readAccount(flow)
                 }
                 if step == .closed {
@@ -261,12 +264,16 @@ final class TelegramSession: ObservableObject {
     /// two and take the promise with it.
     func logOut() {
         UserDefaults.standard.set(true, forKey: Self.eraseKey)
-        run { try await $0.logOut() }
+        run({ try await $0.logOut() }, onFailure: {
+            // A refused logout leaves this session alive, so there is no interrupted erase to resume.
+            UserDefaults.standard.removeObject(forKey: Self.eraseKey)
+        })
     }
 
     private func run(
         _ action: @escaping @Sendable (TdLoginFlow) async throws -> Void,
-        onSucceed then: (() -> Void)? = nil
+        onSucceed then: (() -> Void)? = nil,
+        onFailure: (() -> Void)? = nil
     ) {
         guard let flow else { return }
         isWaiting = true
@@ -278,6 +285,7 @@ final class TelegramSession: ObservableObject {
                     then()
                 }
             } catch {
+                onFailure?()
                 lastError = Self.describe(error)
             }
             isWaiting = false
@@ -310,12 +318,11 @@ final class TelegramSession: ObservableObject {
     }
 
     /// TDLib's own storage root, kept out of Documents so it is never shared or
-    /// picked up as user content.
+    /// picked up as user content. Computing it has no side effects: `eraseStorage` checks this same
+    /// path after unlinking it, and recreating it there made every deletion report failure.
     private nonisolated static var telegramDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let url = base.appendingPathComponent("Doni/Telegram", isDirectory: true)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Doni/Telegram", isDirectory: true)
     }
 
     /// The bytes TDLib has fetched — the songs a stream brought over and the pictures it thumbed.
