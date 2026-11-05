@@ -57,6 +57,9 @@ final class Library: ObservableObject {
         } else {
             refresh()
         }
+        // Once per launch, and off the main thread: the rows say which files they expect, and only
+        // the disk knows whether they are still there.
+        Task { await self.verifyFiles() }
     }
 
     /// Finishing what `wipe` could not finish, then reading what is actually left.
@@ -73,6 +76,20 @@ final class Library: ObservableObject {
 
     /// Every published list and number, re-read. Called after anything that touches the file, so a
     /// heart tapped in one tab shows in the other three without a relaunch.
+    /// The file a row promised is no longer usable. Called by the player when a stored path turns
+    /// out not to open, so the row stops claiming it and the next tap fetches it again.
+    func forgetLocalPath(uniqueId: String) {
+        store.setLocalPath(nil, uniqueId: uniqueId)
+        storedTracks = storedTracks.map { row in
+            guard row.uniqueId == uniqueId, row.localPath != nil else { return row }
+            var cleared = row
+            cleared.localPath = nil
+            return cleared
+        }
+        downloadedCount = store.downloadedCount()
+        downloadedBytes = store.downloadedBytes()
+    }
+
     func refresh() {
         storeFailure = store.failure
         favorites = store.favorites().map { remembered($0) }
@@ -81,7 +98,38 @@ final class Library: ObservableObject {
         downloadedCount = store.downloadedCount()
         downloadedBytes = store.downloadedBytes()
         trackCount = store.trackCount()
-        storedTracks = verified(store.tracks())
+        storedTracks = store.tracks()
+    }
+
+    /// Only the favourites, which is what a heart or a cut actually changed.
+    ///
+    /// `refresh` re-reads every row in the library — on the channel this app indexes, that is a
+    /// few thousand rows with a picture on each — and a tap on a heart used to pay all of it
+    /// before the row could redraw.
+    func refreshFavorites() {
+        storeFailure = store.failure
+        favorites = store.favorites()
+    }
+
+    /// Checking the claims the rows make about files on the phone.
+    ///
+    /// This is the sweep `refresh` used to do inline, one `stat` per row with a path and an
+    /// `UPDATE` per stale one, on the main thread, on every mutation and at launch — which is why
+    /// a heart tap on a big channel froze the screen for a beat. It is a disk question, so it runs
+    /// where disk questions belong, and it is not needed again until the next launch: a file that
+    /// disappears while the app is open is caught by the player failing to open it, which forgets
+    /// the path on the spot.
+    func verifyFiles() async {
+        let store = self.store
+        let stale = await Task.detached(priority: .utility) { () -> [String] in
+            let missing = store.localPaths()
+                .filter { !FileManager.default.fileExists(atPath: $0.path) }
+                .map(\.uniqueId)
+            for id in missing { store.setLocalPath(nil, uniqueId: id) }
+            return missing
+        }.value
+        guard !stale.isEmpty, !Task.isCancelled else { return }
+        refresh()
     }
 
     // MARK: The walk
@@ -441,13 +489,13 @@ final class Library: ObservableObject {
     @discardableResult
     func toggleFavorite(_ track: any Playable, segment: ClosedRange<Int>? = nil) -> Bool {
         let on = store.toggleFavorite(uniqueId: track.uniqueId, segment: segment)
-        refresh()
+        refreshFavorites()
         return on
     }
 
     func setSegment(_ segment: ClosedRange<Int>?, uniqueId: String) {
         store.setFavoriteSegment(segment, uniqueId: uniqueId)
-        refresh()
+        refreshFavorites()
     }
 
     // MARK: Lists

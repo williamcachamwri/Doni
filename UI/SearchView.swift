@@ -191,7 +191,7 @@ struct SearchView: View {
     }
 
     /// The artists the field names — every artist, folded, before the field says anything.
-    private var allArtists: [SearchArtist] { indexer.tracks.searchArtists }
+    private var allArtists: [SearchArtist] { indexer.artists }
 
     private var artistMatches: [SearchArtist] {
         allArtists.filter { matches($0.name) }

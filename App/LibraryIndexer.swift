@@ -33,7 +33,21 @@ final class LibraryIndexer: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
-    @Published private(set) var tracks: [any Playable] = []
+    /// The list the home feed and the search tab read.
+    ///
+    /// `artists` hangs off it, so the grouping is rebuilt here — once per change — rather than
+    /// every time a screen asks for it.
+    @Published private(set) var tracks: [any Playable] = [] {
+        didSet { artists = tracks.searchArtists }
+    }
+
+    /// The artists the search tab groups the library into.
+    ///
+    /// The grouping walks every row, folds every name twice and sorts the result. It used to be a
+    /// computed property on the array, so a screen that read it three times per keystroke turned
+    /// typing into three full passes over the library on the main thread — for a thing that does
+    /// not depend on what the user typed at all.
+    @Published private(set) var artists: [SearchArtist] = []
 
     private var task: Task<Void, Never>?
 

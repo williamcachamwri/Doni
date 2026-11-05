@@ -540,7 +540,7 @@ final class Player: ObservableObject {
             // trusted blindly and the `try?` in `open` answered a missing file with silence — which
             // is what "an hour-long song never plays, it just waits" turns out to be.
             if let path, FileManager.default.fileExists(atPath: path),
-               open(path: path, track: track, startAt: startAt, play: autoplay) {
+               await open(path: path, track: track, startAt: startAt, play: autoplay) {
                 return
             }
             isFetchingFile = true
@@ -553,7 +553,7 @@ final class Player: ObservableObject {
             // The path that was asked for is the one written down: a stored path that turned out to
             // be stale is corrected here rather than left to fail again next time.
             library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
-            _ = open(path: onDisk, track: track, startAt: startAt, play: autoplay)
+            _ = await open(path: onDisk, track: track, startAt: startAt, play: autoplay)
         }
     }
 
@@ -561,9 +561,17 @@ final class Player: ObservableObject {
     /// glyph instead of spinning — a second chance is the caller's, not this function's.
     @discardableResult
     private func open(path: String, track: any Playable,
-                      startAt: TimeInterval? = nil, play: Bool = true) -> Bool {
+                      startAt: TimeInterval? = nil, play: Bool = true) async -> Bool {
         let url = URL(fileURLWithPath: path)
-        guard let engine = try? AVAudioPlayer(contentsOf: url) else {
+        // Opening a container is a read of the file — for the hour-long sets these channels post,
+        // a hundred and forty megabytes of it — and it used to happen on the main thread inside the
+        // tap that asked for it. The screen went dead for a beat before anything played.
+        let engine = await EngineHandoff.load(url: url).player
+        guard let engine else {
+            // The row said the file was here, and it either is not or will not open. Forgetting the
+            // note is the only honest answer: the row goes back to "not downloaded" and the next
+            // tap fetches it, instead of failing quietly on the same path forever.
+            library.forgetLocalPath(uniqueId: track.uniqueId)
             isFetchingFile = false
             return false
         }
@@ -747,5 +755,18 @@ private final class SongEndWatcher: NSObject, AVAudioPlayerDelegate, Sendable {
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         onFinish()
+    }
+}
+
+/// `AVAudioPlayer` is not `Sendable`, so it cannot be handed back from a detached task by
+/// itself. This box is the one allowed crossing: the player is built off the main thread and
+/// arrives on it, and after that it never leaves — one handoff, never two threads at once.
+private struct EngineHandoff: @unchecked Sendable {
+    let player: AVAudioPlayer?
+
+    static func load(url: URL) async -> EngineHandoff {
+        await Task.detached(priority: .userInitiated) {
+            EngineHandoff(player: try? AVAudioPlayer(contentsOf: url))
+        }.value
     }
 }

@@ -962,6 +962,25 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
     }
 
+    /// Every row that claims a file on the phone, as little more than its name and its path.
+    ///
+    /// The sweep that checks those claims needs neither the tags nor the artwork, and reading a
+    /// library's worth of `mini_artwork` blobs to ask a question about paths is how the check
+    /// became the expensive part.
+    public func localPaths() -> [(uniqueId: String, path: String)] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare(
+            "SELECT unique_id, local_path FROM track WHERE local_path IS NOT NULL"
+        ) else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var found: [(String, String)] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            found.append((Self.text(statement, 0), Self.text(statement, 1)))
+        }
+        return found
+    }
+
     public func trackCount(chatId: Int64? = nil) -> Int {
         lock.lock()
         defer { lock.unlock() }
