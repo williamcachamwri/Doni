@@ -618,9 +618,16 @@ final class Player: ObservableObject {
     /// delegate, which is the only thing that actually knows it.
     private func startTicker() {
         ticker?.invalidate()
-        ticker = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
+        // `.common`, not the `.default` mode `scheduledTimer` puts it in. A scroll view runs the
+        // loop in its own tracking mode while a finger is down, so in `.default` the clock simply
+        // stops for the length of every flick: the bar and the time label froze mid-drag, and a
+        // saved cut overshot its own loop point until the finger lifted — the boundary is this
+        // timer's job, and it was not being run.
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
     }
 
     private func tick() {

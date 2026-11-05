@@ -148,12 +148,28 @@ struct LoginView: View {
         .task(id: ghostToken) {
             guard ghost != nil else { return }
             // The copy is gone once its longest animation, the 0.4 s shrink, has finished.
-            try? await Task.sleep(for: .seconds(0.4))
+            //
+            // `try await` with the throw caught, not `try?`: a cancelled sleep has to *leave*, and
+            // swallowing the error let the lines below run anyway. A new ghost arriving on top of
+            // the old one's timer used to erase the outgoing slide before it had moved.
+            do {
+                try await Task.sleep(for: .seconds(0.4))
+            } catch {
+                return
+            }
             ghost = nil
         }
         .task(id: isCodeFailed) {
             guard isCodeFailed else { return }
-            try? await Task.sleep(for: .seconds(TelegramLoginMotion.failedResetDelay))
+            // Same trap, worse cost. This one clears the code field after the shake, and anything
+            // that re-IDs the task — TDLib re-announcing a step, the user pressing "Dừng" to
+            // change number — cancelled the timer while its body went on to wipe the digits being
+            // typed at that moment.
+            do {
+                try await Task.sleep(for: .seconds(TelegramLoginMotion.failedResetDelay))
+            } catch {
+                return
+            }
             isCodeFailed = false
             entry = ""
         }
