@@ -63,6 +63,11 @@ final class Player: ObservableObject {
         Task { @MainActor in self?.songEnded() }
     }
     private var loading: Task<Void, Never>?
+    /// The audio session's own news, kept so the singleton holds both observers for its whole life.
+    private var sessionObservers: [Task<Void, Never>] = []
+    /// Whether sound was going when something else took the session. Only that question decides
+    /// whether to give it back: a pause the user pressed themselves is not a pause to undo.
+    private var wantsResumeAfterInterruption = false
     /// The lead-time fetch of the song queued behind this one, and the song it was started for. The
     /// id is what stops a timer that fires four times a second asking for the same file forty times
     /// over.
@@ -148,6 +153,64 @@ final class Player: ObservableObject {
             return .success
         }
         center.likeCommand.isEnabled = true
+        // The session has two things to say that the player cannot learn any other way, and both of
+        // them used to arrive in silence. They are held here rather than in a local because an
+        // `AsyncStream` of notifications dies with whoever is reading it.
+        sessionObservers = [
+            Task { [weak self] in
+                for await note in NotificationCenter.default.notifications(
+                    named: AVAudioSession.interruptionNotification
+                ) {
+                    self?.handleInterruption(note.userInfo)
+                }
+            },
+            Task { [weak self] in
+                for await note in NotificationCenter.default.notifications(
+                    named: AVAudioSession.routeChangeNotification
+                ) {
+                    self?.handleRouteChange(note.userInfo)
+                }
+            },
+        ]
+    }
+
+    /// Something else took the audio session: a call, Siri, an alarm, another app's sound.
+    ///
+    /// `AVAudioPlayer` stops on its own and says nothing about it to the app, so the row kept its play
+    /// glyph, the lock screen kept running its clock forward over silence — `tick()` publishes a rate
+    /// of 1.0 while `isPlaying` holds — and the position written into the resume snapshot kept
+    /// advancing through a part of the song nobody had heard.
+    private func handleInterruption(_ info: [AnyHashable: Any]?) {
+        guard let raw = info?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        if type == .began {
+            guard isPlaying else { return }
+            wantsResumeAfterInterruption = true
+            pause()
+            return
+        }
+        guard type == .ended, wantsResumeAfterInterruption else { return }
+        wantsResumeAfterInterruption = false
+        // TDLib's own answer is not enough: the system says whether the interruption ended in a way
+        // this app may take the session back. A call that has moved to another device ends with the
+        // flag clear, and resuming into it is the other half of the embarrassment.
+        let options = (info?[AVAudioSessionInterruptionOptionKey] as? UInt)
+            .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+        guard options.contains(.shouldResume) else { return }
+        resume()
+    }
+
+    /// The output the song was going to has gone away — AirPods taken out, headphones unplugged.
+    ///
+    /// Nothing stops here by itself: a `.playback` session simply moves to the built-in speaker,
+    /// which is how a phone in a pocket starts playing out loud at full volume. Only the *old* device
+    /// going is a reason to stop; a new one arriving (CarPlay, a speaker) is a reason to carry on.
+    private func handleRouteChange(_ info: [AnyHashable: Any]?) {
+        guard let raw = info?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable,
+              isPlaying
+        else { return }
+        pause()
     }
 
     /// Plays one track out of `list`, fetching its file first if the phone does not have it.
@@ -308,8 +371,13 @@ final class Player: ObservableObject {
         duration = 0
         wantsPlayWhenReady = false
         lastPersistedSecond = -1
+        wantsResumeAfterInterruption = false
         PlaybackPersistence.clear()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        // The engine went above, so this is the moment the session can be handed back. A player that
+        // stops making noise and keeps the session holds every other app on the phone silent until
+        // this one is killed, and `notifyOthersOnDeactivation` is what tells them they may speak.
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     func toggle() {
