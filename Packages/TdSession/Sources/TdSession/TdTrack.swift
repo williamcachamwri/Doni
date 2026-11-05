@@ -145,7 +145,12 @@ public struct TdTrack: Equatable, Sendable {
         self.fileId = Int(fileId)
         self.uniqueId = uniqueId
         self.title = Self.fullTitle(title, from: caption)
-        self.performer = performer
+        // A document post has no performer field of its own (`td_api.tl:594`), and the bot that names
+        // the singer at all names it in the caption. The tag still comes first where both exist: the
+        // caption is prose a bot typed, the tag is what the file was made with.
+        self.performer = performer.isEmpty
+            ? (Self.captionValue(caption, keys: Self.artistKeys) ?? "")
+            : performer
         self.fileName = fileName
         self.mimeType = mimeType
         self.caption = caption
@@ -218,17 +223,31 @@ public struct TdTrack: Equatable, Sendable {
     /// keys count, so `Thời lượng: 1:11:37` — a value that carries a second colon — is never
     /// read as a title.
     private static func captionName(_ caption: String) -> String? {
+        captionValue(caption, keys: nameKeys)
+    }
+
+    private static let nameKeys = ["Tiêu đề", "Bài hát"]
+
+    /// Who sang it, out of the caption. `Thể hiện:` is the one these channels write — 59 of the 168
+    /// measured posts — and the others are the keys the same bots use when they post in English or
+    /// copy a description off a streaming service.
+    ///
+    /// A row with no singer named stays unnamed rather than being called by the app's own name; the
+    /// screens that need a second line decide what to say when there is nothing to say.
+    private static let artistKeys = ["Thể hiện", "Ca sĩ", "Trình bày", "Singer", "Artist", "Vocal"]
+
+    /// The value of the first caption line whose key is one of `keys`, compared with case, diacritics
+    /// and spacing folded away, and nothing at all when no line matches.
+    private static func captionValue(_ caption: String, keys: [String]) -> String? {
         for line in caption.split(separator: "\n") {
             guard let colon = line.firstIndex(of: ":") else { continue }
             let key = String(line[line.startIndex..<colon])
             let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-            guard !value.isEmpty, nameKeys.contains(where: { folded($0) == folded(key) }) else { continue }
+            guard !value.isEmpty, keys.contains(where: { folded($0) == folded(key) }) else { continue }
             return value
         }
         return nil
     }
-
-    private static let nameKeys = ["Tiêu đề", "Bài hát"]
 
     /// A bot writes names in caps and another in sentence case, and a caption's spacing is not
     /// the tag's, so the two are compared with case, diacritics, width and runs of space
@@ -239,16 +258,22 @@ public struct TdTrack: Equatable, Sendable {
             .joined(separator: " ")
     }
 
-    /// The name the list shows. Tags first, then the caption the channel wrote,
-    /// then the file name without its extension — the order Telegram's own audio
-    /// row falls back through.
+    /// The name the list shows. Tags first, then the caption's own name line, then the caption as
+    /// written, then the file name without its extension — the order Telegram's own audio row falls
+    /// back through.
+    ///
+    /// The name line comes before the whole caption because a caption that has keys is not a name:
+    /// `Tiêu đề: …\nThể hiện: …\nKênh: …` is a form, and showing it as a title puts four lines of a
+    /// bot's bookkeeping on the row where a song's name should be.
     public var displayTitle: String {
         if !title.isEmpty { return title }
+        if let named = Self.captionName(caption) { return named }
         if !caption.isEmpty { return caption.trimmingCharacters(in: .whitespacesAndNewlines) }
         return fileNameStem
     }
 
-    /// Empty for a document with no caption: the row then shows the title alone.
+    /// Who sang it. Empty when neither the file's tag nor the caption named anyone, and the row then
+    /// shows the title alone.
     public var displayPerformer: String {
         performer
     }

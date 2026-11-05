@@ -154,7 +154,7 @@ final class CloudMusic: ObservableObject {
             }
             let task: Task<Void, Never> = Task { [weak self] in
                 guard let self else { return }
-                await self.send(saved, path: path, caption: name, chatId: id)
+                await self.send(saved, path: path, fileName: name, chatId: id)
             }
             uploads[name] = task
             await task.value
@@ -163,25 +163,26 @@ final class CloudMusic: ObservableObject {
         await refresh(session)
     }
 
-    private func send(_ saved: TdSavedMessages, path: String, caption: String,
+    private func send(_ saved: TdSavedMessages, path: String, fileName: String,
                       chatId: Int64) async {
-        if alreadyUploaded(named: caption, path: path) {
-            print("cloud duplicate \(caption)")
+        if alreadyUploaded(named: fileName, path: path) {
+            print("cloud duplicate \(fileName)")
             failure = "Bài này đã ở Cloud Music rồi"
             try? FileManager.default.removeItem(atPath: path)
             return
         }
+        let caption = await CloudMusic.caption(for: path, named: fileName)
         do {
             let messageId = try await saved.upload(chatId: chatId, path: path, caption: caption)
-            print("cloud uploaded \(caption) as message \(messageId)")
+            print("cloud uploaded \(fileName) as message \(messageId)")
             // Telegram has it. The staged copy is a temp file the app made, and the song now has a
             // home, so the phone keeps only what streaming caches on its own.
             try? FileManager.default.removeItem(atPath: path)
         } catch {
             // TDLib's own words, because "upload failed" is a sentence the person standing in front
             // of the phone cannot act on and cannot send to anybody either.
-            failure = localized("Tải lên thất bại: %@ — %@", caption, "\(error)")
-            print("cloud upload failed \(caption): \(error)")
+            failure = localized("Tải lên thất bại: %@ — %@", fileName, "\(error)")
+            print("cloud upload failed \(fileName): \(error)")
         }
     }
 
@@ -199,6 +200,32 @@ final class CloudMusic: ObservableObject {
             // lost a song nobody was told about.
             return size == 0 || row.size == 0 || row.size == size
         }
+    }
+
+    // MARK: What the post says
+
+    /// The words a post about this song should carry.
+    ///
+    /// A document post has no title and no singer of its own — Telegram keeps the file's name and
+    /// whatever caption the sender typed, and nothing else (`td_api.tl:594`) — so the only way an
+    /// artist's name survives a trip into the cloud is to write it into the caption. It goes in in the
+    /// shape the music channels themselves use, `Tiêu đề:` over `Thể hiện:`
+    /// (`Docs/design-tokens.md:362`), because that is the shape `TdTrack` already reads back out: what
+    /// one half of the app writes, the other half finds, and no second naming rule is born. MeloX
+    /// uploads the same way — it opens the container for its tags before it names a post
+    /// (`CloudUploadFile.swift:48-69`).
+    static func caption(title: String, artist: String, fallback: String) -> String {
+        let name = title.isEmpty ? (fallback as NSString).deletingPathExtension : title
+        var lines: [String] = []
+        if !name.isEmpty { lines.append("Tiêu đề: \(name)") }
+        if !artist.isEmpty { lines.append("Thể hiện: \(artist)") }
+        return lines.isEmpty ? fallback : lines.joined(separator: "\n")
+    }
+
+    /// The caption for a file this app is about to send, out of the tags written inside it.
+    private static func caption(for path: String, named fileName: String) async -> String {
+        let tags = await AudioTags.read(path: path)
+        return caption(title: tags.title, artist: tags.performer, fallback: fileName)
     }
 
     // MARK: Now Playing's Download
@@ -227,15 +254,15 @@ final class CloudMusic: ObservableObject {
             failure = "Bài này đã ở Cloud Music rồi"
             return false
         }
-        let name = "\(track.displayTitle) – \(track.displayPerformer)".trimmingCharacters(
-            in: .whitespacesAndNewlines)
+        let caption = CloudMusic.caption(title: track.displayTitle,
+                                         artist: track.displayPerformer,
+                                         fallback: track.fileName)
         do {
             guard let saved = session.savedMessages() else {
                 failure = "Chưa đăng nhập Telegram"
                 return false
             }
-            let messageId = try await saved.upload(chatId: id, path: path,
-                                                   caption: name.isEmpty ? track.fileName : name)
+            let messageId = try await saved.upload(chatId: id, path: path, caption: caption)
             print("cloud published \(track.fileName) as message \(messageId)")
             await refresh(session)
             return true
