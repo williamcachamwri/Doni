@@ -14,11 +14,11 @@ enum AppVersion {
     /// The version to show and compare: the digits where they are ours, the marketing version when not.
     static var current: String { releaseVersion(fromBuildNumber: build) ?? marketing }
 
-    /// `9110401` → `1.4.1`. A number without the prefix is not a Doni build number.
+    /// `9010401` → `1.4.1`. A number without the prefix is not a Doni build number.
     static func releaseVersion(fromBuildNumber buildNumber: String) -> String? {
         guard let digits = Int(buildNumber), digits / 100_000 == prefix else { return nil }
         let body = digits % 100_000
-        return "\((body / 10_000)).(((body % 10_000) / 100)).\(body % 100)"
+        return "\(body / 10_000).\((body % 10_000) / 100).\(body % 100)"
     }
 
     /// Which of two versions is newer, ignoring a leading `v`, spacing, and parts the shorter one lacks
