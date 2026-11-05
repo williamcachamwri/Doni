@@ -178,8 +178,18 @@ final class CoverArtwork: ObservableObject {
     /// The tile's content, best first: a cover that can fill this surface, then the inline
     /// minithumbnail where it is small enough to still be worth showing, then nothing — which is
     /// where the gradient takes over.
+    ///
+    /// "Nothing" is a promise this used to break. A cover whose bytes are on the phone is a cover the
+    /// phone can draw, but only the asking paths (`load`, `prefetch`, the foreground re-warm) knew how
+    /// to turn those bytes back into a tile, so a surface that merely read went flat and stayed flat:
+    /// its row's `.task` had already run, the re-warm only replays the last forty asks, and nothing was
+    /// ever going to ask for this cover again. The read now heals itself off the disk, which is the
+    /// only arrangement that does not depend on somebody having remembered to ask.
     func image(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
-        sharp(for: track, side: points) ?? mini(for: track, side: points)
+        if let image = sharp(for: track, side: points) { return image }
+        if let image = mini(for: track, side: points) { return image }
+        warm(track, at: points)
+        return nil
     }
 
     /// A picture that is not a song's — the cover a user chose for a list — read from the file it was
@@ -217,6 +227,39 @@ final class CoverArtwork: ObservableObject {
         return image
     }
 
+    /// Turning a read miss into the decode the phone can already do, without touching the network.
+    ///
+    /// Called from `body`, so it has to be cheap on the way in and silent on the way out: one
+    /// existence check per candidate and no task at all when the phone does not hold the bytes. That
+    /// last part matters more than it looks — a song with no cover would otherwise start a decode on
+    /// every frame of a scroll, find nothing, and be asked again on the next one, forever.
+    private func warm(_ track: any Playable, at points: CGFloat) {
+        let pixels = Self.pixels(forSide: points)
+        var candidates: [(key: NSString, source: URL)] = []
+        // The art inside the file first: it is the cover Telegram's own player draws, and on the
+        // channels this library is built from it is bigger than anything the server thumbed.
+        if track.localPath != nil {
+            candidates.append((Self.fileKey(uniqueId: track.uniqueId, pixels: pixels),
+                               Self.fileSource(uniqueId: track.uniqueId)))
+        }
+        if let cover = Self.token(for: track) {
+            candidates.append((Self.coverKey(cover, pixels: pixels), Self.coverSource(cover)))
+        }
+        for (key, source) in candidates where !inFlight.contains(key) && Self.exists(source) {
+            inFlight.insert(key)
+            Task { await decode(source, forKey: key, pixels: pixels) }
+        }
+    }
+
+    /// The decode itself, and the booking it releases either way. `put` bumps the revision, which is
+    /// what makes the row that asked come back with a picture instead of waiting for someone to
+    /// scroll past it again.
+    private func decode(_ source: URL, forKey key: NSString, pixels: Int) async {
+        defer { inFlight.remove(key) }
+        guard let image = await tile(from: source, pixels: pixels), !Task.isCancelled else { return }
+        put(image, forKey: key)
+    }
+
     /// Whether this row is showing a real cover, which is what tells the view whether to cross-fade
     /// at all.
     func isSharp(for track: any Playable, side points: CGFloat = 60) -> Bool {
@@ -234,7 +277,11 @@ final class CoverArtwork: ObservableObject {
         for tier in Self.tiers.reversed() {
             if let image = sharp(for: track, side: CGFloat(tier) / 3) { return image }
         }
-        return mini(for: track)
+        if let image = mini(for: track) { return image }
+        // Same promise as `image`: whatever the phone holds the bytes of, it can show — here at the
+        // smallest tier, which is all a colour or a blurred wash ever needed.
+        warm(track, at: CGFloat(Self.tiers.first ?? 192) / 3)
+        return nil
     }
 
     /// Orders whatever this track still needs, at this surface's size, and stops as soon as the
@@ -304,6 +351,9 @@ final class CoverArtwork: ObservableObject {
         pinnedBytes = 0
         recent.removeAll()
         queued.removeAll()
+        // Decodes already on their way would otherwise land their tiles back into the cache this
+        // call just emptied, under keys of songs the library no longer holds.
+        inFlight.removeAll()
         let freed = DiskUsage.clear(Self.sourceDirectory)
         revision += 1
         return freed
@@ -623,6 +673,12 @@ final class CoverArtwork: ObservableObject {
             .map { String(format: "%02x", $0) }
             .joined()
         return sourceDirectory.appendingPathComponent("\(name).img")
+    }
+
+    /// Whether the phone holds this cover's bytes. Cheaper than trying to read them, because the
+    /// answer is needed on the read path rather than the decode.
+    private nonisolated static func exists(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path)
     }
 
     private nonisolated static func read(_ url: URL) -> Data? {
