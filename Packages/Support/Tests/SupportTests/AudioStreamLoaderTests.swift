@@ -203,3 +203,18 @@ func typesAreKnown() {
     #expect(AudioContentType.isStreamable(mimeType: "application/octet-stream", fileName: "song.flac"))
     #expect(!AudioContentType.isStreamable(mimeType: "audio/ogg", fileName: "voice.opus"))
 }
+
+@Test("a transport that says these bytes are never coming is not waited through")
+func unavailableIsNotStalled() async throws {
+    struct Gone: AudioByteProviding {
+        func totalBytes() async -> Int64? { 1_000_000 }
+        func read(at offset: Int64, count: Int) async -> Data? { nil }
+        func want(_ range: AudioByteRange) async {}
+    }
+    let (asset, loader) = stream(Gone(), key: "u7", stallPasses: 50)
+    _ = try? await asset.loadTracks(withMediaType: .audio)
+    // The difference the app has to be able to see: a song that is gone from the server and a song
+    // that is slow look the same on a spinner and are not the same fact.
+    #expect(loader.lastError == .unavailable)
+    loader.stop()
+}

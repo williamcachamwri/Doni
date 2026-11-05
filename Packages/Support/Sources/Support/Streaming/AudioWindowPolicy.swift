@@ -109,4 +109,11 @@ public struct AudioWindowPolicy: Sendable {
         guard aheadBytes > leadBytes * 2, leadBytes > Self.minimumLeadBytes else { return }
         leadBytes = max(Self.minimumLeadBytes, leadBytes / 2)
     }
+
+    /// Forget the window last asked for, so the next plan is asked again even though the playhead
+    /// has not moved. A retry after a stopped download is exactly that moment: the same bytes, from
+    /// the same place, and the only new thing about it is that somebody is asking again.
+    public mutating func forgetAsked() {
+        asked = nil
+    }
 }

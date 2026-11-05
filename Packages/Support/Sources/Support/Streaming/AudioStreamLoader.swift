@@ -11,6 +11,10 @@ public enum AudioStreamError: Error, Equatable, Sendable {
     case lengthUnknown
     /// The reader asked for bytes that are not on the phone and nothing arrived for them in time.
     case stalled
+    /// The transport says these bytes are never coming — the file is gone from the server, or the row
+    /// number it was asked with belongs to another song. Distinct from `stalled` because waiting for
+    /// the first of them is pointless and waiting for the second is normal.
+    case unavailable
 }
 
 /// Whoever holds the song's bytes, in ranges.
@@ -23,10 +27,12 @@ public protocol AudioByteProviding: Sendable {
     /// The exact size on the server, or `nil` when it is not known — which means nothing can be served.
     func totalBytes() async -> Int64?
 
-    /// The bytes at `offset`, as many as are actually there, `nil` or empty when none are.
+    /// The bytes at `offset`, as many as are actually there.
     ///
     /// Implementations must not hand back bytes the transport has not declared ready: a Telegram file
     /// on disk is longer than the parts it holds and the gap between them is somebody else's bytes.
+    /// An empty answer means "not yet" and is waited through; `nil` means "not ever" and ends the
+    /// request, because a spinner that never stops is a worse answer than a song that says it is gone.
     func read(at offset: Int64, count: Int) async -> Data?
 
     /// Move the fetch to `range`. Called every time `read` came back short, and only then.
@@ -55,10 +61,12 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
     /// which is short next to a Telegram part arriving over the network and long next to a disk read.
     static let pollNanoseconds: UInt64 = 60_000_000
 
-    /// How many looks in a row may come back empty before the range is called stalled. Sixteen a
-    /// second times twenty-five is the twenty seconds a poor connection takes to move 64 KiB, and it
-    /// is a count rather than a clock so a caller can ask for less of it.
-    public static let maximumIdlePasses = 25
+    /// How many looks in a row may come back "not yet" before the range is called stalled. At sixty
+    /// milliseconds a look, five hundred of them is half a minute — measured, not guessed: on a
+    /// phone's connection a 64 KiB Telegram part lands anywhere between one and eight seconds after
+    /// it is asked for, so a range of a megabyte is a normal thirty-second wait and a stream that
+    /// gives up at a second and a half is a stream that breaks on every seek.
+    public static let maximumIdlePasses = 500
 
     /// How many empty passes this loader will wait through for one range.
     private let stallPasses: Int
@@ -94,6 +102,11 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
     /// stream that is slow apart from a stream that is dead — and the thing a test asserts on.
     public private(set) var lastError: AudioStreamError?
     private let errorLock = NSLock()
+
+    /// Said as soon as a range is given up on, rather than left for a caller to notice by asking.
+    /// A player that keeps drawing a progress bar across a song that has stopped needs this the
+    /// moment the bytes are declared not coming, not on its next poll.
+    public var onFailure: (@Sendable (AudioStreamError) -> Void)?
 
     /// - Parameters:
     ///   - source: whoever holds the bytes.
@@ -188,10 +201,14 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
             let asked = Int64(data.requestedLength)
             let remaining = asked > 0 ? asked - (offset - Int64(data.requestedOffset)) : Int64(Self.chunkBytes)
             let count = max(1, min(Self.chunkBytes, Int(min(remaining, Int64(Self.chunkBytes)))))
-            if let bytes = await source.read(at: offset, count: count), !bytes.isEmpty {
+            guard let got = await source.read(at: offset, count: count) else {
+                finish(held, with: .unavailable)
+                return
+            }
+            if !got.isEmpty {
                 idle = 0
-                data.respond(with: bytes)
-                if isSatisfied(data, by: offset + Int64(bytes.count)) {
+                data.respond(with: got)
+                if isSatisfied(data, by: offset + Int64(got.count)) {
                     if !held.cancelled { held.request.finishLoading() }
                     drop(held)
                     return
@@ -225,7 +242,12 @@ public final class AudioStreamLoader: NSObject, AVAssetResourceLoaderDelegate, @
     }
 
     private func finish(_ held: Open, with error: AudioStreamError) {
-        errorLock.withLock { lastError = error }
+        let first = errorLock.withLock { () -> Bool in
+            let wasEmpty = lastError == nil
+            lastError = error
+            return wasEmpty
+        }
+        if first { onFailure?(error) }
         if !held.cancelled { held.request.finishLoading(with: error) }
         drop(held)
     }
