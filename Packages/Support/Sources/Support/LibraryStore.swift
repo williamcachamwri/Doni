@@ -144,7 +144,7 @@ public final class LibraryStore: @unchecked Sendable {
     }
 
     /// `1` is the first schema; a column added later bumps this and the row below it migrates.
-    private static let schemaVersion = 5
+    private static let schemaVersion = 6
 
     private let lock = NSLock()
     private var handle: OpaquePointer?
@@ -303,6 +303,12 @@ public final class LibraryStore: @unchecked Sendable {
         }
         if !hasColumn(handle, table: "channel", column: "avatar_path") {
             sqlRun(handle, "ALTER TABLE channel ADD COLUMN avatar_path TEXT")
+        }
+        if !hasColumn(handle, table: "track", column: "last_played_at") {
+            // When a song was last heard, which is the only fact a cache can be pruned by. The
+            // post's own date says when it was published, and the newest post in an old channel is
+            // the last thing anybody should throw away.
+            sqlRun(handle, "ALTER TABLE track ADD COLUMN last_played_at INTEGER")
         }
     }
 
@@ -977,6 +983,44 @@ public final class LibraryStore: @unchecked Sendable {
         var found: [(String, String)] = []
         while sqlite3_step(statement) == SQLITE_ROW {
             found.append((Self.text(statement, 0), Self.text(statement, 1)))
+        }
+        return found
+    }
+
+    /// The moment a song was heard. One row, one write, and the only history the cache needs: a
+    /// library that never records what was listened to can only prune by what it likes best.
+    public func markPlayed(uniqueId: String, at seconds: Int64) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare("UPDATE track SET last_played_at = ? WHERE unique_id = ?")
+        else { return }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int64(statement, 1, seconds)
+        sqlite3_bind_text(statement, 2, uniqueId, -1, Self.transient)
+        sqlite3_step(statement)
+    }
+
+    /// What the phone is holding for each song, in the four numbers an eviction decides with.
+    ///
+    /// `size` is what the post said the file was, not what the directory measures, because TDLib
+    /// keeps its own files and a per-row `stat` of thousands of them is the slow way to ask a
+    /// question the storage screen already answers once a launch.
+    public func cacheRows() -> [(uniqueId: String, fileId: Int, size: Int64,
+                                isComplete: Bool, lastPlayedAt: Int64?)] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let statement = prepare(
+            "SELECT unique_id, file_id, size, local_path, last_played_at FROM track"
+        ) else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var found: [(String, Int, Int64, Bool, Int64?)] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let path = sqlite3_column_text(statement, 3)
+            let complete = path != nil && !Self.text(statement, 3).isEmpty
+            let played = sqlite3_column_type(statement, 4) == SQLITE_NULL
+                ? nil : sqlite3_column_int64(statement, 4)
+            found.append((Self.text(statement, 0), Int(sqlite3_column_int(statement, 1)),
+                          sqlite3_column_int64(statement, 2), complete, played))
         }
         return found
     }

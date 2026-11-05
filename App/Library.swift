@@ -326,6 +326,13 @@ final class Library: ObservableObject {
     /// means the same MP3 picked twice updates the row it already has rather than spending the space
     /// a second time. Chunked because a one-hour set is 140 MB and `Data(contentsOf:)` would be asked
     /// to hold all of it at once; one megabyte is the size MeloX's uploader streams at, too.
+    /// The same bytes, the same name: what the app calls a file's identity, offered to the callers
+    /// that only have a path — the upload, which has to know whether it is sending a song the cloud
+    /// already holds.
+    static func fingerprint(path: String) -> String? {
+        fingerprint(URL(fileURLWithPath: path))
+    }
+
     private nonisolated static func fingerprint(_ url: URL) -> String? {
         do {
             let handle = try FileHandle(forReadingFrom: url)
@@ -407,6 +414,60 @@ final class Library: ObservableObject {
     /// The published row is patched rather than re-read: a song finishing its download is one row
     /// changing, and `refresh()` re-stats every file the library knows to prove that one of them
     /// exists. The tab that was waiting for the file would wait longer for the count than for it.
+    /// The disk the music cache may take, and the number the sweep is measured against.
+    ///
+    /// Two gigabytes is not a guess at a phone: it is about twelve hour-long sets, which is more
+    /// library than a listener carries in their head, and below the point where a 128 GB device
+    /// starts being told by iOS to free space itself. It is a preference because a phone shared
+    /// with video is a phone that wants a smaller number, and the setting is the only honest place
+    /// for that choice.
+    @Published var cacheQuota: Int64 =
+        (UserDefaults.standard.object(forKey: Library.quotaKey) as? NSNumber)?.int64Value
+        ?? Library.defaultQuota {
+        didSet { UserDefaults.standard.set(cacheQuota, forKey: Self.quotaKey) }
+    }
+    private static let quotaKey = "cache.quota.bytes"
+    private static let defaultQuota: Int64 = 2 * 1024 * 1024 * 1024
+
+    /// When a song was heard, written once per start rather than once per tick.
+    func recordPlay(uniqueId: String) {
+        store.markPlayed(uniqueId: uniqueId, at: Int64(Date().timeIntervalSince1970))
+    }
+
+    /// Give the cache back until it fits the quota, least-heard first.
+    ///
+    /// Eviction is whole-file because TDLib offers nothing else — `deleteFile` (`td_api.tl:15052`)
+    /// gives up a file, not a part of one — and that is why the row is written back to "not on the
+    /// phone" in the same breath: a path left behind after its bytes are gone is the exact bug this
+    /// app has already been asked to fix once, where an hour-long set never played again because a
+    /// note said it was there.
+    ///
+    /// The song under the playhead is never a victim: the sweep is asked for at moments the app is
+    /// idle, and a listener who loses the song they are hearing to a quota is a listener who turns
+    /// the quota off in the next minute.
+    func trimCache(with files: TdFileDownloader, keeping: String?) async -> Int {
+        let rows = store.cacheRows()
+        let entries = rows.map {
+            AudioCacheRow(uniqueId: $0.uniqueId, bytes: $0.size, isComplete: $0.isComplete,
+                          lastPlayedAt: $0.lastPlayedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+                          isCurrent: $0.uniqueId == keeping)
+        }
+        let victims = AudioCachePolicy.evictions(entries, quotaBytes: cacheQuota)
+        guard !victims.isEmpty else { return 0 }
+        let byId = Dictionary(rows.map { ($0.uniqueId, $0) }, uniquingKeysWith: { first, _ in first })
+        var freed = 0
+        for uniqueId in victims {
+            guard let row = byId[uniqueId] else { continue }
+            if await files.remove(TdFile(fileId: row.fileId, uniqueId: row.uniqueId)) {
+                store.setLocalPath(nil, uniqueId: uniqueId)
+                freed += 1
+                print("cache evicted \(uniqueId) size=\(row.size)")
+            }
+        }
+        if freed > 0 { refresh() }
+        return freed
+    }
+
     func recordDownload(path: String, uniqueId: String) {
         store.setLocalPath(path, uniqueId: uniqueId)
         downloadedCount = store.downloadedCount()
