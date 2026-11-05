@@ -1,93 +1,128 @@
 # Doni
 
-Máy nghe nhạc cá nhân chạy trên iOS, lấy nhạc trực tiếp từ Telegram: các kênh bạn tham gia và
-Saved Messages của chính bạn. Không có máy chủ trung gian, không có tài khoản riêng, không có telemetry.
+[English](README.md) · [Tiếng Việt](Docs/i18n/README.vi.md) · [中文](Docs/i18n/README.zh.md) ·
+[Español](Docs/i18n/README.es.md) · [Français](Docs/i18n/README.fr.md) · [Русский](Docs/i18n/README.ru.md) ·
+[العربية](Docs/i18n/README.ar.md)
 
-Mã nguồn: <https://github.com/williamcachamwri/Doni> · Liên hệ: <https://t.me/w1lliamcachamwri>
+A music player for iPhone that plays the songs you already keep on Telegram: the channels you
+subscribe to, and Saved Messages as your own library. There is no server behind it, no account to
+register, and nothing is reported anywhere.
 
-## Nó làm gì
+<table>
+  <tr>
+    <td><img src="Docs/screenshots/home.jpg" alt="Home: recently played, newest and liked shelves" width="220"></td>
+    <td><img src="Docs/screenshots/now-playing.jpg" alt="Now Playing with cover art" width="220"></td>
+    <td><img src="Docs/screenshots/lock-screen.jpg" alt="Lock screen showing the lyric line" width="220"></td>
+    <td><img src="Docs/screenshots/playlist.jpg" alt="A playlist" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">The home feed.</td>
+    <td align="center">Now Playing.</td>
+    <td align="center">The line being sung, on the lock screen.</td>
+    <td align="center">A list you made.</td>
+  </tr>
+</table>
 
-- **Phát trực tiếp từng phần.** Bài hát bắt đầu gần như ngay và tua được tới bất kỳ đoạn nào mà không
-  phải tải cả file — app hỏi TDLib theo từng dải byte và chỉ lấy phần đang nghe.
-- **Bộ nhớ đệm sống qua lần tắt app.** Cache chia theo mẩu, có hạn mức tự chọn, dọn theo bài nghe ít
-  nhất. Bài nào đủ byte thì nghe được khi mất mạng.
-- **Cloud Music là Saved Messages.** Tải file lên, gửi bài đang nghe vào đó, danh sách đọc từ lịch sử
-  chat — không có kho thứ hai.
-- **Lời bài hát khớp thời gian** từ lrclib, NetEase, AMLL và QQ Music; dòng đang hát hiện trên Dynamic
-  Island và màn hình khoá.
-- **Giao diện** theo phong cách Apple Music / MeloX: Liquid Glass, tab bar nổi, Now Playing kéo lên.
+## What it does
 
-Mọi thứ bạn nghe đều nằm trong tài khoản Telegram của bạn. App chỉ gọi tới Telegram (qua TDLib) và tới
-các nguồn lời bài hát để tra tên bài.
+- **Starts at once, plays while it downloads.** A song is fetched in byte ranges around the playhead,
+  so scrubbing to 3:40 asks for the part near 3:40 instead of the whole file.
+- **Remembers what it took.** The ranges stay on the phone and survive being killed from the app
+  switcher. A song you finished is playable with no network; a half-heard one resumes where it was.
+- **Cloud Music is Saved Messages.** Uploading a file sends it to your own chat and then drops the
+  phone's copy. Delete it in Telegram and it leaves this app too.
+- **Lyrics with timing**, from lrclib, NetEase, AMLL and QQ Music. The line being sung replaces the
+  song title on the lock screen and in the Dynamic Island.
+- **Covers from wherever they exist**: the file's own tag, Telegram's thumbnail, or asked for again a
+  few times when Telegram has not generated one yet.
+- **A cache with a ceiling.** The quota is yours to set (2 GiB by default) and the least-heard songs
+  are given back first. The song under the playhead is never a victim.
+- Six languages in the interface; the strings in the code are Vietnamese.
 
-## Yêu cầu
+## Why Telegram, and not a backend of my own
 
-- iOS 26 trở lên (giao diện dùng Liquid Glass của hệ thống).
-- Xcode 26 + [XcodeGen](https://github.com/yonaskolb/XcodeGen) + Python 3.
-- Một tài khoản Telegram, và `api_id` / `api_hash` của riêng bạn lấy từ <https://my.telegram.org>.
-- Máy dev iPhone để cài (app ký bằng free personal team, tối đa 3 app, hết hạn sau 7 ngày).
+Because the library is already there. Every song is a message that carries a file, and every file has
+a `file_unique_id` that means the same bytes in every database on every device — so "is this the same
+song" and "where did I stop listening" are questions the protocol answers instead of a server I would
+have to run, pay for and read the privacy of.
 
-## Cài đặt
+TDLib does the network: login, retries, downloads, the file cache, the CDN redirects. Doni does the
+parts nobody else decides for it.
+
+## How the streaming actually works
+
+This is the part worth reading if you came to check whether it is real streaming.
+
+- `downloadFile` takes an offset and a limit, but the limit does not bound the fetch — TDLib keeps
+  going until it is cancelled, so the app cancels each window itself once it has enough.
+- `getFileDownloadedPrefixSize` answers how many bytes are ready at *any* offset. That is the ready
+  bitmask, not a done-or-not flag, and it is what makes a partial file useful.
+- Parts are 64 KiB. A window sits a few megabytes ahead of the playhead and moves when about half of
+  it has been consumed.
+- AVFoundation asks for bytes through `AVAssetResourceLoaderDelegate`. It opens a file with a 2-byte
+  probe and rejects an answer longer than what it asked for, so every response is bounded to the
+  request.
+- Bytes outside the ready window are garbage. Nothing is handed to the decoder that TDLib has not
+  confirmed, which is why a song that loses its network stops rather than playing noise.
+
+## Build it
+
+Needs iOS 26 on the phone, Xcode 26, [XcodeGen](https://github.com/yonaskolb/XcodeGen), CMake, Python 3,
+and a Telegram `api_id` / `api_hash` from [my.telegram.org](https://my.telegram.org).
 
 ```sh
-make vendor      # biên dịch TDLib + OpenSSL thành XCFramework (chạy lần đầu, ~20 phút)
-make project     # sinh Doni.xcodeproj từ project.yml
+make vendor       # builds TDLib and OpenSSL into a local XCFramework (~20 min, first run)
+make project      # generates Doni.xcodeproj from project.yml
+cp Config/Tdlib.example.xcconfig Config/Tdlib.xcconfig
+# put your api_id, api_hash and team id in it — that file is gitignored and stays yours
+make build        # compile gate: warnings are errors
+make device       # compile and sign for your iPhone
+make install      # and put it on the cable
 ```
 
-Rồi tạo `Config/Tdlib.xcconfig` (đã được `.gitignore`, **đừng commit**):
+`make check` runs the build, the package tests, the language gate and the release-notes gate.
 
-```
-TDLIB_API_ID=12345
-TDLIB_API_HASH=0123456789abcdef0123456789abcdef
-DONI_TEAM_ID=AAAAAAAAAA
-```
+## Release it
 
-```sh
-make build       # compile cho iOS, không ký — đây là cổng "0 warning"
-make device      # compile + ký bằng team của bạn
-make check       # build + test package + cổng ngôn ngữ
-make install     # cài lên máy đang cắm cáp (devicectl)
-```
-
-## Phát hành
-
-Một phiên bản có hai số, cả hai nằm trong `project.yml` và phải đổi cùng nhau:
+One version, two numbers, both in `project.yml` and both bumped together:
 
 | | |
 |---|---|
-| `MARKETING_VERSION` | phiên bản hiển thị và tên tag, ví dụ `1.0.0` |
-| `CURRENT_PROJECT_VERSION` | số build, mã hoá chính phiên bản đó: `90 \| major \| minor \| patch`, nên `9010000` là `1.0.0` |
+| `MARKETING_VERSION` | what the About screen shows and what the tag must say — `1.0.0` |
+| `CURRENT_PROJECT_VERSION` | the build number, carrying the same version in its digits: `90 \| major \| minor \| patch`, so `9010000` is 1.0.0 |
 
-Nhật ký cập nhật viết tay trong [`RELEASE_NOTES.md`](RELEASE_NOTES.md) — phần `## iOS` phải có đủ
-`### Tiếng Việt` và `### English` với số dòng bằng nhau.
-
-```sh
-make notes               # sinh App/Generated/ReleaseNotes.json + build/ReleaseNotes.md
-Scripts/build-unsigned-ipa.sh   # build Release không ký + gói thành build/Doni.unsigned.ipa
-```
-
-Rồi cắt tag và đẩy lên GitHub — workflow `build-unsigned.yml` sẽ dựng IPA, đính kèm vào release và
-dùng `build/ReleaseNotes.md` làm nội dung:
+Release notes are written once, in [`RELEASE_NOTES.md`](RELEASE_NOTES.md), in two languages with the
+same number of lines. `make notes` turns that into the JSON the app bundles and the markdown the
+release body uses; `make check` fails when the two have drifted apart.
 
 ```sh
-git tag v1.0.0 && git push origin v1.0.0
+Scripts/build-unsigned-ipa.sh          # Release build + build/Doni.unsigned.ipa
+git tag v1.0.0 && git push origin v1.0.0   # CI builds it and opens the release
 ```
 
-File IPA là **chưa ký**: nó để lưu trữ và cho người khác tự ký lại bằng team của chính họ. App không
-tự cập nhật — bản ký bởi team này cài lên máy khác sẽ bị từ chối.
+## Limits, honestly
 
-## Giấy phép & ghi công
+- Signed with a free personal team: up to 3 devices, and the certificate dies after 7 days.
+- The IPA built by CI is unsigned. Nobody can install it without re-signing it with their own team.
+- No CarPlay yet: the audio entitlement needs a paid Apple developer account and Apple's approval.
+- Lyrics come from public sources. A song nobody has typed out has no words, and the app says so
+  instead of showing a blank page.
+- Update checking tells you a newer version exists and opens the release page. It cannot install it.
 
-- Doni phát hành theo **GPL-3.0** (xem [`LICENSE`](LICENSE)) vì màn lời bài hát và một số màn giao diện
-  được bê từ MeloX, vốn là GPLv3.
-- **MeloX** — app tham chiếu cho giao diện; một số file được chép nguyên trạng.
-- **TDLib** — Boost Software License 1.0, thư viện Telegram chính thức.
-- **OpenSSL** — Apache-2.0, chỉ để TDLib nói chuyện TLS.
-- **Telegram-iOS** — GPL-2.0. Chỉ dùng để *đo* số đo giao diện; không một dòng code nào lấy từ đó.
-- **lrclib / NetEase / AMLL / QQ Music** — dịch vụ web cho lời bài hát, gọi từ máy của bạn.
+## Licence and credit
 
-## Miễn trừ trách nhiệm
+GPL-3.0 ([LICENSE](LICENSE)) — parts of the interface, including the lyrics screen, were taken from
+[MeloX](https://github.com/youshen2/MeloX), which is GPLv3.
 
-Doni là ứng dụng không chính thức, không liên kết và không được Telegram hay bất kỳ hãng nhạc nào uỷ
-quyền. Nó chỉ mở những file đang nằm trong tài khoản Telegram của bạn; việc bạn dùng bot, kênh hay
-file nào là trách nhiệm của bạn.
+- **TDLib** — Boost Software License 1.0. The Telegram library; compiled from a pinned tag into `Vendor/`.
+- **OpenSSL** — Apache-2.0, so TDLib can speak TLS.
+- **SQLite** — the library, playlists and hearts live in one file.
+- **Telegram-iOS** — GPL-2.0. Used only to measure spacing and colour. No code from it is in this repo.
+
+Doni is not affiliated with or authorised by Telegram or any music service. It opens files that are
+already inside your own account.
+
+## Contact
+
+Telegram: [@w1lliamcachamwri](https://t.me/w1lliamcachamwri) · Repository:
+[github.com/williamcachamwri/Doni](https://github.com/williamcachamwri/Doni)
