@@ -356,5 +356,6 @@ Chưa có nhật ký cập nhật|暂无更新日志|Sin registro de cambios|Н�
 Nội dung mới|更新内容|Nuevas funciones|Новое|Nouveautés|الجديد
 Bản đầy đủ của GPL-3.0 nằm trong file LICENSE của kho mã.|GPL-3.0 全文见仓库中的 LICENSE 文件。|El texto completo de GPL-3.0 está en el archivo LICENSE del repositorio.|Полный текст GPL-3.0 — в файле LICENSE репозитория.|Le texte complet de la GPL-3.0 est dans le fichier LICENSE du dépôt.|النص الكامل لـGPL-3.0 في ملف LICENSE في المستودع.
 Giới thiệu|关于|Acerca de|О приложении|À propos|عن
+Đóng|关闭|Cerrar|Закрыть|Fermer|إغلاق
 Giới thiệu Doni|关于 Doni|Acerca de Doni|О Doni|À propos de Doni|عن Doni
 Phiên bản, cập nhật, giấy phép|版本、更新与许可|Versión, actualizaciones y licencias|Версия, обновления и лицензии|Version, mises à jour et licences|الإصدار والتحديثات والتراخيص

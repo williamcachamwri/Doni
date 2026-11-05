@@ -40,6 +40,7 @@ struct SettingsView: View {
     @State private var showsStorage = false
     @State private var showsAbout = false
     @State private var language = DoniLanguage.current
+    @Environment(\.dismiss) private var dismiss
     @State private var needsRestart = false
 
     var body: some View {
@@ -117,6 +118,17 @@ struct SettingsView: View {
         .searchable(text: $searchText, prompt: "Tìm kiếm cài đặt")
         .toolbar {
             ToolbarItem(placement: .principal) { brandMark }
+            // The panel is presented as a sheet, so there is no back button to lean on: the close
+            // mark sits where the reference puts it, at the trailing edge of the bar
+            // (`SettingsView.swift:48-56`).
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel("Đóng")
+            }
         }
         .confirmationDialog("Đăng xuất khỏi Telegram?", isPresented: $confirmingLogout,
                             titleVisibility: .visible) {

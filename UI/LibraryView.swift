@@ -97,8 +97,17 @@ struct LibraryView: View {
                     ?? "Cài đặt")
             }
         }
-        .navigationDestination(isPresented: $showsSettings) {
-            SettingsView(session: session, indexer: indexer, player: player, library: library)
+        // The account mark opens settings the way the reference does: a sheet that fills the screen
+        // with a 32 pt corner and no drag handle, so the close button in its own bar is the only way
+        // out (`ContentView.swift:116-128`). A pushed page would leave the tab bar under it, which is
+        // what the reference's panel never has.
+        .sheet(isPresented: $showsSettings) {
+            NavigationStack {
+                SettingsView(session: session, indexer: indexer, player: player, library: library)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.hidden)
+            .presentationCornerRadius(32)
         }
         .background(palette.chatListBackground.ignoresSafeArea())
         .task {
