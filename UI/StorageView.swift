@@ -129,6 +129,10 @@ struct StorageView: View {
             LabeledContent("Xoá được",
                            value: DataSize.string(usage?.reclaimableBytes ?? 0))
 
+            // The number the cache is held to. Said here because a listener who cannot see the
+            // ceiling has no way to tell a cache that is working from one that is growing.
+            LabeledContent("Hạn mức cache", value: DataSize.string(library.cacheQuota))
+
             if let message {
                 Label(message, systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
@@ -148,7 +152,7 @@ struct StorageView: View {
     private var items: some View {
         Section("Bộ nhớ đã dùng") {
             item("arrow.down.circle.fill", "Nhạc Telegram",
-                 "Bài và ảnh TDLib đã tải về", usage?.telegramBytes)
+                 "Bài đầy đủ và cache stream từng phần", usage?.telegramBytes)
             item("externaldrive", "Nhạc bạn thêm",
                  "File chọn từ máy, không lấy lại được", usage?.importedBytes)
             item("photo.stack", "Cache ảnh",

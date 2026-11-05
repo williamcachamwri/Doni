@@ -176,6 +176,10 @@ Bài này đã ở Cloud Music rồi|此歌曲已在 Cloud Music 中|Esta canci�
 Chưa đăng nhập Telegram nên không tải lên được|未登录 Telegram，无法上传|No has iniciado sesión en Telegram; no se puede subir|Не выполнен вход в Telegram, загрузка невозможна|Telegram non connecté, téléversement impossible|لم يتم تسجيل الدخول إلى Telegram لذا لا يمكن الرفع
 Không tải được file của bài này|无法下载此歌曲的文件|No se pudo descargar el archivo de esta canción|Не удалось скачать файл этой песни|Impossible de télécharger le fichier de cette chanson|تعذّر تنزيل ملف هذه الأغنية
 Không đọc được Saved Messages|无法读取 Saved Messages|No se pudo leer Saved Messages|Не удалось прочитать Saved Messages|Impossible de lire Saved Messages|تعذّر قراءة Saved Messages
+Không mở được Saved Messages: %@|无法打开 Saved Messages：%@|No se pudo abrir Saved Messages: %@|Не удалось открыть Saved Messages: %@|Impossible d'ouvrir Saved Messages : %@|تعذّر فتح Saved Messages: %@
+Bài đầy đủ và cache stream từng phần|完整歌曲与分段流媒体缓存|Canciones completas y caché de streaming por partes|Полные треки и частичный кэш стриминга|Chansons complètes et cache de streaming partiel|الأغاني الكاملة وذاكرة التخزين المؤقت للبث
+Hạn mức cache|缓存上限|Límite de caché|Лимит кэша|Quota de cache|حد التخزين المؤقت
+Chưa đăng nhập Telegram|未登录 Telegram|No has iniciado sesión en Telegram|Вы не вошли в Telegram|Telegram non connecté|لم يتم تسجيل الدخول إلى Telegram
 Lưu vào Cloud Music|保存到 Cloud Music|Guardar en Cloud Music|Сохранить в Cloud Music|Enregistrer dans Cloud Music|حفظ في Cloud Music
 Thêm vào thư viện trên máy|添加到本机资料库|Añadir a la biblioteca del dispositivo|Добавить в библиотеку на устройстве|Ajouter à la bibliothèque locale|إضافة إلى مكتبة الجهاز
 Tải lên Cloud Music|上传到 Cloud Music|Subir a Cloud Music|Загрузить в Cloud Music|Téléverser dans Cloud Music|رفع إلى Cloud Music

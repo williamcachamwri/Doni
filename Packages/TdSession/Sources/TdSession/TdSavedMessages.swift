@@ -27,21 +27,40 @@ public struct TdSavedMessages: Sendable {
         self.flow = flow
     }
 
-    /// The chat id, created if the account has never opened it. `nil` means the session is not
-    /// ready or the account cannot have Saved Messages, and the caller shows a library rather than
-    /// an error, because a missing cloud is not a missing app.
-    public func chatId() async -> Int64? {
+    /// Which of the two calls refused, in TDLib's own words.
+    ///
+    /// This is a result rather than an optional because the first build answered `nil` for every
+    /// failure and the screen turned that into "you are not signed in" — on a phone that was
+    /// obviously signed in, playing a song. A missing chat id has four causes and the listener can
+    /// only act on the right one if the app kept which step said no.
+    public enum ChatFailure: Error, Equatable, Sendable {
+        case noUserId(String)
+        case noChat(String)
+    }
+
+    /// The chat id, created if the account has never opened it.
+    public func chatId() async -> Result<Int64, ChatFailure> {
+        let option: TdJSON
         do {
-            let option = try await flow.request("getOption", ["name": .string("my_id")])
-            guard let userId = option["value"]?.int, userId != 0 else { return nil }
-            let chat = try await flow.request(
+            option = try await flow.request("getOption", ["name": .string("my_id")])
+        } catch {
+            return .failure(.noUserId("\(error)"))
+        }
+        guard let userId = option["value"]?.int, userId != 0 else {
+            return .failure(.noUserId(option.type ?? "no value"))
+        }
+        let chat: TdJSON
+        do {
+            chat = try await flow.request(
                 "createPrivateChat", ["user_id": .int(userId), "force": .bool(false)]
             )
-            guard chat.type == "chat", let id = chat["id"]?.int, id != 0 else { return nil }
-            return id
         } catch {
-            return nil
+            return .failure(.noChat("\(error)"))
         }
+        guard chat.type == "chat", let id = chat["id"]?.int, id != 0 else {
+            return .failure(.noChat(chat.type ?? "no @type"))
+        }
+        return .success(id)
     }
 
     /// One page of the chat's newest posts, in the shape the channel indexer already writes to the

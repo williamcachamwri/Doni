@@ -54,15 +54,32 @@ final class CloudMusic: ObservableObject {
         await MainActor.run { self.reload() }
     }
 
-    /// The chat, created on first use. `nil` means the session is not ready, which the screen shows
-    /// as an empty cloud rather than an error: there is nothing the listener can do about a
-    /// session that has not logged in, and a red box would be a lie about the cause.
+    /// The chat, created on first use. `nil` means it could not be had, and `failure` has by then
+    /// said which of the three steps said no: the session is not signed in, `getOption("my_id")`
+    /// did not answer, or `createPrivateChat` refused. The first build answered `nil` for all of
+    /// them and the screen called a signed-in phone signed out.
     private func ensureChat(_ session: TelegramSession) async -> Int64? {
         if let chatId { return chatId }
-        guard let saved = session.savedMessages(), session.isAuthorized else { return nil }
-        let id = await saved.chatId()
-        chatId = id
-        return id
+        guard session.isAuthorized, let saved = session.savedMessages() else {
+            failure = "Chưa đăng nhập Telegram"
+            return nil
+        }
+        switch await saved.chatId() {
+        case .success(let id):
+            chatId = id
+            return id
+        case .failure(let why):
+            print("saved messages chat refused \(why)")
+            failure = localized("Không mở được Saved Messages: %@", describe(why))
+            return nil
+        }
+    }
+
+    private func describe(_ failure: TdSavedMessages.ChatFailure) -> String {
+        switch failure {
+        case .noUserId(let why): return "my_id: \(why)"
+        case .noChat(let why): return "createPrivateChat: \(why)"
+        }
     }
 
     /// The rows the store holds for this chat, in the order the store reads them.
@@ -86,7 +103,6 @@ final class CloudMusic: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         guard let id = await ensureChat(session), let saved = session.savedMessages() else {
-            failure = "Chưa đăng nhập Telegram nên không tải lên được"
             return
         }
         for url in urls {
@@ -154,10 +170,7 @@ final class CloudMusic: ObservableObject {
     /// than appearing to finish instantly: a Download on a long mix is a minute of network, and a
     /// silent minute is what got this app called broken before.
     func publish(_ session: TelegramSession, _ track: any Playable) async -> Bool {
-        guard let id = await ensureChat(session) else {
-            failure = "Chưa đăng nhập Telegram nên không tải lên được"
-            return false
-        }
+        guard let id = await ensureChat(session) else { return false }
         isBusy = true
         defer { isBusy = false }
         var path = track.localPath
@@ -178,7 +191,7 @@ final class CloudMusic: ObservableObject {
             in: .whitespacesAndNewlines)
         do {
             guard let saved = session.savedMessages() else {
-            failure = "Chưa đăng nhập Telegram nên không tải lên được"
+            failure = "Chưa đăng nhập Telegram"
             return false
         }
         let sent = try await saved.upload(chatId: id, path: path,

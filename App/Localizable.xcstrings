@@ -876,6 +876,41 @@
         }
       }
     },
+    "Bài đầy đủ và cache stream từng phần": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الأغاني الكاملة وذاكرة التخزين المؤقت للبث"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canciones completas y caché de streaming por partes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chansons complètes et cache de streaming partiel"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полные треки и частичный кэш стриминга"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整歌曲与分段流媒体缓存"
+          }
+        }
+      }
+    },
     "Bạn muốn dừng quá trình nhập mã và quay lại chọn số điện thoại khác?": {
       "extractionState": "manual",
       "localizations": {
@@ -1817,6 +1852,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "未能删除 Telegram 数据 — Doni 会在下次打开时重试"
+          }
+        }
+      }
+    },
+    "Chưa đăng nhập Telegram": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يتم تسجيل الدخول إلى Telegram"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No has iniciado sesión en Telegram"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telegram non connecté"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы не вошли в Telegram"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未登录 Telegram"
           }
         }
       }
@@ -3116,6 +3186,41 @@
         }
       }
     },
+    "Hạn mức cache": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "حد التخزين المؤقت"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Límite de caché"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quota de cache"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лимит кэша"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缓存上限"
+          }
+        }
+      }
+    },
     "Hết hàng chờ": {
       "extractionState": "manual",
       "localizations": {
@@ -3532,6 +3637,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法打开 %@"
+          }
+        }
+      }
+    },
+    "Không mở được Saved Messages: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر فتح Saved Messages: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir Saved Messages: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ouvrir Saved Messages : %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть Saved Messages: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开 Saved Messages：%@"
           }
         }
       }
