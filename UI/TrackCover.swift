@@ -26,7 +26,7 @@ struct TrackCover: View {
 
     var body: some View {
         ZStack {
-            TelegramTrackGradient.linear(track.messageId)
+            MissingArtwork(side: side)
             if let image = artwork.image(for: track, side: side) {
                 Image(uiImage: image)
                     .resizable()

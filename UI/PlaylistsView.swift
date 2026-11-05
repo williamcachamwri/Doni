@@ -204,17 +204,14 @@ struct PlaylistArt: View {
 
     var body: some View {
         ZStack {
-            TelegramTrackGradient.linear(listId)
+            MissingArtwork(side: side,
+                           glyph: coverPath == nil && cover == nil ? "music.note.list" : "music.note")
             if let coverPath, let image = artwork.image(at: coverPath) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
             } else if let cover {
                 TrackCover(track: cover, side: side, radius: radius, artwork: artwork)
-            } else {
-                Image(systemName: "music.note.list")
-                    .font(MusicArtworkMetrics.placeholderGlyph)
-                    .foregroundStyle(.white.opacity(0.9))
             }
         }
         .frame(width: side, height: side)

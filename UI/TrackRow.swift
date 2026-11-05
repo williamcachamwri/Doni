@@ -120,12 +120,7 @@ struct ArtworkTile: View {
 
     var body: some View {
         ZStack {
-            TelegramTrackGradient.linear(track.messageId)
-                .overlay {
-                    Image(systemName: "music.note")
-                        .font(.system(size: TelegramLibraryMetrics.artGlyph, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.9))
-                }
+            MissingArtwork(side: TelegramLibraryMetrics.artSide)
             if let mini {
                 fill(mini)
             }

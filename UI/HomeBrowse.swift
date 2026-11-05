@@ -245,7 +245,7 @@ struct HomeBrowse: View {
     @ViewBuilder
     private func art(_ track: any Playable) -> some View {
         ZStack {
-            TelegramTrackGradient.linear(track.messageId)
+            MissingArtwork(side: MusicExploreMetrics.cardAsk)
             if let image = artwork.image(for: track, side: MusicExploreMetrics.cardAsk) {
                 Image(uiImage: image)
                     .resizable()

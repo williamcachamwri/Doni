@@ -171,3 +171,57 @@ public enum TelegramTrackGradient {
         return LinearGradient(colors: [pair.bottom, pair.top], startPoint: .bottom, endPoint: .top)
     }
 }
+
+/// A thing with no picture, drawn the way Apple Music draws one: a flat tile in the system's
+/// secondary fill, and a note in the system's tertiary label at about two-fifths of the side.
+///
+/// This is what replaced Telegram's avatar gradient for music, and the reason is in the sentence the
+/// placeholder has to say. Seven colours picked by message id say nothing about a song, and a
+/// library of them reads like a deck of cards; a grey tile with a note says "there is no picture
+/// here", which is the truth about the file and the same thing the app on this phone says.
+public struct MissingArtwork: View {
+    public let side: CGFloat
+    /// The symbol that names what is missing, because a playlist and a song are not the same empty.
+    public let glyph: String
+
+    public init(side: CGFloat, glyph: String = "music.note") {
+        self.side = side
+        self.glyph = glyph
+    }
+
+    public var body: some View {
+        ZStack {
+            Color.missingArtworkFill
+            Image(systemName: glyph)
+                .font(.system(size: side * 0.42, weight: .regular))
+                .foregroundStyle(Color.missingArtworkGlyph)
+        }
+    }
+}
+
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// The two colours of a placeholder, named once.
+///
+/// The system fills are what Apple Music's own empty tile is made of, and they are iOS-only — the
+/// package is still built for the host to run its tests, so the fallback is the same grey in
+/// percentages rather than a compile error.
+private extension Color {
+    static var missingArtworkFill: Color {
+        #if canImport(UIKit)
+        return Color(uiColor: .secondarySystemFill)
+        #else
+        return Color.gray.opacity(0.18)
+        #endif
+    }
+
+    static var missingArtworkGlyph: Color {
+        #if canImport(UIKit)
+        return Color(uiColor: .tertiaryLabel)
+        #else
+        return Color.gray.opacity(0.4)
+        #endif
+    }
+}
