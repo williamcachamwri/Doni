@@ -39,15 +39,30 @@ public struct TdSavedMessages: Sendable {
     }
 
     /// The chat id, created if the account has never opened it.
-    public func chatId() async -> Result<Int64, ChatFailure> {
-        let option: TdJSON
-        do {
-            option = try await flow.request("getOption", ["name": .string("my_id")])
-        } catch {
-            return .failure(.noUserId("\(error)"))
-        }
-        guard let userId = option["value"]?.int, userId != 0 else {
-            return .failure(.noUserId(option.type ?? "no value"))
+    ///
+    /// `userId` is the current user's id, which the session already has from `getMe` — it is the
+    /// same number `getOption("my_id")` answers with, and asking for it a second time is how the
+    /// first build managed to lose the chat. The option is still the fallback, for a caller that has
+    /// no account in hand.
+    public func chatId(userId known: Int64? = nil) async -> Result<Int64, ChatFailure> {
+        let userId: Int64
+        if let known, known != 0 {
+            userId = known
+        } else {
+            let option: TdJSON
+            do {
+                option = try await flow.request("getOption", ["name": .string("my_id")])
+            } catch {
+                return .failure(.noUserId("\(error)"))
+            }
+            // TDLib's own bytes are quoted back on failure rather than summarised: "no value", "a
+            // value of a shape nobody expected" and "a value of zero" are three different bugs and
+            // all three read the same without what was sent.
+            guard let answer = option["value"]?.int else {
+                return .failure(.noUserId("no integer in \(Self.quote(option))"))
+            }
+            guard answer != 0 else { return .failure(.noUserId("my_id is 0")) }
+            userId = answer
         }
         let chat: TdJSON
         do {
@@ -58,9 +73,15 @@ public struct TdSavedMessages: Sendable {
             return .failure(.noChat("\(error)"))
         }
         guard chat.type == "chat", let id = chat["id"]?.int, id != 0 else {
-            return .failure(.noChat(chat.type ?? "no @type"))
+            return .failure(.noChat(Self.quote(chat)))
         }
         return .success(id)
+    }
+
+    /// A response in a sentence: short, and enough to see the shape of.
+    private static func quote(_ json: TdJSON) -> String {
+        let text = json.serialized ?? "unreadable"
+        return text.count > 140 ? String(text.prefix(140)) + "…" : text
     }
 
     /// One page of the chat's newest posts, in the shape the channel indexer already writes to the

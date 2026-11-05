@@ -64,7 +64,7 @@ final class CloudMusic: ObservableObject {
             failure = "Chưa đăng nhập Telegram"
             return nil
         }
-        switch await saved.chatId() {
+        switch await saved.chatId(userId: session.account?.id) {
         case .success(let id):
             chatId = id
             return id

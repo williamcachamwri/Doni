@@ -33,7 +33,19 @@ public enum TdJSON: Sendable, Equatable {
     public var type: String? { self["@type"]?.string }
 
     public var string: String? { if case .string(let v) = self { v } else { nil } }
-    public var int: Int64? { if case .int(let v) = self { v } else { nil } }
+    /// The integer this is meant to be.
+    ///
+    /// JSON has no integer type, and a Telegram id that arrives written as `1.0` or as `"123"` is
+    /// still the same id. Reading only the case the parser happened to choose turns a real number
+    /// into "no id", and the app then says something untrue about the account.
+    public var int: Int64? {
+        switch self {
+        case .int(let value): value
+        case .double(let value) where value == value.rounded() && abs(value) < 9.2e18: Int64(value)
+        case .string(let value): Int64(value)
+        default: nil
+        }
+    }
     public var double: Double? { if case .double(let v) = self { v } else { nil } }
     public var bool: Bool? { if case .bool(let v) = self { v } else { nil } }
     public var array: [TdJSON]? { if case .array(let v) = self { v } else { nil } }
