@@ -15,7 +15,10 @@ permissions:
 
 jobs:
   ios:
-    runs-on: macos-14
+    # The app builds against the iOS 26 SDK, and XcodeGen writes the project in the format a 26.x
+    # Xcode reads (`objectVersion 77`). An older image fails before compiling anything — "cannot be
+    # opened because it is in a future Xcode project file format" — which is what macos-14 did.
+    runs-on: macos-latest
     timeout-minutes: 90
 
     # One build at a time: TDLib and OpenSSL are compiled from source here, and two runs doing it
@@ -26,6 +29,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # A runner image carries several Xcodes and `xcode-select` points at one that is not
+      # necessarily the newest; this build needs the newest, and says so plainly instead of failing
+      # inside a compile.
+      - name: Use the newest Xcode on the runner
+        run: |
+          app=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$app/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -q iphoneos26 || {
+            echo "This build needs the iOS 26 SDK; the selected Xcode does not have it."
+            xcodebuild -showsdks
+            exit 1
+          }
 
       # project.yml points configFiles at these two; they are gitignored because a developer's real
       # api_hash and team id live in them. The examples carry placeholders, which is all a build
