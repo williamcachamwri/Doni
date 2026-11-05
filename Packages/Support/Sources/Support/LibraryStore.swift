@@ -58,11 +58,15 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
     /// The cover's MTProto identity. `coverFileId` is TDLib's row number in whichever database made
     /// it, so it is only good until that database is; this is what a cached picture is filed under.
     public var coverUniqueId: String?
+    /// What Telegram said the bytes are, kept because a channel's `messageAudio` so often carries no
+    /// file name at all: the name is then nothing to read the container from, and a row that lost
+    /// this is a row the app calls "not streamable" and downloads whole.
+    public var mimeType: String
 
     public init(uniqueId: String, chatId: Int64, messageId: Int64, fileId: Int,
                 coverFileId: Int? = nil, title: String, performer: String, fileName: String,
                 duration: Int?, size: Int64, date: Int64, localPath: String? = nil,
-                miniArtwork: Data? = nil, coverUniqueId: String? = nil) {
+                miniArtwork: Data? = nil, coverUniqueId: String? = nil, mimeType: String = "") {
         self.uniqueId = uniqueId
         self.chatId = chatId
         self.messageId = messageId
@@ -77,6 +81,7 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
         self.localPath = localPath
         self.miniArtwork = miniArtwork
         self.coverUniqueId = coverUniqueId
+        self.mimeType = mimeType
     }
 
     /// A song this app owns outright: a file the user imported, not a post a channel made.
@@ -245,7 +250,8 @@ public final class LibraryStore: @unchecked Sendable {
             date INTEGER NOT NULL,
             local_path TEXT,
             mini_artwork BLOB,
-            cover_unique_id TEXT
+            cover_unique_id TEXT,
+            mime_type TEXT NOT NULL DEFAULT ''
         )
         """)
         sqlRun(handle, "CREATE INDEX IF NOT EXISTS track_chat ON track (chat_id, date DESC)")
@@ -303,6 +309,12 @@ public final class LibraryStore: @unchecked Sendable {
         }
         if !hasColumn(handle, table: "channel", column: "avatar_path") {
             sqlRun(handle, "ALTER TABLE channel ADD COLUMN avatar_path TEXT")
+        }
+        if !hasColumn(handle, table: "track", column: "mime_type") {
+            // What the post said the bytes are. A channel's audio post so often has no file name
+            // that the name is not enough to know the container, and guessing wrong costs the
+            // song its streaming.
+            sqlRun(handle, "ALTER TABLE track ADD COLUMN mime_type TEXT NOT NULL DEFAULT ''")
         }
         if !hasColumn(handle, table: "track", column: "last_played_at") {
             // When a song was last heard, which is the only fact a cache can be pruned by. The
@@ -601,7 +613,7 @@ public final class LibraryStore: @unchecked Sendable {
     private func insert(track: StoreTrack) {
         guard let statement = prepare("""
             INSERT INTO track (\(Self.columns))
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(unique_id) DO UPDATE SET
                 chat_id = excluded.chat_id,
                 message_id = excluded.message_id,
@@ -615,7 +627,8 @@ public final class LibraryStore: @unchecked Sendable {
                 date = excluded.date,
                 local_path = COALESCE(excluded.local_path, track.local_path),
                 mini_artwork = COALESCE(excluded.mini_artwork, track.mini_artwork),
-                cover_unique_id = COALESCE(excluded.cover_unique_id, track.cover_unique_id)
+                cover_unique_id = COALESCE(excluded.cover_unique_id, track.cover_unique_id),
+                mime_type = excluded.mime_type
             """) else { return }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_text(statement, 1, track.uniqueId, -1, Self.transient)
@@ -655,6 +668,7 @@ public final class LibraryStore: @unchecked Sendable {
         } else {
             sqlite3_bind_null(statement, 14)
         }
+        sqlite3_bind_text(statement, 15, track.mimeType, -1, Self.transient)
         sqlite3_step(statement)
     }
 
@@ -1065,12 +1079,13 @@ public final class LibraryStore: @unchecked Sendable {
 
     private static let columns = """
     unique_id, chat_id, message_id, file_id, cover_file_id, title, performer, file_name, \
-    duration, size, date, local_path, mini_artwork, cover_unique_id
+    duration, size, date, local_path, mini_artwork, cover_unique_id, mime_type
     """
 
     private static let aliasedColumns = """
     t.unique_id, t.chat_id, t.message_id, t.file_id, t.cover_file_id, t.title, t.performer, \
-    t.file_name, t.duration, t.size, t.date, t.local_path, t.mini_artwork, t.cover_unique_id
+    t.file_name, t.duration, t.size, t.date, t.local_path, t.mini_artwork, t.cover_unique_id, \
+    t.mime_type
     """
 
     /// `SQLITE_TRANSIENT` makes SQLite copy what it is bound, so the Swift string behind it can
@@ -1134,7 +1149,8 @@ public final class LibraryStore: @unchecked Sendable {
             date: sqlite3_column_int64(statement, offset + 10),
             localPath: optionalText(statement, offset + 11),
             miniArtwork: artwork,
-            coverUniqueId: optionalText(statement, offset + 13)
+            coverUniqueId: optionalText(statement, offset + 13),
+            mimeType: text(statement, offset + 14)
         )
     }
 

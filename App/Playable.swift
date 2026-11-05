@@ -27,6 +27,9 @@ protocol Playable {
     /// What the file is called, which is the name a search has to reach for a captionless post.
     var fileName: String { get }
     var fileExtension: String { get }
+    /// What the post says the bytes are. A live row has this from Telegram; a stored row does not
+    /// keep it, and its file name is what the container has to be read from.
+    var mimeType: String { get }
     var miniArtwork: Data? { get }
     var coverFileId: Int? { get }
     /// The cover's MTProto identity — the only part of it that means the same thing in two
@@ -53,6 +56,11 @@ extension TdFile {
 
 extension StoreTrack: Playable {
     var isDownloaded: Bool { localPath != nil }
+
+    /// The store keeps a name rather than a mime type, and for the rows it holds that is the same
+    /// information: a song posted as `messageAudio` with no name at all is not in this table, it is
+    /// in the live list.
+    var mimeType: String { "" }
 
     /// The same fallback order the live row uses: tags, then the file name without its extension.
     var displayTitle: String {

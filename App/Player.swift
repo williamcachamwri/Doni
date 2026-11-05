@@ -629,7 +629,8 @@ final class Player: ObservableObject {
     private func prepare(_ track: any Playable) async {
         guard let downloader else { return }
         let file = TdFile(audio: track)
-        guard AudioContentType.uti(forExtension: track.fileExtension) != nil, track.size > 0 else {
+        guard AudioContentType.resolve(mimeType: track.mimeType, fileName: track.fileName) != nil,
+              track.size > 0 else {
             await download(track)
             return
         }
@@ -644,7 +645,9 @@ final class Player: ObservableObject {
     /// only the head cannot find the track lengths at all. Everything else — MP3 foremost — is
     /// self-describing from its first frame.
     private func keepsTail(_ track: any Playable) -> Bool {
-        ["m4a", "mp4", "aac", "m4b"].contains(track.fileExtension)
+        guard let ext = AudioContentType.resolve(mimeType: track.mimeType,
+                                                 fileName: track.fileName)?.ext else { return false }
+        return ["m4a", "mp4", "aac", "m4b"].contains(ext)
     }
 
     // MARK: Loading
@@ -734,7 +737,8 @@ final class Player: ObservableObject {
     private func stream(_ track: any Playable, file: TdFile,
                         startAt: TimeInterval?, play: Bool) async -> Bool {
         guard let downloader, !Task.isCancelled, track.size > 0,
-              AudioContentType.uti(forExtension: track.fileExtension) != nil else { return false }
+              let kind = AudioContentType.resolve(mimeType: track.mimeType,
+                                                  fileName: track.fileName) else { return false }
         guard let state = await downloader.state(file), state.size > 0, !state.isComplete
         else { return false }
         let seconds = Double(track.duration ?? 0)
@@ -745,9 +749,9 @@ final class Player: ObservableObject {
         for window in AudioWindowPolicy.head(for: state.size, includingTail: keepsTail(track)) {
             _ = await downloader.ask(file, window: window.offset, bytes: window.count)
         }
-        print("stream \(track.fileName) size=\(state.size) ext=\(track.fileExtension)")
+        print("stream \(track.fileName) size=\(state.size) as=\(kind.ext) mime=\(track.mimeType)")
         let engine = StreamSongEngine.make(source: source, key: track.uniqueId,
-                                           fileType: track.fileExtension, storedDuration: seconds)
+                                           fileType: kind.ext, storedDuration: seconds)
         guard !Task.isCancelled else {
             engine.stop()
             return false

@@ -855,7 +855,8 @@ final class Library: ObservableObject {
                    fileName: track.fileName, duration: track.duration, size: track.size,
                    date: track.date,
                    localPath: track.isDownloaded ? track.localPath : nil,
-                   miniArtwork: track.miniArtwork, coverUniqueId: track.coverUniqueId)
+                   miniArtwork: track.miniArtwork, coverUniqueId: track.coverUniqueId,
+                   mimeType: track.mimeType)
     }
 
     /// Rows are only as good as the files behind them: a path that no longer exists is cleared in

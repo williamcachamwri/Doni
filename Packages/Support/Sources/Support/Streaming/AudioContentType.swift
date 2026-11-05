@@ -43,6 +43,41 @@ public enum AudioContentType {
 
     /// Whether these bytes can be streamed at all, before any of the machinery is switched on.
     public static func isStreamable(mimeType: String, fileName: String) -> Bool {
-        uti(forMIMEType: mimeType) != nil || uti(forExtension: (fileName as NSString).pathExtension) != nil
+        resolve(mimeType: mimeType, fileName: fileName) != nil
+    }
+
+    /// The container of a song, from whichever of the two the row actually carries.
+    ///
+    /// The mime type first, because a channel's `messageAudio` so often has no file name at all —
+    /// the post is a song, not a file — and a gate that only looked at the extension called every
+    /// one of those "not streamable" and quietly went back to downloading the whole file. The
+    /// extension is the fallback, and it is what a document post carries when its mime type is the
+    /// meaningless `application/octet-stream`.
+    ///
+    /// The pair is returned together because the player needs both: the type for the content
+    /// information AVFoundation insists on, and a name for the URL it is asked to load.
+    public static func resolve(mimeType: String, fileName: String) -> (uti: String, ext: String)? {
+        if let uti = uti(forMIMEType: mimeType), let ext = `extension`(forMIMEType: mimeType) {
+            return (uti, ext)
+        }
+        let named = (fileName as NSString).pathExtension.lowercased()
+        if let uti = uti(forExtension: named) {
+            return (uti, named)
+        }
+        return nil
+    }
+
+    /// The name a stream's URL should carry for this mime type. `nil` for a type AVFoundation cannot
+    /// open, so a caller never builds a URL for a song it cannot play.
+    private static func `extension`(forMIMEType mimeType: String) -> String? {
+        switch mimeType.lowercased() {
+        case "audio/mpeg", "audio/mp3": return "mp3"
+        case "audio/mp4", "audio/m4a", "audio/x-m4a": return "m4a"
+        case "audio/aac", "audio/x-aac": return "aac"
+        case "audio/wav", "audio/x-wav", "audio/wave": return "wav"
+        case "audio/aiff", "audio/x-aiff": return "aiff"
+        case "audio/flac", "audio/x-flac": return "flac"
+        default: return nil
+        }
     }
 }
