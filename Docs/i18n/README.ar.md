@@ -7,6 +7,12 @@
 [English](../../README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [Español](README.es.md) ·
 [Français](README.fr.md) · [Русский](README.ru.md) · **العربية**
 
+<p align="center">
+  <a href="https://github.com/williamcachamwri/Doni/releases/latest"><img src="https://img.shields.io/github/v/release/williamcachamwri/Doni?label=release&color=blue" alt="أحدث إصدار"></a>
+  <img src="https://img.shields.io/badge/iOS-26.0%2B-blue" alt="iOS 26.0 أو أحدث">
+  <a href="https://developer.apple.com/swift/"><img src="https://img.shields.io/badge/Swift-6-F05138" alt="Swift 6"></a>
+  <img src="https://img.shields.io/badge/arch-arm64-lightgrey" alt="معمارية arm64 فقط">
+</p>
 
 مشغّل موسيقى لآيفون يشغّل الأغاني الموجودة أصلًا في تيليجرام الخاص بك: القنوات التي تتابعها،
 و«الرسائل المحفوظة» كمكتبتك الشخصية. لا خوادم في الخلف، ولا تسجيل، ولا تُرسَل أي بيانات.
