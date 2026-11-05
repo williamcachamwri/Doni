@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../doni-icon.png" width="128" alt="Иконка приложения Doni: белый бумажный самолётик поверх бледных нот на красном фоне">
+</p>
+
 # Doni
 
 [English](../../README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [Español](README.es.md) ·

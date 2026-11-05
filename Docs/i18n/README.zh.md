@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../doni-icon.png" width="128" alt="Doni 应用图标：红色渐变背景上，白色纸飞机覆在淡化的音符上">
+</p>
+
 # Doni
 
 [English](../../README.md) · [Tiếng Việt](README.vi.md) · **中文** · [Español](README.es.md) ·

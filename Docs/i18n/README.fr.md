@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../doni-icon.png" width="128" alt="Icône de l'app Doni : un avion en papier blanc sur des notes estompées, en rouge">
+</p>
+
 # Doni
 
 [English](../../README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [Español](README.es.md) ·

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../doni-icon.png" width="128" alt="أيقونة تطبيق Doni: طائرة ورقية بيضاء فوق نوتات موسيقية باهتة على خلفية حمراء">
+</p>
+
 # Doni
 
 [English](../../README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [Español](README.es.md) ·

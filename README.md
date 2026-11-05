@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Docs/doni-icon.png" width="128" alt="The Doni app icon: a white paper plane over faded music notes on a red gradient">
+</p>
+
 # Doni
 
 [English](README.md) · [Tiếng Việt](Docs/i18n/README.vi.md) · [中文](Docs/i18n/README.zh.md) ·

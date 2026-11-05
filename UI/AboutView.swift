@@ -18,15 +18,7 @@ struct AboutView: View {
         List {
             Section {
                 VStack(alignment: .center, spacing: 10) {
-                    RoundedRectangle(cornerRadius: MusicSettingsMetrics.logoRadius,
-                                     style: .continuous)
-                        .fill(MusicTint.accent)
-                        .frame(width: 72, height: 72)
-                        .overlay {
-                            Image(systemName: "music.note.list")
-                                .font(.system(size: 30, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
+                    DoniLogo(side: 72)
                     Text("Doni").font(.title2.bold())
                     Text("Máy nghe nhạc Telegram của riêng bạn")
                         .font(.subheadline)
@@ -88,10 +80,20 @@ struct AboutView: View {
                 Button {
                     openURL(Self.telegramURL)
                 } label: {
-                    LabeledContent("Telegram") {
-                        Text(verbatim: "@williamcachamwri")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        // Telegram's own mark, unmodified, from the icon file the project ships: the
+                        // row says where the music lives, and a generic paper plane would say
+                        // something else.
+                        Image("TelegramMark")
+                            .resizable()
+                            .interpolation(.high)
+                            .frame(width: 22, height: 22)
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        LabeledContent("Telegram") {
+                            Text(verbatim: "@williamcachamwri")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -211,3 +213,20 @@ struct LicensesView: View {
     }
 }
 
+
+/// The app's own mark: the home-screen icon, at whatever side a surface draws it.
+///
+/// The corner radius is 22.5 % of the side, which is the proportion of the iOS icon mask itself, so
+/// this tile and the real icon on the springboard are the same shape rather than two different ones.
+struct DoniLogo: View {
+    var side: CGFloat = 72
+
+    var body: some View {
+        Image("DoniMark")
+            .resizable()
+            .interpolation(.high)
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
+            .accessibilityLabel("Doni")
+    }
+}

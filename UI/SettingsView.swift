@@ -158,19 +158,11 @@ struct SettingsView: View {
     // MARK: Header
 
     /// The reference's title is the app's mark — 28 pt at a 7 pt clip, 8 from a `.headline` name
-    /// (`SettingsHomeComponents.swift:5-14`). Doni ships no asset catalog, so the mark is drawn from
-    /// the accent in the same box rather than left out.
+    /// (`SettingsHomeComponents.swift:5-14`). Doni draws the real icon there, the same tile the
+    /// springboard wears.
     private var brandMark: some View {
         HStack(spacing: MusicSettingsMetrics.logoGap) {
-            RoundedRectangle(cornerRadius: MusicSettingsMetrics.logoRadius, style: .continuous)
-                .fill(MusicTint.accent)
-                .frame(width: MusicSettingsMetrics.logoSide,
-                       height: MusicSettingsMetrics.logoSide)
-                .overlay {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
+            DoniLogo(side: MusicSettingsMetrics.logoSide)
                 .accessibilityHidden(true)
             Text("Doni")
                 .font(.headline)

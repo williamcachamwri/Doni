@@ -78,6 +78,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.doni.app
+        # The icon lives in App/Assets.xcassets, which XcodeGen picks up with the rest of the App
+        # folder; this names which set in it is the app icon.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: Support
       - package: TelegramDesignSystem
