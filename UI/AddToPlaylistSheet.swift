@@ -51,7 +51,7 @@ struct AddToPlaylistSheet: View {
             ContentUnavailableView {
                 Label("Chưa có danh sách nào", systemImage: "music.note.list")
             } description: {
-                Text("“\(track.displayTitle)” sẽ là bài đầu tiên của danh sách vừa tạo.")
+                Text(localized("“%@” sẽ là bài đầu tiên của danh sách vừa tạo.", track.displayTitle))
             } actions: {
                 Button("Danh sách mới") { showsCreation = true }
                     .buttonStyle(.borderedProminent)
@@ -74,7 +74,7 @@ struct AddToPlaylistSheet: View {
                                 .lineLimit(1)
                             Text(list.trackCount == 0
                                 ? "Chưa có bài nào"
-                                : "\(list.trackCount.formatted()) bài")
+                                : localized("%@ bài", list.trackCount.formatted()))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)

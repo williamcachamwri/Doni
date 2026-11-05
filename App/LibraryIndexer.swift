@@ -84,7 +84,8 @@ final class LibraryIndexer: ObservableObject {
     var statusLine: String {
         switch phase {
         case let .reading(snapshot), let .finished(snapshot):
-            return "\(snapshot.trackCount.formatted()) bài · đã đọc \(snapshot.messageCount.formatted()) tin"
+            return localized("%@ bài · đã đọc %@ tin",
+                       snapshot.trackCount.formatted(), snapshot.messageCount.formatted())
         case .idle, .failed:
             return ""
         }
@@ -332,7 +333,7 @@ final class LibraryIndexer: ObservableObject {
     static func describe(_ error: any Error) -> String {
         if let failure = error as? TdClient.Failure { return failure.description }
         if let failure = error as? TdChannelReader.Failure, case .channelNotFound(let name) = failure {
-            return "Không tìm thấy kênh @\(name)"
+            return localized("Không tìm thấy kênh @%@", name)
         }
         return "\(error)"
     }

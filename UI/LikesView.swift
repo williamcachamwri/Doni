@@ -142,8 +142,8 @@ struct LikesView: View {
     private var countLine: Text {
         let kept = visible
         let slices = kept.filter { $0.segment != nil }.count
-        guard slices > 0 else { return Text("\(kept.count.formatted()) bài") }
-        return Text("\(kept.count.formatted()) bài · \(slices.formatted()) đoạn")
+        guard slices > 0 else { return Text(localized("%@ bài", kept.count.formatted())) }
+        return Text(localized("%@ bài · %@ đoạn", kept.count.formatted(), slices.formatted()))
     }
 }
 

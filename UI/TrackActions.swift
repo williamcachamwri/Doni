@@ -33,7 +33,7 @@ struct TrackActions<Additional: View>: ViewModifier {
                 }
                 Divider()
                 ForEach(lists) { list in
-                    Button("Thêm vào “\(list.name)”") {
+                    Button(localized("Thêm vào “%@”", list.name)) {
                         library.add(track, to: list.id)
                     }
                 }
@@ -49,7 +49,7 @@ struct TrackActions<Additional: View>: ViewModifier {
                 Button("Tạo") { create(target) }
                 Button("Huỷ", role: .cancel) {}
             } message: { _ in
-                Text("“\(track.displayTitle)” sẽ nằm trong danh sách mới.")
+                Text(localized("“%@” sẽ nằm trong danh sách mới.", track.displayTitle))
             }
     }
 

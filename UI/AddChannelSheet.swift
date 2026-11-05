@@ -84,7 +84,8 @@ struct AddChannelSheet: View {
                     } else if visibleJoined.isEmpty {
                         Text(joined.isEmpty
                              ? "Không có cuộc trò chuyện nào."
-                             : "Không có cuộc trò chuyện nào khớp “\(query.trimmingCharacters(in: .whitespaces))”.")
+                             : localized("Không có cuộc trò chuyện nào khớp “%@”.",
+                                query.trimmingCharacters(in: .whitespaces)))
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(visibleJoined, id: \.chatId) { channel in
@@ -133,9 +134,9 @@ struct AddChannelSheet: View {
         HStack(spacing: Self.rowGap) {
             channelTitle(probe.channel,
                          subtitle: probe.trackCount == 0
-                             ? "Không có bài audio nào trong \(probe.messageCount) tin gần nhất"
-                             : "≈\(probe.trackCount.formatted()) bài trong "
-                                 + "\(probe.messageCount.formatted()) tin gần nhất")
+                             ? localized("Không có bài audio nào trong %@ tin gần nhất", probe.messageCount.formatted())
+                             : localized("≈%@ bài trong %@ tin gần nhất",
+                                 probe.trackCount.formatted(), probe.messageCount.formatted()))
             Spacer(minLength: 8)
             addButton(for: probe.channel)
         }
@@ -191,7 +192,7 @@ struct AddChannelSheet: View {
                     Text("Thêm")
                 }
                 .buttonStyle(.glassProminent)
-                .accessibilityLabel("Thêm \(channel.title)")
+                .accessibilityLabel(localized("Thêm %@", channel.title))
             }
         }
     }

@@ -381,7 +381,7 @@ struct SettingsView: View {
                         keywords: "thư viện nhạc bài hát index"),
             SettingLine(symbol: "arrow.down.circle", title: "Đã tải về máy",
                         subtitle: "Nghe được khi không có mạng",
-                        value: "\(library.downloadedCount.formatted()) bài",
+                        value: localized("%@ bài", library.downloadedCount.formatted()),
                         keywords: "tải offline file"),
             SettingLine(symbol: "internaldrive", title: "Bộ nhớ",
                         subtitle: "Ảnh bìa, nhạc Telegram, file của bạn",
@@ -413,7 +413,7 @@ struct SettingsView: View {
     /// The handle the channel was added by and how many of its songs are on the phone. A channel
     /// picked out of the joined list came in by its chat id, so the count is all it can say.
     private func subtitle(for channel: StoreChannel) -> String {
-        let songs = "\(library.store.trackCount(chatId: channel.chatId).formatted()) bài"
+        let songs = localized("%@ bài", library.store.trackCount(chatId: channel.chatId).formatted())
         let handle = channel.username.isEmpty ? nil : "@\(channel.username)"
         return [handle, songs].compactMap { $0 }.joined(separator: " · ")
     }

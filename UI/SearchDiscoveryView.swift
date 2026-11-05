@@ -85,7 +85,7 @@ struct SearchDiscoveryView: View {
                 .foregroundStyle(.primary)
                 .lineLimit(2)
 
-            Text("\(list.trackCount) bài")
+            Text(localized("%@ bài", list.trackCount.formatted()))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -119,7 +119,7 @@ struct SearchDiscoveryView: View {
                         ) {
                             search(artist.name)
                         }
-                        .accessibilityHint("\(artist.tracks.count) bài")
+                        .accessibilityHint(localized("%@ bài", artist.tracks.count.formatted()))
                     }
                 }
             }

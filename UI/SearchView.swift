@@ -133,7 +133,7 @@ struct SearchView: View {
         List {
             ForEach(library.playlists.filter { matches($0.name) }, id: \.id) { list in
                 NavigationLink(value: list.id) {
-                    SearchMediaRow(title: list.name, subtitle: "\(list.trackCount) bài") {
+                    SearchMediaRow(title: list.name, subtitle: localized("%@ bài", list.trackCount.formatted())) {
                         PlaylistArt(listId: list.id, coverPath: list.coverPath,
                                     cover: library.firstTrack(in: list.id),
                                     side: MusicSearchMetrics.mediaArt,
@@ -165,7 +165,7 @@ struct SearchView: View {
                 Button {
                     search(artist.name)
                 } label: {
-                    SearchMediaRow(title: artist.name, subtitle: "\(artist.tracks.count) bài") {
+                    SearchMediaRow(title: artist.name, subtitle: localized("%@ bài", artist.tracks.count.formatted())) {
                         TrackCover(track: artist.sample, side: MusicSearchMetrics.mediaArt,
                                    radius: MusicSearchMetrics.mediaArtRadius, artwork: artwork)
                             .task(id: artist.sample.uniqueId) {

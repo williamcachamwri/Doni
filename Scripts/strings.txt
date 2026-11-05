@@ -241,3 +241,48 @@ không ghi được vào thư mục nhạc|无法写入音乐目录|no se pudo e
 Bài nào cũng nghe lại được sau|之后随时可以再听|Siempre podrás volver a oírlas|Все можно прослушать снова|Vous pourrez toujours les réécouter|يمكنك الاستماع إليها مجددًا في أي وقت
 ui.common.spoken_separator|、|, |, |, |، 
 ui.common.title_detail_separator| — | — | — | — | — 
+%@ bài|%@ 首歌|%@ canciones|%@ песен|%@ titres|%@ أغاني
+%@ bài chưa tải · %@ trên máy|未下载 %@ 首 · 本机 %@|%@ sin descargar · %@ en el dispositivo|%@ не загружено · %@ на устройстве|%@ non téléchargés · %@ sur l’appareil|%@ غير منزّلة · %@ على الجهاز
+%@ bài có trên máy|本机 %@ 首|%@ en el dispositivo|%@ на устройстве|%@ sur l’appareil|%@ على الجهاز
+%@ bài của bạn · %@|你的 %@ 首 · %@|%@ tuyas · %@|Ваши: %@ · %@|%@ à vous · %@|%@ أغانيك · %@
+%@ bài trong kênh đã nằm trong %@ bạn đang giữ.|频道里的 %@ 首已包含在你保留的 %@ 中。|%@ canciones del canal ya están en los %@ que guardas.|%@ треков из канала уже входят в %@, которые вы храните.|%@ titres de la chaîne sont déjà dans les %@ que vous gardez.|%@ أغاني من القناة ضمن %@ التي تحتفظ بها.
+%@ bài trong thư viện|资料库内 %@ 首|%@ en la biblioteca|%@ в библиотеке|%@ dans la bibliothèque|%@ في المكتبة
+%@ bài vừa về|刚到的 %@ 首|%@ recientes|%@ недавно|%@ récents|%@ وصلت حديثًا
+%@ bài · %@ đoạn|%@ 首 · %@ 段|%@ canciones · %@ fragmentos|%@ треков · %@ отрезков|%@ titres · %@ sections|%@ أغاني · %@ مقاطع
+%@ bài · đã đọc %@ tin|%@ 首 · 已读 %@ 条消息|%@ canciones · %@ mensajes leídos|%@ треков · %@ сообщений прочитано|%@ titres · %@ messages lus|%@ أغاني · %@ رسالة تم قراءتها
+%@ bài đã tim|已点赞 %@ 首|%@ con corazón|%@ с лайком|%@ aimés|%@ معجبة بها
+%@ danh sách của bạn|你的 %@ 个歌单|%@ listas tuyas|%@ ваших плейлистов|%@ listes à vous|%@ قائمتك
+%@ kết quả|%@ 个结果|%@ resultados|%@ результатов|%@ résultats|%@ نتيجة
+Bắt đầu cắt tại %@|从这里开始截取 %@|Recorte desde %@|Начать отрезок в %@|Début du découpage à %@|بدء القص من %@
+Chúng tôi đã gửi mã %@ chữ số cho %@.|我们已向 %@ 发送 %@ 位验证码。|Enviamos un código de %@ dígitos a %@.|Мы отправили код из %@ цифр на %@.|Nous avons envoyé un code de %@ chiffres à %@.|أرسلنا رمزًا من %@ رقمًا إلى %@.
+Chúng tôi đã gửi mã cho %@.|我们已向 %@ 发送验证码。|Enviamos un código a %@.|Мы отправили код на %@.|Nous avons envoyé un code à %@.|أرسلنا رمزًا إلى %@.
+Cài đặt của %@|%@ 的设置|Ajustes de %@|Настройки для %@|Réglages de %@|إعدادات %@
+Câu bắt đầu bằng %@|以%@开头的句子|Frase que empieza por %@|Фраза, начинающаяся с %@|Phrase commençant par %@|جملة تبدأ بـ %@
+Doni sẽ mở lại bằng %@.|Doni 将以 %@ 重新打开。|Doni se abrirá de nuevo en %@.|Doni откроется заново на %@.|Doni se rouvrira en %@.|سيُعاد فتح دوني بـ %@.
+Giữ đoạn %@ – %@|保留 %@ – %@ 段|Conservar %@ – %@|Сохранить отрезок %@ – %@|Garder la section %@ – %@|احتفظ بالمقطع %@ – %@
+Không có bài audio nào trong %@ tin gần nhất|最近 %@ 条消息里没有音频|No hay audios en los %@ mensajes recientes|Нет аудио в последних %@ сообщениях|Aucun audio dans les %@ derniers messages|لا توجد ملفات صوتية في آخر %@ رسالة
+Không có cuộc trò chuyện nào khớp “%@”.|没有与会话匹配：“%@”。|Ninguna conversación coincide con «%@».|Нет подходящих диалогов: «%@».|Aucune conversation ne correspond à « %@ ».|لا توجد محادثة تطابق «%@».
+Không thêm được: %@.|无法添加：%@。|No se pudo añadir: %@.|Не удалось добавить: %@.|Ajout impossible : %@.|تعذّرت الإضافة: %@.
+Không tìm thấy kênh @%@|找不到频道 @%@|Canal @%@ no encontrado|Канал @%@ не найден|Chaîne @%@ introuvable|لم يتم العثور على القناة @%@
+Kết thúc cắt tại %@|在这里结束截取 %@|Recorte hasta %@|Закончить отрезок в %@|Fin du découpage à %@|إنهاء القص عند %@
+Máy đã dùng %@|设备已用 %@|Dispositivo usa %@|Устройство использует %@|L’appareil utilise %@|الجهاز استخدم %@
+Nhập câu bắt đầu bằng “%@” mà chúng tôi đã gửi cho %@.|输入我们以“%@”开头发给 %@ 的句子。|Introduce la frase que empieza por «%@» que enviamos a %@.|Введите фразу, начинающуюся с «%@», которую мы отправили на %@.|Saisissez la phrase commençant par « %@ » que nous avons envoyée à %@.|أدخل الجملة التي تبدأ بـ «%@» وأرسلناها إلى %@.
+Nhập mã %@ chữ số|输入 %@ 位验证码|Introduce el código de %@ dígitos|Введите код из %@ цифр|Saisissez le code de %@ chiffres|أدخل الرمز المكوّن من %@ رقمًا
+Nhập từ bắt đầu bằng “%@” mà chúng tôi đã gửi cho %@.|输入我们发给 %@ 的、以“%@”开头的词。|Introduce la palabra que empieza por «%@» que enviamos a %@.|Введите слово, начинающееся с «%@», которое мы отправили на %@.|Saisissez le mot commençant par « %@ » que nous avons envoyé à %@.|أدخل الكلمة التي تبدأ بـ «%@» وأرسلناها إلى %@.
+Phát tất cả %@|播放全部 %@|Reproducir todo %@|Воспроизвести всё: %@|Tout lire %@|تشغيل كل %@
+Số này chưa có tài khoản Telegram và cần đủ %@ tuổi.|此号码还没有 Telegram 账号，且需满 %@ 岁。|Este número no tiene cuenta de Telegram y hay que tener %@ años.|Этот номер не имеет аккаунта Telegram и нужно %@ лет.|Ce numéro n’a pas de compte Telegram et il faut avoir %@ ans.|هذا الرقم ليس له حساب تيليجرام ويجب أن يكون العمر %@ عامًا.
+Thoát ra|退出|Salir|Выйти|Quitter|خروج
+Thêm %@|添加 %@|Añadir %@|Добавить %@|Ajouter %@|إضافة %@
+Thêm cho “%@”|为“%@”添加|Añadir para «%@»|Добавить для «%@»|Ajouter pour « %@ »|إضافة إلى «%@»
+Thêm vào “%@”|添加到“%@”|Añadir a «%@»|Добавить в «%@»|Ajouter à « %@ »|إضافة إلى «%@»
+Từ bắt đầu bằng %@|以%@开头的词|Palabra que empieza por %@|Слово, начинающееся с %@|Mot commençant par %@|كلمة تبدأ بـ %@
+Xoá %@|删除 %@|Eliminar %@|Удалить %@|Supprimer %@|حذف %@
+Đang thêm %@ bài vào thư viện…|正在将 %@ 首歌曲加入资料库…|Añadiendo %@ canciones a la biblioteca…|Добавление %@ треков в библиотеку…|Ajout de %@ titres dans la bibliothèque…|جارٍ إضافة %@ أغاني إلى المكتبة…
+Đang tải %@ bài về máy…|正在下载 %@ 首歌曲…|Descargando %@ canciones…|Загрузка %@ треков…|Téléchargement de %@ titres…|جارٍ تنزيل %@ أغاني…
+Đã giải phóng %@ ảnh.|已释放 %@ 图片缓存。|Se liberaron %@ de imágenes.|Освобождено %@ изображений.|%@ d’images libérés.|تم تحرير %@ من الصور.
+Đã xoá %@ bài khỏi máy.|已从本机删除 %@ 首歌曲。|Se borraron %@ canciones del dispositivo.|Удалено %@ треков с устройства.|%@ titres supprimés de l’appareil.|تم حذف %@ أغاني من الجهاز.
+Đổi ngôn ngữ|更改语言|Cambiar idioma|Сменить язык|Changer de langue|تغيير اللغة
+“%@” có %@ bài.|“%@”有 %@ 首。|«%@» tiene %@ canciones.|«%@» содержит %@ треков.|« %@ » contient %@ titres.|«%@» فيها %@ أغاني.
+“%@” sẽ là bài đầu tiên của danh sách vừa tạo.|“%@” 将成为新建歌单的第一首。|«%@» será la primera canción de la nueva lista.|«%@» станет первым треком нового плейлиста.|« %@ » sera le premier titre de la nouvelle liste.|ستكون «%@» أول أغنية في القائمة الجديدة.
+“%@” sẽ nằm trong danh sách mới.|“%@” 将放入新建歌单。|«%@» estará en la nueva lista.|«%@» будет в новом плейлисте.|« %@ » sera dans la nouvelle liste.|ستكون «%@» في القائمة الجديدة.
+≈%@ bài trong %@ tin gần nhất|≈最近 %@ 条消息中 %@ 首|≈%@ canciones en los %@ mensajes recientes|≈%@ треков в последних %@ сообщениях|≈%@ titres dans les %@ derniers messages|≈%@ أغاني في آخر %@ رسالة

@@ -608,16 +608,16 @@ struct SongActions: View {
     @ViewBuilder
     private var cutButtons: some View {
         if player.markIn != nil {
-            Button("Kết thúc cắt tại \(clock(player.elapsed))") {
+            Button(localized("Kết thúc cắt tại %@", clock(player.elapsed))) {
                 player.markEnd()
             }
         } else if player.segment == nil {
-            Button("Bắt đầu cắt tại \(clock(player.elapsed))") {
+            Button(localized("Bắt đầu cắt tại %@", clock(player.elapsed))) {
                 player.markStart()
             }
         }
         if let segment = player.segment {
-            Button("Giữ đoạn \(clock(segment.lowerBound)) – \(clock(segment.upperBound))") {
+            Button(localized("Giữ đoạn %@ – %@", clock(segment.lowerBound), clock(segment.upperBound))) {
                 library.setSegment(Int(segment.lowerBound)...Int(segment.upperBound),
                                    uniqueId: track.uniqueId)
             }

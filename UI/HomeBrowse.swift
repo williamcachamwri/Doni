@@ -179,7 +179,7 @@ struct HomeBrowse: View {
                 Text("Xem thêm")
                     .font(.title2.bold())
                 Spacer()
-                Text("\(facet.tracks.count) bài")
+                Text(localized("%@ bài", facet.tracks.count.formatted()))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

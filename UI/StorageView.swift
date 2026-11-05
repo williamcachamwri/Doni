@@ -115,7 +115,7 @@ struct StorageView: View {
                         ProgressView(value: Double(used), total: Double(max(total, 1)))
                             .tint(.accentColor)
                         HStack {
-                            Text("Máy đã dùng \(DataSize.string(used))")
+                            Text(localized("Máy đã dùng %@", DataSize.string(used)))
                             Spacer()
                             Text("Còn trống \(DataSize.string(usage?.deviceFreeBytes ?? 0))")
                         }
@@ -262,7 +262,7 @@ struct StorageView: View {
         switch action {
         case .pictures:
             let freed = StorageTally.clearPictures(artwork)
-            message = "Đã giải phóng \(DataSize.string(freed)) ảnh."
+            message = localized("Đã giải phóng %@ ảnh.", DataSize.string(freed))
         case .downloads:
             guard let files = session.covers() else {
                 failure = "Chưa có kết nối Telegram, nên không thể báo cho TDLib biết các bài này đã không còn trên máy."
@@ -271,7 +271,7 @@ struct StorageView: View {
             let count = await library.clearTelegramDownloads(with: files)
             message = count == 1
                 ? "Đã xoá 1 bài khỏi máy."
-                : "Đã xoá \(count.formatted()) bài khỏi máy."
+                : localized("Đã xoá %@ bài khỏi máy.", count.formatted())
         }
         await measure()
     }

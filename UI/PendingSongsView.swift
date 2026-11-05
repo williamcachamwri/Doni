@@ -130,16 +130,16 @@ struct PendingSongsView: View {
     /// already spent on the rest.
     private var headline: String {
         if !query.isEmpty {
-            return "\(visible.count.formatted()) kết quả"
+            return localized("%@ kết quả", visible.count.formatted())
         }
-        return "\(pending.count.formatted()) bài chưa tải · "
-            + "\(DataSize.string(library.downloadedBytes)) trên máy"
+        return localized("%@ bài chưa tải · %@ trên máy",
+            pending.count.formatted(), DataSize.string(library.downloadedBytes))
     }
 
     private var waitingLine: String {
         fetching.count == 1
             ? "Đang tải 1 bài về máy…"
-            : "Đang tải \(fetching.count.formatted()) bài về máy…"
+            : localized("Đang tải %@ bài về máy…", fetching.count.formatted())
     }
 
     // MARK: Foot and empty
@@ -191,8 +191,8 @@ struct PendingSongsView: View {
             ContentUnavailableView {
                 Label("Mọi bài đã có trên máy", systemImage: "checkmark.icloud")
             } description: {
-                Text("\(library.trackCount.formatted()) bài trong kênh đã nằm trong "
-                    + "\(DataSize.string(library.downloadedBytes)) bạn đang giữ.")
+                Text(localized("%@ bài trong kênh đã nằm trong %@ bạn đang giữ.",
+                    library.trackCount.formatted(), DataSize.string(library.downloadedBytes)))
             } actions: {
                 Button("Đọc lại kênh") { indexer.run(session, library: library) }
                     .buttonStyle(.borderedProminent)

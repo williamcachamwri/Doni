@@ -43,7 +43,10 @@ device: project ## Compile signed for real hardware with your free personal team
 test: ## Run package tests on the host toolchain (no simulator)
 	for p in $(PACKAGES); do (cd Packages/$$p && swift test) || exit 1; done
 
-check: build test ## Everything a commit has to survive
+strings: ## Regenerate the language catalog; fails if the app says a word the table has no row for
+	python3 Scripts/build-strings.py
+
+check: build test strings ## Everything a commit has to survive
 
 clean: ## Remove generated project and host build output
 	rm -rf $(XCODEPROJ)

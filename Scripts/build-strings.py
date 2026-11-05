@@ -95,23 +95,43 @@ def strip_comments(text: str) -> str:
     )
 
 
-def coverage(keys: set[str]) -> list[str]:
-    """Vietnamese literals the code says that the table has no row for.
+def coverage(keys: set[str]) -> tuple[list[str], list[str]]:
+    """What the table still owes: whole literals with no row, and literals that cannot have one.
 
-    Only whole string literals are counted; a sentence written as `"a" + "b"` in the source is not a
-    `LocalizedStringKey` at all and cannot be translated by a catalog, which is worth saying out loud
-    rather than pretending the row is missing.
+    The second list is the important half. `Text("A \\(x) B")` *is* a localized key, but the key
+    SwiftUI builds depends on the Swift type of `x`, so no table row can name it — such a string has
+    to be rewritten through `localized("A %@ B", x)` first. Counting them as answered would be the
+    same lie as not counting them.
     """
     viet = re.compile(r"[àáảãạăâêôơưđÀÁẢÃẠĂÂÊÔƠƯĐ]")
     literal = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
     missing: set[str] = set()
+    unanswerable: set[str] = set()
     for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
         for match in literal.finditer(strip_comments(source.read_text(encoding="utf-8"))):
             text = match.group(1)
-            if "\\(" in text or not viet.search(text) or text in keys or text in NOT_TRANSLATED:
+            if not viet.search(text) or text in keys or text in NOT_TRANSLATED:
                 continue
-            missing.add(text)
-    return sorted(missing)
+            (unanswerable if "\\(" in text else missing).add(text)
+    return sorted(missing), sorted(unanswerable)
+
+
+def placeholder_mismatches(strings: dict) -> list[str]:
+    """Rows whose translations lost a `%@` the source has.
+
+    A translation that drops a placeholder does not fail — it prints a sentence with the number or
+    the name missing, which is worse than Vietnamese. Three of them were caught this way on the
+    first full pass, so the count is checked rather than trusted.
+    """
+    bad = []
+    for key, entry in strings.items():
+        if "%@" not in key:
+            continue
+        want = key.count("%@")
+        for language, unit in entry.get("localizations", {}).items():
+            if unit["stringUnit"]["value"].count("%@") != want:
+                bad.append(f"{key[:48]} [{language}]")
+    return sorted(bad)
 
 
 def main() -> int:
@@ -139,16 +159,20 @@ def main() -> int:
     OUTPUT.write_text(json.dumps(
         {"sourceLanguage": "vi", "strings": strings, "version": "1.0"},
         ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    total = len(l10n)
     print(f"wrote {OUTPUT.name}: {len(strings)} keys, {len(l10n)} lyrics keys, "
           f"{len(unknown)} of them untranslated")
-    missing = coverage(set(strings))
-    print(f"app strings still falling back to Vietnamese: {len(missing)} of {len(missing) + len(rows)}")
+    missing, unanswerable = coverage(set(strings))
+    print(f"app strings still falling back to Vietnamese: {len(missing)} of {len(strings)}")
     for text in missing[:12]:
         print(f"   {text[:72]}")
     if len(missing) > 12:
         print(f"   … and {len(missing) - 12} more (python3 Scripts/build-strings.py --all)")
-    return 0
+    for text in unanswerable:
+        print(f"   INTERPOLATED, rewrite as localized(\"…\", x): {text[:60]}")
+    broken = placeholder_mismatches(strings)
+    for row in broken:
+        print(f"   PLACEHOLDER LOST: {row}")
+    return 1 if missing or unanswerable or unknown or broken else 0
 
 
 if __name__ == "__main__":
@@ -156,6 +180,9 @@ if __name__ == "__main__":
         # The rows a translation pass still owes, which is the whole point of keeping the table in
         # one file: adding a string to the app makes it show up here until it is answered.
         keys = {row[0] for row in read_table()} | set(read_l10n())
-        print("\n".join(coverage(keys)))
-        raise SystemExit(0)
+        missing, unanswerable = coverage(keys)
+        print("\n".join(missing))
+        for text in unanswerable:
+            print(f"INTERPOLATED: {text}")
+        raise SystemExit(1 if missing or unanswerable else 0)
     raise SystemExit(main())

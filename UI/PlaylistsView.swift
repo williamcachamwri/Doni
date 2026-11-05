@@ -121,12 +121,12 @@ struct PlaylistsView: View {
             titleVisibility: .visible,
             presenting: pendingDeletion
         ) { list in
-            Button("Xoá \(list.name)", role: .destructive) {
+            Button(localized("Xoá %@", list.name), role: .destructive) {
                 library.deletePlaylist(id: list.id)
             }
             Button("Huỷ", role: .cancel) {}
         } message: { list in
-            Text("“\(list.name)” có \(list.trackCount) bài.")
+            Text(localized("“%@” có %@ bài.", list.name, list.trackCount.formatted()))
         }
         .overlay {
             if library.playlists.isEmpty {
@@ -173,7 +173,7 @@ private struct PlaylistRow: View {
                     .lineLimit(1)
                 Text(playlist.trackCount == 0
                     ? "Chưa có bài nào"
-                    : "\(playlist.trackCount.formatted()) bài")
+                    : localized("%@ bài", playlist.trackCount.formatted()))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -536,7 +536,7 @@ struct PlaylistDetailView: View {
                 .lineLimit(1)
                 .padding(.top, MusicPlaylistMetrics.heroTitleToSubtitle)
 
-            Text("\(tracks.count.formatted()) bài")
+            Text(localized("%@ bài", tracks.count.formatted()))
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -692,7 +692,7 @@ private struct PlaylistTrackRow: View {
                 }
                 Divider()
                 ForEach(lists) { list in
-                    Button("Thêm vào “\(list.name)”") {
+                    Button(localized("Thêm vào “%@”", list.name)) {
                         library.add(track, to: list.id)
                     }
                 }
@@ -707,7 +707,7 @@ private struct PlaylistTrackRow: View {
                            height: MusicPlaylistMetrics.listMenuHeight)
                     .contentShape(.rect)
             }
-            .accessibilityLabel("Thêm cho “\(track.displayTitle)”")
+            .accessibilityLabel(localized("Thêm cho “%@”", track.displayTitle))
         }
         .padding(.leading, MusicPlaylistMetrics.trackRowLeading)
         .padding(.trailing, MusicPlaylistMetrics.trackRowTrailing)

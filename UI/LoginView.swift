@@ -479,7 +479,7 @@ struct LoginView: View {
             "Số điện thoại của bạn"
         case .waitCode(_, let current, _, _):
             switch current.lengthOfCode {
-            case let length?: "Nhập mã \(length) chữ số"
+            case let length?: localized("Nhập mã %@ chữ số", length.formatted())
             case nil: "Nhập mã xác nhận"
             }
         case .waitPassword?:
@@ -506,19 +506,19 @@ struct LoginView: View {
         case .waitCode(let sentTo, let current, _, _):
             switch current {
             case .smsWord(let letter):
-                "Nhập từ bắt đầu bằng “\(letter)” mà chúng tôi đã gửi cho \(sentTo)."
+                localized("Nhập từ bắt đầu bằng “%@” mà chúng tôi đã gửi cho %@.", letter, sentTo)
             case .smsPhrase(let word):
-                "Nhập câu bắt đầu bằng “\(word)” mà chúng tôi đã gửi cho \(sentTo)."
+                localized("Nhập câu bắt đầu bằng “%@” mà chúng tôi đã gửi cho %@.", word, sentTo)
             default:
                 switch current.lengthOfCode {
-                case let length?: "Chúng tôi đã gửi mã \(length) chữ số cho \(sentTo)."
-                case nil: "Chúng tôi đã gửi mã cho \(sentTo)."
+                case let length?: localized("Chúng tôi đã gửi mã %@ chữ số cho %@.", length.formatted(), sentTo)
+                case nil: localized("Chúng tôi đã gửi mã cho %@.", sentTo)
                 }
             }
         case .waitPassword(let hint, _, _):
             hint.isEmpty ? "Nhập mật khẩu bạn đã đặt cho tài khoản này." : "Gợi ý: \(hint)"
         case .waitRegistration(let minimumAge)?:
-            "Số này chưa có tài khoản Telegram và cần đủ \(minimumAge) tuổi."
+            localized("Số này chưa có tài khoản Telegram và cần đủ %@ tuổi.", minimumAge.formatted())
         case .waitOtherDeviceConfirmation(let link)?:
             link
         case .ready?, .loggingOut?, .closing?, .closed?, .waitTdlibParameters?, .unknown?:
@@ -714,9 +714,9 @@ extension TdAuthorizationStep.CodeDelivery {
     var placeholder: String {
         switch self {
         case .smsWord(let letter):
-            "Từ bắt đầu bằng \(letter)"
+            localized("Từ bắt đầu bằng %@", letter)
         case .smsPhrase(let word):
-            "Câu bắt đầu bằng \(word)"
+            localized("Câu bắt đầu bằng %@", word)
         default:
             "Mã"
         }

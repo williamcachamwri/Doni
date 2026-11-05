@@ -112,7 +112,7 @@ struct CloudMusicView: View {
         }
         .confirmationDialog("Xoá bài này?", isPresented: deleting,
                            titleVisibility: .visible, presenting: pendingDeletion) { song in
-            Button("Xoá \(song.displayTitle)", role: .destructive) {
+            Button(localized("Xoá %@", song.displayTitle), role: .destructive) {
                 library.removeLocal(song)
                 pendingDeletion = nil
             }
@@ -154,16 +154,16 @@ struct CloudMusicView: View {
     /// thing this app can: how many files the user has brought and how much of the phone they cost.
     private var headline: String {
         if !query.isEmpty {
-            return "\(visible.count.formatted()) kết quả"
+            return localized("%@ kết quả", visible.count.formatted())
         }
         let bytes = kept.reduce(Int64(0)) { $0 + $1.size }
-        return "\(kept.count.formatted()) bài của bạn · " + DataSize.string(bytes)
+        return localized("%@ bài của bạn · %@", kept.count.formatted(), DataSize.string(bytes))
     }
 
     private var waitingLine: String {
         importing == 1
             ? "Đang thêm 1 bài vào thư viện…"
-            : "Đang thêm \(importing.formatted()) bài vào thư viện…"
+            : localized("Đang thêm %@ bài vào thư viện…", importing.formatted())
     }
 
     private var deleting: Binding<Bool> {
@@ -235,7 +235,7 @@ struct CloudMusicView: View {
             if added == 0 {
                 failure = complaint.isEmpty
                     ? "Không có file nào được chọn."
-                    : "Không thêm được: \(complaint)."
+                    : localized("Không thêm được: %@.", complaint)
             }
         }
     }

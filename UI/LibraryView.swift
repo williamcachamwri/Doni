@@ -93,7 +93,7 @@ struct LibraryView: View {
                 } label: {
                     AccountAvatar(account: session.account, photo: session.accountPhoto)
                 }
-                .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" }
+                .accessibilityLabel(session.account.map { localized("Cài đặt của %@", $0.name) }
                     ?? "Cài đặt")
             }
         }
@@ -210,7 +210,7 @@ struct LibraryView: View {
             ForEach(playlists, id: \.id) { shelf in
                 NavigationLink(value: shelf.id) {
                     HomeCard(cover: shelf.cover, title: shelf.name,
-                             subtitle: "\(shelf.count) bài",
+                             subtitle: localized("%@ bài", shelf.count.formatted()),
                              side: MusicFeedMetrics.playlistCard, artwork: artwork)
                         .task(id: shelf.cover.uniqueId) {
                             await artwork.load(track: shelf.cover, via: session.covers(),
@@ -301,11 +301,11 @@ struct LibraryView: View {
 
     private func subtitle(_ action: DoniHomeAction) -> String {
         switch action {
-        case .shuffle: return "\(visible.count) bài trong thư viện"
-        case .newest: return "\(newest.count) bài vừa về"
-        case .likes: return "\(keptAll.count) bài đã tim"
-        case .offline: return "\(offlineAll.count) bài có trên máy"
-        case .lists: return "\(library.playlists.count) danh sách của bạn"
+        case .shuffle: return localized("%@ bài trong thư viện", visible.count.formatted())
+        case .newest: return localized("%@ bài vừa về", newest.count.formatted())
+        case .likes: return localized("%@ bài đã tim", keptAll.count.formatted())
+        case .offline: return localized("%@ bài có trên máy", offlineAll.count.formatted())
+        case .lists: return localized("%@ danh sách của bạn", library.playlists.count.formatted())
         case .resume: return player.current?.displayTitle ?? "Chưa có bài nào đang nghe"
         }
     }

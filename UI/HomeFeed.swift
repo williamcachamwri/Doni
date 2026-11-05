@@ -64,7 +64,7 @@ struct HomeShelf<Content: View>: View {
                     }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.circle)
-                    .accessibilityLabel("Phát tất cả \(title)")
+                    .accessibilityLabel(localized("Phát tất cả %@", title))
                 }
             }
             .padding(.horizontal, MusicFeedMetrics.gutter)
