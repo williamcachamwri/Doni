@@ -388,9 +388,7 @@ final class Library: ObservableObject {
     func clearTelegramDownloads(with files: TdFileDownloader) async -> Int {
         var released = 0
         for row in storedTracks where row.isDownloaded && !row.isLocal && row.fileId != 0 {
-            guard await files.remove(TdFile(fileId: row.fileId, uniqueId: row.uniqueId)) else {
-                continue
-            }
+            guard await files.remove(TdFile(audio: row)) else { continue }
             store.setLocalPath(nil, uniqueId: row.uniqueId)
             released += 1
         }
@@ -440,7 +438,7 @@ final class Library: ObservableObject {
 
     /// One row's length out of a few kilobytes of it.
     private func probe(_ row: StoreTrack, with files: TdFileDownloader) async {
-        let file = TdFile(fileId: row.fileId, uniqueId: row.uniqueId)
+        let file = TdFile(audio: row)
         guard var head = await files.part(file, offset: 0, bytes: Self.headBytes)
         else { return }
         var reading = AudioDuration.read(head: head, totalSize: row.size)

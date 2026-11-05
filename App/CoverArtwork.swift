@@ -190,12 +190,9 @@ final class CoverArtwork: ObservableObject {
                 }
             }
         }
-        // The directory outlives the process, so it is the one thing here that needs a budget of its
-        // own: `Library/Caches` is only pruned when the system feels like it.
         Task.detached(priority: .utility) {
             Self.discardLegacySources()
             Self.discardNonImageSources()
-            Self.trimSources()
         }
     }
 
@@ -454,18 +451,12 @@ final class CoverArtwork: ObservableObject {
             put(tile, forKey: key)
             return
         }
-        // A cover with no identity of its own can only be reached by TDLib's row number, and a
-        // number this library kept across a TDLib rebuild now names a different file. What is on the
-        // other side of that number would be filed under this song's name and drawn for it forever,
-        // so the ask is refused: a song whose cover cannot be named shows its own tag art, which was
-        // asked for first anyway, rather than a stranger's.
-        guard let coverId = track.coverUniqueId, !coverId.isEmpty,
-              let fileId = track.coverFileId else { return }
-        // The bytes are named, so they may be kept: `coverSource` is keyed on the cover's own
-        // `file_unique_id`, which is the same name in every database TDLib ever builds.
+        // A generated cover may not have a remote identity yet. Its message is then the proof that
+        // this row belongs to this song; named covers are checked by `remote.unique_id` as well.
+        guard let file = TdFile(cover: track) else { return }
         let source = Self.coverSource(cover)
         guard let path = await (via ?? downloader)?.path(
-            TdFile(fileId: fileId, uniqueId: coverId), priority: TdFileDownloader.coverPriority
+            file, priority: TdFileDownloader.coverPriority
         ) else { return }
         let image = await Task.detached(priority: .userInitiated) {
             let tile = Self.downsampled(path: path, side: pixels)
@@ -477,16 +468,11 @@ final class CoverArtwork: ObservableObject {
     }
 
     /// Where TDLib says this song's own file is, when the row holding it does not know yet.
-    ///
-    /// `getFileByFileUniqueId` is answered out of TDLib's own database and costs no round trip, which
-    /// makes it the cheap way past both a stale snapshot and a stale row number: the list is still
-    /// carrying the `TdTrack` read before the download finished, and only TDLib has kept up with the
-    /// file — while the number the row kept belongs to whichever database made it, so the song is
-    /// asked for by the name its bytes carry everywhere. Nothing is asked when there is no client — a
-    /// song with no `fileId` is one the user brought in, and that one always knows its own path.
+    /// The downloader checks the stored number and refreshes it from the song's message if TDLib
+    /// has rebuilt its database. Imported songs have no client and already know their own path.
     private func onDevicePath(for track: any Playable, via: TdFileDownloader?) async -> String? {
         guard track.fileId != 0, let files = via ?? downloader else { return nil }
-        return await files.readyPath(TdFile(fileId: track.fileId, uniqueId: track.uniqueId))
+        return await files.readyPath(TdFile(audio: track))
     }
 
     /// The cover inside the audio file, decoded off the main thread and written into the same cache
@@ -884,32 +870,6 @@ final class CoverArtwork: ObservableObject {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path),
                                    options: .mappedIfSafe) else { return }
         write(data, to: url)
-    }
-
-    /// 120 MB is a thousand covers' worth of originals. The oldest-written go first, which is roughly
-    /// the order a listener stops needing them in.
-    private nonisolated static let sourceBudget = 120 * 1024 * 1024
-
-    private nonisolated static func trimSources() {
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: sourceDirectory,
-            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
-        )) ?? []
-        var live: [(url: URL, bytes: Int, written: Date)] = []
-        for file in files {
-            let values = try? file.resourceValues(
-                forKeys: [.fileSizeKey, .contentModificationDateKey]
-            )
-            live.append((file, values?.fileSize ?? 0, values?.contentModificationDate ?? .distantPast))
-        }
-        var kept = 0
-        for entry in live.sorted(by: { $0.written > $1.written }) {
-            if kept + entry.bytes > sourceBudget {
-                try? FileManager.default.removeItem(at: entry.url)
-            } else {
-                kept += entry.bytes
-            }
-        }
     }
 
     private nonisolated static func downsampled(path: String, side: Int) -> UIImage? {

@@ -67,6 +67,39 @@ private func fileJSON(
     return text
 }
 
+private func coverJSON(id: Int, uniqueId: String, width: Int = 320) -> String {
+    let file = fileJSON(id: id, active: false, completed: false, path: "", uniqueId: uniqueId)
+    return #"{"@type":"thumbnail","format":{"@type":"thumbnailFormatJpeg"},"width":\#(width),"height":320,"file":\#(file)}"#
+}
+
+private func audioMessage(
+    chatId: Int64 = 44,
+    messageId: Int64 = 55,
+    audioId: Int,
+    audioUniqueId: String,
+    cover: String? = nil,
+    externalCovers: [String] = [],
+    extra: String
+) -> String {
+    let audio = fileJSON(id: audioId, active: false, completed: false, path: "",
+                         uniqueId: audioUniqueId)
+    let covers = "[\(externalCovers.joined(separator: ","))]"
+    let text = #"""
+    {"@type":"message","@extra":"\#(extra)","id":\#(messageId),"chat_id":\#(chatId),"date":1,\#
+    "content":{"@type":"messageAudio","audio":{"@type":"audio","duration":120,"title":"song",\#
+    "performer":"artist","file_name":"song.mp3","mime_type":"audio/mpeg",\#
+    "album_cover_minithumbnail":null,"album_cover_thumbnail":\#(cover ?? "null"),\#
+    "external_album_covers":\#(covers),"audio":\#(audio)},\#
+    "caption":{"@type":"formattedText","text":"","entities":[]}}}
+    """#
+    precondition(TdJSON.parse(text) != nil, "the message fixture is not JSON: \(text)")
+    return text
+}
+
+private func origin(_ kind: TdFile.Message.Kind, trackId: String = "wanted") -> TdFile.Message {
+    TdFile.Message(chatId: 44, messageId: 55, trackUniqueId: trackId, kind: kind)
+}
+
 /// A file on the phone whose bytes a test can name, so a slice read out of it can be checked.
 private func written(_ text: String) throws -> (url: URL, bytes: [UInt8]) {
     let directory = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -481,12 +514,8 @@ func staleRowNumberIsRefused() async throws {
     defer { session.client.close() }
     let downloader = TdFileDownloader(flow: session.flow)
 
-    // The number the library kept is 9001 and the bytes it wants are called "wanted"; TDLib's answer
-    // about 9001 is a different file. Downloading it would put somebody else's song under this
-    // song's name — and the app files covers on disk, so the mistake would outlive the launch that
-    // made it.
     let waiting = Task { await downloader.path(TdFile(fileId: 9001, uniqueId: "wanted")) }
-    let extra = try await downloadExtra(of: session.transport, type: "getFileByFileUniqueId")
+    let extra = try await downloadExtra(of: session.transport, type: "getFile")
     session.transport.queue(fileJSON(id: 9001, active: false, completed: true,
                                      path: "/tmp/doni/files/9001.mp3",
                                      uniqueId: "someone-else", extra: extra))
@@ -495,43 +524,34 @@ func staleRowNumberIsRefused() async throws {
     #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
 }
 
-@Test("the identity, not the number kept, decides which row is downloaded")
-func identityPicksTheRowNumber() async throws {
+@Test("a row whose identity matches is downloaded normally")
+func matchingRowNumberIsDownloaded() async throws {
     let session = makeSession()
     defer { session.client.close() }
     let downloader = TdFileDownloader(flow: session.flow)
 
-    // A number from an older database and the name the bytes still answer to: the download goes to
-    // the row TDLib uses for that name today, which is the only way this ends up as this song's file.
-    let waiting = Task { await downloader.path(TdFile(fileId: 5, uniqueId: "u9002")) }
-    let lookup = try await downloadExtra(of: session.transport, type: "getFileByFileUniqueId")
-    session.transport.queue(fileJSON(id: 9002, active: true, completed: false, path: "",
+    let waiting = Task { await downloader.path(TdFile(fileId: 9002, uniqueId: "u9002")) }
+    let lookup = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 9002, active: false, completed: false, path: "",
                                      uniqueId: "u9002", extra: lookup))
     let ask = try await downloadExtra(of: session.transport, type: "downloadFile")
-    session.transport.queue(fileJSON(id: 9002, active: true, completed: false, path: "",
+    session.transport.queue(fileJSON(id: 9002, active: false, completed: true,
+                                     path: "/tmp/doni/files/9002.mp3",
                                      uniqueId: "u9002", extra: ask))
-    session.transport.queue(updateFile(fileJSON(id: 9002, active: false, completed: true,
-                                                path: "/tmp/doni/files/9002.mp3",
-                                                uniqueId: "u9002")))
 
     #expect(await waiting.value == "/tmp/doni/files/9002.mp3")
     let request = try #require(requestFields(of: session.transport, type: "downloadFile"))
     #expect(request["file_id"]?.int == 9002)
-    let lookupRequest = try #require(requestFields(of: session.transport,
-                                                   type: "getFileByFileUniqueId"))
-    #expect(lookupRequest["file_unique_id"]?.string == "u9002")
 }
 
-@Test("bytes TDLib cannot name are bytes it will not vouch for")
+@Test("bytes TDLib cannot name are not accepted for a named file")
 func unnamedIdentityIsRefused() async throws {
     let session = makeSession()
     defer { session.client.close() }
     let downloader = TdFileDownloader(flow: session.flow)
 
-    // `fileRemoteUnknown` carries no `unique_id`: TDLib has not seen these bytes since its database
-    // was rebuilt. An empty answer is a refusal rather than a match on the empty string.
     let waiting = Task { await downloader.readyPath(TdFile(fileId: 9003, uniqueId: "wanted")) }
-    let extra = try await downloadExtra(of: session.transport, type: "getFileByFileUniqueId")
+    let extra = try await downloadExtra(of: session.transport, type: "getFile")
     session.transport.queue(fileJSON(id: 9003, active: false, completed: true,
                                      path: "/tmp/doni/files/9003.mp3",
                                      uniqueId: "", extra: extra))
@@ -539,7 +559,7 @@ func unnamedIdentityIsRefused() async throws {
     #expect(await waiting.value == nil)
 }
 
-@Test("one identity is looked up once, however many surfaces ask for the same file")
+@Test("one identity is confirmed once, however many surfaces ask for the same file")
 func lookupIsRemembered() async throws {
     let session = makeSession()
     defer { session.client.close() }
@@ -547,25 +567,22 @@ func lookupIsRemembered() async throws {
     let file = TdFile(fileId: 9004, uniqueId: "u9004")
 
     let first = Task { await downloader.readyPath(file) }
-    let lookup = try await downloadExtra(of: session.transport, type: "getFileByFileUniqueId")
-    session.transport.queue(fileJSON(id: 9004, active: false, completed: true,
-                                     path: "/tmp/doni/files/9004.mp3", uniqueId: "u9004",
-                                     extra: lookup))
-    let asked = try await downloadExtra(of: session.transport, type: "getFile")
-    session.transport.queue(fileJSON(id: 9004, active: false, completed: true,
-                                     path: "/tmp/doni/files/9004.mp3", uniqueId: "u9004",
-                                     extra: asked))
-    #expect(await first.value == "/tmp/doni/files/9004.mp3")
+    for nth in 1...2 {
+        let asked = try await downloadExtra(of: session.transport, type: "getFile", nth: nth)
+        session.transport.queue(fileJSON(id: 9004, active: false, completed: true,
+                                         path: "/tmp/doni/files/9004.mp3", uniqueId: "u9004",
+                                         extra: asked))
+        if nth == 2 { #expect(await first.value == "/tmp/doni/files/9004.mp3") }
+    }
 
-    // A row, its shelf card and the hero all want the same picture, and the second ask is answered
-    // out of the number the first look-up already proved.
     let second = Task { await downloader.readyPath(file) }
-    let askedAgain = try await downloadExtra(of: session.transport, type: "getFile", nth: 2)
+    let askedAgain = try await downloadExtra(of: session.transport, type: "getFile", nth: 3)
     session.transport.queue(fileJSON(id: 9004, active: false, completed: true,
                                      path: "/tmp/doni/files/9004.mp3", uniqueId: "u9004",
                                      extra: askedAgain))
     #expect(await second.value == "/tmp/doni/files/9004.mp3")
-    #expect(session.transport.decodedRequests.filter { $0.type == "getFileByFileUniqueId" }.count == 1)
+    #expect(session.transport.decodedRequests.filter { $0.type == "getFile" }.count == 3)
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "getMessage" })
 }
 
 @Test("a probe of a file whose identity does not match reads nothing")
@@ -577,7 +594,7 @@ func partRefusesAnUnmatchedIdentity() async throws {
     let waiting = Task {
         await downloader.part(TdFile(fileId: 9005, uniqueId: "wanted"), offset: 0, bytes: 8)
     }
-    let extra = try await downloadExtra(of: session.transport, type: "getFileByFileUniqueId")
+    let extra = try await downloadExtra(of: session.transport, type: "getFile")
     session.transport.queue(fileJSON(id: 9005, active: false, completed: true, path: "/nope.mp3",
                                      uniqueId: "someone-else", extra: extra))
 
@@ -585,17 +602,20 @@ func partRefusesAnUnmatchedIdentity() async throws {
     #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
 }
 
-@Test("a delete is asked for the row the bytes are in today")
+@Test("a delete follows a stale row back to the current message")
 func removeFollowsTheIdentity() async throws {
     let session = makeSession()
     defer { session.client.close() }
     let downloader = TdFileDownloader(flow: session.flow)
+    let file = TdFile(fileId: 5, uniqueId: "u9006", message: origin(.audio, trackId: "u9006"))
 
-    let waiting = Task { await downloader.remove(TdFile(fileId: 5, uniqueId: "u9006")) }
-    let lookup = try await downloadExtra(of: session.transport, type: "getFileByFileUniqueId")
-    session.transport.queue(fileJSON(id: 9006, active: false, completed: true,
-                                     path: "/tmp/doni/files/9006.mp3", uniqueId: "u9006",
+    let waiting = Task { await downloader.remove(file) }
+    let lookup = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 5, active: false, completed: true,
+                                     path: "/tmp/doni/files/5.mp3", uniqueId: "someone-else",
                                      extra: lookup))
+    let message = try await downloadExtra(of: session.transport, type: "getMessage")
+    session.transport.queue(audioMessage(audioId: 9006, audioUniqueId: "u9006", extra: message))
     let ask = try await downloadExtra(of: session.transport, type: "deleteFile")
     session.transport.queue(#"{"@type":"ok","@extra":"\#(ask)"}"#)
 
@@ -604,20 +624,169 @@ func removeFollowsTheIdentity() async throws {
     #expect(request["file_id"]?.int == 9006)
 }
 
-@Test("a file with no identity to check is still asked for by its number")
+@Test("a file with no identity and no message keeps the old numeric behaviour")
 func numberWithoutIdentityIsUsedAsItWas() async throws {
     let session = makeSession()
     defer { session.client.close() }
     let downloader = TdFileDownloader(flow: session.flow)
 
-    // A cover TDLib has never given a name, and a song the user brought in from Files: there is no
-    // second name to ask about, so the number is the whole of what the caller has — and no lookup
-    // is spent pretending otherwise.
     let waiting = Task { await downloader.readyPath(TdFile(fileId: 9007, uniqueId: nil)) }
     let extra = try await downloadExtra(of: session.transport, type: "getFile")
     session.transport.queue(fileJSON(id: 9007, active: false, completed: true,
                                      path: "/tmp/doni/files/9007.mp3", extra: extra))
 
     #expect(await waiting.value == "/tmp/doni/files/9007.mp3")
-    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "getFileByFileUniqueId" })
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "getMessage" })
+}
+
+@Test("a stale song row is refreshed from its own message and plays")
+func staleAudioRowIsRefreshedFromItsMessage() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let file = TdFile(fileId: 5, uniqueId: "wanted", message: origin(.audio))
+
+    let waiting = Task { await downloader.path(file, priority: TdFileDownloader.audioPriority) }
+    let check = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 5, active: false, completed: true, path: "/wrong.mp3",
+                                     uniqueId: "someone-else", extra: check))
+    let message = try await downloadExtra(of: session.transport, type: "getMessage")
+    session.transport.queue(audioMessage(audioId: 9008, audioUniqueId: "wanted", extra: message))
+    let ask = try await downloadExtra(of: session.transport, type: "downloadFile")
+    session.transport.queue(fileJSON(id: 9008, active: false, completed: true,
+                                     path: "/tmp/doni/files/9008.mp3",
+                                     uniqueId: "wanted", extra: ask))
+
+    #expect(await waiting.value == "/tmp/doni/files/9008.mp3")
+    let request = try #require(requestFields(of: session.transport, type: "getMessage"))
+    #expect(request["chat_id"]?.int == 44)
+    #expect(request["message_id"]?.int == 55)
+}
+
+@Test("a stale cover row is refreshed to the exact named cover")
+func staleCoverRowIsRefreshedToTheExactCover() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let file = TdFile(fileId: 5, uniqueId: "cover-wanted", message: origin(.cover))
+
+    let waiting = Task { await downloader.path(file) }
+    let check = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 5, active: false, completed: true, path: "/wrong.jpg",
+                                     uniqueId: "someone-else", extra: check))
+    let message = try await downloadExtra(of: session.transport, type: "getMessage")
+    session.transport.queue(audioMessage(
+        audioId: 9100, audioUniqueId: "wanted",
+        cover: coverJSON(id: 9998, uniqueId: "cover-other", width: 600),
+        externalCovers: [coverJSON(id: 9009, uniqueId: "cover-wanted")], extra: message
+    ))
+    let ask = try await downloadExtra(of: session.transport, type: "downloadFile")
+    session.transport.queue(fileJSON(id: 9009, active: false, completed: true,
+                                     path: "/tmp/doni/files/9009.jpg",
+                                     uniqueId: "cover-wanted", extra: ask))
+
+    #expect(await waiting.value == "/tmp/doni/files/9009.jpg")
+    let request = try #require(requestFields(of: session.transport, type: "downloadFile"))
+    #expect(request["file_id"]?.int == 9009)
+}
+
+@Test("an unnamed generated cover is recovered only from its own song")
+func generatedCoverIsRecoveredFromItsOwnSong() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let file = TdFile(fileId: 5, uniqueId: nil, message: origin(.cover))
+
+    let waiting = Task { await downloader.path(file) }
+    let message = try await downloadExtra(of: session.transport, type: "getMessage")
+    session.transport.queue(audioMessage(
+        audioId: 9101, audioUniqueId: "wanted",
+        cover: coverJSON(id: 9010, uniqueId: ""), extra: message
+    ))
+    let ask = try await downloadExtra(of: session.transport, type: "downloadFile")
+    session.transport.queue(fileJSON(id: 9010, active: false, completed: true,
+                                     path: "/tmp/doni/files/9010.jpg",
+                                     uniqueId: "", extra: ask))
+
+    #expect(await waiting.value == "/tmp/doni/files/9010.jpg")
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "getFile" })
+}
+
+@Test("a download response about other bytes is never returned")
+func mismatchedDownloadResponseIsRefused() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.path(TdFile(fileId: 9011, uniqueId: "wanted")) }
+    let check = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 9011, active: false, completed: false, path: "",
+                                     uniqueId: "wanted", extra: check))
+    let ask = try await downloadExtra(of: session.transport, type: "downloadFile")
+    session.transport.queue(fileJSON(id: 9011, active: false, completed: true, path: "/wrong.mp3",
+                                     uniqueId: "someone-else", extra: ask))
+
+    #expect(await waiting.value == nil)
+}
+
+@Test("an update about other bytes is never delivered to a waiting song")
+func mismatchedUpdateIsRefused() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.path(TdFile(fileId: 9012, uniqueId: "wanted")) }
+    let check = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 9012, active: false, completed: false, path: "",
+                                     uniqueId: "wanted", extra: check))
+    let ask = try await downloadExtra(of: session.transport, type: "downloadFile")
+    session.transport.queue(fileJSON(id: 9012, active: true, completed: false, path: "",
+                                     uniqueId: "wanted", extra: ask))
+    session.transport.queue(updateFile(fileJSON(id: 9012, active: false, completed: true,
+                                                path: "/wrong.mp3", uniqueId: "someone-else")))
+
+    #expect(await waiting.value == nil)
+}
+
+@Test("a message about another song cannot repair a stale row")
+func wrongMessageIsRefused() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let file = TdFile(fileId: 5, uniqueId: "wanted", message: origin(.audio))
+
+    let waiting = Task { await downloader.path(file) }
+    let check = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 5, active: false, completed: true, path: "/wrong.mp3",
+                                     uniqueId: "someone-else", extra: check))
+    let message = try await downloadExtra(of: session.transport, type: "getMessage")
+    session.transport.queue(audioMessage(audioId: 9013, audioUniqueId: "another-song",
+                                         extra: message))
+
+    #expect(await waiting.value == nil)
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
+}
+
+@Test("every request the downloader sends exists in the pinned TDLib schema")
+func requestsExistInPinnedSchema() throws {
+    var root = URL(fileURLWithPath: #filePath)
+    for _ in 0..<5 { root.deleteLastPathComponent() }
+    let source = try String(
+        contentsOf: root.appendingPathComponent(
+            "Packages/TdSession/Sources/TdSession/TdFileDownloader.swift"
+        ), encoding: .utf8
+    )
+    let schema = try String(
+        contentsOf: root.appendingPathComponent("Vendor/src/td/td/generate/scheme/td_api.tl"),
+        encoding: .utf8
+    )
+    let expression = try NSRegularExpression(pattern: #"flow\.request\(\s*"([A-Za-z0-9]+)""#)
+    let range = NSRange(source.startIndex..<source.endIndex, in: source)
+    let names = Set(expression.matches(in: source, range: range).compactMap { match in
+        Range(match.range(at: 1), in: source).map { String(source[$0]) }
+    })
+    #expect(!names.isEmpty)
+    for name in names {
+        #expect(schema.contains("\n\(name) "), "TDLib has no request named \(name)")
+    }
 }

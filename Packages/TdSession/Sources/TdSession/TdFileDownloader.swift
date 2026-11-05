@@ -13,12 +13,41 @@ import Foundation
 /// been confirmed against. A caller that knows no identity says so, and gets the behaviour the
 /// number alone ever had.
 public struct TdFile: Sendable, Hashable {
+    /// The message that can give a stale row number back its current file.
+    public struct Message: Sendable, Hashable {
+        public enum Kind: Sendable, Hashable {
+            case audio
+            case cover
+        }
+
+        public let chatId: Int64
+        public let messageId: Int64
+        public let trackUniqueId: String
+        public let kind: Kind
+
+        public init(chatId: Int64, messageId: Int64, trackUniqueId: String, kind: Kind) {
+            self.chatId = chatId
+            self.messageId = messageId
+            self.trackUniqueId = trackUniqueId
+            self.kind = kind
+        }
+    }
+
     public let fileId: Int
     public let uniqueId: String?
+    public let message: Message?
 
-    public init(fileId: Int, uniqueId: String?) {
+    public init(fileId: Int, uniqueId: String?, message: Message? = nil) {
         self.fileId = fileId
         self.uniqueId = uniqueId
+        self.message = message
+    }
+
+    var cacheKey: String? {
+        if let uniqueId, !uniqueId.isEmpty { return uniqueId }
+        guard message?.kind == .cover, let trackId = message?.trackUniqueId, !trackId.isEmpty
+        else { return nil }
+        return "gen:\(trackId)"
     }
 }
 
@@ -29,14 +58,16 @@ public struct TdFile: Sendable, Hashable {
 /// `TdClient` copies those updates onto a stream of their own. One task reads that stream for
 /// everybody here, because two consumers would take turns on the same updates.
 public actor TdFileDownloader {
+    private struct Waiting: Sendable {
+        let uniqueId: String?
+        let continuation: AsyncStream<String?>.Continuation
+    }
+
     private let flow: TdLoginFlow
-    private var listeners: [Int: [UUID: AsyncStream<String?>.Continuation]] = [:]
+    private var listeners: [Int: [UUID: Waiting]] = [:]
     private var router: Task<Void, Never>?
 
-    /// The row numbers already looked up, keyed by the identity they were looked up from.
-    ///
-    /// A number does not change while one TDLib process is running, so this is asked once per file
-    /// for the life of the session rather than once per cover.
+    /// Row numbers confirmed during this TDLib process, keyed by durable file identity.
     private var rows: [String: Int] = [:]
 
     /// TDLib's priority is 1-32 and the higher wins (`td_api.tl:15001`). Cover art is a few tens
@@ -71,28 +102,62 @@ public actor TdFileDownloader {
         self.flow = flow
     }
 
-    /// The row number TDLib uses for these bytes right now, or nil when its answer is about a
-    /// different file.
-    ///
-    /// `getFileByFileUniqueId` is the only question here that cannot be answered about the wrong
-    /// file, because it is asked in the one name MTProto gives bytes rather than in a row number this
-    /// app kept from a database that no longer exists. The identity in the answer
-    /// is checked against the one asked for before the number is used, so a TDLib that answers with
-    /// something else — or with nothing at all, which is what it does for bytes it has never seen
-    /// since its database was rebuilt — ends the lookup instead of starting a download of a
-    /// stranger's file.
-    ///
-    /// Without an identity to check there is nothing to ask and nothing to confirm: the number the
-    /// caller kept is the whole of what it has.
+    /// The row number TDLib uses for these bytes right now. `getFile` proves a stored number;
+    /// when it belongs to another file, `getMessage` supplies the number this song has today.
     private func row(of file: TdFile) async -> Int? {
-        guard let wanted = file.uniqueId, !wanted.isEmpty else { return file.fileId }
-        if let known = rows[wanted] { return known }
-        guard let answer = try? await flow.request(
-            "getFileByFileUniqueId", ["file_unique_id": .string(wanted)]
-        ), Self.identity(of: answer) == wanted, let raw = answer["id"]?.int else { return nil }
-        let fileId = Int(raw)
-        rows[wanted] = fileId
+        if let key = file.cacheKey, let known = rows[key] { return known }
+        if let wanted = file.uniqueId, !wanted.isEmpty {
+            if file.fileId != 0,
+               let answer = try? await flow.request(
+                   "getFile", ["file_id": .int(Int64(file.fileId))]
+               ),
+               answer["id"]?.int == Int64(file.fileId), Self.identity(of: answer) == wanted {
+                rows[wanted] = file.fileId
+                return file.fileId
+            }
+        } else if file.message == nil {
+            return file.fileId
+        }
+
+        guard let message = file.message,
+              let answer = try? await flow.request(
+                  "getMessage",
+                  ["chat_id": .int(message.chatId), "message_id": .int(message.messageId)]
+              ),
+              let track = TdTrack(message: answer), track.uniqueId == message.trackUniqueId
+        else { return nil }
+        let fileId: Int?
+        let uniqueId: String?
+        switch message.kind {
+        case .audio:
+            fileId = track.fileId
+            uniqueId = track.uniqueId
+        case .cover:
+            if let wanted = file.uniqueId, !wanted.isEmpty {
+                fileId = Self.cover(in: answer, matching: wanted)
+                uniqueId = wanted
+            } else {
+                fileId = track.coverFileId
+                uniqueId = track.coverUniqueId
+            }
+        }
+        guard let fileId, fileId != 0 else { return nil }
+        if let wanted = file.uniqueId, !wanted.isEmpty, uniqueId != wanted { return nil }
+        if let key = file.cacheKey { rows[key] = fileId }
         return fileId
+    }
+
+    private static func cover(in message: TdJSON, matching uniqueId: String) -> Int? {
+        let audio = message["content"]?["audio"]
+        var candidates: [TdJSON] = []
+        if let thumbnail = audio?["album_cover_thumbnail"] { candidates.append(thumbnail) }
+        candidates.append(contentsOf: audio?["external_album_covers"]?.array ?? [])
+        for candidate in candidates {
+            guard let file = candidate["file"], identity(of: file) == uniqueId,
+                  let raw = file["id"]?.int else { continue }
+            return Int(raw)
+        }
+        return nil
     }
 
     /// The bytes a `file` object says it holds.
@@ -104,12 +169,17 @@ public actor TdFileDownloader {
         return unique
     }
 
+    private static func matches(_ file: TdJSON, uniqueId: String?) -> Bool {
+        guard let uniqueId, !uniqueId.isEmpty else { return true }
+        return identity(of: file) == uniqueId
+    }
+
     /// The local path once the file is on the device, `nil` if it never gets there — TDLib
     /// rejecting the request, giving up on the file, the client closing under it, or the bytes not
     /// being the ones the caller named.
     public func path(_ file: TdFile, priority: Int = TdFileDownloader.coverPriority) async -> String? {
         guard let fileId = await row(of: file) else { return nil }
-        let listener = install(fileId)
+        let listener = install(fileId, uniqueId: file.uniqueId)
         startRouter()
 
         let answer: TdJSON
@@ -127,6 +197,11 @@ public actor TdFileDownloader {
                 ]
             )
         } catch {
+            detach(listener)
+            return nil
+        }
+        guard answer["id"]?.int == Int64(fileId), Self.matches(answer, uniqueId: file.uniqueId)
+        else {
             detach(listener)
             return nil
         }
@@ -159,13 +234,14 @@ public actor TdFileDownloader {
                     fail(listener)
                     return
                 }
-                if let path = Self.readyPath(in: answer) {
-                    // The router's stream can miss the last update; the file itself cannot lie.
-                    resolve(listener.fileId, with: path)
+                guard answer["id"]?.int == Int64(listener.fileId),
+                      Self.matches(answer, uniqueId: file.uniqueId) else {
+                    fail(listener)
                     return
                 }
-                if Self.isUnavailable(answer) {
-                    fail(listener)
+                if Self.readyPath(in: answer) != nil || Self.isUnavailable(answer) {
+                    // The router's stream can miss the last update; the file itself cannot lie.
+                    announce(answer)
                     return
                 }
                 let bytes = answer["local"]?["downloaded_size"]?.int ?? Int64.min
@@ -202,7 +278,8 @@ public actor TdFileDownloader {
     /// Whether the file is already on the device, without asking for it.
     public func readyPath(_ file: TdFile) async -> String? {
         guard let fileId = await row(of: file) else { return nil }
-        guard let answer = try? await flow.request("getFile", ["file_id": .int(Int64(fileId))])
+        guard let answer = try? await flow.request("getFile", ["file_id": .int(Int64(fileId))]),
+              answer["id"]?.int == Int64(fileId), Self.matches(answer, uniqueId: file.uniqueId)
         else { return nil }
         return Self.readyPath(in: answer)
     }
@@ -250,6 +327,7 @@ public actor TdFileDownloader {
         guard listeners[fileId] == nil else { return nil }
 
         let ask: [String: TdJSON] = ["file_id": .int(Int64(fileId))]
+        let wanted = file.uniqueId
         var file: TdJSON
         do {
             file = try await flow.request(
@@ -267,6 +345,8 @@ public actor TdFileDownloader {
         } catch {
             return nil
         }
+        guard file["id"]?.int == Int64(fileId), Self.matches(file, uniqueId: wanted)
+        else { return nil }
         if Self.covers(file, from: offset, bytes: bytes) {
             return Self.slice(in: file, from: offset, bytes: bytes)
         }
@@ -280,7 +360,9 @@ public actor TdFileDownloader {
                 return nil
             }
             waited += Self.probePoll
-            guard let answer = try? await flow.request("getFile", ask) else { return nil }
+            guard let answer = try? await flow.request("getFile", ask),
+                  answer["id"]?.int == Int64(fileId), Self.matches(answer, uniqueId: wanted)
+            else { return nil }
             file = answer
             if Self.covers(file, from: offset, bytes: bytes) {
                 return Self.slice(in: file, from: offset, bytes: bytes)
@@ -310,10 +392,10 @@ public actor TdFileDownloader {
         }
     }
 
-    private func install(_ fileId: Int) -> Listener {
+    private func install(_ fileId: Int, uniqueId: String?) -> Listener {
         let (stream, continuation) = AsyncStream<String?>.makeStream(bufferingPolicy: .unbounded)
         let token = UUID()
-        listeners[fileId, default: [:]][token] = continuation
+        listeners[fileId, default: [:]][token] = Waiting(uniqueId: uniqueId, continuation: continuation)
         return Listener(fileId: fileId, token: token, stream: stream)
     }
 
@@ -329,10 +411,10 @@ public actor TdFileDownloader {
     }
 
     private func fail(_ listener: Listener) {
-        guard let continuation = listeners[listener.fileId]?[listener.token] else { return }
+        guard let waiting = listeners[listener.fileId]?[listener.token] else { return }
         listeners[listener.fileId]?.removeValue(forKey: listener.token)
-        continuation.yield(nil)
-        continuation.finish()
+        waiting.continuation.yield(nil)
+        waiting.continuation.finish()
     }
 
     /// A row that scrolled away is a caller that has gone and a download nobody wants. TDLib keeps
@@ -358,10 +440,7 @@ public actor TdFileDownloader {
         guard router == nil else { return }
         router = Task {
             for await file in flow.files {
-                guard let raw = file["id"]?.int else { continue }
-                let fileId = Int(raw)
-                if let path = Self.readyPath(in: file) { resolve(fileId, with: path) }
-                else if Self.isUnavailable(file) { resolve(fileId, with: nil) }
+                announce(file)
             }
             // The client closed, so nothing is going to finish these files.
             for fileId in listeners.keys { resolve(fileId, with: nil) }
@@ -370,11 +449,28 @@ public actor TdFileDownloader {
         }
     }
 
+    /// An update is delivered only to waiters whose durable identity it carries.
+    private func announce(_ file: TdJSON) {
+        guard let raw = file["id"]?.int else { return }
+        let fileId = Int(raw)
+        guard var waiting = listeners[fileId] else { return }
+        let path = Self.readyPath(in: file)
+        let unavailable = Self.isUnavailable(file)
+        for (token, waiter) in waiting {
+            let matches = Self.matches(file, uniqueId: waiter.uniqueId)
+            guard !matches || path != nil || unavailable else { continue }
+            waiter.continuation.yield(matches ? path : nil)
+            waiter.continuation.finish()
+            waiting.removeValue(forKey: token)
+        }
+        listeners[fileId] = waiting.isEmpty ? nil : waiting
+    }
+
     private func resolve(_ fileId: Int, with path: String?) {
         guard let waiting = listeners.removeValue(forKey: fileId) else { return }
-        for continuation in waiting.values {
-            continuation.yield(path)
-            continuation.finish()
+        for waiter in waiting.values {
+            waiter.continuation.yield(path)
+            waiter.continuation.finish()
         }
     }
 

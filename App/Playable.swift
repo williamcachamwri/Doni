@@ -36,6 +36,21 @@ protocol Playable {
 
 extension TdTrack: Playable {}
 
+extension TdFile {
+    init(audio track: any Playable) {
+        self.init(fileId: track.fileId, uniqueId: track.uniqueId,
+                  message: TdFile.Message(chatId: track.chatId, messageId: track.messageId,
+                                          trackUniqueId: track.uniqueId, kind: .audio))
+    }
+
+    init?(cover track: any Playable) {
+        guard let fileId = track.coverFileId else { return nil }
+        self.init(fileId: fileId, uniqueId: track.coverUniqueId,
+                  message: TdFile.Message(chatId: track.chatId, messageId: track.messageId,
+                                          trackUniqueId: track.uniqueId, kind: .cover))
+    }
+}
+
 extension StoreTrack: Playable {
     var isDownloaded: Bool { localPath != nil }
 

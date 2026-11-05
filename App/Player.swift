@@ -534,8 +534,7 @@ final class Player: ObservableObject {
     func download(_ track: any Playable) async {
         guard !track.isDownloaded, let downloader else { return }
         guard let onDisk = await downloader.path(
-            TdFile(fileId: track.fileId, uniqueId: track.uniqueId),
-            priority: TdFileDownloader.audioPriority
+            TdFile(audio: track), priority: TdFileDownloader.audioPriority
         ) else { return }
         library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
     }
@@ -600,7 +599,7 @@ final class Player: ObservableObject {
         }
 
         let path = track.localPath
-        let file = TdFile(fileId: track.fileId, uniqueId: track.uniqueId)
+        let file = TdFile(audio: track)
         let downloader = self.downloader
         loading = Task {
             // A stored path is a note that the file was once on the phone, not proof it is still
