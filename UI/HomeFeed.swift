@@ -20,16 +20,23 @@ struct HomeCard: View {
         VStack(alignment: .leading, spacing: MusicFeedMetrics.cardTextGap) {
             TrackCover(track: cover, side: side,
                        radius: MusicArtworkMetrics.radius, artwork: artwork)
+            // Both text lines are always laid out, and both reserve their space whether or not there
+            // is anything to say in them.
+            //
+            // A card that skipped the artist line was shorter than one that had it, and a horizontal
+            // `LazyHStack` takes its height from the items it measures first — so the strip was as
+            // tall as the earliest card and the `ScrollView` clipped every taller one after it. What
+            // got clipped was the bottom of the artist's name, which is the one line a song with no
+            // performer does not have. Reserving both lines makes the cards one height by construction
+            // rather than by luck.
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
-                .lineLimit(2)
-            if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+                .lineLimit(2, reservesSpace: true)
+            Text(subtitle ?? "")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1, reservesSpace: true)
         }
         .frame(width: side, alignment: .leading)
         .contentShape(.rect)
