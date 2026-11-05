@@ -44,6 +44,9 @@ final class Player: ObservableObject {
     /// wrong, or the user is the one who stopped it — the two are not the same and only one of them
     /// needs a sentence on the screen.
     @Published private(set) var playbackProblem: PlaybackProblem?
+    /// Whether the song is playing but waiting for bytes. The screen shows a spinner for this and
+    /// nothing else: it is the one state that is neither paused nor broken.
+    @Published private(set) var isBuffering = false
     private let network = Network.shared
     /// How long the engine has not been producing sound, counted in ticks.
     private var stalledSeconds: TimeInterval = 0
@@ -422,6 +425,7 @@ final class Player: ObservableObject {
     func pause() {
         engine?.pause()
         isPlaying = false
+        isBuffering = false
         ticker?.invalidate()
         ticker = nil
         publishNowPlaying(elapsed: elapsed)
@@ -444,6 +448,7 @@ final class Player: ObservableObject {
             // A session that will not activate is not a reason to lose the row that is playing.
         }
         engine?.play()
+        isBuffering = false
         // Pressing play is the listener saying the reason does not matter any more, so the sentence
         // goes with it — and the stall count restarts, because this is a fresh attempt.
         playbackProblem = nil
@@ -741,20 +746,40 @@ final class Player: ObservableObject {
             _ = await downloader.ask(file, window: window.offset, bytes: window.count)
         }
         print("stream \(track.fileName) size=\(state.size) ext=\(track.fileExtension)")
-        guard let engine = await StreamSongEngine.load(source: source, key: track.uniqueId,
-                                                       fileType: track.fileExtension,
-                                                       storedDuration: seconds),
-              !Task.isCancelled else {
-            // Said out loud because the fallback that follows is a whole-file download, and a song
-            // that always takes that road looks exactly like a song that always streams from the
-            // screen — the difference is only visible here.
-            print("stream refused \(track.fileName), fetching the file instead")
+        let engine = StreamSongEngine.make(source: source, key: track.uniqueId,
+                                           fileType: track.fileExtension, storedDuration: seconds)
+        guard !Task.isCancelled else {
+            engine.stop()
             return false
         }
         streaming = Streaming(file: file, size: state.size,
                               bytesPerSecond: seconds > 0 ? Double(state.size) / seconds : 0)
+        // The one answer that means the bytes are not coming: then, and only then, fetch the file the
+        // way this app used to always do. A slow head is not that answer — a slow head is a spinner.
+        engine.onTransportFailure = { [weak self] failure in
+            guard failure == .unavailable else { return }
+            print("stream unavailable \(track.fileName), fetching the file instead")
+            self?.fetchWhole(track, file: file, startAt: startAt, play: play)
+        }
         install(engine, for: track, startAt: startAt, play: play)
         return true
+    }
+
+    /// The whole file, fetched the old way, for the song the transport says is not obtainable in
+    /// pieces.
+    private func fetchWhole(_ track: any Playable, file: TdFile,
+                            startAt: TimeInterval?, play: Bool) {
+        guard let downloader else { return }
+        Task { [weak self] in
+            guard let onDisk = await downloader.path(
+                file, priority: TdFileDownloader.audioPriority
+            ) else {
+                await MainActor.run { self?.isFetchingFile = false }
+                return
+            }
+            self?.library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
+            _ = await self?.open(path: onDisk, track: track, startAt: startAt, play: play)
+        }
     }
 
     /// Moving the one download window to where the sound has got to, and fetching exactly that much.
@@ -892,6 +917,13 @@ final class Player: ObservableObject {
         // app got: a song that had stopped for a minute still showing itself playing.
         if engine.isProducingSound { elapsed = engine.currentTime }
         watchStall(engine)
+        // The row and the transport button have to say the same thing: a song that is waiting for
+        // bytes is not paused and not playing, and showing either glyph over silence is what makes a
+        // listener reach for the phone to check the Wi-Fi.
+        let buffering = isPlaying && engine.isWaitingForData
+        if buffering != isBuffering { isBuffering = buffering }
+        // A stream is still "fetching" until the container has been read; a whole file never is.
+        if streaming != nil { isFetchingFile = !engine.isReadyToPlay }
         steerWindow(to: elapsed)
         let second = Int(elapsed)
         if second != lastPersistedSecond {

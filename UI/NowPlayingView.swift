@@ -854,7 +854,7 @@ private struct TransportRow: View {
             step("backward.fill", MusicNowPlayingMetrics.transportSkipGlyph,
                  enabled: player.hasPrevious, label: "Bài trước", action: player.previous)
             Spacer(minLength: 0)
-            if player.isFetchingFile, player.playbackProblem == nil {
+            if (player.isFetchingFile || player.isBuffering), player.playbackProblem == nil {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.white)

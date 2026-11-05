@@ -37,6 +37,10 @@ protocol SongEngine: AnyObject {
     /// The transport's own last word about the bytes, for the engine that has a transport. `nil`
     /// means either "nothing has gone wrong" or "this engine reads a file and asked nobody".
     var transportFailure: AudioStreamError? { get }
+    /// Whether the engine could start making sound if it were told to. A stream is not ready until
+    /// the container has been parsed, and the screen has to say "still getting it" rather than show
+    /// a pause button over silence.
+    var isReadyToPlay: Bool { get }
     func play()
     func pause()
     func stop()
@@ -92,6 +96,7 @@ final class FileSongEngine: NSObject, SongEngine, AVAudioPlayerDelegate {
     var isProducingSound: Bool { player.isPlaying }
     var isWaitingForData: Bool { false }
     var transportFailure: AudioStreamError? { nil }
+    var isReadyToPlay: Bool { true }
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         onEnd?()
@@ -169,26 +174,24 @@ final class StreamSongEngine: NSObject, SongEngine {
         self.storedDuration = storedDuration
     }
 
-    /// The asset, parsed far enough to know what song it is. `nil` means the head of the file never
-    /// came, which is a network answer rather than a broken song, and the caller falls back to
-    /// fetching the whole file the way it always did.
+    /// The stream, built but not yet parsed.
     ///
-    /// There is no timer here on purpose: loading the tracks waits on the loader, and the loader
-    /// gives up on a range after its own share of empty passes. One clock is enough for a stream.
-    static func load(source: TelegramAudioSource, key: String, fileType: String,
-                     storedDuration: TimeInterval) async -> StreamSongEngine? {
+    /// Nothing here waits for the head of the file, and that is the whole point of this function's
+    /// shape. The first version loaded the tracks before handing the engine back — to check the
+    /// container and read a duration — and on a phone's connection a megabyte of head takes longer
+    /// than any patience that can honestly be promised, so every song on a slow link timed its own
+    /// streaming out after six seconds and fell back to downloading the whole file. That is what a
+    /// storage screen that keeps growing while "streaming" is switched on turns out to have been.
+    ///
+    /// AVFoundation parses the container when the bytes land, and the app waits with it: `isReadyToPlay`
+    /// is what the spinner is made of now, and the only give-up is the transport saying these bytes
+    /// are not coming at all.
+    static func make(source: TelegramAudioSource, key: String, fileType: String,
+                     storedDuration: TimeInterval) -> StreamSongEngine {
         let url = AudioStreamLoader.url(for: key, fileType: fileType)
-        // A shorter patience than a playing stream gets: this is the first parse of a file nobody has
-        // asked for yet, and six seconds of nothing on the other side of it is a song that should be
-        // fetched the way it always was rather than buffered forever.
-        let loader = AudioStreamLoader(source: source, url: url, stallPasses: 100)
+        let loader = AudioStreamLoader(source: source, url: url)
         let asset = AVURLAsset(url: url)
         asset.resourceLoader.setDelegate(loader, queue: DispatchQueue(label: "local.doni.audio.stream"))
-        let tracks = (try? await asset.loadTracks(withMediaType: .audio)) ?? []
-        guard !tracks.isEmpty else {
-            loader.stop()
-            return nil
-        }
         let item = AVPlayerItem(asset: asset)
         let engine = StreamSongEngine(player: AVPlayer(playerItem: item), item: item, loader: loader,
                                       storedDuration: storedDuration)
@@ -240,6 +243,10 @@ final class StreamSongEngine: NSObject, SongEngine {
     var isProducingSound: Bool { player.timeControlStatus == .playing }
     var isWaitingForData: Bool { player.timeControlStatus == .waitingToPlayAtSpecifiedRate }
     var transportFailure: AudioStreamError? { loader.lastError }
+
+    /// Not ready until AVFoundation has read enough of the file to know what it is — which on a
+    /// stream is a few hundred kilobytes after the ask, not an instant.
+    var isReadyToPlay: Bool { item.status == .readyToPlay }
 
     func stop() {
         endObserver?.cancel()
