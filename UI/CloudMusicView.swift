@@ -86,6 +86,7 @@ struct CloudMusicView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    print("cloud picker requested from toolbar")
                     showsFileImporter = true
                 } label: {
                     if importing > 0 {
@@ -101,9 +102,11 @@ struct CloudMusicView: View {
         }
         .sheet(isPresented: $showsFileImporter) {
             AudioDocumentPicker { urls in
-                showsFileImporter = false
+                print("cloud picker returned \(urls.count) urls")
                 importFiles(urls)
+                showsFileImporter = false
             } onCancel: {
+                print("cloud picker cancelled")
                 showsFileImporter = false
             }
         }
@@ -188,7 +191,10 @@ struct CloudMusicView: View {
             } description: {
                 Text("Chọn một file nhạc trên máy để Doni giữ nó trong thư viện, nghe được cả khi không có mạng.")
             } actions: {
-                Button("Thêm nhạc từ file") { showsFileImporter = true }
+                Button("Thêm nhạc từ file") {
+                    print("cloud picker requested from empty state")
+                    showsFileImporter = true
+                }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -211,18 +217,22 @@ struct CloudMusicView: View {
         // awaits. Claimed later, from the task below, it answers false for every file and the whole
         // import reads as "not one of these opened".
         let claimed = urls.filter { $0.startAccessingSecurityScopedResource() }
+        print("cloud import requested count=\(urls.count) claimed=\(claimed.count)")
         importing = urls.count
         Task {
             var added = 0
             var complaint = ""
             for url in urls {
+                print("cloud importing \(url.lastPathComponent)")
                 switch await library.importMusic(from: url) {
-                case .success:
+                case .success(let row):
+                    print("cloud imported \(row.fileName)")
                     added += 1
                 case .failure(let reason) where complaint.isEmpty:
                     // The first refusal, with the name it refused. A screen that only says "none of
                     // these opened" cannot be answered by the person standing in front of it.
                     complaint = "\(url.lastPathComponent) — \(reason.message)"
+                    print("cloud import failed \(url.lastPathComponent): \(reason.message)")
                 case .failure:
                     break
                 }
@@ -233,6 +243,7 @@ struct CloudMusicView: View {
                 failure = complaint.isEmpty
                     ? "Không có file nào được chọn."
                     : localized("Không thêm được: %@.", complaint)
+                print("cloud import batch added zero; failure shown")
             }
         }
     }

@@ -215,6 +215,9 @@ final class Library: ObservableObject {
             return .failure(reason)
         case .success(let row):
             store.appendTracks([row])
+            if let failure = store.failure {
+                print("library store rejected import: \(failure)")
+            }
             trackCount = store.trackCount()
             downloadedCount = store.downloadedCount()
             downloadedBytes = store.downloadedBytes()
@@ -242,6 +245,12 @@ final class Library: ObservableObject {
     /// another hundred of copying, and the screen that asked for it is showing a spinner while that
     /// happens rather than freezing.
     ///
+    /// The read goes through `NSFileCoordinator`, not straight at the URL. A picker's URL is a
+    /// promise about a file rather than the file itself: an item still parked in iCloud or on another
+    /// provider is a regular file with no bytes behind it, and only coordination makes the system
+    /// hand over something readable. Opening the URL directly is what answered `isReadableFile` with
+    /// true and `FileHandle` with a refusal.
+    ///
     /// Every step says which one it failed at. Collapsing them into `nil` is what let this import
     /// report "no file could be opened" for weeks while nobody — including the app — knew whether
     /// the file, the permission, the read or the write was the thing that refused.
@@ -252,24 +261,62 @@ final class Library: ObservableObject {
         // finished, and a permission given up halfway through a copy is a failed copy.
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        let taken: Result<StoreTrack, MusicImportFailure> =
+        print("file take \(url.lastPathComponent) scoped=\(scoped)")
+        let copied: Result<(hash: String, kept: String, bytes: Int64), MusicImportFailure> =
             await Task.detached(priority: .userInitiated) {
-                guard isAudioFile(url) else { return .failure(.notAFile) }
-                guard let hash = fingerprint(url) else { return .failure(.unreadable) }
-                guard let kept = copy(url, named: hash) else { return .failure(.unwritable) }
-                let bytes = size(ofPath: kept)
-                guard bytes > 0 else { return .failure(.empty) }
-                // An empty title is not a failure: the row falls back to the file's own name without
-                // its extension, which is the same fallback a captionless channel post is shown by.
-                let tags = await AudioTags.read(path: kept)
-                return .success(StoreTrack(uniqueId: hash, chatId: 0, messageId: 0, fileId: 0,
-                                           title: tags.title, performer: tags.performer,
-                                           fileName: url.lastPathComponent,
-                                           duration: await AudioDuration.seconds(ofPath: kept),
-                                           size: bytes, date: Int64(Date().timeIntervalSince1970),
-                                           localPath: kept))
+                let coordinator = NSFileCoordinator()
+                var coordinationError: NSError?
+                var taken: Result<(hash: String, kept: String, bytes: Int64),
+                                  MusicImportFailure> = .failure(.unreadable)
+                coordinator.coordinate(readingItemAt: url,
+                                       options: [.withoutChanges],
+                                       error: &coordinationError) { readable in
+                    taken = read(readable, namedBy: url)
+                }
+                if case .failure = taken, let coordinationError {
+                    print("file coordination refused \(url.lastPathComponent): \(coordinationError)")
+                }
+                return taken
             }.value
-        return taken
+
+        if case .failure(let reason) = copied { return .failure(reason) }
+        guard case .success(let file) = copied else { return .failure(.unreadable) }
+        // An empty title is not a failure: the row falls back to the file's own name without
+        // its extension, which is the same fallback a captionless channel post is shown by.
+        // Both reads come after the coordination, on the app's own copy — the tags and the length
+        // are AVFoundation's, and AVFoundation has no reason to be inside a file coordinator.
+        let tags = await AudioTags.read(path: file.kept)
+        return .success(StoreTrack(uniqueId: file.hash, chatId: 0, messageId: 0, fileId: 0,
+                                   title: tags.title, performer: tags.performer,
+                                   fileName: url.lastPathComponent,
+                                   duration: await AudioDuration.seconds(ofPath: file.kept),
+                                   size: file.bytes, date: Int64(Date().timeIntervalSince1970),
+                                   localPath: file.kept))
+    }
+
+    /// The coordinated file, hashed and copied into the library. `namedBy` is the URL the picker
+    /// handed over, so the row keeps the name the user recognised rather than the one the
+    /// coordinator made for its copy.
+    private nonisolated static func read(_ url: URL, namedBy original: URL)
+    -> Result<(hash: String, kept: String, bytes: Int64), MusicImportFailure> {
+        guard isAudioFile(url) else {
+            print("file not a regular audio file: \(original.lastPathComponent)")
+            return .failure(.notAFile)
+        }
+        guard let hash = fingerprint(url) else {
+            return .failure(.unreadable)
+        }
+        guard let kept = copy(url, named: hash) else {
+            print("file copy failed: \(original.lastPathComponent)")
+            return .failure(.unwritable)
+        }
+        let bytes = size(ofPath: kept)
+        guard bytes > 0 else {
+            print("file copy empty: \(original.lastPathComponent)")
+            return .failure(.empty)
+        }
+        print("file copied: \(original.lastPathComponent) bytes=\(bytes)")
+        return .success((hash, kept, bytes))
     }
 
     /// The name a file is kept under, and the id its row is stored by: SHA-256 of its own bytes.
@@ -280,15 +327,26 @@ final class Library: ObservableObject {
     /// a second time. Chunked because a one-hour set is 140 MB and `Data(contentsOf:)` would be asked
     /// to hold all of it at once; one megabyte is the size MeloX's uploader streams at, too.
     private nonisolated static func fingerprint(_ url: URL) -> String? {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
-        defer { try? handle.close() }
-        var hasher = SHA256()
-        while true {
-            guard let chunk = try? handle.read(upToCount: Self.fingerprintChunk) else { return nil }
-            if chunk.isEmpty { break }
-            hasher.update(data: chunk)
+        do {
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            var hasher = SHA256()
+            while true {
+                let chunk = try handle.read(upToCount: Self.fingerprintChunk)
+                if let chunk, !chunk.isEmpty {
+                    hasher.update(data: chunk)
+                } else {
+                    break
+                }
+            }
+            return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        } catch {
+            print("file fingerprint error for \(url.path): \(error)")
+            let exists = FileManager.default.fileExists(atPath: url.path)
+            let isReadable = FileManager.default.isReadableFile(atPath: url.path)
+            print("file status at path: exists=\(exists) readable=\(isReadable)")
+            return nil
         }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     private nonisolated static let fingerprintChunk = 1024 * 1024
