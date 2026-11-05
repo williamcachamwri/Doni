@@ -314,10 +314,15 @@ struct SettingsView: View {
             .layoutPriority(1)
             Spacer(minLength: 8)
             if let value {
+                // One line, at its own width, whatever the title column wants. A byte count that
+                // wraps is worse than a title that truncates: "209," over "1 MB" reads as two numbers,
+                // and the system's own rows never break a value — they shorten the words instead.
                 Text(value)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .layoutPriority(1)
             }
             if selected {
                 Image(systemName: "checkmark")
