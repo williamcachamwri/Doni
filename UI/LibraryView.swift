@@ -42,8 +42,13 @@ struct LibraryView: View {
     private var headerActions: some View {
         HeaderActionRow {
             Button(action: shuffleAll) {
-                HeaderCircle { Image(systemName: "shuffle") }
+                Image(systemName: "shuffle")
+                    .font(.title2.weight(.semibold))
+                    .frame(width: MusicPlaylistMetrics.actionGlyph, height: MusicPlaylistMetrics.actionGlyph)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
             .accessibilityLabel("Phát ngẫu nhiên")
 
             Button {
@@ -53,17 +58,24 @@ struct LibraryView: View {
                     indexer.run(session, library: library)
                 }
             } label: {
-                HeaderCircle {
-                    Image(systemName: indexer.isReading ? "stop.fill" : "arrow.clockwise")
-                }
+                Image(systemName: indexer.isReading ? "stop.fill" : "arrow.clockwise")
+                    .font(.title2.weight(.semibold))
+                    .frame(width: MusicPlaylistMetrics.actionGlyph, height: MusicPlaylistMetrics.actionGlyph)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
             .accessibilityLabel(indexer.isReading ? "Dừng đọc kênh" : "Đọc lại kênh")
 
             Button {
                 showsSettings = true
             } label: {
-                AccountAvatar(account: session.account, photo: session.accountPhoto, side: 32)
+                AccountAvatar(account: session.account, photo: session.accountPhoto)
+                    .frame(width: MusicPlaylistMetrics.actionGlyph, height: MusicPlaylistMetrics.actionGlyph)
             }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
             .accessibilityLabel(session.account.map { "Cài đặt của \($0.name)" } ?? "Cài đặt")
         }
     }
