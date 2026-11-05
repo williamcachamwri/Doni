@@ -12,6 +12,15 @@ struct DoniApp: App {
     /// The same cache the lock screen reads, so a row and its artwork never disagree.
     @StateObject private var artwork = CoverArtwork.shared
 
+    init() {
+        // Following the phone is the default, and it has to be written before any view asks for a
+        // word: the catalog is read through the system's own language list, which the process picks
+        // up at launch. A phone already set to one of the six therefore opens in that language from
+        // the second launch onward, and a choice in Settings overrides it for good.
+        guard !DoniLanguage.isChosen else { return }
+        DoniLanguage.followDevice()
+    }
+
     var body: some Scene {
         WindowGroup {
             // One ZStack, not one root per state: the shell is put up underneath and the sequence

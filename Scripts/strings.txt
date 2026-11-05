@@ -1,0 +1,138 @@
+# Languages: zh-Hans | es | ru | fr | ar   (the key is the Vietnamese the code already says)
+# Rows for the copied lyrics screen: its Vietnamese comes from Seam/L10n.swift.
+ui.common.cancel|取消|Cancelar|Отмена|Annuler|إلغاء
+ui.common.custom|自定义|Personalizado|Настраиваемый|Personnalisé|مخصص
+ui.common.off|关闭|Desactivado|Выключено|Désactivé|إيقاف
+ui.common.replace|替换|Reemplazar|Заменить|Remplacer|استبدال
+ui.lyrics.accessibility.romanization|罗马音：%@|Transliteración: %@|Транслитерация: %@|Translittération : %@|الرومنة: %@
+ui.lyrics.accessibility.translation|翻译：%@|Traducción: %@|Перевод: %@|Traduction : %@|الترجمة: %@
+ui.lyrics.browse_focus|正在查看此行|Línea en vista|Просматривается эта строка|Ligne en cours de lecture|يتم عرض هذا السطر
+ui.lyrics.current_browse_focus|正在播放，正在查看此行|Reproduciendo, línea en vista|Играет, просматривается эта строка|En lecture, ligne affichée|قيد التشغيل، يتم عرض هذا السطر
+ui.lyrics.empty|没有歌词|Sin letra|Нет текста|Aucune parole|لا توجد كلمات الأغنية
+ui.lyrics.interaction_disabled_hint|歌词交互已在设置中关闭|Interacción con la letra desactivada en Ajustes|Взаимодействие с текстом отключено в настройках|Interaction avec les paroles désactivée dans Réglages|التفاعل مع الكلمات معطّل في الإعدادات
+ui.lyrics.loading|正在加载歌词|Cargando letra|Загрузка текста|Chargement des paroles|جارٍ تحميل الكلمات
+ui.lyrics.long_press_share_hint|长按分享此歌词|Mantén pulsado para compartir la letra|Долгое нажатие — поделиться текстом|Appui long pour partager ces paroles|اضغط مطولاً لمشاركة هذه الكلمات
+ui.lyrics.share.character_count|%1$d / %2$d 个字符|%1$d / %2$d caracteres|%1$d / %2$d символов|%1$d / %2$d caractères|%1$d / %2$d حرف
+ui.lyrics.share.character_limit_message|所选歌词超过 %ld 个字符上限，无法分享。|La letra seleccionada supera el límite de %ld caracteres y no se puede compartir.|Выбранный текст превышает лимит в %ld символов и не может быть отправлен.|Les paroles sélectionnées dépassent la limite de %ld caractères et ne peuvent pas être partagées.|الكلمات المحددة تتجاوز حد %ld حرفًا ولا يمكن مشاركتها.
+ui.lyrics.share.excerpt|歌词摘录：%@|Extracto de la letra: %@|Фрагмент текста: %@|Extrait des paroles : %@|مقتطف من الكلمات: %@
+ui.lyrics.share.excerpt_song|歌词摘录 · %@|Extracto · %@|Фрагмент · %@|Extrait · %@|مقتطف · %@
+ui.lyrics.share.none_selected|未选择歌词行|No se ha seleccionado ninguna línea|Строки не выбраны|Aucune ligne sélectionnée|لم يتم تحديد أي سطر
+ui.lyrics.share.replace_confirmation|替换之前选择的内容？|¿Reemplazar la selección anterior?|Заменить предыдущее выделение ?|Remplacer la sélection précédente ?|استبدال التحديد السابق؟
+ui.lyrics.share.select_hint|点击歌词行以分享|Toca una línea para compartirla|Нажмите строку, чтобы поделиться|Touchez une ligne pour partager|اضغط على سطر للمشاركة
+ui.lyrics.share.selected_lines|已选择 %ld 行歌词|%ld líneas seleccionadas|Выбрано строк: %ld|%ld lignes sélectionnées|تم تحديد %ld سطرًا
+ui.lyrics.share.title|分享歌词|Compartir letra|Поделиться текстом|Partager les paroles|مشاركة الكلمات
+ui.lyrics.tap_seek_hint|点击跳转到此行|Toca para ir a esta línea|Нажмите, чтобы перейти к этой строке|Touchez pour atteindre cette ligne|اضغط للانتقال إلى هذا السطر
+ui.lyrics.tap_seek_long_press_share|点击跳转到此行；长按分享|Toca para ir a la línea; mantén pulsado para compartir|Нажмите для перехода, удерживайте для обмена|Touchez pour naviguer, appui long pour partager|اضغط للانتقال، واضغط مطولاً للمشاركة
+ui.player.now_playing|正在播放|Reproduciendo|Воспроизводится|En lecture|قيد التشغيل
+ui.settings.font_weight.bold|粗体|Negrita|Жирный|Gras|عريض
+ui.settings.font_weight.heavy|特粗|Muy negrita|Очень жирный|Très gras|عريض جداً
+ui.settings.font_weight.light|细体|Fineta|Тонкий|Léger|خفيف
+ui.settings.font_weight.medium|中等|Media|Средний|Medium|متوسط
+ui.settings.font_weight.regular|常规|Normal|Обычный|Normal|عادي
+ui.settings.font_weight.semibold|半粗|Seminegrita|Полужирный|Semi-gras|نصف عريض
+ui.settings.lyrics.auxiliary.all_lines|所有歌词行|Todas las líneas|Все строки текста|Toutes les paroles|جميع الأسطر
+ui.settings.lyrics.auxiliary.focused_line|仅当前行|Solo la línea actual|Только текущая строка|Seule la ligne actuelle|السطر الحالي فقط
+ui.settings.lyrics.interlude.automatic|自动（含 LRC 估算）|Automático (con estimación LRC)|Авто (с оценкой по LRC)|Automatique (estimation LRC incluse)|تلقائي (مع تقدير من LRC)
+ui.settings.lyrics.interlude.automatic.detail|在有精确 YRC 时间时使用精确时间，并对普通 LRC 按文字长度估算行尾时间。|Usa el timing YRC exacto cuando existe y estima el final de línea por longitud de texto en LRC normales.|Utilise le timing YRC précis quand il existe et estime la fin de ligne selon la longueur du texte pour les LRC simples.|Utilise le calage YRC exact quand il existe et estime la fin de ligne selon la longueur du texte pour les LRC ordinaires.|يستخدم توقيت YRC الدقيق عند توفره، ويقدّر نهاية السطر حسب طول النص في ملفات LRC العادية.
+ui.settings.lyrics.interlude.hidden.detail|不插入前奏或间奏空白。|No se insertan intros ni pausas instrumentales.|Вступления и проигрыши не вставляются.|Aucune intro ni interlude n'est inséré.|لا يتم إدراج مقدمات أو فواصل.
+ui.settings.lyrics.interlude.precise|仅精确时间轴|Solo cronología precisa|Только точный тайминг|Chronologie précise uniquement|الجدول الزمني الدقيق فقط
+ui.settings.lyrics.interlude.precise.detail|仅根据 YRC 音节结束时间检测器乐间奏。|Solo detecta instrumentales por el fin de sílaba YRC.|Обнаружение проигрышей только по концу слога YRC.|Détection des interludes uniquement par la fin de syllabe YRC.|يتم اكتشاف الفواصل فقط من نهاية مقطع YRC.
+ui.settings.lyrics.lift.character|按字符提升|Elevar por carácter|Подъём по символам|Relèvement par caractère|الرفع حسب الحرف
+ui.settings.lyrics.lift.word|按词提升|Elevar por palabra|Подъём по словам|Relèvement par mot|الرفع حسب الكلمة
+ui.settings.lyrics.long_syllable.character|按字符检测|Detección por carácter|Определение по символам|Détection par caractère|اكتشاف حسب الحرف
+ui.settings.lyrics.long_syllable.word|按词检测|Detección por palabra|Определение по словам|Détection par mot|اكتشاف حسب الكلمة
+ui.settings.lyrics.motion_preset.apple_music_26|Apple Music 26|Apple Music 26|Apple Music 26|Apple Music 26|Apple Music 26
+ui.settings.lyrics.motion_preset.apple_music_26.mobile_detail|使用 iOS 26.6 的字体、间距、颜色、透明度和逐行追赶节奏。|Usa la tipografía, el espaciado, el color, la opacidad y el seguimiento por línea de iOS 26.6.|Использует шрифт, интервалы, цвета, прозрачность и построчное следование iOS 26.6.|Utilise la police, l'espacement, les couleurs, l'opacité et le suivi ligne par ligne d'iOS 26.6.|يستخدم الخط والمسافات والألوان والشفافية والتتبع سطراً بسطر في iOS 26.6.
+ui.settings.lyrics.motion_preset.custom.detail|使用自定义参数：排版、焦点、行尾拖尾、追赶、弹动和布局。|Usa parámetros personalizados: tipografía, foco, estela, alcance, rebote y diseño.|Свои параметры: типографика, фокус, шлейф строки, догон, отскок и раскладка.|Paramètres personnalisés : typographie, focus, traînée, rattrapage, rebond et mise en page.|إعدادات مخصصة: الطباعة والتركيز وذيل السطر والالتحاق والارتداد والتخطيط.
+# The app's own chrome.
+Trang chủ|首页|Inicio|Главная|Accueil|الرئيسية
+Yêu thích|收藏|Favoritos|Избранное|Favoris|المفضلة
+Danh sách|歌单|Listas|Плейлисты|Listes|القوائم
+Nhạc|音乐|Música|Музыка|Musique|الموسيقى
+Cloud Music|云端音乐|Cloud Music|Cloud Music|Cloud Music|موسيقى سحابية
+Dành cho bạn|为你推荐|Para ti|Для вас|Pour vous|لك
+Mới nhất|最新|Recientes|Новые|Récents|الأحدث
+Ngẫu nhiên|随机|Aleatorias|Случайные|Aléatoires|عشوائي
+Trên máy|本机|En el dispositivo|На устройстве|Sur l'appareil|على الجهاز
+Thư viện|资料库|Biblioteca|Библиотека|Bibliothèque|المكتبة
+Cài đặt|设置|Ajustes|Настройки|Réglages|الإعدادات
+Tìm kiếm|搜索|Buscar|Поиск|Rechercher|بحث
+Phần|部分|Sección|Раздел|Section|قسم
+Phát|播放|Reproducir|Воспроизвести|Lire|تشغيل
+Tạm dừng|暂停|Pausar|Пауза|Pause|إيقاف مؤقت
+Phát tất cả|播放全部|Reproducir todo|Воспроизвести всё|Tout lire|تشغيل الكل
+Phát ngẫu nhiên|随机播放|Reproducir aleatorio|Перемешать|Lecture aléatoire|تشغيل عشوائي
+Lặp lại một bài|单曲循环|Repetir una canción|Повтор одного трека|Répéter un titre|تكرار أغنية واحدة
+Lặp lại toàn bộ|循环全部|Repetir todo|Повторять всё|Tout répéter|تكرار الكل
+Tắt lặp lại|关闭循环|Repetición desactivada|Повтор выключен|Répétition désactivée|إيقاف التكرار
+Tắt phát ngẫu nhiên|关闭随机播放|Aleatorio desactivado|Перемешивание выключено|Lecture aléatoire désactivée|إيقاف التشغيل العشوائي
+Hàng chờ|播放队列|Cola|Очередь|File d'attente|قائمة الانتظار
+Hết hàng chờ|队列已空|Cola vacía|Очередь пуста|File d'attente vide|القائمة فارغة
+Lời bài hát|歌词|Letras|Текст песни|Paroles|الكلمات
+Thêm vào yêu thích|添加到收藏|Añadir a favoritos|В избранное|Ajouter aux favoris|إضافة إلى المفضلة
+Bỏ yêu thích|取消收藏|Quitar de favoritos|Убрать из избранного|Retirer des favoris|إزالة من المفضلة
+Thêm vào danh sách|添加到歌单|Añadir a la lista|Добавить в плейлист|Ajouter à une liste|إضافة إلى قائمة
+Bỏ khỏi danh sách|从歌单移除|Quitar de la lista|Убрать из плейлиста|Retirer de la liste|إزالة من القائمة
+Chia sẻ tệp|分享文件|Compartir archivo|Поделиться файлом|Partager le fichier|مشاركة الملف
+Tải về máy|下载到本机|Descargar|Скачать|Télécharger|تنزيل
+Xoá|删除|Eliminar|Удалить|Supprimer|حذف
+Lưu|保存|Guardar|Сохранить|Enregistrer|حفظ
+Huỷ|取消|Cancelar|Отмена|Annuler|إلغاء
+Đóng|关闭|Cerrar|Закрыть|Fermer|إغلاق
+Thêm|添加|Añadir|Добавить|Ajouter|إضافة
+Tạo|创建|Crear|Создать|Créer|إنشاء
+Đổi tên|重命名|Renombrar|Переименовать|Renommer|إعادة تسمية
+Đổi ảnh bìa|更换封面|Cambiar portada|Сменить обложку|Changer la pochette|تغيير الغلاف
+Gỡ ảnh bìa|移除封面|Quitar portada|Убрать обложку|Retirer la pochette|إزالة الغلاف
+Ngôn ngữ|语言|Idioma|Язык|Langue|اللغة
+Ứng dụng|应用|Aplicación|Приложение|Application|التطبيق
+Doni đổi ngôn ngữ khi bạn mở lại app.|重新打开 Doni 后语言生效。|Doni cambiará de idioma al abrirse de nuevo.|Doni сменит язык при следующем запуске.|Doni changera de langue au prochain lancement.|سيغيّر دوني اللغة عند إعادة فتح التطبيق.
+Bộ nhớ|存储|Almacenamiento|Память|Stockage|التخزين
+Ảnh bìa, nhạc Telegram, file của bạn|封面、Telegram 音乐和你的文件|Portadas, música de Telegram y tus archivos|Обложки, музыка Telegram и ваши файлы|Pochettes, musiques Telegram et vos fichiers|أغلفة وموسيقى تيليجرام وملفاتك
+Bài đã chỉ mục|已索引的歌曲|Canciones indexadas|Индексированные треки|Titres indexés|الأغاني المفهرسة
+Lấy từ các kênh đã chọn|来自已选频道|De los canales seleccionados|Из выбранных каналов|Des chaînes sélectionnées|من القنوات المحددة
+Đã tải về máy|已下载到本机|Descargado en el dispositivo|Загружено на устройство|Téléchargé sur l'appareil|تم التنزيل على الجهاز
+Nghe được khi không có mạng|无网络也能听|Se puede escuchar sin conexión|Можно слушать без сети|Écoute hors connexion|يمكن الاستماع بدون شبكة
+Bài chưa tải về|未下载的歌曲|Canciones sin descargar|Незагруженные треки|Titres non téléchargés|الأغاني غير المنزّلة
+Chọn bài để đưa về máy|选择要下载的歌曲|Elige canciones para descargar|Выберите треки для загрузки|Choisissez des titres à télécharger|اختر أغاني للتنزيل
+Xoá cache ảnh|清除封面缓存|Vaciar caché de portadas|Очистить кэш обложек|Vider le cache des pochettes|مسح تخزين الأغلفة المؤقت
+Xoá nhạc Telegram đã tải|删除已下载的 Telegram 音乐|Borrar música descargada de Telegram|Удалить загруженную музыку Telegram|Supprimer les musiques Telegram téléchargées|حذف موسيقى تيليجرام المنزّلة
+Dọn dẹp|清理|Limpiar|Очистка|Nettoyage|تنظيف
+Tổng quan|概览|Resumen|Обзор|Aperçu|نظرة عامة
+Tìm kiếm cài đặt|搜索设置|Buscar en ajustes|Искать в настройках|Rechercher dans les réglages|البحث في الإعدادات
+Không tìm thấy|未找到|No encontrado|Не найдено|Introuvable|غير موجود
+Thử từ khoá khác.|换个关键词试试。|Prueba otra palabra clave.|Попробуйте другой запрос.|Essayez un autre mot-clé.|جرّب كلمة أخرى.
+Chưa có bài nào|暂无歌曲|No hay canciones|Нет песен|Aucun titre|لا توجد أغاني
+Chưa có danh sách nào|暂无歌单|No hay listas|Нет плейлистов|Aucune liste|لا توجد قوائم
+Chưa có kênh nhạc nào|暂无音乐频道|No hay canales de música|Нет музыкальных каналов|Aucune chaîne musicale|لا توجد قنوات موسيقية
+Chưa thêm kênh nào|尚未添加频道|Ningún canal añadido|Каналы не добавлены|Aucune chaîne ajoutée|لم تُضف أي قناة
+Chưa giữ bài nào|未收藏任何歌曲|No has guardado canciones|Вы не сохранили треков|Aucun titre conservé|لم تحفظ أي أغنية
+Thư viện đang trống|资料库为空|La biblioteca está vacía|Библиотека пуста|Bibliothèque vide|المكتبة فارغة
+Tất cả|全部|Todo|Всё|Tout|الكل
+Nghệ sĩ|艺术家|Artistas|Артисты|Artistes|الفنانون
+Kênh|频道|Canales|Каналы|Chaînes|القنوات
+Người dùng|用户|Usuarios|Пользователи|Utilisateurs|المستخدمون
+Nhóm|群组|Grupos|Группы|Groupes|المجموعات
+Tên danh sách|歌单名称|Nombre de la lista|Название плейлиста|Nom de la liste|اسم القائمة
+Danh sách mới|新建歌单|Nueva lista|Новый плейлист|Nouvelle liste|قائمة جديدة
+Tìm trong danh sách|在歌单中搜索|Buscar en la lista|Искать в плейлисте|Rechercher dans la liste|البحث في القائمة
+Tìm trong Yêu thích|在收藏中搜索|Buscar en Favoritos|Искать в Избранном|Rechercher dans Favoris|البحث في المفضلة
+Thêm kênh nhạc|添加音乐频道|Añadir canal de música|Добавить музыкальный канал|Ajouter une chaîne musicale|إضافة قناة موسيقية
+Thêm một kênh Telegram để Doni biết trong đó có bài nào.|添加一个 Telegram 频道，Doni 就能知道里面有哪些歌曲。|Añade un canal de Telegram para que Doni sepa qué canciones hay.|Добавьте канал Telegram, чтобы Doni знал, какие там песни.|Ajoutez une chaîne Telegram pour que Doni sache quels titres s'y trouvent.|أضف قناة تيليجرام ليعرف دوني ما فيها من أغاني.
+Chưa tìm được lời cho bài này|未找到这首歌的歌词|No se encontró la letra de esta canción|Текст для этой песни не найден|Paroles introuvables pour ce titre|لم يتم العثور على كلمات لهذه الأغنية
+Lời không đọc được|歌词无法解析|No se pudo leer la letra|Текст не читается|Paroles illisibles|تعذر قراءة الكلمات
+Chỉ có lời không khớp thời gian|只有无时间轴的歌词|Solo hay letra sin sincronización|Есть только текст без тайминга|Seules des paroles non synchronisées existent|توجد كلمات بدون توقيت فقط
+Việc tải lời đang tắt|歌词下载已关闭|Descarga de letras desactivada|Загрузка текстов отключена|Téléchargement des paroles désactivé|تنزيل الكلمات معطّل
+Đăng xuất|退出登录|Cerrar sesión|Выйти|Déconnexion|تسجيل الخروج
+Đăng nhập|登录|Iniciar sesión|Войти|Connexion|تسجيل الدخول
+Đăng xuất khỏi Telegram?|退出 Telegram？|¿Cerrar sesión en Telegram?|Выйти из Telegram ?|Se déconnecter de Telegram ?|تسجيل الخروج من تيليجرام؟
+Số điện thoại|电话号码|Número de teléfono|Номер телефона|Numéro de téléphone|رقم الهاتف
+Mã|验证码|Código|Код|Code|الرمز
+Mật khẩu|密码|Contraseña|Пароль|Mot de passe|كلمة المرور
+Tiếp tục|继续|Continuar|Продолжить|Continuer|متابعة
+Gửi lại mã|重新发送验证码|Reenviar código|Отправить код повторно|Renvoyer le code|إعادة إرسال الرمز
+Xác thực hai bước|两步验证|Verificación en dos pasos|Двухэтапная проверка|Vérification en deux étapes|التحقق بخطوتين
+Đang chuẩn bị…|正在准备…|Preparando…|Подготовка…|Préparation…|جارٍ التحضير…
+Đang đọc kênh…|正在读取频道…|Leyendo el canal…|Чтение канала…|Lecture de la chaîne…|جارٍ قراءة القناة…
+Đang thêm nhạc…|正在添加音乐…|Añadiendo música…|Добавление музыки…|Ajout de musique…|جارٍ إضافة الموسيقى…
+Bài và ảnh TDLib đã tải về|已下载的 TDLib 音乐和图片|Música e imágenes descargadas de TDLib|Загруженные TDLib-музыка и изображения|Musiques et images TDLib téléchargées|موسيقى وصور TDLib المنزّلة

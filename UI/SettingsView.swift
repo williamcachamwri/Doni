@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var showsAddChannel = false
     @State private var showsPendingSongs = false
     @State private var showsStorage = false
+    @State private var showsLanguage = false
 
     var body: some View {
         ScrollView {
@@ -45,6 +46,15 @@ struct SettingsView: View {
                 if showsAccount {
                     accountCard
                     if session.isAuthorized { logoutCard }
+                }
+
+                if showsAppCard {
+                    card("Ứng dụng") {
+                        row("globe", "Ngôn ngữ",
+                            subtitle: "Tiếng Việt, 简体中文, Español, Русский, Français, العربية",
+                            value: DoniLanguage.current.nativeName,
+                            disclosure: true) { showsLanguage = true }
+                    }
                 }
 
                 if !lines.isEmpty {
@@ -82,7 +92,7 @@ struct SettingsView: View {
                     }
                 }
 
-                if !showsAccount && lines.isEmpty && !showsChannels {
+                if !showsAccount && lines.isEmpty && !showsChannels && !showsAppCard {
                     ContentUnavailableView("Không tìm thấy", systemImage: "magnifyingglass",
                                            description: Text("Thử từ khoá khác."))
                         .frame(maxWidth: .infinity)
@@ -123,6 +133,9 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showsStorage) {
             StorageView(session: session, player: player, artwork: CoverArtwork.shared,
                         library: library)
+        }
+        .navigationDestination(isPresented: $showsLanguage) {
+            LanguageView()
         }
         // The card's storage line quotes the disk, not the rows, so the walk is asked for on the way
         // in. It runs detached at utility priority and a second visit costs nothing the first missed.
@@ -254,7 +267,11 @@ struct SettingsView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: MusicSettingsMetrics.headerToCard) {
             HStack(spacing: 8) {
-                Text(title)
+                // `Text(_ String)` does not look anything up; only `Text(_ LocalizedStringKey)` does.
+                // These helpers take a `String` because a channel's own name arrives through them too,
+                // so the key is made here rather than at every call site. A name that is not in the
+                // catalog comes back unchanged, which is the only right answer for a name.
+                Text(LocalizedStringKey(title))
                     .font(.headline)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
@@ -300,12 +317,12 @@ struct SettingsView: View {
             mark()
                 .frame(width: MusicSettingsMetrics.rowIconWidth)
             VStack(alignment: .leading, spacing: MusicSettingsMetrics.rowTextGap) {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                 if let subtitle {
-                    Text(subtitle)
+                    Text(LocalizedStringKey(subtitle))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -407,6 +424,13 @@ struct SettingsView: View {
     private var showsChannels: Bool {
         !visibleChannels.isEmpty || (library.channels.isEmpty
             && !SettingsSearch.isActive(searchText))
+    }
+
+    /// The language row is searchable by both its Vietnamese name and the English one, which is the
+    /// point of a screen whose whole subject is languages: the person looking for it may be reading
+    /// the app in any of the six.
+    private var showsAppCard: Bool {
+        SettingsSearch.matches(searchText, in: ["ngôn ngữ", "language", "i18n", "app"])
     }
 
     private var showsAccount: Bool {

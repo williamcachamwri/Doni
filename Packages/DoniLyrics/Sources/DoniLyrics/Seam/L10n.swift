@@ -61,8 +61,12 @@ nonisolated enum L10n {
     ]
 
     static func string(_ key: String, comment: StaticString? = nil) -> String {
-        _ = comment
-        return strings[key] ?? key
+        // The app's catalog, not a table of our own. The copied views ask for some strings by key
+        // through this seam and for others by key straight into SwiftUI's own localized initializers,
+        // and those two paths have to agree: one catalog is the only way a screen cannot end up
+        // half in Russian and half in Vietnamese. `value:` is the Vietnamese we transcribed, so a key
+        // the catalog has never heard of still says what the reference wrote.
+        NSLocalizedString(key, bundle: .main, value: strings[key] ?? key, comment: "")
     }
 
     static func format(_ key: String, _ arguments: CVarArg...) -> String {
