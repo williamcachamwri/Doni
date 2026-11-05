@@ -8,13 +8,19 @@ import PackageDescription
 // package is the one place the copied lines can be left exactly as they were found.
 let package = Package(
     name: "DoniLyrics",
-    platforms: [.iOS(.v26)],
+    platforms: [.iOS(.v26), .macOS(.v14)],
     products: [
         .library(name: "DoniLyrics", targets: ["DoniLyrics"])
+    ],
+    dependencies: [
+        .package(name: "Support", path: "../Support")
     ],
     targets: [
         .target(
             name: "DoniLyrics",
+            dependencies: [
+                .product(name: "Support", package: "Support")
+            ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]

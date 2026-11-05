@@ -171,6 +171,8 @@ Không có cuộc trò chuyện nào.|没有会话。|No hay conversaciones.|Н�
 Không có file nào được chọn.|未选择文件。|No se ha elegido ningún archivo.|Файлы не выбраны.|Aucun fichier choisi.|لم يتم اختيار أي ملف.
 Không dọn được|无法清理|No se pudo limpiar|Не удалось очистить|Nettoyage impossible|تعذّر التنظيف
 Không kết nối được tới lrclib|无法连接 lrclib|No se pudo conectar a lrclib|Не удалось связаться с lrclib|Connexion à lrclib impossible|تعذّر الاتصال بـ lrclib
+Không kết nối được tới các nguồn lời|无法连接歌词源|No se pudo conectar a las fuentes de letras|Не удалось подключиться к источникам текста|Impossible de contacter les sources des paroles|تعذّر الاتصال بمصادر الكلمات
+Bài này là nhạc không lời|此歌曲为纯音乐|Esta canción es instrumental|Этот трек — инструментальный|Ce titre est instrumental|هذه الأغنية موسيقية بدون غناء
 Không thêm được bài|无法添加歌曲|No se pudo añadir la canción|Не удалось добавить трек|Ajout du titre impossible|تعذّرت إضافة الأغنية
 Không đọc được ảnh này|无法读取此图片|No se pudo leer esta imagen|Это изображение не читается|Image illisible|تعذّرت قراءة هذه الصورة
 Kênh mới|新频道|Nuevo canal|Новый канал|Nouvelle chaîne|قناة جديدة

@@ -65,11 +65,35 @@ public enum LRClib {
         }
     }
 
+    /// The answer, or `nil` when the request never reached the site.
+    public static func fetch(_ query: LyricQuery,
+                             session: URLSession = .shared) async -> LyricText? {
+        if let exact = getURL(query), let hits = try? await send(exact, session: session),
+           !hits.isEmpty {
+            return text(of: hits)
+        }
+        guard let loose = searchURL(query) else { return LyricText.none }
+        guard let hits = try? await send(loose, session: session) else { return nil }
+        return text(of: hits)
+    }
+
     /// Both shapes, in one call: an array, or the single object `/api/get` answers with.
     public static func entries(_ data: Data) -> [Entry] {
         if let many = try? JSONDecoder().decode([Entry].self, from: data) { return many }
         if let one = try? JSONDecoder().decode(Entry.self, from: data) { return [one] }
         return []
+    }
+
+    private static func send(_ url: URL, session: URLSession) async throws -> [Entry] {
+        var request = URLRequest(url: url, timeoutInterval: 12)
+        request.setValue("Doni/1.0 (personal music player)",
+                         forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return entries(data)
     }
 
     /// Synced first, plain second, nothing third — the order the user asked for, applied to every
