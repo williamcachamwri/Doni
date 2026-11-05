@@ -150,6 +150,14 @@ public final class LibraryStore: @unchecked Sendable {
     private var handle: OpaquePointer?
     private let path: String
 
+    /// The last thing the database refused to do, in the app's own words.
+    ///
+    /// Without this a store that never opened and a library that is genuinely empty are the same
+    /// screen: every read answers `[]`, every write no-ops, and the user is told they have no music
+    /// when the truth is that the app cannot read their library. Disk-full lands here too — it is
+    /// the one failure a listener can act on, and it used to be invisible.
+    public private(set) var failure: String?
+
     /// Opens (and creates if needed) the database at `path`.
     public init(path: String) {
         self.path = path
@@ -184,13 +192,23 @@ public final class LibraryStore: @unchecked Sendable {
     private func open() {
         var opened: OpaquePointer?
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
-        if sqlite3_open_v2(path, &opened, flags, nil) == SQLITE_OK, let opened {
-            handle = opened
-            sqlite3_busy_timeout(opened, 2000)
-            Self.configure(opened)
-            Self.createSchema(opened)
-        } else {
+        guard sqlite3_open_v2(path, &opened, flags, nil) == SQLITE_OK, let opened else {
             handle = nil
+            let text = opened.map { String(cString: sqlite3_errmsg($0)) } ?? "no handle"
+            failure = "Không mở được thư viện nhạc: \(text)"
+            return
+        }
+        handle = opened
+        sqlite3_busy_timeout(opened, 2000)
+        // Whatever the schema work reports is the store's problem to carry, not the free
+        // function's, so the box is emptied before and read back after.
+        _ = drainSchemaProblems()
+        Self.configure(opened)
+        Self.createSchema(opened)
+        // A schema that could not be built is a library that will not save anything, which is
+        // worth saying even though the file itself opened fine.
+        if let problem = drainSchemaProblems().first {
+            failure = "Không dựng được cấu trúc thư viện: \(problem)"
         }
     }
 
@@ -1005,6 +1023,12 @@ public final class LibraryStore: @unchecked Sendable {
               let statement
         else {
             Self.log(sql, in: handle)
+            // Only a real refusal, not the knock of a caller on a store that never opened — that
+            // one already has a better message from `open`, and overwriting it with the hundredth
+            // failed prepare would lose the reason.
+            if handle != nil {
+                failure = "Thư viện nhạc không đọc được câu truy vấn này: \(sql)"
+            }
             return nil
         }
         return statement
@@ -1089,13 +1113,29 @@ public final class LibraryStore: @unchecked Sendable {
     }
 }
 
-/// Runs a statement that needs no rows back. A message here is only ever a schema or a
-/// transaction command, so the error text is dropped rather than threaded up through
-/// seventeen call sites.
+/// Schema and transaction statements run through a free function rather than a method —
+/// threading an error up through seventeen call sites would only bury the ones that matter —
+/// so a failure goes into a process-wide box that the store drains when it finishes opening.
+/// The lock is because the box is shared and the tests open more than one store.
+private let schemaProblemsLock = NSLock()
+// Every read and write of this goes through the lock above, which is what makes the
+// Swift 6 opt-out honest rather than a way of silencing the compiler.
+private nonisolated(unsafe) var schemaProblems: [String] = []
+
+private func drainSchemaProblems() -> [String] {
+    schemaProblemsLock.withLock {
+        let found = schemaProblems
+        schemaProblems = []
+        return found
+    }
+}
+
 private func sqlRun(_ handle: OpaquePointer?, _ sql: String) {
     guard let handle else { return }
     var message: UnsafeMutablePointer<CChar>?
     if sqlite3_exec(handle, sql, nil, nil, &message) != SQLITE_OK {
+        let text = message.map { String(cString: $0) } ?? sql
         if let message { sqlite3_free(message) }
+        schemaProblemsLock.withLock { schemaProblems.append(text) }
     }
 }

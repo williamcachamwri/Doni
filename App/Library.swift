@@ -40,6 +40,12 @@ final class Library: ObservableObject {
     /// walk of the disk, and the line never goes on quoting space that a cleanup just took back.
     @Published private(set) var disk: DoniStorage?
 
+    /// What the database refused to do, if anything. `nil` means it is answering.
+    ///
+    /// A library that cannot open and a library with nothing in it look identical on every screen,
+    /// and only one of them is the user's fault. This is the difference.
+    @Published private(set) var storeFailure: String?
+
     init(filename: String = "library.db") {
         self.filename = filename
         store = LibraryStore(path: Self.supportDirectory.appendingPathComponent(filename).path)
@@ -68,6 +74,7 @@ final class Library: ObservableObject {
     /// Every published list and number, re-read. Called after anything that touches the file, so a
     /// heart tapped in one tab shows in the other three without a relaunch.
     func refresh() {
+        storeFailure = store.failure
         favorites = store.favorites().map { remembered($0) }
         playlists = store.playlists()
         channels = store.channels()

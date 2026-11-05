@@ -173,7 +173,7 @@ struct LibraryView: View {
                     }
                 }
 
-                footer(visible.isEmpty, failure: indexer.failureLine)
+                footer(visible.isEmpty, failure: library.storeFailure ?? indexer.failureLine)
             }
             .padding(.top, MusicFeedMetrics.feedTop)
             .padding(.bottom, MusicFeedMetrics.feedBottom)

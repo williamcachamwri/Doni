@@ -561,4 +561,34 @@ struct LibraryStoreTests {
         #expect(!after.contains(Array("song-7.mp3".utf8)), "no page of it survived")
         #expect(store.createPlaylist(name: "Sau khi đăng xuất") != nil, "the schema came back with it")
     }
+    @Test("a database that cannot be read says so instead of looking empty")
+    func brokenFile() throws {
+        let directory = try #require(
+            FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        ).appendingPathComponent("DoniTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        // Not a SQLite file at all: whatever the user's library.db turned into — a truncated write,
+        // a disk that filled mid-download, a sync that replaced it with something else.
+        let file = directory.appendingPathComponent("library.db")
+        try Data("this is not a database".utf8).write(to: file)
+
+        let store = LibraryStore(path: file.path)
+        defer { store.close() }
+
+        // The old behaviour: every read answers nothing and the app tells the user they have no
+        // music. The rows are the same either way; the message is the whole difference.
+        #expect(store.trackCount() == 0)
+        #expect(store.failure != nil, "\(String(describing: store.failure))")
+    }
+
+    @Test("a store that opens cleanly reports no failure")
+    func healthyFile() throws {
+        let (store, directory) = try makeStore()
+        defer { store.close(); try? FileManager.default.removeItem(at: directory) }
+        #expect(store.failure == nil)
+        #expect(store.createPlaylist(name: "Sạch") != nil)
+        #expect(store.failure == nil)
+    }
 }
