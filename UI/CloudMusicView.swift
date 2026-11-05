@@ -1,6 +1,7 @@
 import SwiftUI
 import Support
 import TelegramDesignSystem
+import UIKit
 import UniformTypeIdentifiers
 
 /// The tab MeloX puts its cloud drive in (`Features/Cloud/CloudMusicView.swift:99-206`), meaning the
@@ -98,16 +99,12 @@ struct CloudMusicView: View {
                 .accessibilityLabel(importing > 0 ? "Đang thêm nhạc…" : "Thêm nhạc từ file")
             }
         }
-        .fileImporter(
-            isPresented: $showsFileImporter,
-            allowedContentTypes: [.audio],
-            allowsMultipleSelection: true
-        ) { result in
-            switch result {
-            case .success(let urls):
+        .sheet(isPresented: $showsFileImporter) {
+            AudioDocumentPicker { urls in
+                showsFileImporter = false
                 importFiles(urls)
-            case .failure(let error):
-                failure = error.localizedDescription
+            } onCancel: {
+                showsFileImporter = false
             }
         }
         .confirmationDialog("Xoá bài này?", isPresented: deleting,
@@ -237,6 +234,48 @@ struct CloudMusicView: View {
                     ? "Không có file nào được chọn."
                     : localized("Không thêm được: %@.", complaint)
             }
+        }
+    }
+}
+
+/// The Files picker, asked for a private copy rather than a borrowed reference.
+///
+/// SwiftUI's `fileImporter` hands back the source URL and relies on a security-scoped permission
+/// whose lifetime is easy to lose before a background import reads it. `asCopy: true` makes the
+/// system copy the chosen song into this app's sandbox first, which is exactly what Doni needs:
+/// the importer then hashes and copies a file that is already reachable.
+private struct AudioDocumentPicker: UIViewControllerRepresentable {
+    let onPick: ([URL]) -> Void
+    let onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.audio],
+                                                    asCopy: true)
+        picker.allowsMultipleSelection = true
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ picker: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick, onCancel: onCancel) }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        private let onPick: ([URL]) -> Void
+        private let onCancel: () -> Void
+
+        init(onPick: @escaping ([URL]) -> Void, onCancel: @escaping () -> Void) {
+            self.onPick = onPick
+            self.onCancel = onCancel
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController,
+                            didPickDocumentsAt urls: [URL]) {
+            onPick(urls)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onCancel()
         }
     }
 }
