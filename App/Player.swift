@@ -1,4 +1,5 @@
 import AVFoundation
+import DoniLyrics
 import MediaPlayer
 import Support
 import SwiftUI
@@ -674,6 +675,12 @@ final class Player: ObservableObject {
         markIn = nil
         current = track
         library.recordPlay(track)
+        // The words are asked for here rather than by the lyrics panel. The lock screen and the
+        // Dynamic Island sing the current line, and a listener who plays a song and locks the phone
+        // never opens the panel — so the panel was the only thing that ever asked, and the island had
+        // nothing to say. `load` is keyed by the song and keeps its own cache, so a panel opening
+        // later costs nothing extra.
+        Lyrics.shared.load(track)
         // The row keeps its place when the same song is asked for again — that is the press that
         // retries a fetch — and starts at zero when the queue has moved on.
         elapsed = startAt ?? (held == track.uniqueId ? elapsed : 0)
@@ -1039,10 +1046,14 @@ final class Player: ObservableObject {
     private func publishNowPlaying(elapsed: TimeInterval, track: (any Playable)? = nil) {
         let shown = track ?? current
         guard let shown else { return }
-        let artist = shown.displayPerformer.isEmpty ? "Doni" : shown.displayPerformer
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: shown.displayTitle,
-            MPMediaItemPropertyArtist: artist,
+            // The line being sung, in the slot the song's name usually sits — MeloX's default
+            // now-playing title is the lyric token (`AppSettings.swift:18`), and the island and the
+            // lock screen are the system's now-playing UI, so that is what changes here. A song whose
+            // words nobody has written out keeps its name: a blank title is not an answer.
+            MPMediaItemPropertyTitle: sungLine(for: shown, at: elapsed) ?? shown.displayTitle,
+            MPMediaItemPropertyArtist: Self.byline(title: shown.displayTitle,
+                                                   artist: shown.displayPerformer),
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: elapsed,
             // The lock screen runs its own clock from this rate, so 0 is what holds it still.
@@ -1060,6 +1071,34 @@ final class Player: ObservableObject {
         let on = library.favorites.contains(where: { $0.track.uniqueId == shown.uniqueId })
         if commands.likeCommand.isActive != on { commands.likeCommand.isActive = on }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// The line the song is on right now, in the words the lyrics screen is highlighting.
+    ///
+    /// `nil` means the words are not known: no lookup has answered for this song, none exists for it,
+    /// or the song has not reached its first line yet. Every one of those is the song's name on the
+    /// lock screen rather than a blank, which is what the caller does with it.
+    ///
+    /// Asked of `Lyrics.shared` rather than of a copy the player keeps, because the lookup, the cache
+    /// and the four sources are that object's job — the player only has to say which song started.
+    private func sungLine(for track: any Playable, at seconds: TimeInterval) -> String? {
+        let lyrics = Lyrics.shared
+        guard lyrics.key == track.uniqueId, !lyrics.lines.isEmpty else { return nil }
+        guard let line = LyricLineTimeline.line(at: seconds, in: lyrics.lines,
+                                                settings: Lyrics.settings),
+              !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return line.text
+    }
+
+    /// The second line of the media card: the song and the singer, in that order, joined the way the
+    /// reference joins them (`ui.lyrics.format.default.title_artist`, `"%@ · %@"`).
+    ///
+    /// The name is in it because the line above is now often a lyric, and a lock screen that shows a
+    /// line of words with no way back to the song is a lock screen that cannot be explained to
+    /// whoever is holding the phone.
+    private static func byline(title: String, artist: String) -> String {
+        artist.isEmpty ? title : "\(title) · \(artist)"
     }
 
     /// The lock screen's cover, rebuilt only when the picture behind it actually changed.
