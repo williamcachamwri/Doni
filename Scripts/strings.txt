@@ -359,3 +359,5 @@ Giới thiệu|关于|Acerca de|О приложении|À propos|عن
 Đóng|关闭|Cerrar|Закрыть|Fermer|إغلاق
 Giới thiệu Doni|关于 Doni|Acerca de Doni|О Doni|À propos de Doni|عن Doni
 Phiên bản, cập nhật, giấy phép|版本、更新与许可|Versión, actualizaciones y licencias|Версия, обновления и лицензии|Version, mises à jour et licences|الإصدار والتحديثات والتراخيص
+Xoá thất bại: %@ — %@|删除失败：%@ — %@|Error al eliminar: %@ — %@|Не удалось удалить: %@ — %@|Échec de la suppression : %@ — %@|فشل الحذف: %@ — %@
+Bài này sẽ bị xoá khỏi Saved Messages trên Telegram, không chỉ khỏi Doni.|这首歌将从你的 Telegram「收藏」中删除，而不只是从 Doni 中移除。|Esta canción se eliminará de Guardados en Telegram, no solo de Doni.|Этот трек будет удалён из Saved Messages в Telegram, а не только из Doni.|Ce titre sera supprimé des Messages enregistrés dans Telegram, pas seulement de Doni.|سيُحذف هذا المقطع من «الرسائل المحفوظة» في تيليجرام وليس من Doni فقط.

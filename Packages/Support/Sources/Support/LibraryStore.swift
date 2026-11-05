@@ -7,17 +7,15 @@ public struct StoreChannel: Equatable, Sendable, Identifiable {
     public var chatId: Int64
     public var username: String
     public var title: String
-    /// Whether Doni reads this channel. The allow-list: any number of channels can be on it and the
-    /// walk reads all of them, so this is a per-channel yes rather than the one channel home shows.
+    /// Whether Doni indexes this channel. The allow-list can hold any number of them.
     public var isIndexed: Bool
-    /// TDLib's row number for the chat's own picture (`td_api.tl:326`), which is what a download is
-    /// asked for by. `nil` until `getChat` has been read for this channel.
+    /// TDLib's row number for the chat's picture (`td_api.tl:326`) — what a download is asked for
+    /// by. `nil` until `getChat` has been read.
     public var avatarFileId: Int?
-    /// MTProto's identity for the same bytes (`td_api.tl:784`), which the copy on the phone is named
-    /// after — filed under the row number, a rebuilt database would hand one channel another's face.
+    /// MTProto's identity for the same bytes (`td_api.tl:784`), which the local copy is named after.
+    /// A row number is per-database, so it cannot key a picture that outlives its database.
     public var avatarUniqueId: String?
-    /// The copy itself, in a file this app owns: what lets the row draw the picture without asking
-    /// Telegram for it again.
+    /// This app's own copy, so the row draws the picture without asking Telegram again.
     public var avatarPath: String?
 
     public init(chatId: Int64, username: String, title: String, isIndexed: Bool = false,
@@ -35,14 +33,13 @@ public struct StoreChannel: Equatable, Sendable, Identifiable {
 
 /// A playable message, written down.
 ///
-/// This is a snapshot rather than a live `TdTrack`: a favourite or a playlist entry has to survive
-/// the channel being re-read, and `file:id:int32` (`td_api.tl:326`) is per-database anyway, so the
-/// only key that identifies the same song twice is MTProto's `unique_id`.
+/// A snapshot, not a live `TdTrack`: favourites and playlist entries have to survive a re-read, and
+/// `file:id:int32` (`td_api.tl:326`) is per-database — MTProto's `unique_id` is the only stable key.
 public struct StoreTrack: Equatable, Sendable, Identifiable {
     public var id: String { uniqueId }
     public var uniqueId: String
-    /// The channel that posted it, or `0` for a file the user brought in themselves — Telegram does
-    /// not number a chat that, so the gap is this app's to use, and it is what `isLocal` asks.
+    /// The channel that posted it, or `0` for a file the user brought in — the gap Telegram does not
+    /// number, which is what `isLocal` asks.
     public var chatId: Int64
     public var messageId: Int64
     public var fileId: Int
@@ -55,12 +52,11 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
     public var date: Int64
     public var localPath: String?
     public var miniArtwork: Data?
-    /// The cover's MTProto identity. `coverFileId` is TDLib's row number in whichever database made
-    /// it, so it is only good until that database is; this is what a cached picture is filed under.
+    /// The cover's MTProto identity — what a cached picture is filed under, because `coverFileId` is
+    /// only good while the database that made it is.
     public var coverUniqueId: String?
-    /// What Telegram said the bytes are, kept because a channel's `messageAudio` so often carries no
-    /// file name at all: the name is then nothing to read the container from, and a row that lost
-    /// this is a row the app calls "not streamable" and downloads whole.
+    /// What Telegram said the bytes are. Channel posts so often carry no file name that this is the
+    /// only thing to read the container from; lost, the row is called unstreamable and downloaded whole.
     public var mimeType: String
 
     public init(uniqueId: String, chatId: Int64, messageId: Int64, fileId: Int,
@@ -84,12 +80,9 @@ public struct StoreTrack: Equatable, Sendable, Identifiable {
         self.mimeType = mimeType
     }
 
-    /// A song this app owns outright: a file the user imported, not a post a channel made.
-    ///
-    /// Nothing can be fetched for it — `fileId` is `0` because TDLib never heard of the file, and the
-    /// cover comes out of the container rather than off Telegram's servers — and the bytes sit where
-    /// this app put them, so it is on the phone until the user deletes it. A channel re-read never
-    /// prunes these: every walk writes under a real `chat_id`.
+    /// A file the user imported, not a channel post: `fileId` is `0` because TDLib never saw the
+    /// file, the cover comes out of the container, and the bytes stay until the user deletes them.
+    /// Every walk writes under a real `chat_id`, so a re-read never prunes these.
     public var isLocal: Bool { chatId == 0 }
 }
 
@@ -99,8 +92,7 @@ public struct StoredPlaylist: Equatable, Sendable, Identifiable {
     public var name: String
     public var createdAt: Int64
     public var trackCount: Int
-    /// A picture the user chose for this list, written next to the database. `nil` means the list
-    /// wears its first song's cover, which is the only artwork a Telegram list has by itself.
+    /// A cover the user chose, written next to the database; `nil` wears the first song's cover.
     public var coverPath: String?
 
     public init(id: Int64, name: String, createdAt: Int64, trackCount: Int = 0,
@@ -117,8 +109,7 @@ public struct StoredPlaylist: Equatable, Sendable, Identifiable {
 public struct StoredFavorite: Equatable, Sendable, Identifiable {
     public var id: String { track.uniqueId }
     public var track: StoreTrack
-    /// `nil` means the whole song. Both are seconds, and a slice is what makes this app's
-    /// favourite different from a bookmark.
+    /// The slice kept, in seconds; `nil` means the whole song.
     public var start: Int?
     public var end: Int?
     public var createdAt: Int64
@@ -136,12 +127,8 @@ public struct StoredFavorite: Equatable, Sendable, Identifiable {
     }
 }
 
-/// The app's own database, in SQLite.
-///
-/// Hand-rolled rather than a wrapper: the schema is five tables, and a library that has to hold
-/// 50 000 rows and answer "which of these are already on the phone" should not carry an ORM.
-/// Everything is one class with one lock, because the app only ever writes from the index walk
-/// and from a tap, both of which are already serialised on the main actor.
+/// The app's own database, in SQLite: hand-rolled, because five tables and a 50 000-row library
+/// answering "which of these are on the phone" should not carry an ORM. One class, one lock.
 public final class LibraryStore: @unchecked Sendable {
     public enum Failure: Error, Equatable {
         case cannotOpen(String)
@@ -155,12 +142,10 @@ public final class LibraryStore: @unchecked Sendable {
     private var handle: OpaquePointer?
     private let path: String
 
-    /// The last thing the database refused to do, in the app's own words.
-    ///
-    /// Without this a store that never opened and a library that is genuinely empty are the same
-    /// screen: every read answers `[]`, every write no-ops, and the user is told they have no music
-    /// when the truth is that the app cannot read their library. Disk-full lands here too — it is
-    /// the one failure a listener can act on, and it used to be invisible.
+    /// The last thing the database refused to do, in the app's own words. Without this a store that
+    /// never opened — every read `[]`, every write a no-op — is indistinguishable from an empty
+    /// library. What arrives here is an open that failed and a statement SQLite would not prepare;
+    /// a write refused at step time (disk full) is still dropped quietly rather than reported.
     public private(set) var failure: String?
 
     /// Opens (and creates if needed) the database at `path`.
@@ -180,11 +165,8 @@ public final class LibraryStore: @unchecked Sendable {
         handle = nil
     }
 
-    /// Closes the connection and opens it again over the same path.
-    ///
-    /// This is what lets a sign-out throw the *file* away rather than only its rows: the unlink has
-    /// to happen while nothing holds the database open, and the app still has to have somewhere to
-    /// write afterwards. What comes back is an empty schema — the same thing a first launch gets.
+    /// Closes and reopens the same path, so a sign-out can unlink the *file* rather than only its
+    /// rows: the unlink needs no open handle. Comes back as the empty schema a first launch gets.
     public func reopen() {
         lock.lock()
         defer { lock.unlock() }
@@ -205,13 +187,11 @@ public final class LibraryStore: @unchecked Sendable {
         }
         handle = opened
         sqlite3_busy_timeout(opened, 2000)
-        // Whatever the schema work reports is the store's problem to carry, not the free
-        // function's, so the box is emptied before and read back after.
+        // Whatever the schema work reports is the store's to carry, not the free function's.
         _ = drainSchemaProblems()
         Self.configure(opened)
         Self.createSchema(opened)
-        // A schema that could not be built is a library that will not save anything, which is
-        // worth saying even though the file itself opened fine.
+        // A schema that could not be built saves nothing, even though the file opened fine.
         if let problem = drainSchemaProblems().first {
             failure = "Không dựng được cấu trúc thư viện: \(problem)"
         }
@@ -286,15 +266,15 @@ public final class LibraryStore: @unchecked Sendable {
         sqlRun(handle, "PRAGMA user_version = \(Self.schemaVersion)")
     }
 
-    /// A column added later. `CREATE TABLE IF NOT EXISTS` cannot add a column to the table an older
-    /// build already made, so the upgrade asks the table what it holds and adds the one it is missing.
-    /// Asking rather than reading `user_version` is what keeps this safe on a brand new database,
-    /// where the statement above has already made the column and a second one would be an error.
+    /// A column added later: `CREATE TABLE IF NOT EXISTS` cannot extend a table an older build already
+    /// made, so each upgrade asks the table what it holds (`hasColumn`) and adds only what is missing —
+    /// probing rather than reading `PRAGMA user_version` is what keeps a brand new database safe, where
+    /// the create above already made these columns and a second one would error.
     ///
-    /// Version 2 gave a list its own cover file, and version 4 gave a song's cover its own identity:
-    /// the row number a pre-4 build stored belongs to whichever TDLib database made it, and a track
-    /// that has been re-read since then gets its real `file_unique_id` written beside it. Version 5
-    /// gave a channel the same three things for its picture.
+    /// Versions 2-5: a list's own cover, then the `file_unique_id` a cover or avatar is filed under.
+    /// Version 6: the mime type a container is read from, and the moment a song was last heard.
+    /// Version 7: `in_cloud` — a song can be a channel's post and the account's own file at once, and
+    /// one `chat_id` cannot say both.
     private static func addMissingColumn(_ handle: OpaquePointer) {
         if !hasColumn(handle, table: "playlist", column: "cover_path") {
             sqlRun(handle, "ALTER TABLE playlist ADD COLUMN cover_path TEXT")
@@ -312,30 +292,24 @@ public final class LibraryStore: @unchecked Sendable {
             sqlRun(handle, "ALTER TABLE channel ADD COLUMN avatar_path TEXT")
         }
         if !hasColumn(handle, table: "track", column: "mime_type") {
-            // What the post said the bytes are. A channel's audio post so often has no file name
-            // that the name is not enough to know the container, and guessing wrong costs the
-            // song its streaming.
+            // What the post said the bytes are: the file name is so often absent that guessing the
+            // container wrong costs the song its streaming.
             sqlRun(handle, "ALTER TABLE track ADD COLUMN mime_type TEXT NOT NULL DEFAULT ''")
         }
         if !hasColumn(handle, table: "track", column: "last_played_at") {
-            // When a song was last heard, which is the only fact a cache can be pruned by. The
-            // post's own date says when it was published, and the newest post in an old channel is
-            // the last thing anybody should throw away.
+            // When a song was last heard — the only fact a cache can be pruned by. A post's own date
+            // says only when it was published.
             sqlRun(handle, "ALTER TABLE track ADD COLUMN last_played_at INTEGER")
         }
         if !hasColumn(handle, table: "track", column: "in_cloud") {
-            // Whether the account's own chat holds this song. A row belongs to one `chat_id` — the
-            // channel that posted it — so "and it is in Saved Messages as well" has to be its own
-            // fact: writing the chat's id into the row instead takes the song out of its channel's
-            // list, and a re-read of that channel takes it out of the cloud again.
+            // Whether the account's own chat holds this song, as its own fact: `chat_id` is the
+            // channel that posted it, so overwriting it takes the song out of that channel's list.
             sqlRun(handle, "ALTER TABLE track ADD COLUMN in_cloud INTEGER NOT NULL DEFAULT 0")
         }
     }
 
-    /// Version 3 changed what a channel row means. `is_selected` could only ever be true for one row
-    /// — the one channel the walk was built around — and the allow-list wants a yes for every channel
-    /// it reads, so the column keeps its values and takes the new name: the channel an older build
-    /// had selected is the channel this build indexes.
+    /// Version 3: `is_selected` could only be true for one row and the allow-list wants a yes per
+    /// channel, so the column keeps its values and takes the new name.
     private static func renameSelectedColumn(_ handle: OpaquePointer) {
         guard !hasColumn(handle, table: "channel", column: "is_indexed"),
               hasColumn(handle, table: "channel", column: "is_selected")
@@ -383,9 +357,8 @@ public final class LibraryStore: @unchecked Sendable {
         return rows
     }
 
-    /// Remembers a channel. Reading it is the app's business, not the row's, so an upsert leaves the
-    /// opt-in exactly as the allow-list put it — and leaves a picture already recorded, because the
-    /// screen that adds a channel knows it but not yet whether the bytes are on the phone.
+    /// Remembers a channel, leaving the opt-in exactly as the allow-list put it and any picture
+    /// already recorded — the adding screen knows a cover, not yet whether the bytes landed.
     @discardableResult
     public func save(channel: StoreChannel) -> Bool {
         lock.lock()
@@ -411,9 +384,8 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_DONE
     }
 
-    /// What a channel's picture is made of, written down as each half of it is learned: the number
-    /// and the identity out of `getChat`, the path once the copy exists. A `nil` leaves the column
-    /// alone rather than clearing it, so recording a picture cannot undo the file already kept.
+    /// Records a channel's picture as each half is learned. A `nil` leaves its column alone rather
+    /// than clearing it, so recording cannot undo a copy already kept.
     @discardableResult
     public func setChannelAvatar(chatId: Int64, fileId: Int?, uniqueId: String?,
                                  path: String?) -> Bool {
@@ -434,8 +406,7 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_DONE
     }
 
-    /// Opting a channel into the index, or back out of it. Every row answers for itself: switching
-    /// one on leaves the others on, which is the whole point of an allow-list.
+    /// Opting a channel into the index, or back out. Every row answers for itself, as an allow-list wants.
     public func setChannel(chatId: Int64, indexed: Bool) {
         lock.lock()
         defer { lock.unlock() }
@@ -450,8 +421,7 @@ public final class LibraryStore: @unchecked Sendable {
     public func removeChannel(chatId: Int64) {
         lock.lock()
         defer { lock.unlock() }
-        // The songs go with it, and so does anything that pointed at them: a heart on a track
-        // nobody can reach is a row that will never play again.
+        // The songs go with it, and anything that pointed at them: an unreachable row never plays.
         sqlRun(handle, "BEGIN")
         let owned = "(SELECT unique_id FROM track WHERE chat_id = \(chatId))"
         sqlRun(handle, "DELETE FROM favorite WHERE unique_id IN \(owned)")
@@ -463,15 +433,14 @@ public final class LibraryStore: @unchecked Sendable {
 
     // MARK: Tracks
 
-    /// Writes a page of the library. A song the page re-states keeps the path already recorded
-    /// on the phone, because the write is an upsert; a song the page no longer mentions is
-    /// retired, since the channel does not carry it any more.
+    /// Writes a page of the library. The write is an upsert, so a re-stated song keeps the path
+    /// already recorded; a song the page no longer mentions is retired with its channel.
     public func replaceTracks(chatId: Int64, tracks: [StoreTrack]) {
         lock.lock()
         defer { lock.unlock() }
         sqlRun(handle, "BEGIN")
-        // The rows are written under the channel they are being replaced for, so a page that
-        // carries the wrong `chat_id` cannot leave a song behind that no channel can reach.
+        // Written under the channel being replaced, so a page carrying the wrong `chat_id` cannot
+        // leave a song behind that no channel can reach.
         for track in tracks {
             var owned = track
             owned.chatId = chatId
@@ -481,8 +450,8 @@ public final class LibraryStore: @unchecked Sendable {
         sqlRun(handle, "COMMIT")
     }
 
-    /// A walk writes page by page, newest first, so pages overlap. The write underneath is an
-    /// upsert, which is what lets an overlap update a row without forgetting where its file is.
+    /// A walk writes pages newest first, so they overlap; the upsert underneath lets an overlap
+    /// update a row without forgetting where its file is.
     public func appendTracks(_ tracks: [StoreTrack]) {
         lock.lock()
         defer { lock.unlock() }
@@ -520,12 +489,8 @@ public final class LibraryStore: @unchecked Sendable {
         tracks(chatId: 0)
     }
 
-    /// Retiring one song and everything that pointed at it. A heart or a playlist entry left on a row
-    /// whose file has gone is a song that will never play again, so they go with it — the same rule
-    /// `removeChannel` applies to a whole channel at once.
-    ///
-    /// The id is bound, not spliced: it is bytes for a Telegram song and a hash for an imported one,
-    /// and neither belongs in the SQL text.
+    /// Retiring a song and everything that pointed at it, as `removeChannel` does per channel. The id
+    /// is bound, not spliced: neither Telegram's bytes nor an import hash belongs in the SQL text.
     public func removeTrack(uniqueId: String) {
         lock.lock()
         defer { lock.unlock() }
@@ -555,10 +520,8 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
-    /// A length the app measured and Telegram never sent.
-    ///
-    /// The walk does not get to disagree: it writes `NULL` for every document row it re-reads and the
-    /// upsert's `COALESCE` keeps this instead.
+    /// A length the app measured and Telegram never sent. The walk writes `NULL` for every document
+    /// row it re-reads and the upsert's `COALESCE` keeps this instead.
     public func setDuration(_ seconds: Int, uniqueId: String) {
         lock.lock()
         defer { lock.unlock() }
@@ -570,10 +533,7 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
-    /// Songs the list cannot time but the phone could: no duration, and a file to read one from.
-    ///
-    /// Newest first, the way the list itself is ordered, so what the user is shown is what gets its
-    /// timestamp first.
+    /// Songs with no duration but a file on the phone to read one from, newest first as the list is.
     public func unmeasuredTracks(onlyOnDevice: Bool = true) -> [StoreTrack] {
         lock.lock()
         defer { lock.unlock() }
@@ -610,8 +570,8 @@ public final class LibraryStore: @unchecked Sendable {
             "DELETE FROM track WHERE chat_id = ? AND unique_id NOT IN (\(marks))") else { return }
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_int64(statement, 1, chatId)
-        // Index 1 is the channel, so the list starts at 2 — bound onto 1 would overwrite it and
-        // leave a NULL in the last slot, which makes `NOT IN` match nothing at all.
+        // Index 1 is the channel, so the list starts at 2 — bound onto 1 would leave a NULL in the
+        // last slot, which makes `NOT IN` match nothing at all.
         for (offset, key) in uniqueIds.enumerated() {
             sqlite3_bind_text(statement, Int32(2 + offset), key, -1, Self.transient)
         }
@@ -643,11 +603,9 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
-    /// The fifteen columns, in `Self.columns` order, bound onto a statement.
-    ///
-    /// The walk's upsert and the cloud's upsert write the same row from the same struct and disagree
-    /// only about which columns they are allowed to overwrite, so the binding is the part worth
-    /// sharing — a list kept in two places is a list that one day gets out of order.
+    /// The fifteen columns, in `Self.columns` order, bound onto a statement — shared by the walk's
+    /// upsert and the cloud's, which write the same row and disagree only about what they may
+    /// overwrite; a column list kept in two places gets out of order.
     private static func bind(track: StoreTrack, into statement: OpaquePointer) {
         sqlite3_bind_text(statement, 1, track.uniqueId, -1, transient)
         sqlite3_bind_int64(statement, 2, track.chatId)
@@ -755,8 +713,7 @@ public final class LibraryStore: @unchecked Sendable {
         removeFavoriteLocked(uniqueId)
     }
 
-    /// Writing a slice onto a favourite that already exists — the "chọn đoạn này" button on a
-    /// song that was already loved whole.
+    /// Writing a slice onto a favourite that already exists.
     @discardableResult
     public func setFavoriteSegment(_ segment: ClosedRange<Int>?, uniqueId: String,
                                    at now: Int64 = Int64(Date().timeIntervalSince1970)) -> Bool {
@@ -982,11 +939,8 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
     }
 
-    /// Every row that claims a file on the phone, as little more than its name and its path.
-    ///
-    /// The sweep that checks those claims needs neither the tags nor the artwork, and reading a
-    /// library's worth of `mini_artwork` blobs to ask a question about paths is how the check
-    /// became the expensive part.
+    /// Every row claiming a file on the phone, as name and path only: a sweep about paths has no
+    /// use for a library's worth of `mini_artwork` blobs.
     public func localPaths() -> [(uniqueId: String, path: String)] {
         lock.lock()
         defer { lock.unlock() }
@@ -1001,14 +955,10 @@ public final class LibraryStore: @unchecked Sendable {
         return found
     }
 
-    /// The moment a song was heard, and the row it was heard from.
-    ///
-    /// The row is written as well as updated, because a file can reach the player before the walk has
-    /// read the message it came from — TDLib hands over the bytes of a Saved Messages post nobody has
-    /// listed yet — and an `UPDATE` over no row is a song that never appears on the shelf of things
-    /// just heard. Only the columns a listener needs are written: `mime_type`, `duration` and
-    /// `local_path` stay exactly as the walk put them, so noting a play cannot undo a container the
-    /// streaming gate reads.
+    /// The moment a song was heard, and the row it was heard from. Written as well as updated: TDLib
+    /// hands over bytes of a Saved Messages post the walk has not listed yet, and an `UPDATE` over no
+    /// row loses it. Only the listener's columns are touched — `mime_type`, `duration` and
+    /// `local_path` stay as the walk put them.
     public func markPlayed(_ row: StoreTrack, at seconds: Int64) {
         lock.lock()
         defer { lock.unlock() }
@@ -1032,10 +982,7 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
-    /// The songs the phone has heard, most recently heard first.
-    ///
-    /// `limit` because this feeds a shelf of cards, not a list: the history keeps every song ever
-    /// played and the screen has room for a dozen.
+    /// The songs the phone has heard, most recent first; `limit` because this feeds a shelf of cards.
     public func recentlyPlayed(limit: Int) -> [StoreTrack] {
         lock.lock()
         defer { lock.unlock() }
@@ -1053,16 +1000,12 @@ public final class LibraryStore: @unchecked Sendable {
 
     // MARK: The account's own chat
 
-    /// Writing the songs of Saved Messages into the library, and marking them as the listener's own.
+    /// Writing the songs of Saved Messages into the library, marked with `in_cloud`.
     ///
-    /// A row the store already has keeps the channel that posted it: `chat_id` answers where a song
-    /// came from, and a forward into Saved Messages does not move the post. The `in_cloud` flag is the
-    /// separate fact — this song is in the account's own chat as well — which is what lets one song
-    /// stand in its channel's list and in Cloud Music at the same time.
-    ///
-    /// The columns a re-read is not allowed to make worse are `COALESCE`d rather than replaced, so a
-    /// page that answers before TDLib has finished looking the file up cannot clear a length, a
-    /// cover or the mime type the streaming gate reads.
+    /// An existing row keeps its `chat_id` — a forward into Saved Messages does not move the post —
+    /// and the separate flag is what lets one song stand in its channel's list and in Cloud Music. A
+    /// page answering before TDLib finishes the lookup must not make a column worse, so length, cover
+    /// and the streaming gate's mime type are `COALESCE`d, not replaced.
     public func saveCloud(_ tracks: [StoreTrack]) {
         lock.lock()
         defer { lock.unlock() }
@@ -1112,12 +1055,9 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_ROW
     }
 
-    /// Taking the flag off songs the chat no longer holds.
-    ///
-    /// Only ever called once a read has reached the oldest message: a page is not the whole chat, and
-    /// clearing against one page would call everything else gone. The ids go in as bound parameters
-    /// in chunks of five hundred, because SQLite's variable limit is a real number and a cloud of a
-    /// thousand songs is a normal one.
+    /// Taking the flag off songs the chat no longer holds — only once a read has reached the oldest
+    /// message, since a page is not the whole chat. The ids are bound in chunks of 500, because
+    /// SQLite's variable limit is a real number and a thousand-song cloud is a normal one.
     public func clearCloud(except uniqueIds: [String]) {
         lock.lock()
         defer { lock.unlock() }
@@ -1141,6 +1081,31 @@ public final class LibraryStore: @unchecked Sendable {
         }
     }
 
+    /// Writing or clearing the cloud flag on named songs.
+    ///
+    /// Used by the swipe, which knows exactly which song Telegram just lost and should not wait for a
+    /// page read to agree. Chunked at 500 because SQLite's variable limit is a real number.
+    public func setCloud(_ on: Bool, uniqueIds: [String]) {
+        guard !uniqueIds.isEmpty else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        var index = 0
+        while index < uniqueIds.count {
+            let chunk = Array(uniqueIds[index..<min(index + 500, uniqueIds.count)])
+            index += chunk.count
+            let marks = repeatElement("?", count: chunk.count).joined(separator: ", ")
+            guard let statement = prepare(
+                "UPDATE track SET in_cloud = ? WHERE unique_id IN (\(marks))"
+            ) else { return }
+            sqlite3_bind_int(statement, 1, on ? 1 : 0)
+            for (offset, key) in chunk.enumerated() {
+                sqlite3_bind_text(statement, Int32(2 + offset), key, -1, Self.transient)
+            }
+            sqlite3_step(statement)
+            sqlite3_finalize(statement)
+        }
+    }
+
     private func cloudUniqueIdsLocked() -> [String] {
         guard let statement = prepare("SELECT unique_id FROM track WHERE in_cloud = 1") else { return [] }
         defer { sqlite3_finalize(statement) }
@@ -1149,11 +1114,9 @@ public final class LibraryStore: @unchecked Sendable {
         return found
     }
 
-    /// What the phone is holding for each song, in the four numbers an eviction decides with.
-    ///
-    /// `size` is what the post said the file was, not what the directory measures, because TDLib
-    /// keeps its own files and a per-row `stat` of thousands of them is the slow way to ask a
-    /// question the storage screen already answers once a launch.
+    /// What the phone holds per song, in the numbers an eviction decides with. `size` is what the post
+    /// said the file was, not what the directory measures — a per-row `stat` over thousands of files
+    /// is the slow way to ask what the storage screen already answered once a launch.
     public func cacheRows() -> [(uniqueId: String, fileId: Int, size: Int64,
                                 isComplete: Bool, lastPlayedAt: Int64?)] {
         lock.lock()
@@ -1186,9 +1149,9 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
     }
 
-    /// Bytes of audio the phone is holding. `size` is TDLib's `document.size`, written down per
-    /// track, so this is the file the app asked for rather than the file's current state on disk —
-    /// a row TDLib has since evicted has already had its `local_path` cleared by `verified`.
+    /// Bytes of audio the phone is holding: TDLib's `document.size` per row, so the file the app asked
+    /// for rather than its state on disk. A row TDLib has evicted has already had `local_path` cleared
+    /// by `verified`.
     public func downloadedBytes() -> Int64 {
         lock.lock()
         defer { lock.unlock() }
@@ -1236,8 +1199,7 @@ public final class LibraryStore: @unchecked Sendable {
               let statement
         else {
             Self.log(sql, in: handle)
-            // Worth reporting, because the store that gets here is an open one: a closed handle
-            // returned above and already has a better message from `open`.
+            // Worth reporting: the handle here is an open one, and a closed one failed above.
             failure = "Thư viện nhạc không đọc được câu truy vấn này: \(sql)"
             return nil
         }
@@ -1286,25 +1248,22 @@ public final class LibraryStore: @unchecked Sendable {
         )
     }
 
-    /// A TEXT column that is allowed to be empty. `text(_:_)` answers `""` for a NULL, which is the
-    /// wrong thing for an identity: an empty cover id would be read as a real one and file a picture
-    /// under nothing.
+    /// A TEXT column that is allowed to be empty. `text(_:_)` answers `""` for a NULL, which would
+    /// read as a real identity and file a picture under nothing.
     private static func optionalText(_ statement: OpaquePointer?, _ index: Int32) -> String? {
         guard let statement, sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
         let value = text(statement, index)
         return value.isEmpty ? nil : value
     }
 
-    /// An INTEGER column that is allowed to be absent — a channel that has not had its picture read
-    /// yet is not a channel whose picture is zero.
+    /// An INTEGER column allowed to be absent — a picture not read yet is not a picture that is zero.
     private static func optionalInt(_ statement: OpaquePointer?, _ index: Int32) -> Int? {
         guard let statement, sqlite3_column_type(statement, index) != SQLITE_NULL else { return nil }
         return Int(sqlite3_column_int(statement, index))
     }
 
-    /// Binding a value that may be absent. `NULL` is what the `COALESCE` in the statements above reads
-    /// as "leave the column alone", so an optional has to be bound as one rather than turned into a
-    /// zero or an empty string.
+    /// Binding an absent value as `NULL`, which is what the `COALESCE` above reads as "leave the
+    /// column alone" — never as a zero or an empty string.
     private static func bindOptional(_ statement: OpaquePointer?, _ index: Int32,
                                      _ value: String?) {
         if let value {
@@ -1324,13 +1283,10 @@ public final class LibraryStore: @unchecked Sendable {
     }
 }
 
-/// Schema and transaction statements run through a free function rather than a method —
-/// threading an error up through seventeen call sites would only bury the ones that matter —
-/// so a failure goes into a process-wide box that the store drains when it finishes opening.
-/// The lock is because the box is shared and the tests open more than one store.
+/// Schema and transaction statements run through a free function, so a failure goes into a
+/// process-wide box the store drains when it finishes opening; the lock is because tests share it.
 private let schemaProblemsLock = NSLock()
-// Every read and write of this goes through the lock above, which is what makes the
-// Swift 6 opt-out honest rather than a way of silencing the compiler.
+// Every read and write goes through the lock above, which is what makes the Swift 6 opt-out honest.
 private nonisolated(unsafe) var schemaProblems: [String] = []
 
 private func drainSchemaProblems() -> [String] {

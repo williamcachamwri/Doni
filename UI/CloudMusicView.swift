@@ -4,18 +4,11 @@ import TelegramDesignSystem
 import UIKit
 import UniformTypeIdentifiers
 
-/// The tab MeloX puts its cloud drive in (`Features/Cloud/CloudMusicView.swift:99-206`), and Doni's
-/// cloud is the thing Telegram actually has: **Saved Messages**.
-///
-/// The reference's cloud is a NetEase drive — songs on someone else's server, listed with the same
-/// plain rows as its local library, with a quota over the top and a device-side copy made by tapping.
-/// Here the server is the account's own chat, so the list is that chat's history and the upload is a
-/// `sendMessage` with the file in it. A song picked out of the Files app is therefore *sent*, not
-/// copied: once Telegram has the bytes the staged copy is deleted, so the song lives in one place and
-/// the phone keeps only what streaming needed.
-///
-/// Rows the earlier builds copied into the sandbox are still listed and still playable. They are the
-/// user's music and this screen has no right to forget them; what changed is where new songs go.
+/// MeloX's cloud-drive tab (`Features/Cloud/CloudMusicView.swift:99-206`), where Doni's cloud is Saved
+/// Messages: the list is that chat's history and the upload is a `sendMessage` carrying the file.
+/// A song picked from Files is therefore *sent*, and the staged copy deleted once Telegram
+/// has the bytes.
+/// Rows older builds copied into the sandbox stay listed and playable — they are the user's music.
 struct CloudMusicView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var player: Player
@@ -27,21 +20,17 @@ struct CloudMusicView: View {
 
     @State private var query = ""
     @State private var showsFileImporter = false
-    /// The files this screen is holding open. MeloX has one `isUploading` flag on its store
-    /// (`CloudMusicView.swift:110-115`); a picker here can hand over several at once, so the count is
-    /// what says "still working" and how many are left.
+    /// Files still being held open. The reference has a single `isUploading` flag
+    /// (`CloudMusicView.swift:110-115`); this picker takes several at once, so it counts down.
     @State private var importing = 0
-    /// The song a swipe asked to delete, held until the dialog answers. MeloX's `pendingDeletion`
-    /// (`CloudMusicView.swift:51-71`), same shape: the row names itself in the button so a tap that
-    /// was meant for the row above it cannot take the wrong file.
+    /// The song a swipe asked to delete, held until the dialog answers (MeloX's `pendingDeletion`,
+    /// `CloudMusicView.swift:51-71`): the button names the row so a mis-tap cannot take the wrong file.
     @State private var pendingDeletion: StoreTrack?
-    /// The one failure this screen can produce: the file would not open, or would not copy. MeloX's
-    /// error alert (`CloudMusicView.swift:72-86`), for the same reason — a picker that seemed to work
-    /// and added nothing is a silent bug unless it says so.
+    /// "The file would not open or would not copy" (MeloX's alert, `CloudMusicView.swift:72-86`): a
+    /// picker that seemed to work and added nothing has to say so.
     @State private var failure: String?
-    /// Which of the two destinations the next picker answer goes to: Telegram, or the phone only.
-    /// Held as state because the picker's callback is one function and the choice is made a tap
-    /// before it.
+    /// Where the next picker answer goes: Telegram, or the phone only. State because the choice is made
+    /// a tap before the single picker callback runs.
     @State private var picksForCloud = true
 
     var body: some View {
@@ -72,20 +61,19 @@ struct CloudMusicView: View {
                     }
                     .buttonStyle(.plain)
                     .task(id: track.uniqueId) {
-                        // No downloader: the cover of a file the phone owns is read out of the file,
-                        // which is the first thing `CoverArtwork` tries and the only thing it needs.
+                        // Owned files get their cover read out of the file itself, which is the
+                        // first thing `CoverArtwork` tries.
                         await artwork.load(track: track, side: MusicSearchMetrics.songArt)
                     }
                     .swipeActions(edge: .trailing) {
-                        // Only a row the phone owns can be deleted here. A Saved Messages row is a
-                        // message in the user's Telegram, and taking it out of the app's list would
-                        // be a lie about what was removed — or, if it deleted for real, the song.
-                        if track.isLocal {
-                            Button(role: .destructive) {
-                                pendingDeletion = track
-                            } label: {
-                                Label("Xoá", systemImage: "trash")
-                            }
+                        // Every row can be swiped. A Saved Messages row is a real message, so the
+                        // delete says so in the dialog and goes through Telegram rather than only
+                        // dropping the row — which is the difference between removing a song and
+                        // hiding one.
+                        Button(role: .destructive) {
+                            pendingDeletion = track
+                        } label: {
+                            Label("Xoá", systemImage: "trash")
                         }
                     }
                 }
@@ -126,6 +114,11 @@ struct CloudMusicView: View {
         .task {
             await cloud.refresh(session)
         }
+        // A second task, because this one does not end: it is the reason a song deleted in the
+        // Telegram app is off this list while the phone is still on it.
+        .task {
+            await cloud.watchDeletes(session)
+        }
         .sheet(isPresented: $showsFileImporter) {
             AudioDocumentPicker { urls in
                 picked(urls)
@@ -137,12 +130,18 @@ struct CloudMusicView: View {
         .confirmationDialog("Xoá bài này?", isPresented: deleting,
                            titleVisibility: .visible, presenting: pendingDeletion) { song in
             Button(localized("Xoá %@", song.displayTitle), role: .destructive) {
-                library.removeLocal(song)
                 pendingDeletion = nil
+                if song.isLocal {
+                    library.removeLocal(song)
+                } else {
+                    Task { await cloud.delete(session, song) }
+                }
             }
             Button("Huỷ", role: .cancel) {}
-        } message: { _ in
-            Text("Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.")
+        } message: { song in
+            Text(song.isLocal
+                ? localized("Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.")
+                : localized("Bài này sẽ bị xoá khỏi Saved Messages trên Telegram, không chỉ khỏi Doni."))
         }
         .alert("Không thêm được bài", isPresented: cloudFailing) {
             Button("OK", role: .cancel) { cloud.failure = nil }
@@ -163,13 +162,10 @@ struct CloudMusicView: View {
 
     // MARK: What the list is
 
-    /// The songs that are the user's own: what Telegram holds in Saved Messages, then what an older
-    /// build copied into the sandbox. Newest first, the order `LibraryStore` reads its track table in.
-    ///
-    /// Folded through `CloudMusic.distinct` with the cloud rows first, because a song is often both:
-    /// downloaded from a channel, kept on the phone, and sent to Saved Messages as well. Listed twice
-    /// it reads as a library with two copies of one record, and the copy that is on Telegram is the
-    /// one worth showing — it plays on every device and the file on this phone is only a cache.
+    /// The user's own songs: Saved Messages first, then rows older builds copied into the sandbox,
+    /// newest first (the order `LibraryStore` reads its track table in).
+    /// `CloudMusic.distinct` keeps one entry per song, because a track is often both — the Telegram
+    /// copy wins, since it plays on every device and the local file is only a cache.
     private var kept: [StoreTrack] {
         CloudMusic.distinct(cloud.songs + library.storedTracks.filter(\.isLocal))
     }
@@ -185,11 +181,8 @@ struct CloudMusicView: View {
         }
     }
 
-    /// The reference's quota line, in the same slot (`CloudMusicView.swift:128-136`), saying the only
-    /// thing this app can: how many files the user has brought and how much of the phone they cost.
-    ///
-    /// Cloud songs are counted by their size on Telegram's side, which is the honest number for a
-    /// library that is not on the phone.
+    /// The reference's quota slot (`CloudMusicView.swift:128-136`): how many songs the user brought and
+    /// what they cost. Cloud songs count by their size on Telegram's side, not on the phone's.
     private var headline: String {
         if !query.isEmpty {
             return localized("%@ kết quả", visible.count.formatted())
@@ -220,9 +213,8 @@ struct CloudMusicView: View {
 
     // MARK: Empty
 
-    /// The two empties, in the reference's own shape (`CloudMusicView.swift:178-199`): a search with
-    /// no answer, and a drive nobody has put anything in yet — whose one action is the button that
-    /// fills it.
+    /// The reference's two empty states (`CloudMusicView.swift:178-199`): a search with no answer,
+    /// and an empty drive whose one action is the add button.
     @ViewBuilder
     private var emptyState: some View {
         if !query.isEmpty {
@@ -249,9 +241,8 @@ struct CloudMusicView: View {
         player.play(first, in: visible.map { $0 as any Playable })
     }
 
-    /// Where a picker's answer goes. Split out because the sheet's own closure had grown to the
-    /// point the compiler gave up type-checking it, which is the sign a view body is carrying two
-    /// decisions rather than one.
+    /// Where a picker's answer goes. Split out of the sheet's closure, which had outgrown the
+    /// type checker.
     private func picked(_ urls: [URL]) {
         print("cloud picker returned \(urls.count) urls")
         showsFileImporter = false
@@ -262,15 +253,13 @@ struct CloudMusicView: View {
         }
     }
 
-    /// One picker, as many files as were selected. Hashing and copying are a few hundred milliseconds
-    /// of disk each, so they run one after another rather than all at once, and the count at the head
-    /// of the list ticks down as they land — the only progress a user can act on.
+    /// As many files as were selected, imported one after another — a few hundred ms of disk each —
+    /// with `importing` ticking down per file.
     private func importFiles(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
-        // The permission the Files app grants for a picked file is only alive inside the callback it
-        // was handed in, so it is claimed here — synchronously, on the main actor, before anything
-        // awaits. Claimed later, from the task below, it answers false for every file and the whole
-        // import reads as "not one of these opened".
+        // Security-scoped access is only alive inside the callback it was handed in, so it is
+        // claimed here — synchronously, on the main actor, before anything awaits. Claimed later,
+        // from the task below, it answers false for every file.
         let claimed = urls.filter { $0.startAccessingSecurityScopedResource() }
         print("cloud import requested count=\(urls.count) claimed=\(claimed.count)")
         importing = urls.count
@@ -284,8 +273,7 @@ struct CloudMusicView: View {
                     print("cloud imported \(row.fileName)")
                     added += 1
                 case .failure(let reason) where complaint.isEmpty:
-                    // The first refusal, with the name it refused. A screen that only says "none of
-                    // these opened" cannot be answered by the person standing in front of it.
+                    // The first refusal, by name: "none of these opened" is not an answerable message.
                     complaint = "\(url.lastPathComponent) — \(reason.message)"
                     print("cloud import failed \(url.lastPathComponent): \(reason.message)")
                 case .failure:
@@ -304,12 +292,9 @@ struct CloudMusicView: View {
     }
 }
 
-/// The Files picker, asked for a private copy rather than a borrowed reference.
-///
-/// SwiftUI's `fileImporter` hands back the source URL and relies on a security-scoped permission
-/// whose lifetime is easy to lose before a background import reads it. `asCopy: true` makes the
-/// system copy the chosen song into this app's sandbox first, which is exactly what Doni needs:
-/// the importer then hashes and copies a file that is already reachable.
+/// Files picker with `asCopy: true`, so the system copies the song into the sandbox first: the import
+/// then reads a reachable file instead of a `fileImporter` URL whose scoped permission may already be
+/// gone by the time a background task gets to it.
 private struct AudioDocumentPicker: UIViewControllerRepresentable {
     let onPick: ([URL]) -> Void
     let onCancel: () -> Void

@@ -1,13 +1,10 @@
 import Foundation
 
-/// One TDLib client instance: a receive loop, request/response correlation and
-/// an ordered update stream.
+/// One TDLib client instance: a receive loop, request/response correlation and an ordered update stream.
 ///
-/// Deliberately a class with a lock rather than an actor. The receive loop is a
-/// blocking C call that must own its thread, and updates have to reach the
-/// consumer in arrival order — one `Task` per message would let two of them
-/// race. The loop therefore parses and routes synchronously, and only the
-/// pending-request table is shared, under `lock`.
+/// Deliberately a class with a lock rather than an actor: the receive loop is a blocking C call that
+/// must own its thread, and updates have to reach the consumer in arrival order — one `Task` per
+/// message would let two race. Only the pending-request table is shared, under `lock`.
 public final class TdClient: @unchecked Sendable {
     public enum Failure: Error, Equatable, CustomStringConvertible {
         /// TDLib answered with an `error` object.
@@ -38,6 +35,8 @@ public final class TdClient: @unchecked Sendable {
     private let fileYield: AsyncStream<TdJSON>.Continuation
     private let messageStream: AsyncStream<TdJSON>
     private let messageYield: AsyncStream<TdJSON>.Continuation
+    private let deleteStream: AsyncStream<TdJSON>
+    private let deleteYield: AsyncStream<TdJSON>.Continuation
 
     /// Updates and unsolicited responses, in arrival order. `AsyncStream` has
     /// one consumer; the session layer fans out from here.
@@ -45,18 +44,22 @@ public final class TdClient: @unchecked Sendable {
 
     /// The `file` inside every `updateFile` (`td_api.tl:11596`), on a stream of its own.
     ///
-    /// A second consumer of `updates` would steal states from the login loop, and file progress
-    /// is exactly the kind of update a download has to be watched for without disturbing
-    /// anything else, so the receive loop copies it out here instead.
+    /// A second consumer of `updates` would steal states from the login loop, so the receive loop
+    /// copies file progress out here instead.
     public var files: AsyncStream<TdJSON> { fileStream }
 
     /// The `message` inside every `updateNewMessage` (`td_api.tl:11196`), on a stream of its own.
     ///
-    /// Same reason as `files`: the post a live index is waiting for has to reach it without taking
-    /// anything away from the login loop, and TDLib sends the posts of every chat the account is in,
-    /// so the copy is the message object rather than the update around it — which is the one shape
-    /// `TdTrack(message:)` already reads out of a history page.
+    /// Same reason as `files`; the copy is the message object rather than the update around it, which
+    /// is the shape `TdTrack(message:)` already reads out of a history page.
     public var messages: AsyncStream<TdJSON> { messageStream }
+
+    /// Every `updateDeleteMessages` (`td_api.tl:11523`), whole — `chat_id` and `message_ids` are the
+    /// pair a library needs, and `is_permanent`/`from_cache` say nothing a listener can act on.
+    ///
+    /// This is what makes a song the user deleted in Telegram leave Cloud Music while the app is
+    /// open, instead of at the next read.
+    public var deletes: AsyncStream<TdJSON> { deleteStream }
 
     public init(transport: any TdTransporting, clientId: Int32) {
         self.transport = transport
@@ -76,6 +79,11 @@ public final class TdClient: @unchecked Sendable {
         )
         self.messageStream = messageStream
         self.messageYield = messageContinuation
+        let (deleteStream, deleteContinuation) = AsyncStream<TdJSON>.makeStream(
+            bufferingPolicy: .unbounded
+        )
+        self.deleteStream = deleteStream
+        self.deleteYield = deleteContinuation
     }
 
     /// Starts the receive loop, once per instance: TDLib forbids two
@@ -96,9 +104,8 @@ public final class TdClient: @unchecked Sendable {
 
     /// Sends a request and waits for the response matched by `@extra`.
     ///
-    /// TDLib requests cannot be cancelled once sent, so this ignores task
-    /// cancellation: a caller that goes away leaves the request to complete,
-    /// which is what would happen if cancellation were honoured anyway.
+    /// TDLib requests cannot be cancelled once sent, so this ignores task cancellation: a caller that
+    /// goes away leaves the request to complete, as it would even if cancellation were honoured.
     public func request(_ type: String, _ fields: [String: TdJSON] = [:]) async throws -> TdJSON {
         let extra = nextExtra()
         var payload = fields
@@ -166,6 +173,7 @@ public final class TdClient: @unchecked Sendable {
         if json.type == "updateNewMessage", let message = json["message"] {
             messageYield.yield(message)
         }
+        if json.type == "updateDeleteMessages" { deleteYield.yield(json) }
         if let extra = json["@extra"]?.string {
             lock.lock()
             let continuation = pending.removeValue(forKey: extra)

@@ -1,17 +1,14 @@
 import Foundation
 
-/// The chat this account keeps for itself, which is where Doni's Cloud Music lives.
+/// The chat this account keeps for itself, where Doni's Cloud Music lives.
 ///
-/// Saved Messages is not a special thing in TDLib's interface: it is the private chat with the
-/// account's own user id, and the schema says so in the one place a Saved Messages link is
-/// described — "Call `createPrivateChat` with `getOption("my_id")` and open the chat"
-/// (`td_api.tl:10301`). So the number is asked for once, the chat is created once, and everything
-/// after that is an ordinary chat call: the same `getChatHistory` (`:12758`) a channel walk uses,
-/// and a `sendMessage` (`:13143`) whose document is a local path TDLib uploads on the way.
+/// Saved Messages is not special in TDLib's interface: it is the private chat with the account's own
+/// user id — "Call `createPrivateChat` with `getOption("my_id")` and open the chat" (`td_api.tl:10301`).
+/// After that it is ordinary chat calls: the same `getChatHistory` (`:12758`) a channel walk uses, and
+/// a `sendMessage` (`:13143`) whose document is a local path TDLib uploads on the way.
 ///
-/// Nothing here invents a second storage. A song in Saved Messages *is* the copy: the phone keeps
-/// only what streaming has needed so far, in TDLib's own file cache, and the bytes the user
-/// uploaded are dropped as soon as Telegram has them.
+/// Nothing here invents a second storage: a song in Saved Messages *is* the copy, and the bytes the
+/// user uploaded are dropped as soon as Telegram has them.
 public struct TdSavedMessages: Sendable {
     public enum Failure: Error, Equatable {
         case noUserId
@@ -19,9 +16,7 @@ public struct TdSavedMessages: Sendable {
         /// TDLib answered a request with something that is not what the request makes.
         case unexpectedResponse(String)
         /// The send came back with something other than a `message`. Its own case because the caller
-        /// has to keep the local file in that case rather than delete it — and because the first
-        /// build used this one for a send that had worked, on a `message` whose file TDLib had not
-        /// finished naming.
+        /// has to keep the local file in that case rather than delete it.
         case notAMessage(String)
     }
 
@@ -33,10 +28,8 @@ public struct TdSavedMessages: Sendable {
 
     /// Which of the two calls refused, in TDLib's own words.
     ///
-    /// This is a result rather than an optional because the first build answered `nil` for every
-    /// failure and the screen turned that into "you are not signed in" — on a phone that was
-    /// obviously signed in, playing a song. A missing chat id has four causes and the listener can
-    /// only act on the right one if the app kept which step said no.
+    /// A result rather than an optional: a missing chat id has four causes, and the listener can only
+    /// act on the right one if the app kept which step said no.
     public enum ChatFailure: Error, Equatable, Sendable {
         case noUserId(String)
         case noChat(String)
@@ -44,10 +37,9 @@ public struct TdSavedMessages: Sendable {
 
     /// The chat id, created if the account has never opened it.
     ///
-    /// `userId` is the current user's id, which the session already has from `getMe` — it is the
-    /// same number `getOption("my_id")` answers with, and asking for it a second time is how the
-    /// first build managed to lose the chat. The option is still the fallback, for a caller that has
-    /// no account in hand.
+    /// `userId` is the current user's id, which the session already has from `getMe` — the same number
+    /// `getOption("my_id")` answers with. The option stays as the fallback for a caller that has no
+    /// account in hand.
     public func chatId(userId known: Int64? = nil) async -> Result<Int64, ChatFailure> {
         let userId: Int64
         if let known, known != 0 {
@@ -59,9 +51,8 @@ public struct TdSavedMessages: Sendable {
             } catch {
                 return .failure(.noUserId("\(error)"))
             }
-            // TDLib's own bytes are quoted back on failure rather than summarised: "no value", "a
-            // value of a shape nobody expected" and "a value of zero" are three different bugs and
-            // all three read the same without what was sent.
+            // TDLib's own bytes are quoted back rather than summarised: "no value", an unexpected
+            // shape and a value of zero are three different bugs that read the same without them.
             guard let answer = option["value"]?.int else {
                 return .failure(.noUserId("no integer in \(Self.quote(option))"))
             }
@@ -89,9 +80,8 @@ public struct TdSavedMessages: Sendable {
     }
 
     /// One page of the chat's newest posts, in the shape the channel indexer already writes to the
-    /// store — which is the whole reason this returns `TdHistoryPage`: a Saved Messages song and a
-    /// channel song are the same row, and two code paths for them is how one of them gets a
-    /// different idea of what "downloaded" means.
+    /// store — which is why this returns `TdHistoryPage`: a Saved Messages song and a channel song are
+    /// the same row, and two code paths is how they disagree about "downloaded".
     public func page(chatId: Int64, cursor: Int64 = 0) async throws -> TdHistoryPage {
         let answer = try await flow.request(
             "getChatHistory",
@@ -112,20 +102,16 @@ public struct TdSavedMessages: Sendable {
     /// Sends one file as a document, and answers with the message id Telegram gave it.
     ///
     /// `sendMessage` is the upload: TDLib reads `inputFileLocal` (`td_api.tl:340`), uploads it, and
-    /// puts the resulting file — with its own `file_id` and its durable `file_unique_id` — in the
-    /// message it returns. There is no separate `uploadFile` request to get wrong, and no second
-    /// copy of the bytes to keep track of.
+    /// puts the resulting file — its own `file_id`, its durable `file_unique_id` — in the message it
+    /// returns, so there is no separate `uploadFile` to get wrong and no second copy of the bytes.
     ///
-    /// The message id is all this returns, and it is enough: a post that has just left the phone
-    /// carries TDLib's own `file` for a file the server has only just accepted, whose
-    /// `remote.unique_id` (`td_api.tl:318`) can still be absent or unknown. That is not a row — a row
-    /// is keyed by the identity, and a guessed one is a song that will be listed twice under two keys
-    /// the moment the chat is read again. So the answer is "the send was accepted" and the library
-    /// waits for the chat's own history, which is where the identity is written down.
+    /// The id is all this returns, and it is enough: a post that has just left the phone can still
+    /// have an absent `remote.unique_id` (`td_api.tl:318`), and a row is keyed by that identity — a
+    /// guessed one lists the song twice the moment the chat is read again. So the answer is that the
+    /// send was accepted, and the library waits for the chat's own history.
     ///
-    /// The caption is the file's own name. A document post has no title field the way an audio post
-    /// does, so without a caption the row would be named by nothing but the song's hash — and the
-    /// name the user picked at the file panel is the one thing worth carrying over.
+    /// The caption is the file's own name: a document post has no title field, so without it the row
+    /// is named by nothing but the song's hash.
     public func upload(chatId: Int64, path: String, caption: String) async throws -> Int64 {
         let answer = try await flow.request(
             "sendMessage",
@@ -154,12 +140,30 @@ public struct TdSavedMessages: Sendable {
                 ])
             ]
         )
-        // `message` (`td_api.tl:4063`) is the only answer that means the post exists. It used to be
-        // checked together with a decode of the file inside it, and a send TDLib had accepted was
-        // reported as a failure — on a song that had by then arrived in Saved Messages.
+        // `message` (`td_api.tl:4063`) is the only answer that means the post exists; nothing else
+        // about it is decoded here.
         guard answer.type == "message", let id = answer["id"]?.int, id != 0 else {
             throw Failure.notAMessage(Self.quote(answer))
         }
         return id
+    }
+
+    /// Takes messages out of the chat, and with them the songs Cloud Music lists.
+    ///
+    /// `revoke: false` (`td_api.tl:13222-13226`): Saved Messages is a chat with nobody but yourself,
+    /// so "for all members" would be a second name for the same act — and it is the flag that makes
+    /// this request dangerous anywhere else.
+    ///
+    /// TDLib answers `Ok` and then sends `updateDeleteMessages`; the listener acts on the update
+    /// rather than on this reply, so a delete Telegram refused does not silently empty a row.
+    public func delete(chatId: Int64, messageIds: [Int64]) async throws {
+        _ = try await flow.request(
+            "deleteMessages",
+            [
+                "chat_id": .int(chatId),
+                "message_ids": .array(messageIds.map(TdJSON.int)),
+                "revoke": .bool(false)
+            ]
+        )
     }
 }

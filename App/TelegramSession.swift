@@ -4,9 +4,8 @@ import TdBridge
 import TdSession
 import UIKit
 
-/// The four C functions behind the seam `TdSession` is tested against. The
-/// conformance lives here rather than in TdBridge so that package keeps no
-/// dependency on the session layer.
+/// The four C functions behind the seam `TdSession` is tested against; the conformance lives here rather
+/// than in TdBridge so that package keeps no dependency on the session layer.
 struct BridgeTransport: TdTransporting {
     func send(clientId: Int32, request: String) {
         TdTransport.send(clientId: clientId, request: request)
@@ -28,20 +27,18 @@ final class TelegramSession: ObservableObject {
     @Published private(set) var step: TdAuthorizationStep?
     @Published private(set) var isWaiting = false
     @Published private(set) var lastError: String?
-    /// Whose Telegram this is, once TDLib has said — the header's avatar and the account card are
-    /// the two places that say it out loud, so both stay empty until the session is ready.
+    /// Whose Telegram this is, once TDLib has said — the header avatar and the account card are the two
+    /// places that say it out loud, so both stay empty until the session is ready.
     @Published private(set) var account: TdAccount?
-    /// The account's picture at 160 px instead of the ~100 px one `getMe` sends inline, which is
-    /// what the header's 28 pt circle needs to stop being blurry. Nil until the file is on the
-    /// device; the inline thumbnail is drawn under it until then.
+    /// The account picture at 160 px rather than the ~100 px `getMe` sends inline, which the header's
+    /// 28 pt circle needs to stop being blurry. Nil until the file lands; the inline thumbnail draws under
+    /// it until then.
     @Published private(set) var accountPhoto: UIImage?
 
-    /// Whether TDLib has said anything about this phone's session yet.
-    ///
-    /// The app's first screen is decided by the answer, and TDLib takes a few hundred milliseconds
-    /// to give it: until then a signed-in phone and a phone that has never been signed in look
-    /// identical from here. Drawing the login gate anyway is the flash that greeted every launch, so
-    /// the root waits for this instead of guessing.
+    /// Whether TDLib has said anything about this phone's session yet. The app's first screen is decided
+    /// by the answer and TDLib takes a few hundred ms to give it: until then a signed-in phone and one
+    /// that has never been signed in look identical, so drawing the login gate anyway is the flash every
+    /// launch greeted itself with. The root waits for this instead of guessing.
     @Published private(set) var hasAnswered = false
 
     var isAuthorized: Bool { step == .ready }
@@ -53,16 +50,15 @@ final class TelegramSession: ObservableObject {
     /// Whether the interrupted sign-out has already been resumed this launch.
     private var eraseResumed = false
 
-    /// Idempotent: the app calls this once from its root, and any screen that finds the client
-    /// missing can ask again.
+    /// Idempotent: the app calls this once from its root, and any screen that finds the client missing
+    /// can ask again.
     func start() {
         guard client == nil else { return }
-        // Once per launch. The deletion is retried inside `eraseStorage`; if it still cannot be
-        // done, starting a client anyway is better than a canvas that waits forever on an answer
-        // that will not come — and the flag is left set for the next launch.
+        // Once per launch; `eraseStorage` retries inside. If it still cannot delete, starting a client
+        // anyway beats a canvas waiting forever on an answer that will not come, and the flag stays set.
         if UserDefaults.standard.bool(forKey: Self.eraseKey), !eraseResumed {
-            // A logout that was killed on the way out. TDLib must not get the chance to reopen the
-            // database the user already threw away, so the promise is kept before a client exists.
+            // A logout killed on the way out: TDLib must not get to reopen the database the user threw
+            // away, so the promise is kept before a client exists.
             eraseResumed = true
             Task {
                 if await Self.eraseStorage() {
@@ -74,8 +70,7 @@ final class TelegramSession: ObservableObject {
         }
         guard let parameters = Self.parameters() else {
             lastError = "Thiếu api_id/api_hash trong bundle — xem Config/Tdlib.xcconfig"
-            // Nothing is going to answer, so the root has to stop waiting for one. A screen that
-            // waits for a state that never comes is a black canvas with no explanation.
+            // Nothing is going to answer, so the root has to stop waiting for one.
             hasAnswered = true
             return
         }
@@ -108,19 +103,16 @@ final class TelegramSession: ObservableObject {
                 try await flow.begin()
             } catch {
                 lastError = Self.describe(error)
-                // The same reason as above: a failed begin has no state behind it, and the root is
-                // waiting on one.
+                // Same reason: a failed begin has no state behind it, and the root is waiting on one.
                 hasAnswered = true
             }
         }
     }
 
-    /// TDLib cannot reopen a client it has closed, so the logout path throws this one away and
-    /// builds a fresh client + flow, which is what puts the login screen back on stage.
-    ///
-    /// The erase is awaited, not fired off: a new client opens its database and files directories on
-    /// the way in, and a delete still running behind it would be taking back the space of the session
-    /// that has just started.
+    /// TDLib cannot reopen a client it has closed, so the logout path throws this one away and builds a
+    /// fresh client + flow, which is what puts the login screen back on stage. The erase is awaited, not
+    /// fired off: a new client opens its database and files directories on the way in, and a delete still
+    /// running behind it would take back the space of the session that has just started.
     private func restart() async {
         client?.close()
         client = nil
@@ -134,45 +126,36 @@ final class TelegramSession: ObservableObject {
         if await Self.eraseStorage() {
             UserDefaults.standard.removeObject(forKey: Self.eraseKey)
         } else {
-            // TDLib's directory is still on the phone. Its Keychain key is gone, which is what
-            // makes what is left unreadable rather than a leak, but the space is real and the flag
-            // stays set so the next launch takes it back.
+            // TDLib's directory is still on the phone; its Keychain key is gone, which makes what is left
+            // unreadable rather than a leak. The space is real, so the flag stays for the next launch.
             lastError = "Chưa xoá được dữ liệu Telegram — Doni sẽ thử lại khi bạn mở app lần tới"
         }
         start()
     }
 
-    /// The sign-out's own report that something on the phone could not be thrown away. It lands
-    /// here because this is the object the login screen reads its errors from, and a promise the app
-    /// intends to keep later still has to be said out loud now.
+    /// The sign-out's report that something on the phone could not be thrown away. It lands here because
+    /// this is the object the login screen reads its errors from: a promise kept later still has to be
+    /// said out loud now.
     func noteCleanupPending(_ message: String) {
         lastError = message
     }
 
-    /// Set the moment the user asks to be signed out, and cleared once the deletion has actually
-    /// happened. TDLib will not let its database go while it has it open, so the real unlink waits
-    /// for the client to close — and if the app is killed in that gap, this is what makes the next
-    /// launch finish the job before a session can be reopened.
+    /// Set the moment the user asks to be signed out, cleared once the deletion has actually happened.
+    /// TDLib will not let its database go while it holds it open, so the real unlink waits for the client
+    /// to close — and if the app is killed in that gap, this is what makes the next launch finish the job
+    /// before a session can be reopened.
     private static let eraseKey = "session.eraseOnLaunch"
 
-    /// Everything TDLib kept on the phone, thrown away once its client has said it is closed.
-    ///
-    /// `logOut` ends the session and leaves both of TDLib's directories where they are: the database
-    /// that records which files are already local, and the bytes beside it. Reopened by the next
-    /// login, that record is why songs downloaded before signing out were still "on the phone"
-    /// afterwards — and `file_id` is TDLib's row number inside its own database (`td_api.tl:326`), so
-    /// the ids the new session hands out can point at any of those files. The Keychain key goes with
-    /// the database it opened; a new session makes its own.
-    ///
-    /// Several hundred megabytes of files, so it is not something to unlink on the main thread.
-    ///
-    /// `false` means the directory is still there. It used to be reported as success either way,
-    /// and the flag that exists to finish an interrupted sign-out was cleared on the strength of a
-    /// `try?` — so a busy file meant the next login reopened the database the user had thrown away,
-    /// which is exactly what the flag was added to prevent.
-    ///
-    /// The Keychain key goes whatever happens: an unreadable leftover is a space problem, a readable
-    /// one is a privacy problem.
+    /// Everything TDLib kept on the phone, thrown away once its client has said it is closed. `logOut`
+    /// ends the session and leaves both directories: the database recording which files are local, and the
+    /// bytes beside it. Reopened by the next login, that record is why songs downloaded before signing out
+    /// were still "on the phone" — and `file_id` is TDLib's row number inside its own database
+    /// (`td_api.tl:326`), so the ids a new session hands out can point at any of those files. Several
+    /// hundred megabytes, so never unlink this on the main thread.
+    /// `false` means the directory is still there, and the caller must leave `eraseKey` set on that answer:
+    /// reporting success either way let a busy file reopen a thrown-away database on the next login. The
+    /// Keychain key goes whatever happens — an unreadable leftover is a space problem, a readable one a
+    /// privacy problem.
     private nonisolated static func eraseStorage() async -> Bool {
         await Task.detached(priority: .utility) {
             var erased = false
@@ -191,24 +174,20 @@ final class TelegramSession: ObservableObject {
         }.value
     }
 
-    /// `then` runs only when the server accepted the number. TDLib does not always announce the
-    /// code screen again afterwards — a number it is already waiting for a code on keeps the state
-    /// — so the screen that asked for the number needs to know the request landed.
-    /// The channel reads belong to the client the login already ran on, so they
-    /// borrow the flow instead of opening a second TDLib instance.
+    /// `then` runs only when the server accepted the number: TDLib does not always announce the code
+    /// screen again afterwards — a number it is already waiting for a code on keeps its state — so the
+    /// screen that asked needs to know the request landed.
+    /// The channel reads borrow the flow the login already ran on instead of a second TDLib instance.
     func reader() -> TdChannelReader? {
         flow.map(TdChannelReader.init(flow:))
     }
 
-    /// One downloader per client, because the waiters it holds are per-instance: a logout closes
-    /// the client and every file that was in flight with it.
-    ///
-    /// The artwork cache keeps a reference for the surfaces that hold no session of their own —
-    /// the player's hero and the lock screen both want a cover too big for any row to have asked
+    /// One downloader per client: the waiters it holds are per-instance, so a logout closes the client and
+    /// every file in flight with it. The artwork cache keeps a reference for surfaces that hold no session
+    /// of their own — the player's hero and the lock screen want a cover too big for any row to have asked
     /// for, and neither can reach this object.
-    /// The chat this account keeps for itself — Cloud Music's whole library. `nil` while the session
-    /// is still signing in, for the same reason `reader()` is: there is no flow to ask until TDLib
-    /// has answered.
+    /// The chat this account keeps for itself — Cloud Music's whole library. `nil` while signing in, for
+    /// the same reason `reader()` is: no flow to ask until TDLib has answered.
     func savedMessages() -> TdSavedMessages? {
         guard let flow else { return nil }
         return TdSavedMessages(flow: flow)
@@ -223,17 +202,20 @@ final class TelegramSession: ObservableObject {
         return downloader
     }
 
-    /// Every post the account's chats make while the app is open, for the live index.
-    ///
-    /// Nil before a flow exists. After a logout the stream is finished by the client that closed, so
-    /// whoever was reading it ends by itself and this hands out the new session's stream instead.
+    /// Every post the account's chats make while the app is open, for the live index. Nil before a flow
+    /// exists; after a logout the closed client finishes the stream, so the reader ends by itself and this
+    /// hands out the new session's stream instead.
     func newMessages() -> AsyncStream<TdJSON>? {
         flow?.messages
     }
 
-    /// One `getMe` on the way into the session: the account card needs a name, and TDLib is the only
-    /// thing that has one. A failure leaves the card on its fallback rather than reporting an error
-    /// the user cannot act on.
+    /// The posts that went away, for the library that has to forget them without being asked.
+    func deletedMessages() -> AsyncStream<TdJSON>? {
+        flow?.deletes
+    }
+
+    /// One `getMe` on the way in: the account card needs a name and TDLib is the only thing that has one.
+    /// A failure leaves the card on its fallback rather than reporting an error the user cannot act on.
     private func readAccount(_ flow: TdLoginFlow) async {
         guard account == nil else { return }
         guard let me = try? await flow.request("getMe") else { return }
@@ -242,9 +224,9 @@ final class TelegramSession: ObservableObject {
         await loadPhoto(account)
     }
 
-    /// The photo asked for once, here, rather than by each surface that draws it: the header and the
-    /// account card want the same file, and TDLib answers a file it already has on the device
-    /// without a round trip, so a relaunch costs nothing.
+    /// Asked for once here rather than by each surface that draws it: the header and the account card want
+    /// the same file, and TDLib answers a file already on the device without a round trip, so a relaunch
+    /// costs nothing.
     private func loadPhoto(_ account: TdAccount?) async {
         guard let account, let fileId = account.avatarFileId, let files = covers() else { return }
         guard let path = await files.path(TdFile(fileId: fileId, uniqueId: account.avatarUniqueId),
@@ -325,21 +307,20 @@ final class TelegramSession: ObservableObject {
         )
     }
 
-    /// TDLib's own storage root, kept out of Documents so it is never shared or
-    /// picked up as user content. Computing it has no side effects: `eraseStorage` checks this same
-    /// path after unlinking it, and recreating it there made every deletion report failure.
+    /// TDLib's own storage root, kept out of Documents so it is never shared or picked up as user content.
+    /// Computing it has no side effects: `eraseStorage` checks this same path after unlinking it, and
+    /// recreating it there made every deletion report failure.
     private nonisolated static var telegramDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Doni/Telegram", isDirectory: true)
     }
 
-    /// The bytes TDLib has fetched — the songs a stream brought over and the pictures it thumbed.
-    /// The storage screen measures this, because it is the bulk of what the app costs a phone and
-    /// none of it is counted in the library's rows.
+    /// The bytes TDLib has fetched — streamed songs and thumbed pictures. The storage screen measures this:
+    /// it is the bulk of what the app costs a phone, and none of it is counted in the library's rows.
     nonisolated static var filesDirectory: URL { telegramDirectory.appendingPathComponent("files") }
 
-    /// TDLib's database: the session itself, the chat list, and the file table that says which
-    /// bytes are on the phone.
+    /// TDLib's database: the session itself, the chat list, and the file table that says which bytes are on
+    /// the phone.
     nonisolated static var databaseDirectory: URL { telegramDirectory.appendingPathComponent("db") }
 
     /// One of TDLib's two areas, made if it is not there yet.

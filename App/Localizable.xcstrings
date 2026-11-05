@@ -666,6 +666,41 @@
         }
       }
     },
+    "Bài này sẽ bị xoá khỏi Saved Messages trên Telegram, không chỉ khỏi Doni.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "سيُحذف هذا المقطع من «الرسائل المحفوظة» في تيليجرام وليس من Doni فقط."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta canción se eliminará de Guardados en Telegram, no solo de Doni."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce titre sera supprimé des Messages enregistrés dans Telegram, pas seulement de Doni."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот трек будет удалён из Saved Messages в Telegram, а не только из Doni."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这首歌将从你的 Telegram「收藏」中删除，而不只是从 Doni 中移除。"
+          }
+        }
+      }
+    },
     "Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.": {
       "extractionState": "manual",
       "localizations": {
@@ -8992,6 +9027,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除已下载的 Telegram 音乐？"
+          }
+        }
+      }
+    },
+    "Xoá thất bại: %@ — %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فشل الحذف: %@ — %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error al eliminar: %@ — %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la suppression : %@ — %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось удалить: %@ — %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除失败：%@ — %@"
           }
         }
       }
