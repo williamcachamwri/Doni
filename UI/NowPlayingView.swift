@@ -243,7 +243,8 @@ struct NowPlayingView: View {
             GeometryReader { _ in
                 if artworkPageFrame.width > 0 {
                     PortraitArtwork(track: track, player: player, artwork: artwork,
-                                    isArtworkPage: page == .artwork)
+                                    isArtworkPage: page == .artwork,
+                                    side: portraitArtworkFrame.width)
                         .frame(width: portraitArtworkFrame.width,
                                height: portraitArtworkFrame.height)
                         .position(x: portraitArtworkFrame.midX
@@ -430,6 +431,11 @@ private struct PortraitArtwork: View {
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     let isArtworkPage: Bool
+    /// The box's own side, in points. The picture is cut to this square rather than measured against
+    /// it, because `scaledToFill` sizes the *layout box*, not only the pixels: a cover wider than it
+    /// is tall made the ZStack wider than the slot, and the `clipShape` below then cut the picture to
+    /// that wider box — so a rectangular cover spilled over the song's own name.
+    let side: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bounce: CGFloat = 1
@@ -445,6 +451,7 @@ private struct PortraitArtwork: View {
                     .id(track.uniqueId)
             }
         }
+        .frame(width: side, height: side)
         .scaleEffect(bounce)
         .shadow(color: .black.opacity(shadowOpacity), radius: shadowRadius, y: shadowY)
         .clipShape(RoundedRectangle(cornerRadius: MusicNowPlayingMetrics.artworkRadius,
