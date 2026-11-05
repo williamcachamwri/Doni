@@ -105,6 +105,21 @@ final class CoverArtwork: ObservableObject {
     /// above clears them.
     private var unreadableSources: Set<NSString> = []
 
+    /// Tiles whose fetch came back with nothing, and how many more times the cache will ask.
+    ///
+    /// This is what the newest posts of a channel run into. Their cover is a thumbnail Telegram
+    /// generates on its side (`FileManager.cpp:4361`), and the first ask answers a file with no bytes
+    /// yet — TDLib has not made it. Without a second try the row keeps its placeholder for the whole
+    /// session: the picture exists by the time anybody looks at it, and nothing asks again, because a
+    /// row's `.task` runs once per song and the foreground refill only replays what was on screen.
+    private var retries: [NSString: Int] = [:]
+
+    /// How many extra asks a missing cover gets, and how long between them. Three tries over a
+    /// minute is longer than Telegram's generation takes for the posts this app has measured, and
+    /// short enough that a song with no cover at all stops asking before the user notices.
+    private static let coverRetries = 3
+    private static let coverRetryDelay = Duration.seconds(20)
+
     /// Asks waiting for the pool, the one the user is looking at first.
     private var queued: [Ask] = []
 
@@ -409,6 +424,7 @@ final class CoverArtwork: ObservableObject {
         // call just emptied, under keys of songs the library no longer holds.
         inFlight.removeAll()
         unreadableSources.removeAll()
+        retries.removeAll()
         let freed = DiskUsage.clear(Self.sourceDirectory)
         revision += 1
         return freed
@@ -457,7 +473,7 @@ final class CoverArtwork: ObservableObject {
         let source = Self.coverSource(cover)
         guard let path = await (via ?? downloader)?.path(
             file, priority: TdFileDownloader.coverPriority
-        ) else { return }
+        ) else { retry(track, via: via, points: points); return }
         let image = await Task.detached(priority: .userInitiated) {
             let tile = Self.downsampled(path: path, side: pixels)
             Self.keep(path: path, as: source)
@@ -465,6 +481,24 @@ final class CoverArtwork: ObservableObject {
         }.value
         guard !Task.isCancelled, let image else { return }
         put(image, forKey: key)
+    }
+
+    /// Booking one more ask for a cover that was not ready, until its tries run out.
+    ///
+    /// The retry goes back through the queue rather than into a task of its own: the pool is what
+    /// decides how many covers are being fetched at once, and six of them plus a screenful of rows
+    /// asking again at the same moment is how a retry turns into the reason the next cover is slow.
+    private func retry(_ track: any Playable, via: TdFileDownloader?, points: CGFloat) {
+        guard let cover = Self.token(for: track) else { return }
+        let key = Self.coverKey(cover, pixels: Self.pixels(forSide: points))
+        let left = retries[key] ?? Self.coverRetries
+        guard left > 0 else { return }
+        retries[key] = left - 1
+        queued.append(Ask(track: track, via: via, points: points))
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.coverRetryDelay)
+            await self?.drain()
+        }
     }
 
     /// Where TDLib says this song's own file is, when the row holding it does not know yet.
