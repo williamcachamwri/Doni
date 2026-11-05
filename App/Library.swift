@@ -388,7 +388,9 @@ final class Library: ObservableObject {
     func clearTelegramDownloads(with files: TdFileDownloader) async -> Int {
         var released = 0
         for row in storedTracks where row.isDownloaded && !row.isLocal && row.fileId != 0 {
-            guard await files.remove(fileId: row.fileId) else { continue }
+            guard await files.remove(TdFile(fileId: row.fileId, uniqueId: row.uniqueId)) else {
+                continue
+            }
             store.setLocalPath(nil, uniqueId: row.uniqueId)
             released += 1
         }
@@ -438,14 +440,15 @@ final class Library: ObservableObject {
 
     /// One row's length out of a few kilobytes of it.
     private func probe(_ row: StoreTrack, with files: TdFileDownloader) async {
-        guard var head = await files.part(fileId: row.fileId, offset: 0, bytes: Self.headBytes)
+        let file = TdFile(fileId: row.fileId, uniqueId: row.uniqueId)
+        guard var head = await files.part(file, offset: 0, bytes: Self.headBytes)
         else { return }
         var reading = AudioDuration.read(head: head, totalSize: row.size)
         // An MP3 carrying its picture in the tag hides its first audio frame behind that picture,
         // and the tag says how far. One more ask reaches it, for as long as the picture is a sane
         // size — a megabyte of cover per row is not a price worth paying for a timestamp.
         if case let .headTooSmall(bytes) = reading, bytes > head.count, bytes <= Self.maxHeadBytes {
-            guard let deeper = await files.part(fileId: row.fileId, offset: 0, bytes: bytes) else {
+            guard let deeper = await files.part(file, offset: 0, bytes: bytes) else {
                 return
             }
             head = deeper
@@ -453,7 +456,7 @@ final class Library: ObservableObject {
         }
         // An MP4 that was not written for streaming keeps its `mvhd` after the audio, at the end.
         if reading == .tailNeeded, row.size > Self.tailBytes {
-            guard let tail = await files.part(fileId: row.fileId, offset: row.size - Self.tailBytes,
+            guard let tail = await files.part(file, offset: row.size - Self.tailBytes,
                                               bytes: Int(Self.tailBytes)) else { return }
             reading = AudioDuration.read(tail: tail)
         }
@@ -604,7 +607,7 @@ final class Library: ObservableObject {
                                    uniqueId: nil, path: nil)
             return
         }
-        guard let taken = await files.path(fileId: photo.fileId,
+        guard let taken = await files.path(TdFile(fileId: photo.fileId, uniqueId: uniqueId),
                                            priority: TdFileDownloader.coverPriority) else { return }
         let written = Self.keepPhoto(taken, uniqueId: uniqueId)
         if let written, let previous = channel.avatarPath, previous != written {

@@ -235,9 +235,9 @@ final class TelegramSession: ObservableObject {
     /// account card want the same file, and TDLib answers a file it already has on the device
     /// without a round trip, so a relaunch costs nothing.
     private func loadPhoto(_ account: TdAccount?) async {
-        guard let fileId = account?.avatarFileId, let files = covers() else { return }
-        guard let path = await files.path(fileId: fileId,
-                                         priority: TdFileDownloader.coverPriority) else { return }
+        guard let account, let fileId = account.avatarFileId, let files = covers() else { return }
+        guard let path = await files.path(TdFile(fileId: fileId, uniqueId: account.avatarUniqueId),
+                                          priority: TdFileDownloader.coverPriority) else { return }
         accountPhoto = UIImage(contentsOfFile: path)
     }
 

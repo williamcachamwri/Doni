@@ -171,6 +171,9 @@ final class CoverArtwork: ObservableObject {
     private static let pinnedBudget = 16 * 1024 * 1024
 
     init() {
+        // First, and on this thread: the read path takes the disk before the network, so a sweep
+        // that ran later would let the first screens draw the bytes it is about to throw away.
+        Self.discardUnverifiedSources()
         // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero is 2.3 MB, and a
         // flat count would either starve the list or let a handful of heroes walk past the
         // process's memory. 64 MB is a couple of hundred rows and a roomful of cards.
@@ -451,16 +454,22 @@ final class CoverArtwork: ObservableObject {
             put(tile, forKey: key)
             return
         }
-        guard let fileId = track.coverFileId else { return }
-        // `nil` when this cover only has a database row number to be called by: there is then no
-        // safe name to file its bytes under, so it is fetched again next time rather than kept.
-        let source: URL? = cover.persistent ? Self.coverSource(cover) : nil
+        // A cover with no identity of its own can only be reached by TDLib's row number, and a
+        // number this library kept across a TDLib rebuild now names a different file. What is on the
+        // other side of that number would be filed under this song's name and drawn for it forever,
+        // so the ask is refused: a song whose cover cannot be named shows its own tag art, which was
+        // asked for first anyway, rather than a stranger's.
+        guard let coverId = track.coverUniqueId, !coverId.isEmpty,
+              let fileId = track.coverFileId else { return }
+        // The bytes are named, so they may be kept: `coverSource` is keyed on the cover's own
+        // `file_unique_id`, which is the same name in every database TDLib ever builds.
+        let source = Self.coverSource(cover)
         guard let path = await (via ?? downloader)?.path(
-            fileId: fileId, priority: TdFileDownloader.coverPriority
+            TdFile(fileId: fileId, uniqueId: coverId), priority: TdFileDownloader.coverPriority
         ) else { return }
         let image = await Task.detached(priority: .userInitiated) {
             let tile = Self.downsampled(path: path, side: pixels)
-            if let source { Self.keep(path: path, as: source) }
+            Self.keep(path: path, as: source)
             return tile
         }.value
         guard !Task.isCancelled, let image else { return }
@@ -469,14 +478,15 @@ final class CoverArtwork: ObservableObject {
 
     /// Where TDLib says this song's own file is, when the row holding it does not know yet.
     ///
-    /// `getFile` is answered out of TDLib's own database and costs no round trip, which makes it the
-    /// cheap way past a stale snapshot: the list is still carrying the `TdTrack` read before the
-    /// download finished, and only TDLib has kept up with the file. Nothing is asked when there is no
-    /// client — a song with no `fileId` is one the user brought in, and that one always knows its own
-    /// path.
+    /// `getFileByFileUniqueId` is answered out of TDLib's own database and costs no round trip, which
+    /// makes it the cheap way past both a stale snapshot and a stale row number: the list is still
+    /// carrying the `TdTrack` read before the download finished, and only TDLib has kept up with the
+    /// file — while the number the row kept belongs to whichever database made it, so the song is
+    /// asked for by the name its bytes carry everywhere. Nothing is asked when there is no client — a
+    /// song with no `fileId` is one the user brought in, and that one always knows its own path.
     private func onDevicePath(for track: any Playable, via: TdFileDownloader?) async -> String? {
         guard track.fileId != 0, let files = via ?? downloader else { return nil }
-        return await files.readyPath(fileId: track.fileId)
+        return await files.readyPath(TdFile(fileId: track.fileId, uniqueId: track.uniqueId))
     }
 
     /// The cover inside the audio file, decoded off the main thread and written into the same cache
@@ -762,6 +772,30 @@ final class CoverArtwork: ObservableObject {
         try? excluded.setResourceValues(values)
         return url
     }()
+
+    /// Throwing away every cover byte this app has ever kept, once, on the first launch that knows
+    /// how to check them.
+    ///
+    /// Each of those files was written by a pipeline that asked TDLib by row number and filed
+    /// whatever came back under the song's own name, so any one of them may be a different song's
+    /// picture, and nothing about the bytes says which. They are all recomputable — a tag art is read
+    /// out of its container again and a Telegram thumbnail is fetched again by the row that wants it,
+    /// which is the same price the cache already pays for a cover nobody has looked at yet — so the
+    /// honest repair is to start the directory empty. The flag makes it once, because the files the
+    /// verified pipeline writes after it are its own.
+    ///
+    /// The contents go rather than the directory: the directory carries the backup exclusion, and
+    /// `Application Support/Doni/Covers` — the same name in a place this cache must never touch — is
+    /// the pictures a user chose for their own lists, whose only copy is the file this app wrote.
+    private nonisolated static func discardUnverifiedSources() {
+        let settled = "local.doni.coverSources.verified"
+        guard !UserDefaults.standard.bool(forKey: settled) else { return }
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: sourceDirectory, includingPropertiesForKeys: nil
+        )) ?? []
+        for file in files { try? FileManager.default.removeItem(at: file) }
+        UserDefaults.standard.set(true, forKey: settled)
+    }
 
     /// The two cache directories this one replaced, both under `Library/Caches`: the first was named
     /// for a hash of TDLib's row number, so some of its files are the picture of a different song

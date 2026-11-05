@@ -26,6 +26,10 @@ public struct TdAccount: Equatable, Sendable {
     /// own list avatars are, and it costs one download nobody waits on. Nil when the account has no
     /// picture at all.
     public let avatarFileId: Int?
+    /// The same picture's bytes as MTProto names them, which is the only name that survives TDLib
+    /// rebuilding its own database. Nil for the accounts whose photo TDLib has not given an identity
+    /// to yet — and then the number above is asked for unverified, as it always was.
+    public let avatarUniqueId: String?
 
     /// Nil when TDLib has not answered yet, or answered with something that carries no identifier —
     /// a `user` with no `id` is not an account, and a card that says "ID 0" would be a lie.
@@ -40,12 +44,17 @@ public struct TdAccount: Equatable, Sendable {
         avatarData = photo?["minithumbnail"]?["data"]?.string.flatMap { Data(base64Encoded: $0) }
         // `big` is the 640 px original; nothing in this app draws a person that big, but a photo
         // TDLib has only in the large size is still worth showing.
-        if let small = photo?["small"]?["id"]?.int, small != 0 {
-            avatarFileId = Int(small)
-        } else if let big = photo?["big"]?["id"]?.int, big != 0 {
-            avatarFileId = Int(big)
+        //
+        // The number and the identity come off the same variant: pairing one picture's row with
+        // another's name is how a person ends up wearing somebody else's face.
+        let photoFile = (photo?["small"]?["id"]?.int ?? 0) != 0 ? photo?["small"] : photo?["big"]
+        if let file = photoFile, let number = file["id"]?.int, number != 0 {
+            avatarFileId = Int(number)
+            let remote = file["remote"]?["unique_id"]?.string
+            avatarUniqueId = (remote?.isEmpty ?? true) ? nil : remote
         } else {
             avatarFileId = nil
+            avatarUniqueId = nil
         }
     }
 }

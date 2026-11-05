@@ -1,5 +1,27 @@
 import Foundation
 
+/// One file, named both ways it can be named.
+///
+/// `fileId` is TDLib's row number in the database it happened to be using when it handed the number
+/// out (`td_api.tl:326`); `uniqueId` is MTProto's name for the bytes themselves and is the same in
+/// every database on every device. This app keeps its library in its own SQLite file, which outlives
+/// TDLib's database by however many times that one is rebuilt — and a row number kept across a
+/// rebuild is a number that now answers with a different file's bytes. That is how one song ends up
+/// wearing another song's cover, permanently: the wrong bytes are filed under the right song's name.
+///
+/// So a `uniqueId` is asked for first and the number is only ever used to reach the bytes it has
+/// been confirmed against. A caller that knows no identity says so, and gets the behaviour the
+/// number alone ever had.
+public struct TdFile: Sendable, Hashable {
+    public let fileId: Int
+    public let uniqueId: String?
+
+    public init(fileId: Int, uniqueId: String?) {
+        self.fileId = fileId
+        self.uniqueId = uniqueId
+    }
+}
+
 /// Watches TDLib's file downloads until the bytes are on the device.
 ///
 /// `downloadFile` (`td_api.tl:15001`) answers straight away with a `file` that is still in flight,
@@ -10,6 +32,12 @@ public actor TdFileDownloader {
     private let flow: TdLoginFlow
     private var listeners: [Int: [UUID: AsyncStream<String?>.Continuation]] = [:]
     private var router: Task<Void, Never>?
+
+    /// The row numbers already looked up, keyed by the identity they were looked up from.
+    ///
+    /// A number does not change while one TDLib process is running, so this is asked once per file
+    /// for the life of the session rather than once per cover.
+    private var rows: [String: Int] = [:]
 
     /// TDLib's priority is 1-32 and the higher wins (`td_api.tl:15001`). Cover art is a few tens
     /// of kilobytes and must never hold up the song the user pressed play on.
@@ -43,9 +71,44 @@ public actor TdFileDownloader {
         self.flow = flow
     }
 
+    /// The row number TDLib uses for these bytes right now, or nil when its answer is about a
+    /// different file.
+    ///
+    /// `getFileByFileUniqueId` is the only question here that cannot be answered about the wrong
+    /// file, because it is asked in the one name MTProto gives bytes rather than in a row number this
+    /// app kept from a database that no longer exists. The identity in the answer
+    /// is checked against the one asked for before the number is used, so a TDLib that answers with
+    /// something else — or with nothing at all, which is what it does for bytes it has never seen
+    /// since its database was rebuilt — ends the lookup instead of starting a download of a
+    /// stranger's file.
+    ///
+    /// Without an identity to check there is nothing to ask and nothing to confirm: the number the
+    /// caller kept is the whole of what it has.
+    private func row(of file: TdFile) async -> Int? {
+        guard let wanted = file.uniqueId, !wanted.isEmpty else { return file.fileId }
+        if let known = rows[wanted] { return known }
+        guard let answer = try? await flow.request(
+            "getFileByFileUniqueId", ["file_unique_id": .string(wanted)]
+        ), Self.identity(of: answer) == wanted, let raw = answer["id"]?.int else { return nil }
+        let fileId = Int(raw)
+        rows[wanted] = fileId
+        return fileId
+    }
+
+    /// The bytes a `file` object says it holds.
+    ///
+    /// `fileRemoteUnknown` carries no `unique_id` at all, and that is answered as no identity rather
+    /// than as an empty one: a file TDLib cannot name is a file it cannot vouch for.
+    private static func identity(of file: TdJSON) -> String? {
+        guard let unique = file["remote"]?["unique_id"]?.string, !unique.isEmpty else { return nil }
+        return unique
+    }
+
     /// The local path once the file is on the device, `nil` if it never gets there — TDLib
-    /// rejecting the request, giving up on the file, or the client closing under it.
-    public func path(fileId: Int, priority: Int = TdFileDownloader.coverPriority) async -> String? {
+    /// rejecting the request, giving up on the file, the client closing under it, or the bytes not
+    /// being the ones the caller named.
+    public func path(_ file: TdFile, priority: Int = TdFileDownloader.coverPriority) async -> String? {
+        guard let fileId = await row(of: file) else { return nil }
         let listener = install(fileId)
         startRouter()
 
@@ -137,7 +200,8 @@ public actor TdFileDownloader {
     }
 
     /// Whether the file is already on the device, without asking for it.
-    public func readyPath(fileId: Int) async -> String? {
+    public func readyPath(_ file: TdFile) async -> String? {
+        guard let fileId = await row(of: file) else { return nil }
         guard let answer = try? await flow.request("getFile", ["file_id": .int(Int64(fileId))])
         else { return nil }
         return Self.readyPath(in: answer)
@@ -154,8 +218,9 @@ public actor TdFileDownloader {
     /// Offline, TDLib says `Ok` and does nothing until the next connection
     /// (`td_api.tl:15045-15052`), which is why the caller keeps the row's own state as the truth
     /// about the phone rather than this answer.
-    public func remove(fileId: Int) async -> Bool {
-        (try? await flow.request("deleteFile", ["file_id": .int(Int64(fileId))])) != nil
+    public func remove(_ file: TdFile) async -> Bool {
+        guard let fileId = await row(of: file) else { return false }
+        return (try? await flow.request("deleteFile", ["file_id": .int(Int64(fileId))])) != nil
     }
 
     /// A few bytes out of a file the phone does not have, and does not get.
@@ -175,9 +240,10 @@ public actor TdFileDownloader {
     /// Nothing here calls `cancelDownloadFile`. The limit already did the cancelling, and telling
     /// TDLib to stop a file id stops the whole file — a probe that cancelled under a row the user
     /// then pressed play on would leave that row waiting for nothing.
-    public func part(fileId: Int, offset: Int64, bytes: Int,
+    public func part(_ file: TdFile, offset: Int64, bytes: Int,
                      priority: Int = TdFileDownloader.coverPriority) async -> Data? {
         guard bytes > 0, offset >= 0 else { return nil }
+        guard let fileId = await row(of: file) else { return nil }
         // TDLib keeps exactly one offset and limit per file id and the newest request overwrites them
         // (`FileManager.cpp:3103-3107`). A row waiting on the whole file is a song someone is about
         // to listen to, so it is not probed: the ask would truncate its fetch and drop its priority.
