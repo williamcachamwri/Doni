@@ -1,0 +1,59 @@
+name: Build unsigned IPA
+
+# One workflow, two uses: a tag builds the artefact that release page carries, and a manual run
+# builds the current main for anybody who wants to re-sign it themselves. Nothing here is signed —
+# the app is signed with a free personal team, so a build from CI can only ever be unsigned.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ios:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # project.yml points configFiles at these two; they are gitignored because a developer's real
+      # api_hash and team id live in them. The examples carry placeholders, which is all a build
+      # needs — nothing here talks to Telegram.
+      - name: Fill in the config placeholders
+        run: |
+          cp Config/Tdlib.example.xcconfig Config/Tdlib.xcconfig
+          cp Config/Signing.example.xcconfig Config/Signing.xcconfig
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # TDLib and OpenSSL are built from the tags Scripts/build-tdlib.sh pins, because the
+      # XCFrameworks are not in the repository.
+      - name: Vendor TDLib
+        run: make vendor
+
+      - name: Build
+        run: sh Scripts/build-unsigned-ipa.sh
+
+      - name: Upload the IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Doni-unsigned-ipa
+          path: build/Doni.unsigned.ipa
+
+      # The body is generated from RELEASE_NOTES.md by the build script, so a release can never say
+      # something the app's own Release notes screen does not.
+      - name: Create the release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "Doni $GITHUB_REF_NAME" \
+            --notes-file build/ReleaseNotes.md \
+            build/Doni.unsigned.ipa#Doni (unsigned) IPA
+        env:
+          GH_TOKEN: ${{ github.token }}

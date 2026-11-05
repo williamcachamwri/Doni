@@ -84,6 +84,11 @@ NOT_TRANSLATED = {
     # A language's own name is written in its own script — that is the whole idea behind the
     # picker, and transliterating it would make the list unreadable to the one reader who needs it.
     "Tiếng Việt", "Español", "Français", "Русский", "简体中文", "العربية",
+    # A caption key that is part of a format rather than a word the interface says: the app writes
+    # `Tiêu đề:` into Saved Messages (`App/CloudMusic.swift`) and reads the same word back out
+    # (`TdTrack.captionValue`). Translating one half would leave the other looking for a line that
+    # is no longer there, so the spelling belongs to the format.
+    "Tiêu đề: \\(name)", "Thể hiện: \\(artist)",
 }
 
 
@@ -139,6 +144,9 @@ DATA_EXPRESSIONS = {
     "row.track.displayTitle", "song.displayTitle", "artist.name", "account.name", "country.name",
     "country.dialCode", "option.name", "language.nativeName", "runs", "text", "headline", "value",
     "subtitle", "chipText", "message", "failure", "joinedFailure", "statusLine", "waitingLine",
+    # An alert's sentence is resolved when the alert is built (`UpdateAlert`), so this renders text
+    # that has already been looked up; looking it up again would translate a translation.
+    "shown.message",
 }
 
 

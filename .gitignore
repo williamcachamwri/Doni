@@ -1,9 +1,13 @@
 # Build artefacts
 DerivedData/
 .build/
+build/
 Vendor/
 xcuserdata/
 *.xcframework
+
+# Local design scratch, never part of the project.
+.claude-design/
 
 # Design reference: GPL-2.0 source, never committed, never linked.
 Reference/

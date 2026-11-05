@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var showsAddChannel = false
     @State private var showsPendingSongs = false
     @State private var showsStorage = false
+    @State private var showsAbout = false
     @State private var language = DoniLanguage.current
     @State private var needsRestart = false
 
@@ -51,6 +52,16 @@ struct SettingsView: View {
 
                 if showsAppCard {
                     card("Ứng dụng") { languageRow }
+                }
+
+                // The reference puts the version, the update check and the licences behind one row
+                // at the foot of the same screen (`SettingsCatalog.swift:150-167`), and Doni has no
+                // reason to say it differently.
+                card("Giới thiệu") {
+                    row("info.circle", "Giới thiệu Doni",
+                        subtitle: "Phiên bản, cập nhật, giấy phép", disclosure: true) {
+                            showsAbout = true
+                        }
                 }
 
                 if !lines.isEmpty {
@@ -128,6 +139,9 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showsStorage) {
             StorageView(session: session, player: player, artwork: CoverArtwork.shared,
                         library: library)
+        }
+        .navigationDestination(isPresented: $showsAbout) {
+            AboutView()
         }
         .alert("Đổi ngôn ngữ", isPresented: $needsRestart) {
             // One button, and it ends the process. A language is read out of `AppleLanguages` when

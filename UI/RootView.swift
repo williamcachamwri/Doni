@@ -51,6 +51,7 @@ struct RootView: View {
             }
             .tint(MusicTint.accent)
             .preferredColorScheme(.dark)
+            .appLaunchChecks()
     }
 
     /// The 26.0 form of the accessory has no `isEnabled:`, so the content itself is what comes and

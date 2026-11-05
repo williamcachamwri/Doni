@@ -2,6 +2,9 @@
 XCODEPROJ = Doni.xcodeproj
 SCHEME = Doni
 PACKAGES = Support TelegramDesignSystem TdSession
+# The device `make install` writes to: the first iPhone CoreDevice can see, overridable with
+# `make install DONI_DEVICE=<identifier>`.
+DONI_DEVICE ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/iPhone/ {print $$3; exit}')
 
 help: ## List targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
@@ -46,7 +49,17 @@ test: ## Run package tests on the host toolchain (no simulator)
 strings: ## Regenerate the language catalog; fails if the app says a word the table has no row for
 	python3 Scripts/build-strings.py
 
-check: build test strings ## Everything a commit has to survive
+notes: ## Regenerate the release notes the app bundles and the release body is written from
+	python3 Scripts/release-notes.py
+
+notes-check: ## Fail when the bundled notes no longer match RELEASE_NOTES.md
+	python3 Scripts/release-notes.py --check
+
+install: device ## Build signed and put it on the iPhone on the cable
+	@xcrun devicectl device install app --device "$(DONI_DEVICE)" \
+		"$$(/bin/ls -d ~/Library/Developer/Xcode/DerivedData/Doni-*/Build/Products/Debug-iphoneos/Doni.app | tail -1)"
+
+check: build test strings notes-check ## Everything a commit has to survive
 
 clean: ## Remove generated project and host build output
 	rm -rf $(XCODEPROJ)

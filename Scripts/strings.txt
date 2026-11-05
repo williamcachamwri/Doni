@@ -321,3 +321,40 @@ tệp rỗng|文件为空|archivo vacío|пустой файл|fichier vide|مل
 Còn trống %@|剩余 %@|Espacio libre: %@|Свободно %@|Espace libre : %@|المساحة المتبقية %@
 Gợi ý: %@|提示：%@|Sugerencia: %@|Подсказка: %@|Suggestion : %@|تلميح: %@
 Mở %@|打开 %@|Abrir %@|Открыть %@|Ouvrir %@|فتح %@
+
+# The About screen, the version check and the release notes.
+Chưa có bản phát hành nào.|该仓库还没有发布版本。|Este repositorio aún no tiene versiones publicadas.|В этом репозитории пока нет релизов.|Ce dépôt n’a pas encore de version publiée.|لم يُنشر أي إصدار في هذا المستودع بعد.
+Thông tin phát hành không đầy đủ.|发布信息不完整。|La información de la versión es incompleta.|Данные релиза неполные.|Les informations de publication sont incomplètes.|معلومات الإصدار غير مكتملة.
+Có bản mới|发现新版本|Nueva versión disponible|Доступна новая версия|Nouvelle version disponible|يتوفر إصدار جديد
+Hiện tại %@, bản mới nhất %@. Mở trang phát hành để xem nội dung.|当前版本 %@，最新版本 %@。打开发布页查看更新内容。|Versión actual: %@. Última: %@. Abre la página de publicación para ver las novedades.|Текущая версия %@, последняя %@. Откройте страницу релиза, чтобы увидеть изменения.|Version actuelle : %@, dernière : %@. Ouvrez la page de publication pour voir les nouveautés.|الإصدار الحالي %@ وأحدث إصدار %@. افتح صفحة النشر لترى الجديد.
+Đã là bản mới nhất|已是最新版本|Ya estás al día|Всё обновлено|Vous êtes à jour|أنت محدَّث
+Phiên bản %@ là mới nhất.|版本 %@ 已是最新。|La versión %@ es la más reciente.|Версия %@ — последняя.|La version %@ est la plus récente.|الإصدار %@ هو الأحدث.
+Kiểm tra cập nhật thất bại|检查更新失败|Error al buscar actualizaciones|Не удалось проверить обновления|Échec de la vérification des mises à jour|فشل التحقق من التحديثات
+Mở trang phát hành|打开发布页|Abrir página de publicación|Открыть страницу релиза|Ouvrir la page de publication|افتح صفحة النشر
+Để sau|稍后|Más tarde|Позже|Plus tard|لاحقًا
+Bắt đầu|开始|Comenzar|Начать|Commencer|ابدأ
+Máy nghe nhạc Telegram của riêng bạn|你的私人 Telegram 音乐播放器|Tu reproductor de música de Telegram|Ваш личный музыкальный плеер Telegram|Votre lecteur de musique Telegram|مشغّل موسيقى تيليجرام الخاص بك
+Thông tin ứng dụng|应用信息|Información de la app|О приложении|Infos de l’app|معلومات التطبيق
+Phiên bản|版本|Versión|Версия|Version|الإصدار
+Bản build|构建版本|Compilación|Сборка|Compilation|نسخة البناء
+Nhật ký cập nhật|更新日志|Registro de cambios|Журнал изменений|Journal des mises à jour|سجل التحديثات
+Tự động kiểm tra khi mở app|启动时自动检查更新|Buscar actualizaciones al iniciar|Автоматически проверять при запуске|Vérifier les mises à jour au lancement|فحص التحديثات عند التشغيل
+Đang kiểm tra…|正在检查…|Comprobando…|Проверка…|Vérification…|جارٍ التحقق…
+Kiểm tra cập nhật|检查更新|Buscar actualizaciones|Проверить обновления|Vérifier les mises à jour|فحص التحديثات
+Cập nhật|更新|Actualizaciones|Обновления|Mises à jour|التحديثات
+Tự động kiểm tra chỉ báo khi có bản mới; kiểm tra hỏng thì im lặng.|自动检查只在有新版本时提示；检查失败不会打断你。|Las comprobaciones automáticas solo avisan si hay una versión nueva; si fallan, no interrumpen.|Автопроверка уведомляет только о новой версии; сбой проверки не мешает.|La vérification automatique signale uniquement une nouvelle version ; un échec reste silencieux.|يفحص التحديث التلقائي عن وجود إصدار جديد فقط؛ والفشل لا يقاطعك.
+Về Doni|关于 Doni|Acerca de Doni|О Doni|À propos de Doni|عن Doni
+Doni viết bằng SwiftUI thuần và phát nhạc từ các kênh Telegram cùng Saved Messages của chính bạn, qua TDLib. Không có máy chủ nào của riêng app, không có tài khoản nào ngoài tài khoản Telegram của bạn, và không có gì được gửi đi ngoài Telegram và các nguồn lời bài hát.|Doni 使用原生 SwiftUI 构建，通过 TDLib 播放你自己 Telegram 频道与 Saved Messages 中的音乐。它没有自己的服务器，也没有除你 Telegram 账号之外的账号；除了 Telegram 和歌词来源，不会向外发送任何内容。|Doni está escrito en SwiftUI nativo y reproduce la música de tus canales de Telegram y de Guardados mediante TDLib. No hay servidores propios ni cuentas aparte de la de Telegram; nada sale del teléfono salvo Telegram y las fuentes de letras.|Doni написан на нативном SwiftUI и играет музыку из ваших Telegram-каналов и Saved Messages через TDLib. Своих серверов нет, аккаунтов кроме Telegram тоже; наружу уходят только запросы к Telegram и к источникам текстов.|Doni est écrit en SwiftUI natif et lit la musique de vos chaînes Telegram et de Messages enregistrés via TDLib. Aucun serveur propre, aucun compte autre que le vôtre ; rien ne sort vers Telegram et les sources de paroles.|Doni مكتوب بـSwiftUI الأصلي ويشغّل الموسيقى من قنواتك على تيليجرام و«الرسائل المحفوظة» عبر TDLib. لا خوادم خاصة ولا حسابات غير حسابك؛ ولا يخرج شيء سوى إلى تيليجرام ومصادر الكلمات.
+Bản quyền|版权|Derechos de autor|Права|Droits d’auteur|الحقوق
+Kho GitHub|GitHub 仓库|Repositorio de GitHub|Репозиторий GitHub|Dépôt GitHub|مستودع GitHub
+Mã nguồn mở & Giấy phép|开源与许可|Código abierto y licencias|Открытый код и лицензии|Open source et licences|المصادر المفتوحة والتراخيص
+Dự án & Giấy phép|项目与许可|Proyecto y licencias|Проект и лицензии|Projet et licences|المشروع والتراخيص
+Doni đứng trên vai TDLib, OpenSSL và mã của MeloX; giấy phép của từng thứ được ghi ở đây.|Doni 基于 TDLib、OpenSSL 和 MeloX 的代码；每一项的许可都列在这里。|Doni se apoya en TDLib, OpenSSL y el código de MeloX; aquí están sus licencias.|Doni опирается на TDLib, OpenSSL и код MeloX; лицензии каждого проекта перечислены здесь.|Doni s’appuie sur TDLib, OpenSSL et le code de MeloX ; leurs licences sont listées ici.|يعتمد Doni على TDLib وOpenSSL وشفرة MeloX؛ وتراخيص كلٍّ منها مبيّنة هنا.
+Miễn trừ trách nhiệm|免责声明|Aviso legal|Отказ от ответственности|Avertissement|إخلاء المسؤولية
+Doni là ứng dụng không chính thức, không liên kết và không được Telegram hay bất kỳ hãng nhạc nào uỷ quyền. Nó chỉ mở những file đang nằm trong tài khoản Telegram của bạn.|Doni 是非官方第三方客户端，与 Telegram 或任何音乐公司没有隶属关系，也未获其授权。它只打开你 Telegram 账号里已有的文件。|Doni es un cliente no oficial y no está afiliado ni autorizado por Telegram ni por ninguna compañía musical. Solo abre los archivos que ya están en tu cuenta de Telegram.|Doni — неофициальный клиент, не связанный с Telegram или музыкальными компаниями и не авторизован ими. Он открывает только файлы из вашего аккаунта Telegram.|Doni est un client non officiel, sans lien ni autorisation de Telegram ou de toute société de musique. Il n’ouvre que les fichiers déjà présents dans votre compte Telegram.|Doni عميل غير رسمي وغير تابع لتيليجرام أو لأي شركة موسيقى وغير مفوَّض منها. لا يفتح إلا الملفات الموجودة في حسابك على تيليجرام.
+Chưa có nhật ký cập nhật|暂无更新日志|Sin registro de cambios|Нет журнала изменений|Aucun journal des mises à jour|لا يوجد سجل تحديثات
+Nội dung mới|更新内容|Nuevas funciones|Новое|Nouveautés|الجديد
+Bản đầy đủ của GPL-3.0 nằm trong file LICENSE của kho mã.|GPL-3.0 全文见仓库中的 LICENSE 文件。|El texto completo de GPL-3.0 está en el archivo LICENSE del repositorio.|Полный текст GPL-3.0 — в файле LICENSE репозитория.|Le texte complet de la GPL-3.0 est dans le fichier LICENSE du dépôt.|النص الكامل لـGPL-3.0 في ملف LICENSE في المستودع.
+Giới thiệu|关于|Acerca de|О приложении|À propos|عن
+Giới thiệu Doni|关于 Doni|Acerca de Doni|О Doni|À propos de Doni|عن Doni
+Phiên bản, cập nhật, giấy phép|版本、更新与许可|Versión, actualizaciones y licencias|Версия, обновления и лицензии|Version, mises à jour et licences|الإصدار والتحديثات والتراخيص

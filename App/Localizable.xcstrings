@@ -946,6 +946,146 @@
         }
       }
     },
+    "Bản build": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نسخة البناء"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compilación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compilation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сборка"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "构建版本"
+          }
+        }
+      }
+    },
+    "Bản quyền": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الحقوق"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Derechos de autor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Droits d’auteur"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Права"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版权"
+          }
+        }
+      }
+    },
+    "Bản đầy đủ của GPL-3.0 nằm trong file LICENSE của kho mã.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "النص الكامل لـGPL-3.0 في ملف LICENSE في المستودع."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El texto completo de GPL-3.0 está en el archivo LICENSE del repositorio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le texte complet de la GPL-3.0 est dans le fichier LICENSE du dépôt."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полный текст GPL-3.0 — в файле LICENSE репозитория."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPL-3.0 全文见仓库中的 LICENSE 文件。"
+          }
+        }
+      }
+    },
+    "Bắt đầu": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ابدأ"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comenzar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始"
+          }
+        }
+      }
+    },
     "Bắt đầu cắt tại %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1541,6 +1681,41 @@
         }
       }
     },
+    "Chưa có bản phát hành nào.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يُنشر أي إصدار في هذا المستودع بعد."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este repositorio aún no tiene versiones publicadas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce dépôt n’a pas encore de version publiée."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В этом репозитории пока нет релизов."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该仓库还没有发布版本。"
+          }
+        }
+      }
+    },
     "Chưa có danh sách nào": {
       "extractionState": "manual",
       "localizations": {
@@ -1677,6 +1852,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚未连接 Telegram，因此无法告知 TDLib 这些歌曲已不在本机。"
+          }
+        }
+      }
+    },
+    "Chưa có nhật ký cập nhật": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا يوجد سجل تحديثات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin registro de cambios"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun journal des mises à jour"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет журнала изменений"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无更新日志"
           }
         }
       }
@@ -2311,6 +2521,41 @@
         }
       }
     },
+    "Có bản mới": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يتوفر إصدار جديد"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva versión disponible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle version disponible"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступна новая версия"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发现新版本"
+          }
+        }
+      }
+    },
     "Cơ sở dữ liệu TDLib tự tạo — không xoá được khi đang đăng nhập": {
       "extractionState": "manual",
       "localizations": {
@@ -2377,6 +2622,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要注册账号"
+          }
+        }
+      }
+    },
+    "Cập nhật": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "التحديثات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizaciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mises à jour"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновления"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
           }
         }
       }
@@ -2661,6 +2941,41 @@
         }
       }
     },
+    "Doni là ứng dụng không chính thức, không liên kết và không được Telegram hay bất kỳ hãng nhạc nào uỷ quyền. Nó chỉ mở những file đang nằm trong tài khoản Telegram của bạn.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni عميل غير رسمي وغير تابع لتيليجرام أو لأي شركة موسيقى وغير مفوَّض منها. لا يفتح إلا الملفات الموجودة في حسابك على تيليجرام."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni es un cliente no oficial y no está afiliado ni autorizado por Telegram ni por ninguna compañía musical. Solo abre los archivos que ya están en tu cuenta de Telegram."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni est un client non officiel, sans lien ni autorisation de Telegram ou de toute société de musique. Il n’ouvre que les fichiers déjà présents dans votre compte Telegram."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni — неофициальный клиент, не связанный с Telegram или музыкальными компаниями и не авторизован ими. Он открывает только файлы из вашего аккаунта Telegram."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni 是非官方第三方客户端，与 Telegram 或任何音乐公司没有隶属关系，也未获其授权。它只打开你 Telegram 账号里已有的文件。"
+          }
+        }
+      }
+    },
     "Doni sẽ mở lại bằng %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -2731,6 +3046,41 @@
         }
       }
     },
+    "Doni viết bằng SwiftUI thuần và phát nhạc từ các kênh Telegram cùng Saved Messages của chính bạn, qua TDLib. Không có máy chủ nào của riêng app, không có tài khoản nào ngoài tài khoản Telegram của bạn, và không có gì được gửi đi ngoài Telegram và các nguồn lời bài hát.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni مكتوب بـSwiftUI الأصلي ويشغّل الموسيقى من قنواتك على تيليجرام و«الرسائل المحفوظة» عبر TDLib. لا خوادم خاصة ولا حسابات غير حسابك؛ ولا يخرج شيء سوى إلى تيليجرام ومصادر الكلمات."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni está escrito en SwiftUI nativo y reproduce la música de tus canales de Telegram y de Guardados mediante TDLib. No hay servidores propios ni cuentas aparte de la de Telegram; nada sale del teléfono salvo Telegram y las fuentes de letras."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni est écrit en SwiftUI natif et lit la musique de vos chaînes Telegram et de Messages enregistrés via TDLib. Aucun serveur propre, aucun compte autre que le vôtre ; rien ne sort vers Telegram et les sources de paroles."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni написан на нативном SwiftUI и играет музыку из ваших Telegram-каналов и Saved Messages через TDLib. Своих серверов нет, аккаунтов кроме Telegram тоже; наружу уходят только запросы к Telegram и к источникам текстов."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni 使用原生 SwiftUI 构建，通过 TDLib 播放你自己 Telegram 频道与 Saved Messages 中的音乐。它没有自己的服务器，也没有除你 Telegram 账号之外的账号；除了 Telegram 和歌词来源，不会向外发送任何内容。"
+          }
+        }
+      }
+    },
     "Doni đổi ngôn ngữ khi bạn mở lại app.": {
       "extractionState": "manual",
       "localizations": {
@@ -2762,6 +3112,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新打开 Doni 后语言生效。"
+          }
+        }
+      }
+    },
+    "Doni đứng trên vai TDLib, OpenSSL và mã của MeloX; giấy phép của từng thứ được ghi ở đây.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يعتمد Doni على TDLib وOpenSSL وشفرة MeloX؛ وتراخيص كلٍّ منها مبيّنة هنا."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni se apoya en TDLib, OpenSSL y el código de MeloX; aquí están sus licencias."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni s’appuie sur TDLib, OpenSSL et le code de MeloX ; leurs licences sont listées ici."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni опирается на TDLib, OpenSSL и код MeloX; лицензии каждого проекта перечислены здесь."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni 基于 TDLib、OpenSSL 和 MeloX 的代码；每一项的许可都列在这里。"
           }
         }
       }
@@ -2906,6 +3291,41 @@
         }
       }
     },
+    "Dự án & Giấy phép": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المشروع والتراخيص"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proyecto y licencias"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projet et licences"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проект и лицензии"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "项目与许可"
+          }
+        }
+      }
+    },
     "File chọn từ máy, không lấy lại được": {
       "extractionState": "manual",
       "localizations": {
@@ -2972,6 +3392,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法读取文件。"
+          }
+        }
+      }
+    },
+    "Giới thiệu": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عن"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acerca de"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О приложении"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于"
+          }
+        }
+      }
+    },
+    "Giới thiệu Doni": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عن Doni"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acerca de Doni"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos de Doni"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О Doni"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于 Doni"
           }
         }
       }
@@ -3151,6 +3641,41 @@
         }
       }
     },
+    "Hiện tại %@, bản mới nhất %@. Mở trang phát hành để xem nội dung.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الإصدار الحالي %@ وأحدث إصدار %@. افتح صفحة النشر لترى الجديد."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión actual: %@. Última: %@. Abre la página de publicación para ver las novedades."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version actuelle : %@, dernière : %@. Ouvrez la page de publication pour voir les nouveautés."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущая версия %@, последняя %@. Откройте страницу релиза, чтобы увидеть изменения."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前版本 %@，最新版本 %@。打开发布页查看更新内容。"
+          }
+        }
+      }
+    },
     "Huỷ": {
       "extractionState": "manual",
       "localizations": {
@@ -3322,6 +3847,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "系统不允许删除。"
+          }
+        }
+      }
+    },
+    "Kho GitHub": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مستودع GitHub"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repositorio de GitHub"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dépôt GitHub"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Репозиторий GitHub"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub 仓库"
           }
         }
       }
@@ -3991,6 +4551,76 @@
         }
       }
     },
+    "Kiểm tra cập nhật": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فحص التحديثات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar actualizaciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier les mises à jour"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить обновления"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查更新"
+          }
+        }
+      }
+    },
+    "Kiểm tra cập nhật thất bại": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فشل التحقق من التحديثات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error al buscar actualizaciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la vérification des mises à jour"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить обновления"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查更新失败"
+          }
+        }
+      }
+    },
     "Kênh": {
       "extractionState": "manual",
       "localizations": {
@@ -4446,6 +5076,76 @@
         }
       }
     },
+    "Miễn trừ trách nhiệm": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إخلاء المسؤولية"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aviso legal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avertissement"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отказ от ответственности"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "免责声明"
+          }
+        }
+      }
+    },
+    "Máy nghe nhạc Telegram của riêng bạn": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مشغّل موسيقى تيليجرام الخاص بك"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu reproductor de música de Telegram"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre lecteur de musique Telegram"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш личный музыкальный плеер Telegram"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的私人 Telegram 音乐播放器"
+          }
+        }
+      }
+    },
     "Máy đã dùng %@": {
       "extractionState": "manual",
       "localizations": {
@@ -4512,6 +5212,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "验证码"
+          }
+        }
+      }
+    },
+    "Mã nguồn mở & Giấy phép": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المصادر المفتوحة والتراخيص"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código abierto y licencias"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open source et licences"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый код и лицензии"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开源与许可"
           }
         }
       }
@@ -4687,6 +5422,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "全屏"
+          }
+        }
+      }
+    },
+    "Mở trang phát hành": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "افتح صفحة النشر"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir página de publicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir la page de publication"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть страницу релиза"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开发布页"
           }
         }
       }
@@ -5457,6 +6227,181 @@
           "stringUnit": {
             "state": "translated",
             "value": "输入我们发给 %@ 的、以“%@”开头的词。"
+          }
+        }
+      }
+    },
+    "Nhật ký cập nhật": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "سجل التحديثات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registro de cambios"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Journal des mises à jour"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Журнал изменений"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新日志"
+          }
+        }
+      }
+    },
+    "Nội dung mới": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الجديد"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevas funciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveautés"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新内容"
+          }
+        }
+      }
+    },
+    "Phiên bản": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الإصدار"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
+          }
+        }
+      }
+    },
+    "Phiên bản %@ là mới nhất.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الإصدار %@ هو الأحدث."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La versión %@ es la más reciente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La version %@ est la plus récente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия %@ — последняя."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本 %@ 已是最新。"
+          }
+        }
+      }
+    },
+    "Phiên bản, cập nhật, giấy phép": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الإصدار والتحديثات والتراخيص"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión, actualizaciones y licencias"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version, mises à jour et licences"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия, обновления и лицензии"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本、更新与许可"
           }
         }
       }
@@ -6297,6 +7242,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加到“%@”"
+          }
+        }
+      }
+    },
+    "Thông tin phát hành không đầy đủ.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "معلومات الإصدار غير مكتملة."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La información de la versión es incompleta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les informations de publication sont incomplètes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Данные релиза неполные."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发布信息不完整。"
+          }
+        }
+      }
+    },
+    "Thông tin ứng dụng": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "معلومات التطبيق"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Información de la app"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Infos de l’app"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О приложении"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用信息"
           }
         }
       }
@@ -7421,6 +8436,76 @@
         }
       }
     },
+    "Tự động kiểm tra chỉ báo khi có bản mới; kiểm tra hỏng thì im lặng.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يفحص التحديث التلقائي عن وجود إصدار جديد فقط؛ والفشل لا يقاطعك."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las comprobaciones automáticas solo avisan si hay una versión nueva; si fallan, no interrumpen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification automatique signale uniquement une nouvelle version ; un échec reste silencieux."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автопроверка уведомляет только о новой версии; сбой проверки не мешает."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动检查只在有新版本时提示；检查失败不会打断你。"
+          }
+        }
+      }
+    },
+    "Tự động kiểm tra khi mở app": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فحص التحديثات عند التشغيل"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar actualizaciones al iniciar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifier les mises à jour au lancement"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически проверять при запуске"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动时自动检查更新"
+          }
+        }
+      }
+    },
     "Việc tải lời đang tắt": {
       "extractionState": "manual",
       "localizations": {
@@ -7452,6 +8537,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "歌词下载已关闭"
+          }
+        }
+      }
+    },
+    "Về Doni": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عن Doni"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acerca de Doni"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos de Doni"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "О Doni"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于 Doni"
           }
         }
       }
@@ -10182,6 +11302,41 @@
         }
       }
     },
+    "Đang kiểm tra…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جارٍ التحقق…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprobando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérification…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在检查…"
+          }
+        }
+      }
+    },
     "Đang mở danh sách trò chuyện…": {
       "extractionState": "manual",
       "localizations": {
@@ -10672,6 +11827,41 @@
         }
       }
     },
+    "Đã là bản mới nhất": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أنت محدَّث"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya estás al día"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous êtes à jour"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё обновлено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已是最新版本"
+          }
+        }
+      }
+    },
     "Đã thêm": {
       "extractionState": "manual",
       "localizations": {
@@ -11018,6 +12208,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新计数"
+          }
+        }
+      }
+    },
+    "Để sau": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لاحقًا"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más tarde"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus tard"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позже"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后"
           }
         }
       }
