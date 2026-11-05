@@ -51,6 +51,30 @@ public struct TdFile: Sendable, Hashable {
     }
 }
 
+/// What TDLib says about one file's bytes at the moment it was asked.
+///
+/// A `localFile` describes a file that may be *partly* on the device: TDLib writes each part at its
+/// own offset in the file (`FileDownloader.cpp:281`), so the path is real and readable, and everything
+/// outside the parts it declares ready is garbage that happens to sit at the right distance from the
+/// start (`td_api.tl:305`). This is the difference between "not downloaded" and "downloaded", and it is
+/// the difference streaming has to respect.
+public struct TdFileState: Sendable, Equatable {
+    public let fileId: Int
+    /// TDLib's own file. Empty while it has no local location yet.
+    public let path: String
+    /// The exact size on the server, which is the only number a content length may be built from
+    /// (`td_api.tl:326`); `expected_size` is an estimate and is not used.
+    public let size: Int64
+    /// "The local copy is fully available" (`td_api.tl:302`) — the one honest offline answer.
+    public let isComplete: Bool
+    /// The single stretch `updateFile` admits to. It is a prefix of what is actually ready: the parts
+    /// TDLib really holds are a bitmask, and only `readyBytes` reads it (`FileManager.cpp:1043-1058`).
+    public let downloadOffset: Int64
+    public let readyFromDownloadOffset: Int64
+    /// "if it is possible to download or generate the file" (`td_api.tl:299`).
+    public let canDownload: Bool
+}
+
 /// Watches TDLib's file downloads until the bytes are on the device.
 ///
 /// `downloadFile` (`td_api.tl:15001`) answers straight away with a `file` that is still in flight,
@@ -374,9 +398,94 @@ public actor TdFileDownloader {
         return Self.slice(in: file, from: offset, bytes: bytes)
     }
 
+    // MARK: Ranges
+
+    /// What is on the device for one file, asked without starting any download.
+    public func state(_ file: TdFile) async -> TdFileState? {
+        guard let fileId = await row(of: file),
+              let answer = try? await flow.request("getFile", ["file_id": .int(Int64(fileId))]),
+              answer["id"]?.int == Int64(fileId), Self.matches(answer, uniqueId: file.uniqueId)
+        else { return nil }
+        return Self.state(of: answer, fileId: fileId)
+    }
+
+    /// How many bytes starting at `offset` are on the device and mean what they say.
+    ///
+    /// `getFileDownloadedPrefixSize` (`td_api.tl:15006`) decodes TDLib's ready-part bitmask, so unlike
+    /// `downloaded_prefix_size` in an `updateFile` it answers for a range in the *middle* of a file —
+    /// which is the whole reason a seek can be served from what is already here instead of from what
+    /// happens to be contiguous with the start.
+    ///
+    /// `nil` is not zero. It means TDLib did not answer, and a caller that reads anyway is reading
+    /// garbage that only looks like the song (`td_api.tl:305`).
+    public func readyBytes(_ file: TdFile, at offset: Int64) async -> Int64? {
+        guard offset >= 0, let fileId = await row(of: file) else { return nil }
+        guard let answer = try? await flow.request(
+            "getFileDownloadedPrefixSize",
+            ["file_id": .int(Int64(fileId)), "offset": .int(offset)]
+        ) else { return nil }
+        return answer["size"]?.int
+    }
+
+    /// Moves the window TDLib downloads for this file to `offset` and keeps the file's priority there.
+    ///
+    /// TDLib holds exactly one offset and one limit per row number and the newest ask overwrites them
+    /// (`FileManager.cpp:3103-3107`), so this is a *move*, not an extra fetch: whoever is streaming the
+    /// song owns the window for as long as it is streaming, and a second caller would take the window
+    /// away from it. That is why it is not guarded the way `part` is — `part` must not touch a row
+    /// someone is waiting on whole, and a stream is the thing that row is now waiting for.
+    ///
+    /// `bytes` is what the caller needs, not a promise about the rest: this build answers `download`
+    /// with `run_download(node, true)` (`FileManager.cpp:3111`), which sets `ignore_download_limit`
+    /// (`FileManager.cpp:626-628`), so the limit decides only when the *asker* is satisfied
+    /// (`FileManager.cpp:3019-3029`) and the fetch may carry on past the window on its own.
+    @discardableResult
+    public func ask(_ file: TdFile, window offset: Int64, bytes: Int64,
+                    priority: Int = TdFileDownloader.audioPriority) async -> TdFileState? {
+        guard offset >= 0, bytes >= 0, let fileId = await row(of: file) else { return nil }
+        let answer: TdJSON
+        do {
+            answer = try await flow.request(
+                "downloadFile",
+                [
+                    "file_id": .int(Int64(fileId)),
+                    "priority": .int(Int64(priority)),
+                    "offset": .int(offset),
+                    "limit": .int(bytes),
+                    "synchronous": .bool(false)
+                ]
+            )
+        } catch {
+            return nil
+        }
+        guard answer["id"]?.int == Int64(fileId), Self.matches(answer, uniqueId: file.uniqueId)
+        else { return nil }
+        return Self.state(of: answer, fileId: fileId)
+    }
+
+    /// The bytes at `offset`, cut off at whatever TDLib says is ready, so a read can never hand back
+    /// the hole next to a part it has not fetched.
+    ///
+    /// Fewer bytes than asked is a normal answer — near the end of the file, or when only part of the
+    /// window has landed. A caller that needs the whole range asks again after the next `updateFile`.
+    public func read(_ file: TdFile, at offset: Int64, upTo bytes: Int) async -> Data? {
+        guard bytes > 0, offset >= 0, let state = await state(file), !state.path.isEmpty
+        else { return nil }
+        // A whole file is readable to its end whatever the bitmask says, and the file's own length
+        // bounds the read; `size` is only 0 when TDLib never learned it from the server.
+        var ready = state.size - offset
+        if state.isComplete {
+            ready = state.size == 0 ? Int64.max : ready
+        } else {
+            guard let prefix = await readyBytes(file, at: offset) else { return nil }
+            ready = prefix
+        }
+        guard ready > 0 else { return nil }
+        return Self.read(path: state.path, from: offset, bytes: Int(min(Int64(bytes), ready)))
+    }
+
     /// Releases everyone waiting on this file and tells TDLib to stop fetching it.
-    public func cancel(fileId: Int) {
-        resolve(fileId, with: nil)
+    public func cancel(fileId: Int) {        resolve(fileId, with: nil)
         listeners[fileId] = nil
         stop(fileId)
     }
@@ -472,6 +581,21 @@ public actor TdFileDownloader {
             waiter.continuation.yield(path)
             waiter.continuation.finish()
         }
+    }
+
+    /// The `localFile` read out of a `file` answer (`td_api.tl:297-306`). A missing `local` is TDLib
+    /// saying it has no local location at all, which is a state and not a failure.
+    private static func state(of file: TdJSON, fileId: Int) -> TdFileState? {
+        guard let local = file["local"], local.type == "localFile" else { return nil }
+        return TdFileState(
+            fileId: fileId,
+            path: local["path"]?.string ?? "",
+            size: file["size"]?.int ?? 0,
+            isComplete: local["is_downloading_completed"]?.bool == true,
+            downloadOffset: local["download_offset"]?.int ?? 0,
+            readyFromDownloadOffset: local["downloaded_prefix_size"]?.int ?? 0,
+            canDownload: local["can_be_downloaded"]?.bool ?? false
+        )
     }
 
     /// `localFile.path` is only non-empty once TDLib has the whole file (`td_api.tl:306`).

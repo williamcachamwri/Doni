@@ -790,3 +790,133 @@ func requestsExistInPinnedSchema() throws {
         #expect(schema.contains("\n\(name) "), "TDLib has no request named \(name)")
     }
 }
+
+/// The answer to `getFileDownloadedPrefixSize` (`td_api.tl:10814`) — the only thing that reports
+/// readiness in the middle of a file.
+private func prefixJSON(size: Int, extra: String) -> String {
+    #"""
+    {"@type":"fileDownloadedPrefixSize","@extra":"\#(extra)","size":\#(size)}
+    """#
+}
+
+@Test("the state reports the file's length and the one window updateFile admits to")
+func stateReadsTheLocalFile() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task { await downloader.state(TdFile(fileId: 8010, uniqueId: nil)) }
+    let asked = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 8010, active: true, completed: false, path: "/tmp/song.mp3",
+                                     offset: 128, prefix: 64, size: 999, extra: asked))
+
+    let state = try #require(await waiting.value)
+    #expect(state.path == "/tmp/song.mp3")
+    #expect(state.size == 999)
+    #expect(!state.isComplete)
+    #expect(state.downloadOffset == 128)
+    #expect(state.readyFromDownloadOffset == 64)
+    #expect(state.canDownload)
+    // A state is a look, not an ask: nothing here starts a download.
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
+}
+
+@Test("a range in the middle of a file is served from the ready bitmask")
+func readAsksTheBitmaskNotThePrefix() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    // TDLib's own declared window starts at 12 and says nothing is ready, so the only way these six
+    // bytes can be handed back is the bitmask answer for offset 4 (`FileManager.cpp:1043-1058`).
+    let (url, bytes) = try written("0123456789ABCDEFGH")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+    let waiting = Task { await downloader.read(TdFile(fileId: 8011, uniqueId: nil), at: 4, upTo: 10) }
+    let looked = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 8011, active: true, completed: false, path: url.path,
+                                     offset: 12, prefix: 0, size: bytes.count, extra: looked))
+    let probed = try await downloadExtra(of: session.transport, type: "getFileDownloadedPrefixSize")
+    session.transport.queue(prefixJSON(size: 6, extra: probed))
+
+    let got = try #require(await waiting.value)
+    #expect(Array(got) == Array(bytes[4..<10]))
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
+}
+
+@Test("bytes nobody has confirmed ready are not read at all")
+func readRefusesWithoutAnAnswer() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let (url, bytes) = try written("0123456789ABCDEFGH")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+    let waiting = Task { await downloader.read(TdFile(fileId: 8012, uniqueId: nil), at: 2, upTo: 4) }
+    let looked = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 8012, active: true, completed: false, path: url.path,
+                                     prefix: 18, size: bytes.count, extra: looked))
+    let probed = try await downloadExtra(of: session.transport, type: "getFileDownloadedPrefixSize")
+    session.transport.queue(#"{"@type":"error","@extra":"\#(probed)","code":400,"message":"FILE_INVALID"}"#)
+
+    #expect(await waiting.value == nil)
+}
+
+@Test("a whole file is read to its end without asking TDLib about readiness")
+func readOfAWholeFileSkipsTheProbe() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+    let (url, bytes) = try written("0123456789AB")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+    let waiting = Task { await downloader.read(TdFile(fileId: 8013, uniqueId: nil), at: 8, upTo: 4096) }
+    let looked = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 8013, active: false, completed: true, path: url.path,
+                                     size: bytes.count, extra: looked))
+
+    let got = try #require(await waiting.value)
+    #expect(Array(got) == Array(bytes[8...]))
+    #expect(session.transport.decodedRequests.allSatisfy {
+        $0.type != "getFileDownloadedPrefixSize"
+    })
+}
+
+@Test("a window ask moves the download rather than starting a second one")
+func askSendsTheWindow() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task {
+        await downloader.ask(TdFile(fileId: 8014, uniqueId: nil), window: 4096, bytes: 512)
+    }
+    let asked = try await downloadExtra(of: session.transport)
+    session.transport.queue(fileJSON(id: 8014, active: true, completed: false, path: "",
+                                     offset: 4096, prefix: 0, extra: asked))
+
+    let state = try #require(await waiting.value)
+    #expect(state.downloadOffset == 4096)
+    let request = try #require(requestFields(of: session.transport, type: "downloadFile"))
+    #expect(request["offset"]?.int == 4096)
+    #expect(request["limit"]?.int == 512)
+    // A streaming window is the song's own priority: never the cover's.
+    #expect(request["priority"]?.int == 16)
+    #expect(request["synchronous"]?.bool == false)
+}
+
+@Test("a window asked on somebody else's row number is refused")
+func askChecksIdentity() async throws {
+    let session = makeSession()
+    defer { session.client.close() }
+    let downloader = TdFileDownloader(flow: session.flow)
+
+    let waiting = Task {
+        await downloader.ask(TdFile(fileId: 8015, uniqueId: "mine"), window: 0, bytes: 512)
+    }
+    let check = try await downloadExtra(of: session.transport, type: "getFile")
+    session.transport.queue(fileJSON(id: 8015, active: false, completed: true, path: "/mine.mp3",
+                                     uniqueId: "someone-else", extra: check))
+
+    #expect(await waiting.value == nil)
+    #expect(session.transport.decodedRequests.allSatisfy { $0.type != "downloadFile" })
+}
