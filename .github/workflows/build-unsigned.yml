@@ -16,6 +16,13 @@ permissions:
 jobs:
   ios:
     runs-on: macos-14
+    timeout-minutes: 90
+
+    # One build at a time: TDLib and OpenSSL are compiled from source here, and two runs doing it
+    # at once is forty minutes of a macOS runner spent on the same work.
+    concurrency:
+      group: ios-unsigned-ipa
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +35,8 @@ jobs:
           cp Config/Tdlib.example.xcconfig Config/Tdlib.xcconfig
           cp Config/Signing.example.xcconfig Config/Signing.xcconfig
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install XcodeGen and CMake
+        run: brew install xcodegen cmake
 
       # TDLib and OpenSSL are built from the tags Scripts/build-tdlib.sh pins, because the
       # XCFrameworks are not in the repository.
