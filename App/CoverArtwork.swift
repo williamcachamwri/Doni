@@ -99,6 +99,12 @@ final class CoverArtwork: ObservableObject {
     /// again, so without this a row would go on drawing a gradient over a cache the system emptied.
     private var recent: [(track: any Playable, points: CGFloat)] = []
 
+    /// Sources the phone holds but ImageIO cannot turn into a picture. Without this the self-healing
+    /// read would retry one forever — it exists, so it is asked for; it decodes to nothing, so the
+    /// next frame asks again — for the handful of files the old writers got wrong before the sweep
+    /// above clears them.
+    private var unreadableSources: Set<NSString> = []
+
     /// Asks waiting for the pool, the one the user is looking at first.
     private var queued: [Ask] = []
 
@@ -171,6 +177,7 @@ final class CoverArtwork: ObservableObject {
         // own: `Library/Caches` is only pruned when the system feels like it.
         Task.detached(priority: .utility) {
             Self.discardLegacySources()
+            Self.discardNonImageSources()
             Self.trimSources()
         }
     }
@@ -245,7 +252,8 @@ final class CoverArtwork: ObservableObject {
         if let cover = Self.token(for: track) {
             candidates.append((Self.coverKey(cover, pixels: pixels), Self.coverSource(cover)))
         }
-        for (key, source) in candidates where !inFlight.contains(key) && Self.exists(source) {
+        for (key, source) in candidates
+            where !inFlight.contains(key) && !unreadableSources.contains(key) && Self.exists(source) {
             inFlight.insert(key)
             Task { await decode(source, forKey: key, pixels: pixels) }
         }
@@ -256,7 +264,13 @@ final class CoverArtwork: ObservableObject {
     /// scroll past it again.
     private func decode(_ source: URL, forKey key: NSString, pixels: Int) async {
         defer { inFlight.remove(key) }
-        guard let image = await tile(from: source, pixels: pixels), !Task.isCancelled else { return }
+        guard !Task.isCancelled else { return }
+        guard let image = await tile(from: source, pixels: pixels) else {
+            // Bounded rather than exact: these are leftovers from before the writers checked, and
+            // the launch sweep deletes them anyway.
+            if unreadableSources.count < 512 { unreadableSources.insert(key) }
+            return
+        }
         put(image, forKey: key)
     }
 
@@ -354,6 +368,7 @@ final class CoverArtwork: ObservableObject {
         // Decodes already on their way would otherwise land their tiles back into the cache this
         // call just emptied, under keys of songs the library no longer holds.
         inFlight.removeAll()
+        unreadableSources.removeAll()
         let freed = DiskUsage.clear(Self.sourceDirectory)
         revision += 1
         return freed
@@ -657,6 +672,19 @@ final class CoverArtwork: ObservableObject {
         }
     }
 
+    /// Throwing away the sources that were filed before the writers learned to check what they were
+    /// storing. They cost the storage the cache is meant to save, and they poison the read path: a
+    /// row that finds one of these on the phone asks for it again on every frame for a picture that
+    /// cannot come out of it.
+    private nonisolated static func discardNonImageSources() {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: sourceDirectory, includingPropertiesForKeys: nil
+        )) ?? []
+        for file in files where !isImage(read(file) ?? Data()) {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     /// A file per cover, named for a hash of the cache key: a key carries a colon and, for a
     /// playlist's own picture, a whole path, and neither belongs in a filename. The source is keyed
     /// without a tier, because the bytes answer every tier.
@@ -686,11 +714,24 @@ final class CoverArtwork: ObservableObject {
         return data.isEmpty ? nil : data
     }
 
-    /// Writing once: the file already there is the same bytes, and rewriting it would only move the
-    /// date that `trimSources` prunes by.
+    /// Writing once, and only if these bytes are a picture.
+    ///
+    /// Both writers here take their bytes from something else's idea of artwork — the file TDLib
+    /// fetched, and whatever the song's own metadata reported as `APIC` — and a real library turned
+    /// up with a 3,6 MB MP3 filed as a cover. That is worse than filing nothing: a source that
+    /// exists but decodes to no image makes every surface reading it try again on every frame and
+    /// never show anything, which is the "this song's cover never comes" half of the complaint.
     private nonisolated static func write(_ data: Data, to url: URL) {
-        guard !data.isEmpty, !FileManager.default.fileExists(atPath: url.path) else { return }
+        guard isImage(data), !FileManager.default.fileExists(atPath: url.path) else { return }
         try? data.write(to: url, options: .atomic)
+    }
+
+    /// Whether ImageIO finds at least one image in these bytes.
+    private nonisolated static func isImage(_ data: Data) -> Bool {
+        guard !data.isEmpty,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0 else { return false }
+        return true
     }
 
     /// The same, from a file TDLib has already put on the phone. Copying it here is what makes the
