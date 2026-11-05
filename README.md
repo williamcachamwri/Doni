@@ -96,9 +96,17 @@ same number of lines. `make notes` turns that into the JSON the app bundles and 
 release body uses; `make check` fails when the two have drifted apart.
 
 ```sh
-Scripts/build-unsigned-ipa.sh          # Release build + build/Doni.unsigned.ipa
-git tag v1.0.0 && git push origin v1.0.0   # CI builds it and opens the release
+make notes                        # RELEASE_NOTES.md → the JSON in the app + the release body
+make release                      # builds here, tags the version, pushes, opens the release
 ```
+
+`make release` is the short path: it runs `Scripts/build-unsigned-ipa.sh`, moves the tag onto the
+commit being released, pushes both, and attaches the IPA to the release. It publishes from the
+machine that already has TDLib compiled, because the macOS runner queue costs more time than the
+build does and the artefact is unsigned either way.
+
+The workflow is still there, run by hand from the Actions tab. It builds the same script on a clean
+checkout, which is the question CI is actually good for: *does this build somewhere else?*
 
 ## Limits, honestly
 

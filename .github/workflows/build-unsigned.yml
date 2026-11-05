@@ -5,9 +5,10 @@ name: Build unsigned IPA
 # the app is signed with a free personal team, so a build from CI can only ever be unsigned.
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Manual only, on purpose. A tag push used to build here, but the macOS queue is slow enough that
+  # a release took half an hour to fail, and the same artefact comes out in a few minutes on the
+  # machine that already has TDLib built — see `make release`. This workflow is the proof the build
+  # works from a clean checkout, not the way a release gets out.
   workflow_dispatch:
 
 permissions:
@@ -68,16 +69,3 @@ jobs:
         with:
           name: Doni-unsigned-ipa
           path: build/Doni.unsigned.ipa
-
-      # The body is generated from RELEASE_NOTES.md by the build script, so a release can never say
-      # something the app's own Release notes screen does not.
-      - name: Create the release
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --verify-tag \
-            --title "Doni $GITHUB_REF_NAME" \
-            --notes-file build/ReleaseNotes.md \
-            build/Doni.unsigned.ipa#Doni (unsigned) IPA
-        env:
-          GH_TOKEN: ${{ github.token }}

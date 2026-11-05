@@ -59,6 +59,9 @@ install: device ## Build signed and put it on the iPhone on the cable
 	@xcrun devicectl device install app --device "$(DONI_DEVICE)" \
 		"$$(/bin/ls -d ~/Library/Developer/Xcode/DerivedData/Doni-*/Build/Products/Debug-iphoneos/Doni.app | tail -1)"
 
+release: ## Build the unsigned IPA here and publish it as the GitHub release
+	sh Scripts/publish-release.sh
+
 check: build test strings notes-check ## Everything a commit has to survive
 
 clean: ## Remove generated project and host build output

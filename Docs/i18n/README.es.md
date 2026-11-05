@@ -75,7 +75,7 @@ cantidad de líneas.
 ## Límites
 
 - Firma con equipo gratuito: 3 dispositivos y certificado que muere a los 7 días.
-- El IPA de CI no está firmado; hay que volver a firmarlo con tu propio equipo.
+- El IPA publicado no está firmado; hay que volver a firmarlo con tu equipo. `make release` lo compila aquí, etiqueta la versión, sube todo y adjunta el IPA; el workflow queda para ejecución manual desde Actions, como prueba de que compila en un checkout limpio.
 - Sin CarPlay por ahora: hace falta el permiso `carplay-audio`, o sea cuenta de pago.
 - Las letras vienen de fuentes públicas. Si nadie escribió la de una canción, la app lo dice en vez de
   mostrar una página vacía.

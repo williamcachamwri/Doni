@@ -78,14 +78,18 @@ Nhật ký cập nhật viết một lần trong `RELEASE_NOTES.md`, hai ngôn n
 JSON cho app và markdown cho release.
 
 ```sh
-Scripts/build-unsigned-ipa.sh
-git tag v1.0.0 && git push origin v1.0.0
+make notes      # RELEASE_NOTES.md → JSON cho app + nội dung release
+make release    # build ở máy, tag đúng phiên bản, push, tạo release kèm IPA
 ```
+
+`make release` chạy `Scripts/build-unsigned-ipa.sh`, chuyển tag về commit vừa build, push cả hai rồi
+đính IPA vào release. Workflow vẫn còn đó nhưng bật bằng tay từ tab Actions: nó dựng lại từ checkout
+sạch để trả lời câu hỏi CI giỏi thật — *project này build được ở máy khác không?*
 
 ## Giới hạn
 
 - Ký bằng free personal team: tối đa 3 máy, chứng chỉ hết hạn sau 7 ngày.
-- IPA trên CI là bản chưa ký; muốn cài phải tự ký lại bằng team của bạn.
+- IPA phát hành là bản chưa ký; muốn cài phải tự ký lại bằng team của bạn.
 - Chưa có CarPlay: cần entitlement `carplay-audio`, tức tài khoản Apple developer trả phí.
 - Lời bài hát lấy từ nguồn công khai; bài chưa ai gõ lời thì app nói là không có, không để trang trắng.
 - Kiểm tra cập nhật chỉ báo có bản mới và mở trang phát hành, không tự cài.

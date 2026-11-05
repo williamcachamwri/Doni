@@ -77,7 +77,7 @@ lignes.
 ## Limites
 
 - Signature en équipe gratuite : 3 appareils, certificat mort au bout de 7 jours.
-- L'IPA produit par la CI n'est pas signé ; il faut le resigner avec votre équipe.
+- L'IPA publié n'est pas signé ; il faut le resigner avec votre équipe. `make release` le compile ici, étiquette la version, pousse et joint l'IPA ; le workflow reste en déclenchement manuel depuis Actions, pour prouver que la compile marche sur un checkout propre.
 - Pas de CarPlay pour l'instant : l'autorisation `carplay-audio` exige un compte payant.
 - Les paroles viennent de sources publiques ; un titre que personne n'a retranscrit n'a pas de paroles, et
   l'app le dit au lieu d'afficher une page vide.
