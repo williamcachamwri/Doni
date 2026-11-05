@@ -117,6 +117,14 @@ final class CoverArtwork: ObservableObject {
     /// same file and its own decode of the same bytes.
     private var inFlight: Set<NSString> = []
 
+    /// The container reads already happening, one per song.
+    ///
+    /// `inFlight` is keyed by the tile — a song at 192 and the same song at 768 are two tiles — and
+    /// that is the wrong key for the expensive half, which is opening the song itself. Two tiers
+    /// asking at once were two `AVURLAsset` walks of the same hundred-and-forty megabytes, both
+    /// writing the same source file. This is the key that matches the work.
+    private var fileArtReads: [NSString: Task<Bool, Never>] = [:]
+
     /// One surface's ask, which is what the pool carries.
     private struct Ask {
         let track: any Playable
@@ -148,7 +156,13 @@ final class CoverArtwork: ObservableObject {
 
     /// How many asks are worth remembering. A flick through a thousand-row list is not a request to
     /// hold a thousand rows; the last screens the user actually looked at are what matter.
-    private static let recentLimit = 40
+    ///
+    /// The count has to cover a whole screen of the home feed, which is not as few rows as it looks:
+    /// three shelves of cards, the quick-action tiles and the strip all ask at their own `points`, and
+    /// `recent` keys on the pair — one song drawn at 154 pt and at 60 pt is two entries. Forty was
+    /// enough when only visible surfaces asked; the same song asked twice is what used to push the
+    /// hero off the end of the list.
+    private static let recentLimit = 80
 
     /// 16 MB of pinned tiles. A 192 px row tile is 147 KB and a 768 px hero is 2.3 MB, so the byte
     /// cap and not the count is what decides. It used to be 8 MB, which held eight of the 512 px
@@ -194,9 +208,7 @@ final class CoverArtwork: ObservableObject {
     /// only arrangement that does not depend on somebody having remembered to ask.
     func image(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
         if let image = sharp(for: track, side: points) { return image }
-        if let image = mini(for: track, side: points) { return image }
-        warm(track, at: points)
-        return nil
+        return mini(for: track, side: points)
     }
 
     /// A picture that is not a song's — the cover a user chose for a list — read from the file it was
@@ -213,11 +225,25 @@ final class CoverArtwork: ObservableObject {
 
     /// A cover at this surface's own size, or the biggest one the phone holds for it: the art read
     /// out of the song, then the file TDLib fetched.
+    ///
+    /// The song's own art is asked for at *this* tier or a bigger one, and only then borrowed down:
+    /// a 192 px tile is a 192 px tile on a 768 px hero, and the two are not the same promise. A server
+    /// thumbnail is allowed to be borrowed at any size, because the pipeline that fetches it already
+    /// asks for the biggest version of it there is, so the biggest held is the closest to what the
+    /// surface wanted.
+    ///
+    /// A tier that is not held still books its own decode before anything is borrowed. Returning the
+    /// stopgap and stopping there is how a hero ends up permanently soft: the row's 192 px answers the
+    /// first frame, and nothing is ever asked for the 768 again.
     func sharp(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
         let pixels = Self.pixels(forSide: points)
-        if let embedded = fileArt(of: track, pixels: pixels) { return embedded }
-        guard let cover = Self.token(for: track) else { return nil }
-        return atLeast(cover, than: pixels) ?? largest(cover)
+        if let embedded = fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) { return embedded }
+        if let cover = Self.token(for: track),
+           let image = atLeast(cover, than: pixels) ?? largest(cover) {
+            return image
+        }
+        warm(track, at: points)
+        return largestFileArt(uniqueId: track.uniqueId)
     }
 
     /// The 40×30 the message carried, which is what a row shows until the sharp file lands — and
@@ -240,15 +266,21 @@ final class CoverArtwork: ObservableObject {
     /// existence check per candidate and no task at all when the phone does not hold the bytes. That
     /// last part matters more than it looks — a song with no cover would otherwise start a decode on
     /// every frame of a scroll, find nothing, and be asked again on the next one, forever.
+    ///
+    /// The song's own art is no longer gated on `localPath`. That field belongs to the snapshot the row
+    /// is holding, not to the phone: a song that has just finished downloading has its bytes extracted
+    /// and filed under its `unique_id`, while the list it came from goes on showing the `TdTrack` that
+    /// was read before the download — `localPath == nil`, and a source file sitting right there. The
+    /// file's own existence is the honest question, and it is the cheap one.
+    ///
+    /// One source per ask, best first, rather than both: the two candidates are two decodes of the same
+    /// surface's same tier, and the first one that exists is by construction the better picture.
     private func warm(_ track: any Playable, at points: CGFloat) {
         let pixels = Self.pixels(forSide: points)
-        var candidates: [(key: NSString, source: URL)] = []
-        // The art inside the file first: it is the cover Telegram's own player draws, and on the
-        // channels this library is built from it is bigger than anything the server thumbed.
-        if track.localPath != nil {
-            candidates.append((Self.fileKey(uniqueId: track.uniqueId, pixels: pixels),
-                               Self.fileSource(uniqueId: track.uniqueId)))
-        }
+        var candidates: [(key: NSString, source: URL)] = [
+            (Self.fileKey(uniqueId: track.uniqueId, pixels: pixels),
+             Self.fileSource(uniqueId: track.uniqueId))
+        ]
         if let cover = Self.token(for: track) {
             candidates.append((Self.coverKey(cover, pixels: pixels), Self.coverSource(cover)))
         }
@@ -256,6 +288,7 @@ final class CoverArtwork: ObservableObject {
             where !inFlight.contains(key) && !unreadableSources.contains(key) && Self.exists(source) {
             inFlight.insert(key)
             Task { await decode(source, forKey: key, pixels: pixels) }
+            break
         }
     }
 
@@ -313,16 +346,23 @@ final class CoverArtwork: ObservableObject {
     /// A row asks when it appears, which is a round trip paid while the user is still looking at the
     /// gap. These go into the same queue the foreground refill uses, so a screen's worth of fetches
     /// runs side by side instead of one per row, and the tiles are on the phone before the rows are.
-    /// An ask that is already answered costs one dictionary read, so warming a list a row has already
-    /// reached is free.
+    ///
+    /// A prefetch is *not* a record of what the user looked at, so it does not touch `recent`. It used
+    /// to `remember` every track it ordered, and a channel walk prefetches a page at a time — a hundred
+    /// songs the screen never showed, pushed through a list whose whole job is to say which forty
+    /// covers the foreground refill owes the user. That is why coming back from the background refilled
+    /// the wrong screens and left the one on screen a gradient.
+    ///
+    /// They also go on the *back* of the queue for the same reason: the asks already waiting are the
+    /// ones a finger is looking at, and a page ordered ahead of them spends the six workers on covers
+    /// that may never be drawn.
     func prefetch(_ tracks: [any Playable], via: TdFileDownloader?, side points: CGFloat) {
         let asks = tracks.map { Ask(track: $0, via: via, points: points) }
         guard !asks.isEmpty else { return }
         queued.removeAll { ask in
             ask.points == points && asks.contains { $0.track.uniqueId == ask.track.uniqueId }
         }
-        for ask in asks { remember(ask.track, at: points) }
-        queued.insert(contentsOf: asks, at: 0)
+        queued.append(contentsOf: asks)
         if queued.count > Self.queueLimit { queued.removeLast(queued.count - Self.queueLimit) }
         Task { await drain() }
     }
@@ -380,16 +420,26 @@ final class CoverArtwork: ObservableObject {
     ///
     /// The three steps are in order of what they cost: the song on the phone, the bytes the phone has
     /// already fetched, and only then the network.
+    ///
+    /// Every step asks for the tier it was given *or a bigger one*, never just its own: a card that
+    /// holds the 512 px tile has nothing to learn from a 192 px decode, and ordering one anyway is how
+    /// the queue spends six workers on pictures the screen will not draw.
     private func fill(track: any Playable, via: TdFileDownloader?, points: CGFloat) async {
         let pixels = Self.pixels(forSide: points)
         // The song itself first: no network, and the biggest cover Telegram ever sent for it.
-        if track.localPath != nil, fileArt(of: track, pixels: pixels) == nil {
-            await loadFileArt(of: track, pixels: pixels)
+        if fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) == nil {
+            var path = track.localPath
+            // TDLib is only asked when neither the row nor the cache knows: the source file being on
+            // the phone already means the container was opened once, and asking again buys nothing.
+            if path == nil, !Self.exists(Self.fileSource(uniqueId: track.uniqueId)) {
+                path = await onDevicePath(for: track, via: via)
+            }
+            await loadFileArt(uniqueId: track.uniqueId, localPath: path, pixels: pixels)
         }
+        // A surface filled by the tags has no reason to fetch a server thumbnail over it, and one that
+        // holds the tier it asked for — or a bigger one — has nothing left to order.
+        guard fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) == nil else { return }
         guard let cover = Self.token(for: track) else { return }
-        // A surface already filled by the tags has no reason to fetch a server thumbnail over it,
-        // and one that holds the tier it asked for has nothing left to order.
-        if fileArt(of: track, pixels: pixels) != nil { return }
         guard atLeast(cover, than: pixels) == nil else { return }
         let key = Self.coverKey(cover, pixels: pixels)
         // One ask per tile. Without this, a row, the card it is also drawn in and the hero the same
@@ -417,6 +467,18 @@ final class CoverArtwork: ObservableObject {
         put(image, forKey: key)
     }
 
+    /// Where TDLib says this song's own file is, when the row holding it does not know yet.
+    ///
+    /// `getFile` is answered out of TDLib's own database and costs no round trip, which makes it the
+    /// cheap way past a stale snapshot: the list is still carrying the `TdTrack` read before the
+    /// download finished, and only TDLib has kept up with the file. Nothing is asked when there is no
+    /// client — a song with no `fileId` is one the user brought in, and that one always knows its own
+    /// path.
+    private func onDevicePath(for track: any Playable, via: TdFileDownloader?) async -> String? {
+        guard track.fileId != 0, let files = via ?? downloader else { return nil }
+        return await files.readyPath(fileId: track.fileId)
+    }
+
     /// The cover inside the audio file, decoded off the main thread and written into the same cache
     /// the fetched covers use, so every surface that wants this song's art gets it for one read.
     ///
@@ -425,26 +487,54 @@ final class CoverArtwork: ObservableObject {
     /// milliseconds and was being paid again for every tier the same song is drawn at — the row's
     /// 192, the card's 512, the hero's 768. After the copy those are ImageIO reads of a file this app
     /// already knows the size of.
-    private func loadFileArt(of track: any Playable, pixels: Int) async {
-        guard let path = track.localPath else { return }
-        let key = Self.fileKey(uniqueId: track.uniqueId, pixels: pixels)
-        // The container read is the expensive one, so it is asked for once per song per tier — a
-        // shelf, a row and the hero of the same file are three surfaces and one `AVURLAsset`.
+    private func loadFileArt(uniqueId: String, localPath: String?, pixels: Int) async {
+        let key = Self.fileKey(uniqueId: uniqueId, pixels: pixels)
         guard !inFlight.contains(key) else { return }
+        let source = Self.fileSource(uniqueId: uniqueId)
+        let present = Self.exists(source)
+        guard present || localPath != nil else { return }
         inFlight.insert(key)
         defer { inFlight.remove(key) }
-        let source = Self.fileSource(uniqueId: track.uniqueId)
-        if let tile = await tile(from: source, pixels: pixels) {
-            put(tile, forKey: key)
-            return
+        if present {
+            // The bytes on the phone first: they are the cheap half, and they are already there.
+            if let tile = await tile(from: source, pixels: pixels) {
+                put(tile, forKey: key)
+                return
+            }
+            // On the phone, and ImageIO made nothing out of it. Same rule as `decode`: without the
+            // record, every frame asks again for a picture that cannot come out of those bytes, and
+            // the row keeps its gradient with the file that should end it sitting right there.
+            guard localPath != nil else {
+                if unreadableSources.count < 512 { unreadableSources.insert(key) }
+                return
+            }
         }
-        let image: UIImage? = await Task.detached(priority: .userInitiated) {
-            guard let bytes = await Self.embeddedBytes(path: path) else { return nil }
+        guard let localPath, await extracted(uniqueId: uniqueId, from: localPath) else { return }
+        guard !Task.isCancelled, let tile = await tile(from: source, pixels: pixels) else { return }
+        put(tile, forKey: key)
+    }
+
+    /// The song's own picture, copied out of its container and onto the phone once.
+    ///
+    /// Keyed by the song rather than by the tier, because the expensive half — `AVURLAsset` opening a
+    /// hundred-and-forty-megabyte container to find one `APIC` frame — is the same work whichever size
+    /// wants it. A row at 192 and the hero at 768 asking together used to be two of those reads racing
+    /// to write the same file; now the second one waits on the first and then does its own cheap
+    /// ImageIO read of the bytes it left behind.
+    @discardableResult
+    private func extracted(uniqueId: String, from path: String) async -> Bool {
+        let marker = Self.fileSourceKey(uniqueId: uniqueId)
+        if let running = fileArtReads[marker] { return await running.value }
+        let source = Self.fileSource(uniqueId: uniqueId)
+        let read = Task.detached(priority: .userInitiated) { () -> Bool in
+            if Self.exists(source) { return true }
+            guard let bytes = await Self.embeddedBytes(path: path) else { return false }
             Self.write(bytes, to: source)
-            return Self.downsampled(data: bytes, side: pixels)
-        }.value
-        guard !Task.isCancelled, let image else { return }
-        put(image, forKey: key)
+            return Self.exists(source)
+        }
+        fileArtReads[marker] = read
+        defer { fileArtReads[marker] = nil }
+        return await read.value
     }
 
     /// Booking an ask so the foreground re-warm knows what was on screen.
@@ -537,9 +627,23 @@ final class CoverArtwork: ObservableObject {
         cache.object(forKey: key) ?? pinned[key]
     }
 
-    /// The cover read out of the song itself, if this surface's tier of it is already on the phone.
-    private func fileArt(of track: any Playable, pixels: Int) -> UIImage? {
-        held(Self.fileKey(uniqueId: track.uniqueId, pixels: pixels))
+    /// The art read out of the song, at this tier or the first bigger one already decoded. A 512 px
+    /// tile fills a 60 pt row and a 192 px one does not fill a hero, which is the whole difference
+    /// between this and `largestFileArt`.
+    private func fileArtAtLeast(uniqueId: String, than pixels: Int) -> UIImage? {
+        for tier in Self.tiers where tier >= pixels {
+            if let image = held(Self.fileKey(uniqueId: uniqueId, pixels: tier)) { return image }
+        }
+        return nil
+    }
+
+    /// The biggest art this song has in memory, however small: what a surface draws while the tier it
+    /// asked for is still being decoded, because something real beats the gradient for a frame.
+    private func largestFileArt(uniqueId: String) -> UIImage? {
+        for tier in Self.tiers.reversed() {
+            if let image = held(Self.fileKey(uniqueId: uniqueId, pixels: tier)) { return image }
+        }
+        return nil
     }
 
     /// This cover at the asked-for tier or the first bigger one already on the device. A 512 px
@@ -600,6 +704,12 @@ final class CoverArtwork: ObservableObject {
 
     private static func fileKey(uniqueId: String, pixels: Int) -> NSString {
         "a:\(uniqueId):\(pixels)" as NSString
+    }
+
+    /// The key of a song's own art with no tier on the end, which is what the source file is called
+    /// by too: the bytes out of the container answer every size.
+    private nonisolated static func fileSourceKey(uniqueId: String) -> NSString {
+        "a:\(uniqueId)" as NSString
     }
 
     private static func miniKey(uniqueId: String) -> NSString {
