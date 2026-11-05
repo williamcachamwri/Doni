@@ -52,6 +52,7 @@ Nhạc|音乐|Música|Музыка|Musique|الموسيقى
 Cloud Music|云端音乐|Cloud Music|Cloud Music|Cloud Music|موسيقى سحابية
 Dành cho bạn|为你推荐|Para ti|Для вас|Pour vous|لك
 Mới nhất|最新|Recientes|Новые|Récents|الأحدث
+Gần đây phát|最近播放|Reproducidas recientemente|Недавно прослушанные|Écoutés récemment|استُمعت مؤخرًا
 Ngẫu nhiên|随机|Aleatorias|Случайные|Aléatoires|عشوائي
 Trên máy|本机|En el dispositivo|На устройстве|Sur l'appareil|على الجهاز
 Thư viện|资料库|Biblioteca|Библиотека|Bibliothèque|المكتبة

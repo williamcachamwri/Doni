@@ -154,6 +154,12 @@ struct LibraryView: View {
                 if !visible.isEmpty {
                     HomeQuickActions(subtitle: subtitle, perform: perform)
 
+                    // What was just heard, above what was just posted: a listener who came back for a
+                    // song they were in the middle of does not want to find it by scrolling a
+                    // thousand new posts from a channel.
+                    if !recent.isEmpty {
+                        songShelf("Gần đây phát", recent)
+                    }
                     if !newest.isEmpty {
                         songShelf("Mới nhất", newest)
                     }
@@ -262,6 +268,14 @@ struct LibraryView: View {
 
     private var newest: [any Playable] {
         Array(visible.prefix(Self.shelfLimit))
+    }
+
+    /// The songs the phone has played, in the order they were played. No channel posts this list: it
+    /// is the one shelf the app writes for itself, out of the timestamp each play leaves on its row.
+    ///
+    /// `Library` already cuts it to a shelf's length, so the shelf shows the whole of it.
+    private var recent: [any Playable] {
+        library.recentlyPlayed
     }
 
     private var kept: [any Playable] {
