@@ -73,6 +73,28 @@ def read_table() -> list[tuple[str, dict[str, str]]]:
     return rows
 
 
+# Strings the table deliberately does not answer. Search keywords are typed by the user in either
+# language already — translating them would take the English words away from someone searching in
+# English — and a song title in a doc comment is not interface text at all.
+NOT_TRANSLATED = {
+    "cloud chưa tải chờ download telegram", "dung lượng bộ nhớ cache storage disk",
+    "kênh channel nhạc", "ngôn ngữ", "thư viện nhạc bài hát index", "tài khoản",
+    "tải offline file", "hồ sơ", "đăng xuất", "Tình yêu", "n bài",
+}
+
+
+def strip_comments(text: str) -> str:
+    """Source without comment lines, because a doc comment naming a song is not interface text.
+
+    Whole lines only: cutting at the first `//` anywhere would eat the `//` of a link pasted into a
+    real string.
+    """
+    return "\n".join(
+        line for line in text.splitlines()
+        if not line.lstrip().startswith(("//", "/*", "*"))
+    )
+
+
 def coverage(keys: set[str]) -> list[str]:
     """Vietnamese literals the code says that the table has no row for.
 
@@ -84,9 +106,9 @@ def coverage(keys: set[str]) -> list[str]:
     literal = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
     missing: set[str] = set()
     for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
-        for match in literal.finditer(source.read_text(encoding="utf-8")):
+        for match in literal.finditer(strip_comments(source.read_text(encoding="utf-8"))):
             text = match.group(1)
-            if "\\(" in text or not viet.search(text) or text in keys:
+            if "\\(" in text or not viet.search(text) or text in keys or text in NOT_TRANSLATED:
                 continue
             missing.add(text)
     return sorted(missing)
@@ -131,5 +153,9 @@ def main() -> int:
 
 if __name__ == "__main__":
     if "--all" in sys.argv:
-        print("\n".join(coverage(set())))
+        # The rows a translation pass still owes, which is the whole point of keeping the table in
+        # one file: adding a string to the app makes it show up here until it is answered.
+        keys = {row[0] for row in read_table()} | set(read_l10n())
+        print("\n".join(coverage(keys)))
+        raise SystemExit(0)
     raise SystemExit(main())

@@ -116,8 +116,7 @@ struct SettingsView: View {
             Button("Đăng xuất", role: .destructive) { Task { await signOut() } }
             Button("Huỷ", role: .cancel) {}
         } message: {
-            Text("Toàn bộ thư viện, danh sách phát, nhạc đã tải về máy và cache ảnh bìa sẽ bị xoá. "
-                + "Phiên đăng nhập sẽ bị đóng.")
+            Text("Toàn bộ thư viện, danh sách phát, nhạc đã tải về máy và cache ảnh bìa sẽ bị xoá. Phiên đăng nhập sẽ bị đóng.")
         }
         .sheet(isPresented: $showsAddChannel) {
             AddChannelSheet(session: session, library: library) {

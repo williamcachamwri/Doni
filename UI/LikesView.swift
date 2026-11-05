@@ -92,9 +92,7 @@ struct LikesView: View {
                     ContentUnavailableView(
                         "Chưa giữ bài nào",
                         systemImage: "heart",
-                        description: Text("Nhấn giữ một bài trong Thư viện rồi chọn Yêu thích. "
-                            + "Giữ cả bài, hoặc giữ lại đoạn bạn muốn nghe — đoạn đã giữ sẽ lặp lại "
-                            + "khi phát.")
+                        description: Text("Nhấn giữ một bài trong Thư viện rồi chọn Yêu thích. Giữ cả bài, hoặc giữ lại đoạn bạn muốn nghe — đoạn đã giữ sẽ lặp lại khi phát.")
                     )
                 } else {
                     ContentUnavailableView.search(text: query)

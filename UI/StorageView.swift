@@ -137,9 +137,7 @@ struct StorageView: View {
         } header: {
             Text("Tổng quan")
         } footer: {
-            Text("Nhạc Telegram và cache ảnh lấy lại được khi cần. Danh sách, bài yêu thích, "
-                + "ảnh bìa bạn tự chọn và file bạn thêm vào thì không. Phần TDLib tự tạo không "
-                + "phải dữ liệu của bạn: đăng xuất sẽ xoá sạch, và phiên mới lại tạo nó từ đầu.")
+            Text("Nhạc Telegram và cache ảnh lấy lại được khi cần. Danh sách, bài yêu thích, ảnh bìa bạn tự chọn và file bạn thêm vào thì không. Phần TDLib tự tạo không phải dữ liệu của bạn: đăng xuất sẽ xoá sạch, và phiên mới lại tạo nó từ đầu.")
         }
     }
 
@@ -267,8 +265,7 @@ struct StorageView: View {
             message = "Đã giải phóng \(DataSize.string(freed)) ảnh."
         case .downloads:
             guard let files = session.covers() else {
-                failure = "Chưa có kết nối Telegram, nên không thể báo cho TDLib biết các bài này "
-                    + "đã không còn trên máy."
+                failure = "Chưa có kết nối Telegram, nên không thể báo cho TDLib biết các bài này đã không còn trên máy."
                 return
             }
             let count = await library.clearTelegramDownloads(with: files)
@@ -312,11 +309,9 @@ enum StorageCleanup: String, Identifiable {
     var confirmMessage: String {
         switch self {
         case .pictures:
-            return "Doni sẽ tải lại ảnh bìa và ảnh kênh khi cần. Ảnh bạn tự chọn cho một danh sách "
-                + "không nằm trong số này."
+            return "Doni sẽ tải lại ảnh bìa và ảnh kênh khi cần. Ảnh bạn tự chọn cho một danh sách không nằm trong số này."
         case .downloads:
-            return "Nhạc tải từ Telegram về máy sẽ bị xoá. Danh sách và bài yêu thích vẫn còn, và "
-                + "bài nào cũng tải lại được. File bạn thêm vào ở Cloud Music không bị đụng tới."
+            return "Nhạc tải từ Telegram về máy sẽ bị xoá. Danh sách và bài yêu thích vẫn còn, và bài nào cũng tải lại được. File bạn thêm vào ở Cloud Music không bị đụng tới."
         }
     }
 }

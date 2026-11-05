@@ -136,3 +136,108 @@ Xác thực hai bước|两步验证|Verificación en dos pasos|Двухэтап
 Đang đọc kênh…|正在读取频道…|Leyendo el canal…|Чтение канала…|Lecture de la chaîne…|جارٍ قراءة القناة…
 Đang thêm nhạc…|正在添加音乐…|Añadiendo música…|Добавление музыки…|Ajout de musique…|جارٍ إضافة الموسيقى…
 Bài và ảnh TDLib đã tải về|已下载的 TDLib 音乐和图片|Música e imágenes descargadas de TDLib|Загруженные TDLib-музыка и изображения|Musiques et images TDLib téléchargées|موسيقى وصور TDLib المنزّلة
+Bài tiếp theo|下一首|Siguiente canción|Следующий трек|Titre suivant|الأغنية التالية
+Bài trước|上一首|Canción anterior|Предыдущий трек|Titre précédent|الأغنية السابقة
+Bài hát|歌曲|Canción|Песня|Chanson|أغنية
+Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.|这首歌将从 Doni 中移除。你选择的原始文件仍保留在原处。|Esta canción se quitará de Doni. El archivo original sigue donde estaba.|Этот трек исчезнет из Doni. Исходный файл останется на месте.|Ce titre sera retiré de Doni. Le fichier d’origine reste à sa place.|ستتم إزالة هذه الأغنية من دوني. أما الملف الأصلي فيبقى حيث هو.
+Bạn muốn dừng quá trình nhập mã và quay lại chọn số điện thoại khác?|要停止输入验证码并重新选择号码吗？|¿Dejar de introducir el código y elegir otro número?|Прекратить ввод кода и выбрать другой номер?|Arrêter la saisie du code et choisir un autre numéro ?|هل تريد إيقاف إدخال الرمز واختيار رقم آخر؟
+Bắt đầu cắt tại đây|从这里开始截取|Comienza el recorte aquí|Начать отрезок здесь|Début du découpage ici|ابدأ القص من هنا
+Bỏ cắt đoạn|取消片段|Quitar el recorte|Убрать отрезок|Retirer le découpage|إزالة المقطع
+Bộ nhớ đã dùng|已用存储|Almacenamiento usado|Использовано памяти|Stockage utilisé|المساحة المستخدمة
+Cache ảnh|封面缓存|Caché de portadas|Кэш обложек|Cache des pochettes|تخزين الأغلفة المؤقت
+Chưa có bài nào của bạn|还没有你的歌曲|No hay canciones tuyas|Нет ваших треков|Aucun titre à vous|لا توجد أغانيك بعد
+Chưa có bài nào trong kênh|频道里还没有歌曲|No hay canciones en el canal|В канале нет треков|Aucun titre dans la chaîne|لا توجد أغاني في القناة
+Chưa có bài nào đang nghe|当前没有播放|No suena nada|Сейчас ничего не играет|Aucun titre en lecture|لا توجد أغنية قيد التشغيل
+Chưa có bài nào ở đây|这里还没有歌曲|No hay canciones aquí|Здесь нет треков|Aucun titre ici|لا توجد أغاني هنا
+Chưa có gì để gợi ý|暂无可推荐内容|Nada que sugerir|Нечего предложить|Rien à suggérer|لا يوجد ما نقترحه
+Chưa xoá hết dữ liệu trên máy — Doni sẽ thử lại khi bạn mở app|尚未清空本机数据 — Doni 会在下次打开时重试|No se borraron todos los datos; Doni lo intentará al abrirse|Данные удалены не полностью — Doni повторит при запуске|Données non entièrement supprimées — Doni réessaiera au lancement|لم تُحذف كل البيانات — سيحاول دوني مجددًا عند فتح التطبيق
+Chưa xoá được dữ liệu Telegram — Doni sẽ thử lại khi bạn mở app lần tới|未能删除 Telegram 数据 — Doni 会在下次打开时重试|No se pudo borrar los datos de Telegram; Doni lo intentará al próximo inicio|Не удалось удалить данные Telegram — Doni повторит в следующий запуск|Données Telegram non supprimées — Doni réessaiera au prochain lancement|تعذّر حذف بيانات تيليجرام — سيحاول دوني مجددًا عند الفتح القادم
+Chỉ phát đoạn đã lưu|只播放已保存的片段|Solo reproduce el fragmento guardado|Воспроизводится только сохранённый отрезок|Seule la section enregistrée est lue|يشغّل المقطع المحفوظ فقط
+Chọn từ danh sách trò chuyện Telegram, hoặc dán link kênh, nhóm, bot, chat riêng.|从 Telegram 会话列表选择，或粘贴频道、群组、机器人、私聊链接。|Elige de la lista de chats de Telegram o pega un enlace de canal, grupo, bot o chat.|Выберите из списка чатов Telegram или вставьте ссылку на канал, группу, бота или диалог.|Choisissez dans la liste des conversations Telegram ou collez un lien de chaîne, groupe, bot ou discussion.|اختر من محادثات تيليجرام أو الصق رابط قناة أو مجموعة أو بوت أو محادثة.
+Cuộc trò chuyện bạn đang tham gia|你参与的会话|Conversaciones en las que participas|Ваши чаты|Conversations où vous participez|المحادثات التي تشارك فيها
+Cần đăng ký tài khoản|需要注册账号|Hace falta registrar una cuenta|Требуется регистрация аккаунта|Un compte doit être créé|يلزم إنشاء حساب
+Danh sách của bạn|你的歌单|Tus listas|Ваши плейлисты|Vos listes|قوائمك
+Danh sách mới…|新建歌单…|Nueva lista…|Новый плейлист…|Nouvelle liste…|قائمة جديدة…
+Danh sách vẫn giữ ảnh bìa cũ.|歌单仍使用旧封面。|La lista conserva su portada anterior.|Плейлист сохранил старую обложку.|La liste garde son ancienne pochette.|القائمة تحتفظ بغلافها السابق.
+Danh sách, bài yêu thích, ảnh bìa bạn chọn|歌单、收藏和你选择的封面|Listas, favoritas y portadas elegidas|Плейлисты, избранное и выбранные обложки|Listes, favoris et pochettes choisies|القوائم والمفضلة والأغلفة التي اخترتها
+Doni chỉ lấy những bài audio, dù nguồn là kênh, nhóm, người dùng hay bot.|Doni 只提取音频歌曲，无论来源是频道、群组、用户还是机器人。|Doni solo toma audios, ya sea de canales, grupos, usuarios o bots.|Doni берёт только аудио — из каналов, групп, пользователей и ботов.|Doni ne retient que les audios, qu’ils viennent d’une chaîne, d’un groupe, d’un utilisateur ou d’un bot.|لا يأخذ دوني إلا الملفات الصوتية، سواء من قناة أو مجموعة أو مستخدم أو بوت.
+Doni giữ trên máy|Doni 在本机保留|Doni lo guarda en el dispositivo|Doni сохраняет на устройстве|Doni le garde sur l’appareil|يحفظه دوني على الجهاز
+Dừng đọc kênh|停止读取频道|Detener la lectura del canal|Остановить чтение канала|Arrêter la lecture de la chaîne|إيقاف قراءة القناة
+File chọn từ máy, không lấy lại được|从设备选择的文件，无法重新获取|Archivos elegidos del dispositivo, no recuperables|Файлы с устройства, их не вернуть|Fichiers choisis sur l’appareil, irrécupérables|ملفات اخترتها من الجهاز ولا يمكن استرجاعها
+File không đọc được.|无法读取文件。|No se pudo leer el archivo.|Файл не читается.|Fichier illisible.|تعذّرت قراءة الملف.
+Hệ thống không cho phép xoá.|系统不允许删除。|El sistema no permite borrar.|Система не разрешает удаление.|Le système refuse la suppression.|النظام لا يسمح بالحذف.
+Khác|其他|Otros|Прочее|Autres|أخرى
+Không có cuộc trò chuyện nào.|没有会话。|No hay conversaciones.|Нет диалогов.|Aucune conversation.|لا توجد محادثات.
+Không có file nào được chọn.|未选择文件。|No se ha elegido ningún archivo.|Файлы не выбраны.|Aucun fichier choisi.|لم يتم اختيار أي ملف.
+Không dọn được|无法清理|No se pudo limpiar|Не удалось очистить|Nettoyage impossible|تعذّر التنظيف
+Không kết nối được tới lrclib|无法连接 lrclib|No se pudo conectar a lrclib|Не удалось связаться с lrclib|Connexion à lrclib impossible|تعذّر الاتصال بـ lrclib
+Không thêm được bài|无法添加歌曲|No se pudo añadir la canción|Не удалось добавить трек|Ajout du titre impossible|تعذّرت إضافة الأغنية
+Không đọc được ảnh này|无法读取此图片|No se pudo leer esta imagen|Это изображение не читается|Image illisible|تعذّرت قراءة هذه الصورة
+Kênh mới|新频道|Nuevo canal|Новый канал|Nouvelle chaîne|قناة جديدة
+Kênh nhạc|音乐频道|Canales de música|Музыкальные каналы|Chaînes musicales|قنوات موسيقية
+Kênh trên danh sách chưa có file nhạc nào được đọc.|列表中的频道尚未读取到音乐文件。|Los canales de la lista aún no tienen música leída.|Каналы из списка ещё не прочитаны на наличие аудио.|Les chaînes de la liste n’ont encore aucun fichier musical lu.|القنوات في القائمة لم يُقرأ منها أي ملف موسيقي بعد.
+Kết thúc cắt tại đây|在这里结束截取|Termina el recorte aquí|Закончить отрезок здесь|Fin du découpage ici|انتهِ القص هنا
+Mọi bài đã có trên máy|所有已在本机的歌曲|Todas las que ya están en el dispositivo|Все уже на устройстве|Tous les titres déjà sur l’appareil|كل الأغاني المتوفرة على الجهاز
+Mở toàn màn hình|全屏|Pantalla completa|Полный экран|Plein écran|ملء الشاشة
+Nhạc Telegram|Telegram 音乐|Música de Telegram|Музыка Telegram|Musiques Telegram|موسيقى تيليجرام
+Nhạc bạn thêm|你添加的音乐|Tu música añadida|Ваша добавленная музыка|Vos musiques ajoutées|موسيقاك المضافة
+Phát kết quả|播放结果|Reproducir resultados|Воспроизвести результаты|Lire les résultats|تشغيل النتائج
+Phát tiếp theo|下一首播放|Reproducir después|Проиграть следующим|Lire après|التشغيل التالي
+Số điện thoại của bạn|你的电话号码|Tu número de teléfono|Ваш номер телефона|Votre numéro de téléphone|رقم هاتفك
+Thu nhỏ về thanh dưới cùng|缩回到底部栏|Reducir a la barra inferior|Свернуть в нижнюю панель|Réduire dans la barre du bas|تصغير إلى الشريط السفلي
+Thêm nhạc từ file|从文件添加音乐|Añadir música desde un archivo|Добавить музыку из файла|Ajouter de la musique depuis un fichier|إضافة موسيقى من ملف
+Thư viện của bạn|你的资料库|Tu biblioteca|Ваша библиотека|Votre bibliothèque|مكتبتك
+Thư viện vẫn đang được đọc.|资料库仍在读取中。|La biblioteca se está leyendo.|Библиотека ещё читается.|La bibliothèque est en cours de lecture.|المكتبة ما زالت تُقرأ.
+Thử lại|重试|Reintentar|Повторить|Réessayer|إعادة المحاولة
+Tài khoản Telegram|Telegram 账号|Cuenta de Telegram|Аккаунт Telegram|Compte Telegram|حساب تيليجرام
+Tìm bài chưa tải|搜索未下载的歌曲|Buscar canciones sin descargar|Искать незагруженные|Rechercher les titres non téléchargés|ابحث عن الأغاني غير المنزّلة
+Tìm bài của bạn|搜索你的歌曲|Buscar tus canciones|Искать ваши треки|Rechercher vos titres|ابحث عن أغانيك
+Tìm bài hát|搜索歌曲|Buscar canciones|Искать песни|Rechercher des chansons|ابحث عن أغاني
+Xem thêm|查看更多|Ver más|Показать ещё|Voir plus|عرض المزيد
+Xoá bài này?|删除这首歌曲？|¿Borrar esta canción?|Удалить этот трек?|Supprimer ce titre ?|حذف هذه الأغنية؟
+Xoá cache|清除缓存|Vaciar la caché|Очистить кэш|Vider le cache|مسح التخزين المؤقت
+Xoá cache ảnh?|清除封面缓存？|¿Borrar la caché de portadas?|Удалить кэш обложек?|Supprimer le cache des pochettes ?|حذف تخزين الأغلفة المؤقت؟
+Xoá danh sách|删除歌单|Eliminar lista|Удалить плейлист|Supprimer la liste|حذف القائمة
+Xoá danh sách này?|删除这个歌单？|¿Borrar esta lista?|Удалить этот плейлист?|Supprimer cette liste ?|حذف هذه القائمة؟
+Xoá hết nhạc|删除全部音乐|Borrar toda la música|Удалить всю музыку|Supprimer toutes les musiques|حذف كل الموسيقى
+Xoá nhạc Telegram đã tải?|删除已下载的 Telegram 音乐？|¿Borrar la música descargada de Telegram?|Удалить загруженную музыку Telegram?|Supprimer les musiques Telegram téléchargées ?|حذف موسيقى تيليجرام المنزّلة؟
+Xoá được|已删除|Borrado|Удалено|Supprimé|تم الحذف
+Xoá?|删除？|¿Borrar?|Удалить?|Supprimer ?|حذف؟
+Xác nhận trên thiết bị khác|在其他设备上确认|Confirma en otro dispositivo|Подтвердите на другом устройстве|Confirmez sur un autre appareil|أكّد على جهاز آخر
+Đang mở danh sách trò chuyện…|正在打开会话列表…|Abriendo la lista de chats…|Открывается список чатов…|Ouverture de la liste des conversations…|جارٍ فتح قائمة المحادثات…
+Đang thêm 1 bài vào thư viện…|正在将 1 首歌曲加入资料库…|Añadiendo 1 canción a la biblioteca…|Добавление 1 трека в библиотеку…|Ajout d’un titre dans la bibliothèque…|جارٍ إضافة أغنية واحدة إلى المكتبة…
+Đang tải 1 bài về máy…|正在下载 1 首歌曲…|Descargando 1 canción…|Загрузка 1 трека…|Téléchargement d’un titre…|جارٍ تنزيل أغنية واحدة…
+Đang đăng xuất…|正在退出登录…|Cerrando sesión…|Выход из системы…|Déconnexion…|جارٍ تسجيل الخروج…
+Đang đọc 100 tin gần nhất…|正在读取最近 100 条消息…|Leyendo los 100 mensajes recientes…|Чтение последних 100 сообщений…|Lecture des 100 derniers messages…|جارٍ قراءة آخر 100 رسالة…
+Đang đọc thông tin…|正在读取信息…|Leyendo información…|Чтение информации…|Lecture des informations…|جارٍ قراءة المعلومات…
+Đoạn đang phát|当前播放片段|Fragmento actual|Текущий отрезок|Section en lecture|المقطع الحالي
+Đã thêm|已添加|Añadido|Добавлено|Ajouté|تمت الإضافة
+Đã thêm vào danh sách|已添加到歌单|Añadido a la lista|Добавлено в плейлист|Ajouté à la liste|تمت الإضافة إلى القائمة
+Đếm lại|重新计数|Recuento|Пересчитать|Recompter|إعادة العد
+Đọc lại kênh|重新读取频道|Volver a leer el canal|Перечитать канал|Relire la chaîne|إعادة قراءة القناة
+Đổi tên danh sách|重命名歌单|Renombrar lista|Переименовать плейлист|Renommer la liste|إعادة تسمية القائمة
+Ảnh bìa và ảnh kênh, tự tải lại|封面和频道头像，自动重新获取|Portadas e imágenes de canal, se re-descargan|Обложки и аватары каналов, автозагрузка|Pochettes et images de chaîne, re-téléchargement auto|الأغلفة وصور القنوات، تنزيل تلقائي
+0 bài|0 首|0 canciones|0 треков|0 titre|0 أغنية
+Bài chưa tải|未下载|Sin descargar|Не загружено|Non téléchargé|غير منزّلة
+Chưa có kết nối Telegram, nên không thể báo cho TDLib biết các bài này đã không còn trên máy.|尚未连接 Telegram，因此无法告知 TDLib 这些歌曲已不在本机。|No hay conexión con Telegram, así que no se puede avisar a TDLib de que estas canciones ya no están.|Нет соединения с Telegram, поэтому TDLib не узнать, что этих треков больше нет.|Telegram n’est pas connecté, impossible d’en avertir TDLib que ces titres ont disparu.|لا يوجد اتصال بتيليجرام، لذا لا يمكن إخبار TDLib بأن هذه الأغاني لم تعد على الجهاز.
+Chọn một file nhạc trên máy để Doni giữ nó trong thư viện, nghe được cả khi không có mạng.|在设备上选择音乐文件，Doni 会将其保存到资料库，离线也能听。|Elige un archivo de música para que Doni lo guarde y puedas oírlo sin conexión.|Выберите аудиофайл, чтобы Doni сохранил его в библиотеке и он играл без сети.|Choisissez un fichier musical pour que Doni le garde dans la bibliothèque, même hors ligne.|اختر ملفًا موسيقيًا ليحتفظ دوني به في المكتبة ويُسمع بدون شبكة.
+Cơ sở dữ liệu TDLib tự tạo — không xoá được khi đang đăng nhập|TDLib 自动创建的数据库 — 登录期间无法删除|Base de datos creada por TDLib; no se puede borrar con sesión activa|База данных TDLib — нельзя удалить во время входа|Base de données créée par TDLib — suppression impossible pendant la session|قاعدة بيانات أنشأها TDLib — لا يمكن حذفها أثناء تسجيل الدخول
+Doni sẽ tải lại ảnh bìa và ảnh kênh khi cần. Ảnh bạn tự chọn cho một danh sách không nằm trong số này.|Doni 会在需要时重新下载封面和频道头像。你为歌单自选的图片不在此列。|Doni volverá a descargar portadas e imágenes de canal cuando haga falta; las que elijas para una lista no.|Doni снова загрузит обложки и аватары каналов при необходимости; выбранные вами для плейлиста — нет.|Doni retéléchargera pochettes et images de chaîne au besoin ; celles choisies pour une liste non.|سيعيد دوني تنزيل الأغلفة وصور القنوات عند الحاجة، أما الصور التي تختارها لقائمة فهي ليست كذلك.
+Nhạc Telegram và cache ảnh lấy lại được khi cần. Danh sách, bài yêu thích, ảnh bìa bạn tự chọn và file bạn thêm vào thì không. Phần TDLib tự tạo không phải dữ liệu của bạn: đăng xuất sẽ xoá sạch, và phiên mới lại tạo nó từ đầu.|Telegram 音乐和封面缓存可随时重新获取。歌单、收藏、自选封面和你添加的文件不属于此类。TDLib 自动创建的部分不是你的数据：退出登录会清空它，新会话会重新生成。|La música de Telegram y la caché de portadas se pueden recuperar. Tus listas, favoritas, portadas elegidas y archivos añadidos, no. Lo que crea TDLib no es tu dato: cerrar sesión lo borra y una sesión nueva lo rehace.|Музыка Telegram и кэш обложек восстанавливаются. Ваши плейлисты, избранное, выбранные обложки и добавленные файлы — нет. Служебные данные TDLib вашими не являются: выход их стирает, новая сессия создаёт заново.|Les musiques Telegram et le cache des pochettes se récupèrent. Vos listes, favoris, pochettes choisies et fichiers ajoutés, non. Ce que TDLib crée n’est pas vos données : la déconnexion efface, une nouvelle session recrée.|موسيقى تيليجرام وتخزين الأغلفة يمكن استعادتهما. أما قوائمك ومفضلاتك وأغلفتك المختارة وملفاتك المضافة فلا. ما ينشئه TDLib ليس بياناتك: تسجيل الخروج يمسحه وجلسة جديدة تعيد إنشاءه.
+Nhạc tải từ Telegram về máy sẽ bị xoá. Danh sách và bài yêu thích vẫn còn, và bài nào cũng tải lại được. File bạn thêm vào ở Cloud Music không bị đụng tới.|从 Telegram 下载到本机的音乐会被删除。歌单和收藏保留，任何歌曲都能重新下载。你在 Cloud Music 添加的文件不受影响。|Se borrará la música descargada de Telegram. Listas y favoritas se conservan y cualquier canción puede volver a descargarse. Los archivos que añadiste en Cloud Music no se tocan.|Будет удалена музыка, скачанная из Telegram. Плейлисты и избранное останутся, любой трек можно скачать заново. Файлы, добавленные в Cloud Music, не затрагиваются.|Les musiques téléchargées depuis Telegram seront supprimées. Listes et favoris sont conservés, et tout titre peut être re-téléchargé. Les fichiers ajoutés dans Cloud Music ne sont pas touchés.|سيتم حذف الموسيقى المنزّلة من تيليجرام. القوائم والمفضلة تبقى، ويمكن تنزيل أي أغنية مجددًا. أما الملفات التي أضفتها في موسيقى السحابة فلن تُمس.
+Nhấn + ở trên, hoặc nhấn giữ một bài trong Thư viện rồi chọn Danh sách mới.|点上面的 +，或在资料库中长按一首歌曲并选择“新建歌单”。|Toca el + de arriba o mantén pulsada una canción en Biblioteca y elige Nueva lista.|Нажмите + сверху или долгое нажатие на трек в Библиотеке → «Новый плейлист».|Touchez le + en haut, ou restez appuyé sur un titre de la Bibliothèque puis choisissez Nouvelle liste.|اضغط + في الأعلى، أو اضغط مطولاً على أغنية في المكتبة ثم اختر قائمة جديدة.
+Nhấn giữ một bài trong Thư viện rồi chọn Yêu thích. Giữ cả bài, hoặc giữ lại đoạn bạn muốn nghe — đoạn đã giữ sẽ lặp lại khi phát.|在资料库中长按歌曲并选择“收藏”。可保留整首，或只保留你想听的片段 — 已保存的片段会在播放时循环。|Mantén pulsada una canción en Biblioteca y elige Favoritos. Guarda entera o solo el fragmento que quieras oír — se repetirá al reproducir.|Долгое нажатие на трек в Библиотеке → Избранное. Сохранить целиком или только нужный отрезок — он будет повторяться при воспроизведении.|Appui long sur un titre de la Bibliothèque puis Favoris. Gardez le titre entier ou seulement la section voulue — elle se répétera à la lecture.|اضغط مطولاً على أغنية في المكتبة ثم اختر المفضلة. احفظ الأغنية كاملة أو المقطع الذي تريد سماعه — وسيُعاد المقطع المحفوظ عند التشغيل.
+Nhấn giữ một bài trong Thư viện rồi chọn một danh sách.|在资料库中长按歌曲并选择一个歌单。|Mantén pulsada una canción en Biblioteca y elige una lista.|Долгое нажатие на трек в Библиотеке → выберите плейлист.|Appui long sur un titre de la Bibliothèque puis choisissez une liste.|اضغط مطولاً على أغنية في المكتبة ثم اختر قائمة.
+Nhập mã xác nhận|输入验证码|Introduce el código de confirmación|Введите код подтверждения|Saisissez le code de confirmation|أدخل رمز التحقق
+Nhập mật khẩu bạn đã đặt cho tài khoản này.|输入你为该账号设置的密码。|Introduce la contraseña que diste a esta cuenta.|Введите пароль, установленный для этого аккаунта.|Saisissez le mot de passe défini pour ce compte.|أدخل كلمة المرور التي عينتها لهذا الحساب.
+Nhập số điện thoại của bạn để tiếp tục.|输入你的电话号码以继续。|Introduce tu número para continuar.|Введите номер телефона, чтобы продолжить.|Saisissez votre numéro pour continuer.|أدخل رقم هاتفك للمتابعة.
+Toàn bộ thư viện, danh sách phát, nhạc đã tải về máy và cache ảnh bìa sẽ bị xoá. Phiên đăng nhập sẽ bị đóng.|整个资料库、歌单、已下载的音乐和封面缓存都会被删除，登录会话也会关闭。|Se borrarán la biblioteca entera, las listas, la música descargada y la caché de portadas. La sesión se cerrará.|Будут удалены вся библиотека, плейлисты, скачанная музыка и кэш обложек. Сессия будет закрыта.|Toute la bibliothèque, les listes, les musiques téléchargées et le cache des pochettes seront supprimés. La session sera fermée.|سيتم حذف المكتبة بالكامل والقوائم والموسيقى المنزّلة وتخزين الأغلفة، وسيُغلق اتصال الجلسة.
+Đang tải một bài về máy — dọn xong sẽ phải tải lại chính bài đó.|正在下载一首歌曲 — 清理后需重新下载该曲。|Se está descargando una canción; tras limpiar habrá que volver a descargarla.|Идёт загрузка трека — после очистки его придётся скачать заново.|Un titre est en téléchargement — après le nettoyage il faudra le re-télécharger.|جارٍ تنزيل أغنية — بعد التنظيف سيلزم تنزيلها مجددًا.
+Đã xoá 1 bài khỏi máy.|已从本机删除 1 首歌曲。|Se ha borrado 1 canción del dispositivo.|Удалён 1 трек с устройства.|1 titre supprimé de l’appareil.|تم حذف أغنية واحدة من الجهاز.
+Ảnh bìa và ảnh kênh sẽ được tải lại khi cần|封面和频道头像会在需要时重新下载|Las portadas y las imágenes de canal se volverán a descargar al hacer falta|Обложки и аватары каналов будут загружены заново при необходимости|Les pochettes et les images de chaîne seront re-téléchargées au besoin|سيتم تنزيل الأغلفة وصور القنوات مجددًا عند الحاجة
+không phải một tệp|不是文件|no es un archivo|это не файл|n’est pas un fichier|ليس ملفًا
+không mở được tệp|无法打开文件|no se pudo abrir el archivo|не удалось открыть файл|impossible d’ouvrir le fichier|تعذّر فتح الملف
+không ghi được vào thư mục nhạc|无法写入音乐目录|no se pudo escribir en la carpeta de música|не удалось записать в папку музыки|écriture impossible dans le dossier musical|تعذّرة الكتابة في مجلد الموسيقى
+Bài nào cũng nghe lại được sau|之后随时可以再听|Siempre podrás volver a oírlas|Все можно прослушать снова|Vous pourrez toujours les réécouter|يمكنك الاستماع إليها مجددًا في أي وقت
+ui.common.spoken_separator|、|, |, |, |، 
+ui.common.title_detail_separator| — | — | — | — | — 

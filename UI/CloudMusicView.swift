@@ -189,8 +189,7 @@ struct CloudMusicView: View {
             ContentUnavailableView {
                 Label("Chưa có bài nào của bạn", systemImage: "externaldrive")
             } description: {
-                Text("Chọn một file nhạc trên máy để Doni giữ nó trong thư viện, "
-                    + "nghe được cả khi không có mạng.")
+                Text("Chọn một file nhạc trên máy để Doni giữ nó trong thư viện, nghe được cả khi không có mạng.")
             } actions: {
                 Button("Thêm nhạc từ file") { showsFileImporter = true }
                     .buttonStyle(.borderedProminent)

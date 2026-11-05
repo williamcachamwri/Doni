@@ -133,8 +133,7 @@ struct PlaylistsView: View {
                 ContentUnavailableView(
                     "Chưa có danh sách nào",
                     systemImage: "music.note.list",
-                    description: Text("Nhấn + ở trên, hoặc nhấn giữ một bài trong Thư viện rồi "
-                        + "chọn Danh sách mới.")
+                    description: Text("Nhấn + ở trên, hoặc nhấn giữ một bài trong Thư viện rồi chọn Danh sách mới.")
                 )
                 .allowsHitTesting(false)
             }
