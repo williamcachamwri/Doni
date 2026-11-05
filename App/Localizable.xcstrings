@@ -7141,37 +7141,37 @@
         }
       }
     },
-    "Tải lên thất bại: %@": {
+    "Tải lên thất bại: %@ — %@": {
       "extractionState": "manual",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فشل الرفع: %@"
+            "value": "فشل الرفع: %@ — %@"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error al subir: %@"
+            "value": "Error al subir: %@ — %@"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Échec du téléversement : %@"
+            "value": "Échec du téléversement : %@ — %@"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ошибка загрузки: %@"
+            "value": "Ошибка загрузки: %@ — %@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "上传失败：%@"
+            "value": "上传失败：%@ — %@"
           }
         }
       }

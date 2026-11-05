@@ -143,7 +143,9 @@ final class CloudMusic: ObservableObject {
             try? FileManager.default.removeItem(atPath: path)
             if let hash { CloudMusic.forget(hash: hash) }
         } catch {
-            failure = localized("Tải lên thất bại: %@", caption)
+            // TDLib's own words, because "upload failed" is a sentence the person standing in front
+            // of the phone cannot act on and cannot send to anybody either.
+            failure = localized("Tải lên thất bại: %@ — %@", caption, "\(error)")
             print("cloud upload failed \(caption): \(error)")
         }
     }
@@ -202,7 +204,7 @@ final class CloudMusic: ObservableObject {
             print("cloud published \(track.fileName) as file \(sent.fileId)")
             return true
         } catch {
-            failure = localized("Tải lên thất bại: %@", track.fileName)
+            failure = localized("Tải lên thất bại: %@ — %@", track.fileName, "\(error)")
             return false
         }
     }

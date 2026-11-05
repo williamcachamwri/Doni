@@ -185,7 +185,7 @@ Thêm vào thư viện trên máy|添加到本机资料库|Añadir a la bibliote
 Tải lên Cloud Music|上传到 Cloud Music|Subir a Cloud Music|Загрузить в Cloud Music|Téléverser dans Cloud Music|رفع إلى Cloud Music
 Đang tải lên…|正在上传…|Subiendo…|Загружается…|Téléversement en cours…|جارٍ الرفع…
 Không mở được %@|无法打开 %@|No se pudo abrir %@|Не удалось открыть %@|Impossible d'ouvrir %@|تعذّر فتح %@
-Tải lên thất bại: %@|上传失败：%@|Error al subir: %@|Ошибка загрузки: %@|Échec du téléversement : %@|فشل الرفع: %@
+Tải lên thất bại: %@ — %@|上传失败：%@ — %@|Error al subir: %@ — %@|Ошибка загрузки: %@ — %@|Échec du téléversement : %@ — %@|فشل الرفع: %@ — %@
 Không dọn được|无法清理|No se pudo limpiar|Не удалось очистить|Nettoyage impossible|تعذّر التنظيف
 Không kết nối được tới lrclib|无法连接 lrclib|No se pudo conectar a lrclib|Не удалось связаться с lrclib|Connexion à lrclib impossible|تعذّر الاتصال بـ lrclib
 Không kết nối được tới các nguồn lời|无法连接歌词源|No se pudo conectar a las fuentes de letras|Не удалось подключиться к источникам текста|Impossible de contacter les sources des paroles|تعذّر الاتصال بمصادر الكلمات
