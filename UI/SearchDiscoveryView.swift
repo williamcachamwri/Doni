@@ -167,7 +167,9 @@ private struct SearchCategoryTile: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(MusicSearchMetrics.tilePadding)
 
-                Text(title)
+                // Either a category this app named or an artist it read; a name is not in the
+                // catalog and comes back as itself.
+                Text(LocalizedStringKey(title))
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .lineLimit(1)

@@ -68,7 +68,7 @@ struct SearchView: View {
                     prompt: "Tìm bài hát")
         .searchScopes($scope) {
             ForEach(DoniSearchScope.allCases) { kind in
-                Text(kind.title).tag(kind)
+                Text(LocalizedStringKey(kind.title)).tag(kind)
             }
         }
         .overlay {

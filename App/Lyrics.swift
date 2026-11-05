@@ -102,7 +102,7 @@ final class Lyrics: ObservableObject {
                 isLoading = false
                 key = nil
                 lines = []
-                errorMessage = "Không kết nối được tới lrclib"
+                errorMessage = localized("Không kết nối được tới lrclib")
                 return
             }
             // The song moved on, or the screen went away, while the site was thinking.
@@ -117,18 +117,19 @@ final class Lyrics: ObservableObject {
         switch found {
         case .none:
             lines = []
-            errorMessage = prefs.networkAllowed ? "Chưa tìm được lời cho bài này" : "Việc tải lời đang tắt"
+            errorMessage = localized(prefs.networkAllowed ? "Chưa tìm được lời cho bài này"
+                                : "Việc tải lời đang tắt")
         case .plain(let text):
             guard prefs.showPlain else {
                 lines = []
-                errorMessage = "Chỉ có lời không khớp thời gian"
+                errorMessage = localized("Chỉ có lời không khớp thời gian")
                 return
             }
             lines = Self.spread(text, over: Double(track.duration ?? 0))
             errorMessage = nil
         case .synced:
             lines = Self.parse(found)
-            errorMessage = lines.isEmpty ? "Lời không đọc được" : nil
+            errorMessage = lines.isEmpty ? localized("Lời không đọc được") : nil
         }
     }
 

@@ -54,7 +54,7 @@ struct HomeShelf<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MusicFeedMetrics.headerToShelf) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.title2.bold())
                 Spacer()
                 if let playAll {

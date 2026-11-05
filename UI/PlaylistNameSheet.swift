@@ -24,14 +24,14 @@ struct PlaylistNameSheet: View {
                 TextField("Tên danh sách", text: $name)
             }
             .formStyle(.grouped)
-            .navigationTitle(title)
+            .navigationTitle(LocalizedStringKey(title))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Huỷ") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(verb) {
+                    Button(LocalizedStringKey(verb)) {
                         commit(name.trimmingCharacters(in: .whitespacesAndNewlines))
                         dismiss()
                     }

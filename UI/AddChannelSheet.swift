@@ -167,7 +167,7 @@ struct AddChannelSheet: View {
                 .font(.body.weight(.semibold))
                 .lineLimit(1)
             if let subtitle {
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -262,7 +262,7 @@ struct AddChannelPrompt: View {
                 .font(.system(size: 38, weight: .thin))
                 .foregroundStyle(.tertiary)
 
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.title3.weight(.semibold))
                 .multilineTextAlignment(.center)
 

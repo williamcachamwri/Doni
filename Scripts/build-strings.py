@@ -24,6 +24,7 @@ import json
 import pathlib
 import re
 import sys
+import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TABLE = ROOT / "Scripts" / "strings.txt"
@@ -80,7 +81,24 @@ NOT_TRANSLATED = {
     "cloud chưa tải chờ download telegram", "dung lượng bộ nhớ cache storage disk",
     "kênh channel nhạc", "ngôn ngữ", "thư viện nhạc bài hát index", "tài khoản",
     "tải offline file", "hồ sơ", "đăng xuất", "Tình yêu", "n bài",
+    # A language's own name is written in its own script — that is the whole idea behind the
+    # picker, and transliterating it would make the list unreadable to the one reader who needs it.
+    # The link example is a shape to type, not a sentence to read.
+    "Tiếng Việt", "Español", "Français", "Русский", "简体中文", "العربية",
+    "t.me/kenhnhac hoặc @kenhnhac",
 }
+
+
+def is_vietnamese(text: str) -> bool:
+    """Whether a literal is words the app says, not words it read from somewhere.
+
+    Normalised first, because Vietnamese precomposes its tone marks. A class of letters would have
+    to list `ế ề ể ễ ệ ổ ự ỳ` each, and the first version of this check listed only the base
+    letters — so `Text("Tiếp theo")` looked like English to it and went untranslated behind a green
+    build.
+    """
+    nfd = unicodedata.normalize("NFD", text)
+    return any(unicodedata.combining(c) for c in nfd) or "đ" in nfd or "Đ" in nfd
 
 
 def strip_comments(text: str) -> str:
@@ -103,17 +121,70 @@ def coverage(keys: set[str]) -> tuple[list[str], list[str]]:
     to be rewritten through `localized("A %@ B", x)` first. Counting them as answered would be the
     same lie as not counting them.
     """
-    viet = re.compile(r"[àáảãạăâêôơưđÀÁẢÃẠĂÂÊÔƠƯĐ]")
     literal = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
     missing: set[str] = set()
     unanswerable: set[str] = set()
     for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
         for match in literal.finditer(strip_comments(source.read_text(encoding="utf-8"))):
             text = match.group(1)
-            if not viet.search(text) or text in keys or text in NOT_TRANSLATED:
+            if not is_vietnamese(text) or text in keys or text in NOT_TRANSLATED:
                 continue
             (unanswerable if "\\(" in text else missing).add(text)
     return sorted(missing), sorted(unanswerable)
+
+
+# Expressions whose words came from outside this app: a song's name, a channel's, a person's, a
+# duration, a byte count. They are rendered with `Text(_ String)` on purpose — a name is not in the
+# catalog and must come back exactly as it arrived.
+DATA_EXPRESSIONS = {
+    "channel.title", "list.name", "playlist.name", "track.displayTitle", "track.displayPerformer",
+    "row.track.displayTitle", "song.displayTitle", "artist.name", "account.name", "country.name",
+    "country.dialCode", "option.name", "language.nativeName", "runs", "text", "headline", "value",
+    "subtitle", "chipText", "message", "failure", "joinedFailure", "statusLine", "waitingLine",
+}
+
+
+RENDER_ALLOWLIST = {
+    # A song's name, a playlist's, an artist's; the status line, which is built through
+    # `localized()` already; and a language's own name, which is written in its own script.
+    # Matched on the whole line on purpose: edit the line and the exemption stops applying, so the
+    # gate asks again instead of trusting a name that could mean anything.
+    "HomeFeed.swift": ["Text(title)"],
+    "PlaylistsView.swift": ["Text(name)"],
+    "SearchView.swift": ["Text(title)"],
+    "SettingsView.swift": ["Text(option.nativeName)"],
+    "LibraryView.swift": ["Text(indexer.statusLine)"],
+}
+
+
+def unlocalized_renders() -> list[str]:
+    """`Text(someVariable)` that is neither a data field nor wrapped in a key.
+
+    This is the bug the catalog cannot see: the string is translated, the row is still Vietnamese,
+    because `Text(_ String)` never looks anything up. Every one of these was found by a screenshot
+    rather than by the build until this check existed.
+    """
+    call = re.compile(
+        r'\b(?:Text|Label|Button|Tab|navigationTitle|accessibilityLabel|accessibilityHint)\('
+        r'\s*([A-Za-z_][\w.]*)\s*[,)\]]')
+    found = []
+    for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
+        # Real line numbers: the comment lines are skipped rather than stripped first, or the
+        # report points at the wrong line and the next reader stops trusting it.
+        for number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith(("//", "/*", "*")):
+                continue
+            for match in call.finditer(line):
+                if "LocalizedStringKey(" in line or "localized(" in line:
+                    continue
+                if match.group(2) in DATA_EXPRESSIONS:
+                    continue
+                site = f"{match.group(1)}({match.group(2)})"
+                if site in line and any(site in allowed for allowed in
+                                        RENDER_ALLOWLIST.get(source.name, [])):
+                    continue
+                found.append(f"{source.name}:{number} {site}")
+    return sorted(found)
 
 
 def placeholder_mismatches(strings: dict) -> list[str]:
@@ -169,10 +240,13 @@ def main() -> int:
         print(f"   … and {len(missing) - 12} more (python3 Scripts/build-strings.py --all)")
     for text in unanswerable:
         print(f"   INTERPOLATED, rewrite as localized(\"…\", x): {text[:60]}")
+    renders = unlocalized_renders()
+    for row in renders:
+        print(f"   UNLOCALIZED RENDER: {row}")
     broken = placeholder_mismatches(strings)
     for row in broken:
         print(f"   PLACEHOLDER LOST: {row}")
-    return 1 if missing or unanswerable or unknown or broken else 0
+    return 1 if missing or unanswerable or unknown or broken or renders else 0
 
 
 if __name__ == "__main__":
@@ -184,5 +258,5 @@ if __name__ == "__main__":
         print("\n".join(missing))
         for text in unanswerable:
             print(f"INTERPOLATED: {text}")
-        raise SystemExit(1 if missing or unanswerable else 0)
+        raise SystemExit(1 if missing or unanswerable or unlocalized_renders() else 0)
     raise SystemExit(main())

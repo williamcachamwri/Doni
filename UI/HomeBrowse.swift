@@ -85,7 +85,7 @@ struct HomeBrowse: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: MusicExploreMetrics.chipGap) {
                 ForEach(facets) { entry in
-                    Button(entry.title) {
+                    Button(LocalizedStringKey(entry.title)) {
                         selected = entry.title
                     }
                     .buttonStyle(.borderedProminent)
@@ -140,7 +140,7 @@ struct HomeBrowse: View {
                     .clipShape(.rect(cornerRadius: MusicExploreMetrics.heroRadius))
 
                 VStack(alignment: .leading, spacing: MusicExploreMetrics.heroTextGap) {
-                    Text(facet.title)
+                    Text(LocalizedStringKey(facet.title))
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.white.opacity(MusicExploreMetrics.heroBadgeInk))
 

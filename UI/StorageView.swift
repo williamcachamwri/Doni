@@ -66,13 +66,13 @@ struct StorageView: View {
             titleVisibility: .visible,
             presenting: confirming
         ) { action in
-            Button(action.confirmTitle, role: .destructive) {
+            Button(LocalizedStringKey(action.confirmTitle), role: .destructive) {
                 confirming = nil
                 Task { await perform(action) }
             }
             Button("Huỷ", role: .cancel) {}
         } message: { action in
-            Text(action.confirmMessage)
+            Text(LocalizedStringKey(action.confirmMessage))
         }
         .alert("Không dọn được", isPresented: failing) {
             Button("OK", role: .cancel) { failure = nil }
@@ -117,7 +117,7 @@ struct StorageView: View {
                         HStack {
                             Text(localized("Máy đã dùng %@", DataSize.string(used)))
                             Spacer()
-                            Text("Còn trống \(DataSize.string(usage?.deviceFreeBytes ?? 0))")
+                            Text(localized("Còn trống %@", DataSize.string(usage?.deviceFreeBytes ?? 0)))
                         }
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -173,8 +173,8 @@ struct StorageView: View {
         } label: {
             Label {
                 VStack(alignment: .leading, spacing: MusicStorageMetrics.textGap) {
-                    Text(title)
-                    Text(subtitle)
+                    Text(LocalizedStringKey(title))
+                    Text(LocalizedStringKey(subtitle))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -216,8 +216,8 @@ struct StorageView: View {
             HStack(spacing: MusicStorageMetrics.rowGap) {
                 Label {
                     VStack(alignment: .leading, spacing: MusicStorageMetrics.textGap) {
-                        Text(title)
-                        Text(subtitle)
+                        Text(LocalizedStringKey(title))
+                        Text(LocalizedStringKey(subtitle))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

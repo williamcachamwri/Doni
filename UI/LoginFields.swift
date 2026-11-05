@@ -292,7 +292,7 @@ struct TelegramPrimaryButton: View {
                     ProgressView()
                         .tint(isEnabled ? palette.checkForeground : palette.disabledText)
                 } else {
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(TelegramLoginTypography.buttonTitle)
                         .foregroundStyle(isEnabled ? palette.checkForeground : palette.disabledText)
                 }

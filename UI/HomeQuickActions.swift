@@ -28,7 +28,7 @@ struct HomeQuickActions: View {
                     .containerRelativeFrame(.horizontal) { length, _ in
                         min(length, compactWidth)
                     }
-                    .accessibilityHint("Mở \(action.title)")
+                    .accessibilityHint(localized("Mở %@", action.title))
                 }
             }
             .scrollTargetLayout()
@@ -46,7 +46,7 @@ struct HomeQuickActions: View {
 
             Spacer(minLength: MusicQuickActionMetrics.glyphToTitle)
 
-            Text(action.title)
+            Text(LocalizedStringKey(action.title))
                 .font(.headline)
                 .lineLimit(2)
 

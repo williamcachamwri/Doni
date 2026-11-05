@@ -776,7 +776,7 @@ private struct ProgressRow: View {
         if let segment = player.segment {
             return "\(clock(segment.lowerBound)) – \(clock(segment.upperBound))"
         }
-        return "cắt từ \(clock(player.markIn ?? 0))"
+        return localized("cắt từ %@", clock(player.markIn ?? 0))
     }
 
     private func clock(_ seconds: TimeInterval) -> String {
@@ -836,7 +836,7 @@ private struct TransportRow: View {
         }
         .buttonStyle(PlayerTransportButtonStyle(reducesMotion: reduceMotion))
         .disabled(!enabled)
-        .accessibilityLabel(label)
+        .accessibilityLabel(LocalizedStringKey(label))
     }
 }
 
@@ -951,7 +951,7 @@ private struct SelectorRow: View {
             .contentShape(.circle)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(LocalizedStringKey(label))
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 }

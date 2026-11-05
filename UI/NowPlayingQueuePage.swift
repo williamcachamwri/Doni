@@ -288,7 +288,7 @@ private struct ModePills: View {
                 .contentShape(.rect(cornerRadius: MusicQueueMetrics.pillRadius))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(LocalizedStringKey(label))
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 }

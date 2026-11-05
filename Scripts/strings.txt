@@ -286,3 +286,17 @@ Xoá %@|删除 %@|Eliminar %@|Удалить %@|Supprimer %@|حذف %@
 “%@” sẽ là bài đầu tiên của danh sách vừa tạo.|“%@” 将成为新建歌单的第一首。|«%@» será la primera canción de la nueva lista.|«%@» станет первым треком нового плейлиста.|« %@ » sera le premier titre de la nouvelle liste.|ستكون «%@» أول أغنية في القائمة الجديدة.
 “%@” sẽ nằm trong danh sách mới.|“%@” 将放入新建歌单。|«%@» estará en la nueva lista.|«%@» будет в новом плейлисте.|« %@ » sera dans la nouvelle liste.|ستكون «%@» في القائمة الجديدة.
 ≈%@ bài trong %@ tin gần nhất|≈最近 %@ 条消息中 %@ 首|≈%@ canciones en los %@ mensajes recientes|≈%@ треков в последних %@ сообщениях|≈%@ titres dans les %@ derniers messages|≈%@ أغاني في آخر %@ رسالة
+Bỏ cắt|取消截取|Quitar el recorte|Убрать отрезок|Retirer le découpage|إزالة القص
+Dừng|停止|Detener|Стоп|Arrêter|إيقاف
+Nghe tiếp|继续播放|Continuar|Продолжить|Reprendre|متابعة الاستماع
+Nghe tiếp theo|播放下一首|Reproducir a continuación|Проиграть следующим|Lire ensuite|التشغيل التالي
+Phần Telegram của app|应用的 Telegram 部分|Sección de Telegram de la app|Telegram-часть приложения|Partie Telegram de l’app|قسم تيليجرام من التطبيق
+Thiếu api_id/api_hash trong bundle — xem Config/Tdlib.xcconfig|缺少 api_id/api_hash trong bundle — xem Config/Tdlib.xcconfig|Faltan api_id/api_hash en el paquete — mira Config/Tdlib.xcconfig|В сборке нет api_id/api_hash — см. Config/Tdlib.xcconfig|api_id/api_hash manquants dans le bundle — voir Config/Tdlib.xcconfig|api_id/api_hash مفقودان في الحزمة — راجع Config/Tdlib.xcconfig
+Tiến trình|进度|Progreso|Прогресс|Progression|التقدم
+Tiếp theo|下一首|A continuación|Далее|Suivant|التالي
+Tìm cuộc trò chuyện|搜索会话|Buscar conversación|Найти диалог|Rechercher une conversation|البحث عن محادثة
+cắt từ %@|从 %@ 截取|recortar desde %@|отрезок с %@|découper depuis %@|القص من %@
+tệp rỗng|文件为空|archivo vacío|пустой файл|fichier vide|ملف فارغ
+Còn trống %@|剩余 %@|Espacio libre: %@|Свободно %@|Espace libre : %@|المساحة المتبقية %@
+Gợi ý: %@|提示：%@|Sugerencia: %@|Подсказка: %@|Suggestion : %@|تلميح: %@
+Mở %@|打开 %@|Abrir %@|Открыть %@|Ouvrir %@|فتح %@

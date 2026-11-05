@@ -47,7 +47,7 @@ struct LibraryView: View {
             // strip of the screen's background, sixteen in from the edge (`HomeView.swift:44-47`).
             Picker("Phần", selection: $section) {
                 ForEach(DoniHomeSection.allCases) { entry in
-                    Text(entry.title).tag(entry)
+                    Text(LocalizedStringKey(entry.title)).tag(entry)
                 }
             }
             .pickerStyle(.segmented)

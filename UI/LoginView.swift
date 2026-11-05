@@ -234,7 +234,7 @@ struct LoginView: View {
                 if !subtitleText.isEmpty {
                     gap(TelegramLoginMetrics.titleToSubtitle)
 
-                    Text(subtitleText)
+                    Text(LocalizedStringKey(subtitleText))
                         .font(TelegramLoginTypography.subtitle)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(list.primaryText)
@@ -256,7 +256,7 @@ struct LoginView: View {
                 )
 
                 if !isGhost, let message = session.lastError {
-                    Text(message)
+                    Text(LocalizedStringKey(message))
                         .font(TelegramLoginTypography.footnote)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(list.destructive)
@@ -267,7 +267,7 @@ struct LoginView: View {
                     gap(TelegramLoginMetrics.fieldToResend, maximum: 120)
 
                     Button(action: { session.resendCode() }) {
-                        Text(resend)
+                        Text(LocalizedStringKey(resend))
                             .font(TelegramLoginTypography.link)
                             .foregroundStyle(session.isWaiting ? list.disabledText : list.accent)
                             .frame(maxWidth: .infinity)
@@ -516,7 +516,8 @@ struct LoginView: View {
                 }
             }
         case .waitPassword(let hint, _, _):
-            hint.isEmpty ? "Nhập mật khẩu bạn đã đặt cho tài khoản này." : "Gợi ý: \(hint)"
+            hint.isEmpty ? localized("Nhập mật khẩu bạn đã đặt cho tài khoản này.")
+                             : localized("Gợi ý: %@", hint)
         case .waitRegistration(let minimumAge)?:
             localized("Số này chưa có tài khoản Telegram và cần đủ %@ tuổi.", minimumAge.formatted())
         case .waitOtherDeviceConfirmation(let link)?:

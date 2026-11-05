@@ -78,7 +78,7 @@ struct RootView: View {
 
     private var tabs: some View {
         TabView(selection: $selection) {
-            Tab(DoniTab.home.title, systemImage: DoniTab.home.symbol,
+            Tab(LocalizedStringKey(DoniTab.home.title), systemImage: DoniTab.home.symbol,
                 value: DoniTab.home) {
                 NavigationStack {
                     LibraryView(session: session, indexer: indexer, player: player,
@@ -87,13 +87,13 @@ struct RootView: View {
                                 onOpenPlayer: { showsPlayer = true })
                 }
             }
-            Tab(DoniTab.likes.title, systemImage: DoniTab.likes.symbol, value: DoniTab.likes) {
+            Tab(LocalizedStringKey(DoniTab.likes.title), systemImage: DoniTab.likes.symbol, value: DoniTab.likes) {
                 NavigationStack {
                     LikesView(session: session, player: player, artwork: artwork,
                               library: library)
                 }
             }
-            Tab(DoniTab.playlists.title, systemImage: DoniTab.playlists.symbol,
+            Tab(LocalizedStringKey(DoniTab.playlists.title), systemImage: DoniTab.playlists.symbol,
                 value: DoniTab.playlists) {
                 NavigationStack {
                     PlaylistsView(session: session, player: player, artwork: artwork,
@@ -104,14 +104,14 @@ struct RootView: View {
             // which is where Settings used to sit: the account moved to the header's avatar, the way
             // MeloX puts it (`ContentView.swift:453-457`). It holds the files the user brought, so it
             // needs neither the session nor the walk — only the library, the player and the covers.
-            Tab(DoniTab.cloud.title, systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
+            Tab(LocalizedStringKey(DoniTab.cloud.title), systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
                 NavigationStack {
                     CloudMusicView(player: player, artwork: artwork, library: library)
                 }
             }
             // The reference's own search tab: a `Tab` with the search role, whose content is a
             // `.searchable` list rather than a field drawn by hand (`ContentView.swift:371`).
-            Tab(DoniTab.search.title, systemImage: DoniTab.search.symbol,
+            Tab(LocalizedStringKey(DoniTab.search.title), systemImage: DoniTab.search.symbol,
                 value: DoniTab.search, role: .search) {
                     NavigationStack {
                         SearchView(session: session, indexer: indexer, player: player,

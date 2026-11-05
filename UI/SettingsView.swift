@@ -38,7 +38,8 @@ struct SettingsView: View {
     @State private var showsAddChannel = false
     @State private var showsPendingSongs = false
     @State private var showsStorage = false
-    @State private var showsLanguage = false
+    @State private var language = DoniLanguage.current
+    @State private var needsRestart = false
 
     var body: some View {
         ScrollView {
@@ -49,12 +50,7 @@ struct SettingsView: View {
                 }
 
                 if showsAppCard {
-                    card("Ứng dụng") {
-                        row("globe", "Ngôn ngữ",
-                            subtitle: "Tiếng Việt, 简体中文, Español, Русский, Français, العربية",
-                            value: DoniLanguage.current.nativeName,
-                            disclosure: true) { showsLanguage = true }
-                    }
+                    card("Ứng dụng") { languageRow }
                 }
 
                 if !lines.isEmpty {
@@ -133,8 +129,13 @@ struct SettingsView: View {
             StorageView(session: session, player: player, artwork: CoverArtwork.shared,
                         library: library)
         }
-        .navigationDestination(isPresented: $showsLanguage) {
-            LanguageView()
+        .alert("Đổi ngôn ngữ", isPresented: $needsRestart) {
+            // One button, and it ends the process. A language is read out of `AppleLanguages` when
+            // the process starts, so an app that only *asks* to be reopened leaves the reader
+            // guessing — and swiping away from the switcher is the one gesture that may not kill it.
+            Button("Thoát ra") { exit(EXIT_SUCCESS) }
+        } message: {
+            Text(localized("Doni sẽ mở lại bằng %@.", language.nativeName))
         }
         // The card's storage line quotes the disk, not the rows, so the walk is asked for on the way
         // in. It runs detached at utility priority and a second visit costs nothing the first missed.
@@ -365,6 +366,38 @@ struct SettingsView: View {
                 content
             }
         }
+    }
+
+    /// The language, chosen from the system's own menu — the glass popup a `Picker` gets on iOS 26,
+    /// not a screen of Doni's. Six names in six scripts fit a menu and do not fit a row, and the
+    /// menu is the one control here that a reader who cannot read the current language can still use.
+    private var languageRow: some View {
+        HStack(spacing: MusicSettingsMetrics.rowIconGap) {
+            Image(systemName: "globe")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.tint)
+                .frame(width: MusicSettingsMetrics.rowIconWidth)
+            Text(LocalizedStringKey("Ngôn ngữ"))
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.primary)
+            Spacer(minLength: 8)
+            Picker("Ngôn ngữ", selection: $language) {
+                ForEach(DoniLanguage.allCases) { option in
+                    Text(option.nativeName).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .tint(.secondary)
+            .onChange(of: language) { _, chosen in
+                DoniLanguage.apply(chosen)
+                needsRestart = true
+            }
+        }
+        .padding(.horizontal, MusicSettingsMetrics.rowPaddingH)
+        .padding(.vertical, MusicSettingsMetrics.rowPaddingV)
+        .frame(minHeight: MusicSettingsMetrics.rowMinHeight)
+        .contentShape(.rect)
     }
 
     // MARK: What is on the phone
