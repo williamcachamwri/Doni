@@ -94,15 +94,37 @@ targets:
 
   # The Mac app. It is a second target rather than a Catalyst setting because
   # Catalyst still has no AVAudioSession and would keep the iPhone's chrome; and
-  # its sources are `Mac/` only, not `App/` and `UI/`, because the iOS wiring is
-  # the part that cannot cross. The core it is built on — the store, the streaming
-  # policy, the resource loader, TDLib — is the same code the phone runs, reached
-  # through the packages below.
+  # its sources are `Mac/` plus the parts of `App/` that are not iOS-shaped.
+  #
+  # The core is shared, not copied — which is the whole argument against the
+  # reference app's method (112 files byte-identical between its two targets and
+  # 64 diverged, so every later fix has to happen twice). What is excluded below
+  # is excluded because it is genuinely iOS, not because it is inconvenient:
+  # `Player` owns AVAudioSession, `CoverArtwork` is the UIImage hub that Library,
+  # LibraryIndexer, StorageTally and TelegramSession all hang off, and `DoniApp`
+  # is the other target's `@main`.
   DoniMac:
     type: application
     platform: macOS
     sources:
       - Mac
+      - path: App
+        excludes:
+          - "Info.plist"
+          - "Assets.xcassets"
+          - "DoniApp.swift"
+          # Not iOS-shaped, but it imports the DoniLyrics package, which still has
+          # 12 files importing UIKit. It comes back with that seam, not before it.
+          - "Lyrics.swift"
+          - "Player.swift"
+          - "SongEngine.swift"
+          - "CoverArtwork.swift"
+          - "Library.swift"
+          - "LibraryIndexer.swift"
+          - "TelegramSession.swift"
+          - "CloudMusic.swift"
+          - "StorageTally.swift"
+          - "PlaybackSnapshot.swift"
     info:
       path: Mac/Info.plist
       properties:

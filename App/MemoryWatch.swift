@@ -18,18 +18,27 @@ enum MemoryWatch {
         return (Int64(task_info_resident_size()), Int64(info.phys_footprint))
     }
 
-    /// Bytes of the app's own container that are cache, asked of the system rather than counted: the room
-    /// the process may use before it is told to stop — the only quota a backgrounded player can plan against.
-    static func available() -> Int64 {
+    /// The room the process may use before the system tells it to stop — the only quota a backgrounded
+    /// player can plan against, and asked of the system rather than counted.
+    ///
+    /// `nil` on macOS: `os_proc_available_memory` is the iOS jetsam budget, and the desktop has no
+    /// per-process footprint budget to ask. A Mac log line that printed a number in that field would be
+    /// printing a different fact under the same name, so it prints none.
+    static func available() -> Int64? {
+        #if os(iOS) || os(tvOS)
         Int64(os_proc_available_memory())
+        #else
+        nil
+        #endif
     }
 
     /// One line, in megabytes, for the log a person reads when a queue is suspected of eating the phone.
     static func note(_ what: String, track: String? = nil) {
         let now = read()
         let name = track.map { " \($0)" } ?? ""
+        let room = available().map { " available=\(megabytes($0))MB" } ?? ""
         print("memory \(what) resident=\(megabytes(now.resident))MB footprint=\(megabytes(now.footprint))MB"
-            + " available=\(megabytes(available()))MB\(name)")
+            + room + name)
     }
 
     private static func megabytes(_ bytes: Int64) -> Int {
