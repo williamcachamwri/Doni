@@ -38,8 +38,8 @@ settings:
     # its digits — 90 | major | minor | patch, so 9010000 is 1.0.0 — which is how a build number on
     # its own can be compared to a release tag (`App/AppVersion.swift`). The scheme is MeloX's, with
     # Doni's prefix.
-    MARKETING_VERSION: "1.0.5"
-    CURRENT_PROJECT_VERSION: "9010005"
+    MARKETING_VERSION: "1.0.6"
+    CURRENT_PROJECT_VERSION: "9010006"
 
 packages:
   Support:
