@@ -21,6 +21,9 @@ enum DesktopBottomPlayerMetrics {
 /// The motion bank the bar plays from (`DesktopPlayerMotion.swift`), with the springs the reference
 /// measured off Apple Music 1.6.6.
 enum DesktopPlayerMotion {
+    /// How long the full-window player's content waits after the layer starts mounting before it is
+    /// asked to render: the page has to be on screen before anything is worth drawing into it.
+    static let nowPlayingContentDelay: Duration = .milliseconds(300)
     static let playbackSymbolSpeed = 2.0
     static let artworkHover = Animation.spring(duration: 0.26, bounce: 0.12)
     static let artworkRest = Animation.smooth(duration: 0.18)

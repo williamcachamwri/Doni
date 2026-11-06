@@ -16,7 +16,14 @@ import UniformTypeIdentifiers
 struct DesktopRootView: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var session: TelegramSession
+    @EnvironmentObject private var player: Player
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isWindowFullScreen = false
+    /// The layer is mounted for the whole of its entrance and its exit, and only *rendering active*
+    /// while it is actually on screen — the two flags exist so a page leaving the window can stop
+    /// doing display-linked work before it has finished moving (`DesktopRootView.swift:7-9`).
+    @State private var isNowPlayingLayerMounted = false
+    @State private var isNowPlayingRenderingActive = false
 
     var body: some View {
         @Bindable var ui = model.ui
@@ -62,23 +69,109 @@ struct DesktopRootView: View {
     private var shell: some View {
         @Bindable var ui = model.ui
 
-        return DesktopSidebar()
-            .toolbar(removing: .sidebarToggle)
-            // The full-screen player takes the titlebar for itself and draws its own controls into it,
-            // so the window's toolbar has to be gone by the time it arrives — the reference hides it
-            // exactly the same way, and for the same reason (`DesktopRootView.swift:57-61`).
-            .toolbarVisibility(
-                ui.isNowPlayingPresented && isWindowFullScreen ? .hidden : .automatic,
-                for: .windowToolbar
-            )
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-            .background {
-                DesktopMainWindowConfiguration(
-                    isPlayerSidePanelPresented: ui.inspector != nil,
-                    isPlayerPresented: ui.isNowPlayingPresented,
-                    isFullScreen: $isWindowFullScreen
-                )
+        return ZStack {
+            DesktopSidebar()
+
+            GeometryReader { proxy in
+                if ui.isNowPlayingPresented || isNowPlayingLayerMounted {
+                    nowPlayingLayer(
+                        isPresented: ui.isNowPlayingPresented,
+                        isRenderingActive: isNowPlayingRenderingActive
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .offset(y: ui.isNowPlayingPresented ? 0 : proxy.size.height)
+                    .allowsHitTesting(ui.isNowPlayingPresented)
+                    .accessibilityHidden(!ui.isNowPlayingPresented)
+                    .transition(.move(edge: .bottom))
+                }
             }
+            .ignoresSafeArea(.container, edges: .top)
+            .zIndex(1)
+            .animation(reduceMotion ? nil : DesktopPlayerMotion.nowPlayingPresentation,
+                       value: ui.isNowPlayingPresented)
+        }
+        .toolbar(removing: .sidebarToggle)
+        // The full-screen player takes the titlebar for itself and draws its own controls into it, so
+        // the window's toolbar has to be gone by the time it arrives — the reference hides it exactly
+        // the same way, and for the same reason (`DesktopRootView.swift:57-61`).
+        .toolbarVisibility(
+            ui.isNowPlayingPresented && isWindowFullScreen ? .hidden : .automatic,
+            for: .windowToolbar
+        )
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .background {
+            DesktopMainWindowConfiguration(
+                isPlayerSidePanelPresented: ui.inspector != nil,
+                isPlayerPresented: ui.isNowPlayingPresented,
+                isFullScreen: $isWindowFullScreen
+            )
+        }
+        .onExitCommand {
+            if ui.isNowPlayingPresented { ui.isNowPlayingPresented = false }
+        }
+        .task(id: ui.isNowPlayingPresented) {
+            await updateNowPlayingLifecycle(isPresented: ui.isNowPlayingPresented)
+        }
+    }
+
+    /// The player and the field behind it (`DesktopRootView.swift:138-172`): the artwork blown up under
+    /// a veil, then the window on top, both reading the dark appearance from this root.
+    private func nowPlayingLayer(isPresented: Bool, isRenderingActive: Bool) -> some View {
+        DesktopNowPlayingBackdrop(track: player.current, isActive: isRenderingActive)
+            .ignoresSafeArea()
+            .overlay {
+                DesktopNowPlayingWindow(isActive: isPresented,
+                                        isRenderingActive: isRenderingActive)
+            }
+    }
+
+    /// Display-linked and geometry-driven work stops *before* the page starts moving, and the mounted
+    /// layer stays around only long enough to draw the exit frame (`DesktopRootView.swift:183-234`).
+    private func updateNowPlayingLifecycle(isPresented: Bool) async {
+        if isPresented {
+            commitNowPlayingLayerMounted(true)
+            guard await waitForNowPlayingTransition() else { return }
+            guard model.ui.isNowPlayingPresented else { return }
+            commitNowPlayingRenderingActivity(true)
+            return
+        }
+
+        commitNowPlayingRenderingActivity(false)
+        guard isNowPlayingLayerMounted else { return }
+        guard await waitForNowPlayingTransition() else { return }
+        guard !model.ui.isNowPlayingPresented else { return }
+        commitNowPlayingLayerMounted(false)
+    }
+
+    private func waitForNowPlayingTransition() async -> Bool {
+        if reduceMotion {
+            await Task.yield()
+        } else {
+            do {
+                try await Task.sleep(for: DesktopPlayerMotion.nowPlayingContentDelay)
+            } catch {
+                return false
+            }
+        }
+        return !Task.isCancelled
+    }
+
+    private func commitNowPlayingLayerMounted(_ isMounted: Bool) {
+        guard isNowPlayingLayerMounted != isMounted else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            isNowPlayingLayerMounted = isMounted
+        }
+    }
+
+    private func commitNowPlayingRenderingActivity(_ isActive: Bool) {
+        guard isNowPlayingRenderingActive != isActive else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            isNowPlayingRenderingActive = isActive
+        }
     }
 }
 

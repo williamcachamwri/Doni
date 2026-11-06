@@ -87,19 +87,17 @@ struct DesktopBottomSeekBar: View {
     private var fillOpacity: Double { isExpanded ? 0.86 : 0.70 }
 }
 
-/// The middle of the bar: what is playing, and the track that moves it
-/// (`DesktopBottomMetadataSlot.swift`).
-///
-/// The reference's slot is also the door into its full-screen player — the cover grows on hover and a
-/// press opens it. That door is not ported yet, so nothing here pretends to be one: the cover is a
-/// cover, and the only gesture is the seek, which works.
+/// The middle of the bar: what is playing, the track that moves it, and the cover that is a door into
+/// the full-window player (`DesktopBottomMetadataSlot.swift`).
 struct DesktopBottomMetadataSlot: View {
+    @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var library: Library
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let track: any Playable
 
     @State private var isProgressExpanded = false
+    @State private var isArtworkHovered = false
     @GestureState private var isProgressPressed = false
 
     var body: some View {
@@ -135,25 +133,58 @@ struct DesktopBottomMetadataSlot: View {
     }
 
     private var metadataContent: some View {
-        HStack(spacing: 9) {
-            DesktopArtworkView(track: track, side: 36, cornerRadius: 6)
-                .frame(width: 36, height: 36)
+        HStack(spacing: 4) {
+            Button {
+                model.ui.isNowPlayingPresented = true
+            } label: {
+                HStack(spacing: 9) {
+                    artwork
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(track.displayTitle)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .lineLimit(1)
-                Text(track.displayPerformer)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(track.displayTitle)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .lineLimit(1)
+                        Text(track.displayPerformer)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(.rect)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
             playerMenu
         }
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    /// The cover grows to 1.18 and an expand glyph fades in over it, because it is a door — the
+    /// reference's own affordance for "this opens the player" (`DesktopBottomMetadataSlot.swift:127-155`).
+    private var artwork: some View {
+        ZStack {
+            DesktopArtworkView(track: track, side: 36, cornerRadius: 6)
+
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.black.opacity(isArtworkHovered ? 0.32 : 0))
+
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.36), radius: 2, y: 1)
+                .opacity(isArtworkHovered ? 1 : 0)
+                .blur(radius: isArtworkHovered ? 0 : 1.8)
+                .scaleEffect(isArtworkHovered ? 1 : 0.62)
+        }
+        .frame(width: 36, height: 36)
+        .scaleEffect(isArtworkHovered ? 1.18 : 1)
+        .shadow(color: .black.opacity(isArtworkHovered ? 0.26 : 0),
+               radius: isArtworkHovered ? 8 : 0, y: isArtworkHovered ? 4 : 0)
+        .zIndex(2)
+        .onHover(perform: setArtworkHovered)
+        .accessibilityAddTraits(.isButton)
     }
 
     private var progressOverlay: some View {
@@ -209,6 +240,14 @@ struct DesktopBottomMetadataSlot: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+    }
+
+    private func setArtworkHovered(_ hovered: Bool) {
+        guard isArtworkHovered != hovered else { return }
+        withAnimation(reduceMotion ? nil
+            : hovered ? DesktopPlayerMotion.artworkHover : DesktopPlayerMotion.artworkRest) {
+            isArtworkHovered = hovered
+        }
     }
 
     private func setProgressExpanded(_ expanded: Bool) {

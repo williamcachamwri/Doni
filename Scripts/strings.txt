@@ -428,3 +428,9 @@ Chưa chọn|未选择|No seleccionado|Не выбрано|Non sélectionné|غ�
 Xoá khỏi hàng đợi|从队列移除|Quitar de la cola|Убрать из очереди|Retirer de la file|إزالة من قائمة الانتظار
 Hàng đợi đã hết.|队列已放完。|La cola se ha terminado.|Очередь закончилась.|La file est terminée.|انتهت قائمة الانتظار.
 Chưa có lời cho bài này.|还没有这首歌的歌词。|Todavía no hay letra para esta canción.|Для этого трека пока нет текста.|Aucune parole pour ce titre pour l’instant.|لا توجد كلمات لهذه الأغنية بعد.
+# The full-window player: its titlebar row and the cover's own words.
+Thoát trình phát|退出播放器|Salir del reproductor|Выйти из проигрывателя|Quitter le lecteur|الخروج من المشغّل
+Thu nhỏ|收起|Minimizar|Свернуть|Réduire|تصغير
+Bật tiếng|开启声音|Activar el sonido|Включить звук|Activer le son|تشغيل الصوت
+Ảnh bìa|封面|Portada|Обложка|Pochette|غلاف
+Ảnh bìa của “%@”|“%@”的封面|Portada de «%@»|Обложка «%@»|Pochette de « %@ »|غلاف «%@»
