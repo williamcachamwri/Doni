@@ -10,16 +10,24 @@ History lives in git tags and in GitHub Releases. This file holds the current re
 
 ### Tiếng Việt
 
-- Nhạc .mp4 và .wav giờ phát từ từng mảng byte thay vì chờ tải xong cả bài. Ba chỗ đã nhầm "message không ghi con số" thành "bài này không stream được" rồi đẩy nó sang đường tải toàn bộ.
-- Nguồn tải cả file lớn nhất hóa ra là prefetch: mười giây trước bài kế tiếp, app kéo nguyên file cho một bài người nghe chưa tới. Giờ nó chỉ lấy phần đầu.
-- Một bài document không ghi thời lượng từng bị kẹt ở đúng phần đầu đã tải — không có độ dài thì không tính được byte nào tương ứng với giây nào, nên cửa sổ tải đứng yên. Nay con số đó lấy lại từ chính container khi nó tự báo độ dài: `moov` của mp4 về cùng phần đuôi, header của wav nằm trong 44 byte đầu.
-- Mọi đường rơi về tải cả file nay nói rõ nó là đường nào trong log. Trước đây hàm stream trả `false` im lặng, và đó là lý do hai lỗi này sống qua mấy bản phát hành.
-- Màn hình đăng nhập dùng đúng icon app thay cho ô đỏ tự vẽ bằng symbol. Trang Giới thiệu đã đọc icon thật từ asset catalog từ lâu; comment nói app không có asset catalog là comment sai.
+- Đăng xuất trên máy tính hoặc thu hồi phiên giờ cũng dừng nhạc và xoá dữ liệu như đăng xuất trong app. Trước đây app chỉ phản ứng khi bạn bấm nút; con đường kia đóng kết nối, xoá tệp Telegram, nhưng để nhạc tiếp tục phát và danh sách bài vẫn đọc được.
+- Kéo thanh thời gian khi bài đang tải không còn làm bài quay về 0:00. Vị trí sai đó còn được lưu lại, nên lần mở sau cũng bắt đầu lại từ đầu.
+- Mở lại app vào một bài đăng dạng tệp (loại phần lớn kênh nhạc dùng) giờ giữ đúng chỗ đang nghe; trước đây "chưa biết độ dài" bị hiểu thành "dài 0 giây" và mọi vị trí bị ép về đầu.
+- Xoá một bài trong Telegram không còn làm Cloud Music tự mất cả danh sách. Bản 1.0.2 sửa lỗi "không chịu mất" nhưng lại tin một trang trống giữa chừng là "hết chat"; nay cần hai trang trống liên tiếp.
+- Lời bài hát: kết luận "không tìm được lời" không còn bị đóng băng vĩnh viễn cho bài chưa biết độ dài. App sẽ hỏi lại ở lần nghe sau, khi độ dài đã đo được.
+- Không còn nghe nhầm bài: khi một bài phải chuyển sang tải cả tệp, bài đó không tự cài mình lên nữa nếu bạn đã chuyển sang bài khác.
+- Bộ nhớ đệm thật sự dọn được. Lời gọi xoá tệp trước đây dùng một mã số chỉ đúng trong cơ sở dữ liệu cũ của TDLib, nên sau mỗi lần đăng nhập lại hạn mức dung lượng không giải phóng gì.
+- Ảnh bìa: "Xoá cache ảnh" chỉ đổ rác trong thư mục cache, không xoá luôn thư mục — trước đây mọi ảnh ghi sau đó trong cùng phiên bị hỏng im lặng.
+- Vặt nhưng gây khó: bật rồi tắt nút ngẫu hứng không còn xoá bài bạn vừa xếp bằng "Nghe tiếp theo"; mở lại app không còn tự ghi nhận bạn đã nghe một bài chưa nghe; đăng nhập lại nhiều lần không còn nhân đôi bộ xử lý tin nhắn bị xoá.
 
 ### English
 
-- .mp4 and .wav now play from byte ranges instead of waiting for the whole file. Three places mistook "the message carries no number" for "this song cannot stream" and sent it down the whole-file path.
-- The largest source of whole-file downloads turned out to be the prefetch: ten seconds before the next song, the app pulled an entire file for a song the listener had not reached. It now takes the head and nothing more.
-- A document post with no recorded length used to strand at its own head — with no duration there is no byte-per-second map, so the download window never moved. That number is now recomputed from the container once it reports a length: an mp4's `moov` arrives in the tail ask, a wav's header in its first 44 bytes.
-- Every fallback to the whole file now says in the log which one it took. The streaming entry point used to return a silent refusal, which is exactly why these two defects survived several releases.
-- The login screen wears the actual app icon instead of a tile drawn from a system symbol. The About screen has read the real icon from the asset catalog for a while; the comment claiming the app had none was wrong.
+- Signing out on a desktop, or revoking the session, now stops the music and clears the data the way signing out inside the app does. The app only reacted to its own button; the other path closed the client and deleted Telegram's files while music kept playing and the song list stayed readable.
+- Dragging the progress bar while a song is still downloading no longer sends it back to 0:00 — and that wrong position used to be saved, so the next launch started over too.
+- Relaunching into a document-post song (the shape most music channels use) keeps the position you were at. "Length not known" was being read as "length zero", which clamped every stored position down to the start.
+- Deleting a song in Telegram no longer takes the whole Cloud Music list with it. 1.0.2 fixed "it never disappears" but trusted a single empty page mid-read as "the chat is exhausted"; two empty answers in a row are now required.
+- Lyrics: "no lyrics found" is no longer frozen forever for a song whose length is unknown. The app asks again on a later listen, once the real length has been measured.
+- No more hearing the wrong song. When a song has to fall back to fetching the whole file, it no longer installs itself over a song you have already moved past.
+- The storage quota actually frees space now. The delete call used a number that is only meaningful inside TDLib's old database, so after any re-login nothing was ever evicted.
+- Cover art: "Clear image cache" empties the cache directory instead of deleting it. Every cover written later in the same session used to fail silently.
+- Smaller things that still bite: toggling shuffle no longer erases a song you queued with "Play next"; relaunching no longer records a listen for a song you never played; and re-logging in no longer stacks extra handlers for deleted messages.
