@@ -72,6 +72,8 @@ struct DesktopHomePane: View {
                     }
                     .padding(.top, 60)
                 } else {
+                    DesktopHomeHeroes()
+
                     if !recent.isEmpty {
                         DesktopShelf(title: "Nghe tiếp") {
                             ForEach(recent, id: \.uniqueId) { track in

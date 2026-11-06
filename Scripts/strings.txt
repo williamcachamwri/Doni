@@ -434,3 +434,16 @@ Thu nhỏ|收起|Minimizar|Свернуть|Réduire|تصغير
 Bật tiếng|开启声音|Activar el sonido|Включить звук|Activer le son|تشغيل الصوت
 Ảnh bìa|封面|Portada|Обложка|Pochette|غلاف
 Ảnh bìa của “%@”|“%@”的封面|Portada de «%@»|Обложка «%@»|Pochette de « %@ »|غلاف «%@»
+# The home page's hero cards: their eyebrows and the two hints a card answers to.
+Đã giữ|已保存|Guardadas|Сохранённые|Enregistrées|المحتفظ بها
+Của bạn|您的|Tuyas|Ваши|Les vôtres|خاصتك
+Nguồn nhạc|音乐来源|Fuente de música|Источник музыки|Source de musique|مصدر الموسيقى
+Mở “%@”|打开“%@”|Abrir «%@»|Открыть «%@»|Ouvrir « %@ »|فتح «%@»
+Từ: %@|来自：%@|De: %@|Из: %@|De : %@|من %@
+
+# The home hero cards' one-line descriptions, for the six doors on the desktop home.
+Đang nghe dở|接着收听|Sigues escuchando|Продолжайте слушать|Reprendre l’écoute|متابعة الاستماع
+Những bài bạn đã giữ|你保存的歌曲|Las canciones que guardaste|Песни, которые вы сохранили|Les titres que vous avez gardés|الأغاني التي احتفظت بها
+Nhạc bạn tự đưa lên Telegram|你上传到 Telegram 的音乐|Música que subiste a Telegram|Музыка, которую вы загрузили в Telegram|Musique que vous avez téléversée sur Telegram|موسيقى رفعتها إلى تيليجرام
+Từ các kênh Telegram|来自 Telegram 频道|De canales de Telegram|Из каналов Telegram|Des chaînes Telegram|من قنوات تيليجرام
+Do bạn xếp|由你整理|Organizada por ti|Собраны вами|Organisée par vous|من ترتيبك

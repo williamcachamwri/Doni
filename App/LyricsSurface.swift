@@ -36,6 +36,10 @@ struct LyricsView: View {
     @ObservedObject var player: Player
     @ObservedObject var lyrics: Lyrics
     var isActive = true
+    /// Where the sung line's centre sits, measured from the top of this column. The phone leaves it nil
+    /// because its page centres the line a quarter down the viewport; the desktop has to pass the
+    /// artwork's own centre, which is the anchor Apple Music puts the focused line on.
+    var focusAnchorOffset: CGFloat? = nil
     var isInterfaceHidden = false
     var onInterfaceInteraction: () -> Void = {}
     var onInterfaceVisibilityChange: (Bool) -> Void = { _ in }
@@ -51,7 +55,7 @@ struct LyricsView: View {
             // The transport row floats over this page, so the column has to be told how much of its
             // bottom is not really its bottom: that is where the fade stops and the last line may rest.
             bottomOverlayHeight: MusicNowPlayingMetrics.overlayHeight,
-            focusAnchorOffset: nil,
+            focusAnchorOffset: focusAnchorOffset,
             onInterfaceInteraction: onInterfaceInteraction,
             onInterfaceVisibilityChange: onInterfaceVisibilityChange,
             onInitialFocusPrepared: nil

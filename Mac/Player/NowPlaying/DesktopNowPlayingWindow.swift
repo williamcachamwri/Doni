@@ -54,7 +54,7 @@ struct DesktopNowPlayingWindow: View {
                 .frame(width: layout.playerWidth, height: layout.contentHeight, alignment: .top)
                 .offset(x: layout.leading, y: layout.chromeHeight)
 
-            panel(width: panelWidth)
+            panel(width: panelWidth, layout: layout)
                 .frame(width: panelWidth, height: layout.contentHeight, alignment: .top)
                 .offset(x: layout.panelLeading, y: layout.chromeHeight)
         }
@@ -62,19 +62,23 @@ struct DesktopNowPlayingWindow: View {
     }
 
     /// The right half: the column, with the two page buttons floating at its bottom-right corner the way
-    /// the reference puts them (`DesktopNowPlayingWindow.swift:156-167` of the screenshot the layout was
-    /// measured from). No header — the words start at the top and the sung line is placed a quarter down
-    /// the viewport, which is what the column's own focus anchor does.
-    private func panel(width: CGFloat) -> some View {
+    /// the reference puts them. No header — but the 40 points of room the reference leaves between the
+    /// chrome and the words are here, because `hostedContentMinY` is `chromeHeight + lyricsTopPadding`
+    /// and a column that starts at the chrome itself puts the sung line too high (`DesktopNowPlaying
+    /// Layout.swift:8-10`, measured off Apple Music at 1239 × 600: the lyrics container begins at y=88).
+    private func panel(width: CGFloat, layout: DesktopNowPlayingLayout) -> some View {
         ZStack(alignment: .bottomTrailing) {
             Group {
                 switch page {
                 case .lyrics:
-                    DesktopLyricsPane(isActive: isActive && isRenderingActive)
+                    DesktopLyricsPane(isActive: isActive && isRenderingActive,
+                                      compact: false,
+                                      focusAnchorOffset: layout.lyricsFocusAnchorOffset)
                 case .queue:
-                    DesktopQueuePane()
+                    DesktopQueuePane(presentation: .nowPlaying)
                 }
             }
+            .padding(.top, DesktopNowPlayingLayout.lyricsTopPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity)
 
