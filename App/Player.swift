@@ -7,9 +7,10 @@ import TelegramDesignSystem
 import TdSession
 import UIKit
 
-/// The one thing that makes noise: `AVAudioPlayer` over whole files TDLib has already put on the
-/// device, where a segment favourite needs a seek that lands exactly. Background audio needs the
-/// `.playback` session plus `UIBackgroundModes` listing `audio`.
+/// The one thing that makes noise, over either of the two ways a song can reach an ear: `AVAudioPlayer`
+/// on a whole file the phone already has, where a segment favourite needs a seek that lands exactly, and
+/// `AVPlayer` on a resource loader serving byte ranges out of a file still arriving. Background audio
+/// needs the `.playback` session plus `UIBackgroundModes` listing `audio`.
 @MainActor
 final class Player: ObservableObject {
     /// What the end of the queue is: an ending, a loop of the whole list, or a loop of this song.
@@ -66,7 +67,9 @@ final class Player: ObservableObject {
     private struct Streaming {
         let file: TdFile
         let size: Int64
-        let bytesPerSecond: Double
+        /// Bytes per second, once something knows the length. Recomputed from the container when the
+        /// message did not carry one, which is why it is not a `let`.
+        var bytesPerSecond: Double
         var policy = AudioWindowPolicy()
         var fetch: Task<Void, Never>?
     }
@@ -590,15 +593,21 @@ final class Player: ObservableObject {
     ///
     /// Bounded: a prefetch that keeps downloading is a second song eating the link the first one is
     /// playing on, and TDLib only stops when it is told to (`fetch`'s note).
+    ///
+    /// The size is asked of TDLib rather than read off the row: a document post often carries none, and
+    /// a prefetch that mistook "the message does not say" for "there is nothing to stream" pulled the
+    /// whole file ten seconds before the playhead ever arrived — which is a download manager, not a
+    /// prefetch.
     private func prepare(_ track: any Playable) async {
         guard let downloader else { return }
         let file = TdFile(audio: track)
         guard AudioContentType.resolve(mimeType: track.mimeType, fileName: track.fileName) != nil,
-              track.size > 0 else {
+              let size = track.size > 0 ? track.size : await downloader.state(file)?.size,
+              size > 0 else {
             await download(track)
             return
         }
-        for window in AudioWindowPolicy.head(for: track.size, includingTail: keepsTail(track)) {
+        for window in AudioWindowPolicy.head(for: size, includingTail: keepsTail(track)) {
             _ = await downloader.fetch(file, window: window.offset, bytes: window.count,
                                        priority: TdFileDownloader.coverPriority)
         }
@@ -688,18 +697,32 @@ final class Player: ObservableObject {
     }
 
     /// Playing a song out of its bytes as they land. `false` is not a failure: it means the caller
-    /// falls back to fetching the whole file, which covers an undecodable container, a length TDLib
-    /// has not been told, a file the phone already has whole, and a head that never arrives.
+    /// falls back to fetching the whole file. Each way out says why in the log, because a silent
+    /// `false` is how two of these guards spent months looking like a network problem.
+    ///
+    /// The size comes from `getFile`, not from the message attribute: a document post often carries
+    /// neither `size` nor `expected_size` until TDLib has looked, and TDLib always knows — a guard on
+    /// the message's number pushed streamable files onto the whole-file path for no other reason.
     private func stream(_ track: any Playable, file: TdFile,
                         startAt: TimeInterval?, play: Bool) async -> Bool {
-        guard let downloader, !Task.isCancelled, track.size > 0,
-              let kind = AudioContentType.resolve(mimeType: track.mimeType,
-                                                  fileName: track.fileName) else { return false }
-        guard let state = await downloader.state(file), state.size > 0, !state.isComplete
-        else { return false }
+        guard let downloader, !Task.isCancelled else { return false }
+        guard let kind = AudioContentType.resolve(mimeType: track.mimeType,
+                                                  fileName: track.fileName) else {
+            print("stream skip \(track.fileName): AVFoundation cannot decode it")
+            return false
+        }
+        guard let state = await downloader.state(file), state.size > 0 else {
+            print("stream skip \(track.fileName): TDLib has no size for the file yet")
+            return false
+        }
+        guard !state.isComplete else {
+            print("stream skip \(track.fileName): the whole file is already on the phone")
+            return false
+        }
         let seconds = Double(track.duration ?? 0)
         // The window plan needs a bitrate to turn the playhead into a byte; until the container is
-        // read, the loader's own asks are the only steering there is.
+        // read, the loader's own asks are the only steering there is. A missing `track.duration` is
+        // not a reason to stop streaming — see `steerWindow`, which recomputes it from the container.
         let source = TelegramAudioSource(file: file, downloader: downloader)
         for window in AudioWindowPolicy.head(for: state.size, includingTail: keepsTail(track)) {
             _ = await downloader.ask(file, window: window.offset, bytes: window.count)
@@ -747,7 +770,17 @@ final class Player: ObservableObject {
     /// file is put back to `quiet`, or TDLib keeps pulling the rest of a 160 MB set on the same link
     /// (`fetch`'s note has the measurement).
     private func steerWindow(to seconds: TimeInterval) {
-        guard var streaming, let downloader, streaming.bytesPerSecond > 0 else { return }
+        guard var streaming, let downloader else { return }
+        // A document post carries no length, so the map built at start can be empty — and with it
+        // zero the window never moves again, which strands the song at its head. The container's own
+        // duration is the same number measured from bytes that have already landed: an mp4's `moov`
+        // arrives in the tail ask, a wav's header in the first forty-four bytes of the head.
+        if streaming.bytesPerSecond <= 0, let engine, engine.duration > 0.5 {
+            streaming.bytesPerSecond = Double(streaming.size) / engine.duration
+            self.streaming = streaming
+            print("window bitrate from the container: \(Int(engine.duration))s")
+        }
+        guard streaming.bytesPerSecond > 0 else { return }
         guard let plan = streaming.policy.window(atSeconds: seconds,
                                                  bytesPerSecond: streaming.bytesPerSecond,
                                                  fileBytes: streaming.size) else { return }
