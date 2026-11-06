@@ -158,17 +158,7 @@ struct DesktopCloudPane: View {
     @State private var picking = false
 
     var body: some View {
-        DesktopTrackPane(title: "Cloud Music", tracks: cloud.songs)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        picking = true
-                    } label: {
-                        Label("Thêm nhạc", systemImage: "plus")
-                    }
-                    .help("Chọn file nhạc từ máy")
-                }
-            }
+        DesktopTrackPane(title: "Cloud Music", tracks: cloud.songs, onUpload: { picking = true })
             .fileImporter(isPresented: $picking,
                           allowedContentTypes: [.audio],
                           allowsMultipleSelection: true) { result in

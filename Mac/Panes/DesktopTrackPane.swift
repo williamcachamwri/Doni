@@ -21,6 +21,10 @@ struct DesktopTrackPane: View {
     var emptyPrompt: String?
     var openDoor: (() -> Void)?
     var onRemove: ((any Playable) -> Void)?
+    /// The one verb a list itself does not have: Saved Messages takes files in. It sits on the title's
+    /// baseline with the other two, not in the window's toolbar, where a tab's primary action lands a
+    /// metre away from the thing it acts on.
+    var onUpload: (() -> Void)?
 
     var body: some View {
         ScrollView {
@@ -79,6 +83,13 @@ struct DesktopTrackPane: View {
                 Label("Phát ngẫu nhiên", systemImage: "shuffle")
             }
             .buttonStyle(.bordered)
+
+            if let onUpload {
+                Button(action: onUpload) {
+                    Label("Thêm nhạc", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
+            }
         }
         .controlSize(.large)
     }

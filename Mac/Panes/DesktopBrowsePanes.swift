@@ -324,34 +324,20 @@ struct DesktopChannelRow: View {
     }
 }
 
-/// A playlist opened from a card: the reference's detail hero — a big cover, the name, the count, and
-/// the two verbs — over the row list.
+/// A playlist opened from a card. The pane's own header carries the two verbs, as it does everywhere
+/// else — a tab's toolbar puts a primary action at the top of the window, far from the list it acts on.
 struct DesktopPlaylistDetail: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var library: Library
-    @EnvironmentObject private var player: Player
     let id: Int64
 
     var body: some View {
-        let tracks = DesktopPanes.playlist(model, id: id)
         DesktopTrackPane(
             title: name,
-            tracks: tracks,
+            tracks: DesktopPanes.playlist(model, id: id),
             emptyPrompt: localized("Danh sách trống"),
             onRemove: { library.removeTrack(uniqueId: $0.uniqueId, from: id) }
         )
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    let sound = player, held = tracks
-                    guard let first = held.first else { return }
-                    sound.play(first, in: held)
-                } label: {
-                    Label("Phát tất cả", systemImage: "play.fill")
-                }
-                .disabled(tracks.isEmpty)
-            }
-        }
     }
 
     private var name: String {

@@ -45,9 +45,10 @@ enum DesktopPlayerMotion {
 /// player tree alive (`DesktopBottomPlayer.swift:6-29`).
 struct DesktopTabBottomPlayer: View {
     @Environment(DesktopAppModel.self) private var model
+    @EnvironmentObject private var player: Player
 
     var body: some View {
-        if model.player.current != nil {
+        if player.current != nil {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
                 DesktopBottomPlayer()
@@ -72,13 +73,18 @@ struct DesktopTabBottomPlayer: View {
 
 /// Reserves the rows' bottom space for the one bar the shell draws, so the last row of a list is never
 /// behind it (`DesktopBottomPlayer.swift:32-48`).
+///
+/// The three views of the bar read the player through `@EnvironmentObject` rather than through the
+/// model: `Player` is an `ObservableObject`, so a published change invalidates the views that hold it,
+/// and a view that only reached it as `model.player` would keep drawing the state of the moment it was
+/// built — a bar that never appears when a song starts.
 struct DesktopTabBottomPlayerInset: View {
-    @Environment(DesktopAppModel.self) private var model
+    @EnvironmentObject private var player: Player
 
     var body: some View {
-        if model.player.current != nil {
+        if player.current != nil {
             Color.clear
-                .frame(height: model.player.playbackProblem == nil
+                .frame(height: player.playbackProblem == nil
                     ? DesktopBottomPlayerMetrics.regularGlobalInsetHeight
                     : DesktopBottomPlayerMetrics.issueGlobalInsetHeight)
                 .accessibilityHidden(true)
@@ -95,7 +101,7 @@ struct DesktopTabBottomPlayerInset: View {
 /// material with a 0.65 pt white edge at 0.42, which is what the reference draws
 /// (`DesktopBottomPlayer.swift:70-78`).
 struct DesktopBottomPlayer: View {
-    @Environment(DesktopAppModel.self) private var model
+    @EnvironmentObject private var player: Player
     @State private var isVolumeExpanded = false
 
     var body: some View {
@@ -130,12 +136,12 @@ struct DesktopBottomPlayer: View {
 
     private var playerContent: some View {
         VStack(spacing: 0) {
-            if let problem = model.player.playbackProblem {
+            if let problem = player.playbackProblem {
                 HStack(spacing: 8) {
                     Label(localized(problem.message), systemImage: problem.symbol)
                         .font(.caption)
                     Spacer()
-                    Button("Thử lại") { model.player.retry() }
+                    Button("Thử lại") { player.retry() }
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 8)
@@ -147,7 +153,7 @@ struct DesktopBottomPlayer: View {
 
                 Color.clear.frame(width: DesktopBottomPlayerMetrics.clusterSpacing)
 
-                if let track = model.player.current {
+                if let track = player.current {
                     DesktopBottomMetadataSlot(track: track)
                         .frame(maxWidth: .infinity)
                 }
