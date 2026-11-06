@@ -211,6 +211,41 @@
         }
       }
     },
+    "%@ bài trên máy": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ أغاني على الجهاز"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ canciones en el dispositivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ titres sur l’appareil"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ треков на устройстве"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 首已下载到本机"
+          }
+        }
+      }
+    },
     "%@ bài vừa về": {
       "extractionState": "manual",
       "localizations": {
@@ -351,6 +386,41 @@
         }
       }
     },
+    "%@ danh sách": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ قوائم"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ listas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ listes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ плейлистов"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 歌单"
+          }
+        }
+      }
+    },
     "%@ danh sách của bạn": {
       "extractionState": "manual",
       "localizations": {
@@ -382,6 +452,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "你的 %@ 个歌单"
+          }
+        }
+      }
+    },
+    "%@ kênh": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ قنوات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ canales"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ chaînes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ каналов"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 频道"
           }
         }
       }
@@ -452,6 +557,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "0 首"
+          }
+        }
+      }
+    },
+    "Bài": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الأغاني"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titres"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Треки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌曲"
           }
         }
       }
@@ -1296,6 +1436,41 @@
         }
       }
     },
+    "Bỏ qua": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تجاهل"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустить"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "忽略"
+          }
+        }
+      }
+    },
     "Bỏ yêu thích": {
       "extractionState": "manual",
       "localizations": {
@@ -1471,6 +1646,41 @@
         }
       }
     },
+    "Chúng tôi sẽ gọi và đọc mã theo dạng %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "سنتصل ونقرأ الرمز بالصيغة %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamaremos y leeremos el código con el formato %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous appellerons et dicterons le code sous la forme %@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мы позвоним и продиктуем код в форме %@."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我们将致电并按 %@ 的形式播报验证码。"
+          }
+        }
+      }
+    },
     "Chúng tôi đã gửi mã %@ chữ số cho %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -1502,6 +1712,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们已向 %@ 发送 %@ 位验证码。"
+          }
+        }
+      }
+    },
+    "Chúng tôi đã gửi mã %@ chữ số.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أرسلنا رمزًا من %@ رقمًا."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviamos un código de %@ dígitos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous avons envoyé un code de %@ chiffres."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мы отправили код из %@ цифр."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我们已发送 %@ 位验证码。"
           }
         }
       }
@@ -1747,6 +1992,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "该仓库还没有发布版本。"
+          }
+        }
+      }
+    },
+    "Chưa có danh sách bài ở trang này.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا تحتوي هذه الصفحة على قائمة أغاني بعد."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta página todavía no tiene lista de canciones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette page n’a pas encore de liste de titres."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На этой странице пока нет списка треков."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此页面还没有歌曲列表。"
           }
         }
       }
@@ -2447,6 +2727,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "云端音乐"
+          }
+        }
+      }
+    },
+    "Cuộc gọi nhỡ %@ và %@ số cuối.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مكالمة غير مجواب عليها: %@ وآخر %@ أرقام."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada perdida: %@ y los %@ últimos dígitos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel manquant : %@ et les %@ derniers chiffres."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропущенный звонок: %@ и последние %@ цифр."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未接来电 %@，末尾 %@ 位数字。"
           }
         }
       }
@@ -4516,6 +4831,41 @@
         }
       }
     },
+    "Không thêm được kênh": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّرت إضافة القناة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo añadir el canal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’ajouter la chaîne"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось добавить канал"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法添加频道"
+          }
+        }
+      }
+    },
     "Không thêm được: %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -4936,6 +5286,41 @@
         }
       }
     },
+    "Kênh trong clipboard": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قناة في الحافظة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canal en el portapapeles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaîne dans le presse-papiers"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Канал в буфере обмена"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剪贴板中的频道"
+          }
+        }
+      }
+    },
     "Kênh trên danh sách chưa có file nhạc nào được đọc.": {
       "extractionState": "manual",
       "localizations": {
@@ -5212,6 +5597,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自已选频道"
+          }
+        }
+      }
+    },
+    "Lặp lại": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "التكرار"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repetir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répéter"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повтор"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "循环播放"
           }
         }
       }
@@ -6336,6 +6756,41 @@
         }
       }
     },
+    "Nhập câu bắt đầu bằng “%@” mà chúng tôi đã gửi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أدخل الجملة التي تبدأ بـ «%@» وأرسلناها."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce la frase que empieza por «%@» que enviamos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez la phrase commençant par « %@ » que nous avons envoyée."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите фразу, начинающуюся с «%@», которую мы отправили."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入我们以“%@”开头发送的句子。"
+          }
+        }
+      }
+    },
     "Nhập mã %@ chữ số": {
       "extractionState": "manual",
       "localizations": {
@@ -6507,6 +6962,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "输入我们发给 %@ 的、以“%@”开头的词。"
+          }
+        }
+      }
+    },
+    "Nhập từ bắt đầu bằng “%@” mà chúng tôi đã gửi.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أدخل الكلمة التي تبدأ بـ «%@» وأرسلناها."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduce la palabra que empieza por «%@» que enviamos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisissez le mot commençant par « %@ » que nous avons envoyé."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите слово, начинающееся с «%@», которое мы отправили."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入我们以“%@”开头发送的词。"
           }
         }
       }
@@ -6717,6 +7207,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "播放"
+          }
+        }
+      }
+    },
+    "Phát / Tạm dừng": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تشغيل / إيقاف مؤقت"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproducir / Pausar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture / Pause"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизведение / Пауза"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放 / 暂停"
           }
         }
       }
@@ -7281,6 +7806,41 @@
         }
       }
     },
+    "Thêm kênh": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إضافة قناة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir canal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter une chaîne"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить канал"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加频道"
+          }
+        }
+      }
+    },
     "Thêm kênh nhạc": {
       "extractionState": "manual",
       "localizations": {
@@ -7732,6 +8292,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "资料库为空"
+          }
+        }
+      }
+    },
+    "Thấy %@ trong clipboard. Thêm vào thư viện?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "وُجدت %@ في الحافظة. هل تريد إضافتها إلى المكتبة؟"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se ha encontrado %@ en el portapapeles. ¿Añadir a la biblioteca?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a été trouvé dans le presse-papiers. Ajouter à la bibliothèque ?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В буфере обмена найден %@. Добавить в библиотеку?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在剪贴板中发现 %@。要加入资料库吗？"
           }
         }
       }
@@ -11862,6 +12457,41 @@
         }
       }
     },
+    "Đang tải bài hát…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جارٍ تحميل الأغنية…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando la canción…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement du titre…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка трека…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在加载歌曲…"
+          }
+        }
+      }
+    },
     "Đang tải danh sách…": {
       "extractionState": "manual",
       "localizations": {
@@ -11963,6 +12593,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在下载一首歌曲 — 清理后需重新下载该曲。"
+          }
+        }
+      }
+    },
+    "Đang đăng nhập…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جارٍ تسجيل الدخول…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciando sesión…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在登录…"
           }
         }
       }
@@ -12103,6 +12768,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在读取信息…"
+          }
+        }
+      }
+    },
+    "Điều hướng": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "التنقل"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navegación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Навигация"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导航"
+          }
+        }
+      }
+    },
+    "Điều khiển": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "التحكّم"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controles"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commandes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "控制"
           }
         }
       }

@@ -32,6 +32,15 @@ L10N = ROOT / "Packages" / "DoniLyrics" / "Sources" / "DoniLyrics" / "Seam" / "L
 OUTPUT = ROOT / "App" / "Localizable.xcstrings"
 LANGUAGES = ("zh-Hans", "es", "ru", "fr", "ar")
 
+# Every Swift file either shell can say a word in. The desktop's views live in `Mac/`, in
+# subdirectories, and a gate that only read `App/` and `UI/` would let a Mac string fall back to
+# Vietnamese in Beijing without ever mentioning it.
+SOURCES = (
+    sorted((ROOT / "App").glob("*.swift"))
+    + sorted((ROOT / "UI").glob("*.swift"))
+    + sorted((ROOT / "Mac").rglob("*.swift"))
+)
+
 # The Vietnamese values the copied lyrics views ask for by key.
 ENTRY = re.compile(r'^\s*"(ui\.[a-z0-9_.]+)":\s*$|^\s*"(ui\.[a-z0-9_.]+)":\s*"((?:[^"\\]|\\.)*)",?\s*$')
 
@@ -127,7 +136,7 @@ def coverage(keys: set[str]) -> tuple[list[str], list[str]]:
     literal = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
     missing: set[str] = set()
     unanswerable: set[str] = set()
-    for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
+    for source in SOURCES:
         for match in literal.finditer(strip_comments(source.read_text(encoding="utf-8"))):
             text = match.group(1)
             if not is_vietnamese(text) or text in keys or text in NOT_TRANSLATED:
@@ -160,6 +169,12 @@ RENDER_ALLOWLIST = {
     "SearchView.swift": ["Text(title)"],
     "SettingsView.swift": ["Text(option.nativeName)"],
     "LibraryView.swift": ["Text(indexer.statusLine)"],
+    # The sidebar's footer line is assembled from `localized(_:)` calls one level up, so it is already
+    # the translated sentence; looking it up a second time would translate a translation.
+    "DesktopSidebar.swift": ["Text(loadingMessage)"],
+    # The desktop's placeholder panes print the library's own numbers, resolved one level up, and a
+    # route's title is a playlist's name or a channel's — somebody's word, never a catalog key.
+    "DesktopRootView.swift": ["Text(countLine)", "navigationTitle(title)"],
 }
 
 
@@ -174,7 +189,7 @@ def unlocalized_renders() -> list[str]:
         r'\b(Text|Label|Button|Tab|navigationTitle|accessibilityLabel|accessibilityHint)\('
         r'\s*([A-Za-z_][\w.]*)\s*[,)\]]')
     found = []
-    for source in sorted((ROOT / "App").glob("*.swift")) + sorted((ROOT / "UI").glob("*.swift")):
+    for source in SOURCES:
         # Real line numbers: the comment lines are skipped rather than stripped first, or the
         # report points at the wrong line and the next reader stops trusting it.
         for number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):

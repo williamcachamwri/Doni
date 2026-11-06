@@ -51,8 +51,9 @@ struct DesktopLoginView: View {
             .tint(MusicTint.accent)
             .disabled(session.isWaiting || entryIsEmpty)
 
-            if let error = session.lastError {
-                Text(error)
+            // A sentence the session assembled from a TDLib failure, already looked up: not a key.
+            if let message = session.lastError {
+                Text(message)
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
@@ -107,15 +108,16 @@ struct DesktopLoginView: View {
         }
     }
 
-    /// Each branch hands `Text` a literal rather than a `String` variable: `Text(String)` is the
-    /// verbatim initializer, so routing the sentence through a computed `String` would put the phone's
-    /// trap back into the desktop.
+    /// Each branch hands `Text` a resolved sentence rather than a `String` built by interpolation:
+    /// `Text("Nhập mã \(length) chữ số")` *is* a localization key to Swift, but the key it builds
+    /// depends on the argument's type, so no row in the table can name it and every language falls back
+    /// to Vietnamese. `localized(_:_:)` is the form that can be answered.
     @ViewBuilder private var title: some View {
         switch session.step {
         case .waitPhoneNumber?, nil: Text("Số điện thoại của bạn")
         case .waitCode(_, let current, _, _):
             switch current.lengthOfCode {
-            case let length?: Text("Nhập mã \(length) chữ số")
+            case let length?: Text(localized("Nhập mã %@ chữ số", length.formatted()))
             case nil: Text("Nhập mã xác nhận")
             }
         case .waitPassword?: Text("Xác thực hai bước")
@@ -136,10 +138,11 @@ struct DesktopLoginView: View {
             if hint.isEmpty {
                 Text("Nhập mật khẩu bạn đã đặt cho tài khoản này.")
             } else {
-                Text("Gợi ý: \(hint)")
+                Text(localized("Gợi ý: %@", hint))
             }
         case .waitRegistration(let minimumAge)?:
-            Text("Số này chưa có tài khoản Telegram và cần đủ \(minimumAge) tuổi.")
+            Text(localized("Số này chưa có tài khoản Telegram và cần đủ %@ tuổi.",
+                           minimumAge.formatted()))
         case .waitOtherDeviceConfirmation(let link)?: Text(verbatim: link)
         case .ready?, .loggingOut?, .closing?, .closed?, .waitTdlibParameters?, .unknown?: EmptyView()
         }
@@ -147,16 +150,19 @@ struct DesktopLoginView: View {
 
     /// What Telegram actually sent decides what the user is asked to type: a digit code, an SMS word, or
     /// a phrase — the phone spells all three, and the desktop must not guess.
-    /// What Telegram actually sent decides what the user is asked to type: a digit code, an SMS word, or
-    /// a phrase — the phone spells all three, and the desktop must not guess.
     @ViewBuilder private func deliveryLine(_ current: TdAuthorizationStep.CodeDelivery) -> some View {
         switch current {
-        case .smsWord(let letter): Text("Nhập từ bắt đầu bằng “\(letter)” mà chúng tôi đã gửi.")
-        case .smsPhrase(let word): Text("Nhập câu bắt đầu bằng “\(word)” mà chúng tôi đã gửi.")
+        case .smsWord(let letter):
+            Text(localized("Nhập từ bắt đầu bằng “%@” mà chúng tôi đã gửi.", letter))
+        case .smsPhrase(let word):
+            Text(localized("Nhập câu bắt đầu bằng “%@” mà chúng tôi đã gửi.", word))
         case .telegramMessage(let length), .sms(let length), .call(let length):
-            Text("Chúng tôi đã gửi mã \(length) chữ số.")
-        case .flashCall(let pattern): Text("Chúng tôi sẽ gọi và đọc mã theo dạng \(pattern).")
-        case .missedCall(let prefix, let length): Text("Cuộc gọi nhỡ \(prefix) và \(length) số cuối.")
+            Text(localized("Chúng tôi đã gửi mã %@ chữ số.", length.formatted()))
+        case .flashCall(let pattern):
+            Text(localized("Chúng tôi sẽ gọi và đọc mã theo dạng %@.", pattern))
+        case .missedCall(let prefix, let length):
+            Text(localized("Cuộc gọi nhỡ %@ và %@ số cuối.",
+                           prefix, length.formatted()))
         case .unknown(let type): Text(verbatim: type)
         }
     }

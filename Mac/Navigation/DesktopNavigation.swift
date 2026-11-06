@@ -21,6 +21,10 @@ enum DesktopSection: String, CaseIterable, Identifiable, Hashable {
 
     /// Vietnamese is the development language, so the literal is the catalog key
     /// (`Scripts/strings.txt`), exactly as the phone's views do it.
+    ///
+    /// It is a *key*, not a display string: a render site that hands this to `Tab(_:)` or
+    /// `navigationTitle(_:)` as a plain `String` draws Vietnamese in every language, so those sites wrap
+    /// it in `localized(_:)`.
     var title: String {
         switch self {
         case .search: "Tìm kiếm"
@@ -90,6 +94,21 @@ enum DesktopInspector: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// A panel that lifts off the shell rather than replacing it.
+///
+/// The reference has eight of these (`DesktopNavigation.swift:100-123`); Doni has the one the sidebar's
+/// footer opens, because the rest — sleep timer, song recognition, listen-together — are things this app
+/// does not do.
+enum DesktopSheet: Identifiable {
+    case account
+
+    var id: String {
+        switch self {
+        case .account: "account"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class DesktopUIState {
@@ -98,6 +117,7 @@ final class DesktopUIState {
     }
     var path: [DesktopRoute] = []
     var inspector: DesktopInspector?
+    var sheet: DesktopSheet?
     private(set) var retainedInspector: DesktopInspector = .lyrics
     var isNowPlayingPresented = false
 

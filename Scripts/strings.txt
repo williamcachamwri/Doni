@@ -371,3 +371,28 @@ Gần đây|最近|Recientes|Недавние|Récents|الأخيرة
 Hàng đợi|播放队列|Cola|Очередь|File d'attente|قائمة الانتظار
 Chưa đăng nhập|尚未登录|Sin sesión|Нет входа|Non connecté|لم يتم تسجيل الدخول
 Chưa phát bài nào.|未播放任何歌曲。|No suena ninguna canción.|Сейчас ничего не играет.|Aucun titre en lecture.|لا تُشغَّل أي أغنية.
+# Rows the desktop shell says: its two menus, the sidebar footer, the account panel, the launch
+# questions and the row counts the placeholder panes print.
+Điều khiển|控制|Controles|Управление|Commandes|التحكّم
+Điều hướng|导航|Navegación|Навигация|Navigation|التنقل
+Phát / Tạm dừng|播放 / 暂停|Reproducir / Pausar|Воспроизведение / Пауза|Lecture / Pause|تشغيل / إيقاف مؤقت
+Lặp lại|循环播放|Repetir|Повтор|Répéter|التكرار
+Đang đăng nhập…|正在登录…|Iniciando sesión…|Вход…|Connexion…|جارٍ تسجيل الدخول…
+Đang tải bài hát…|正在加载歌曲…|Cargando la canción…|Загрузка трека…|Chargement du titre…|جارٍ تحميل الأغنية…
+Kênh trong clipboard|剪贴板中的频道|Canal en el portapapeles|Канал в буфере обмена|Chaîne dans le presse-papiers|قناة في الحافظة
+Thấy %@ trong clipboard. Thêm vào thư viện?|在剪贴板中发现 %@。要加入资料库吗？|Se ha encontrado %@ en el portapapeles. ¿Añadir a la biblioteca?|В буфере обмена найден %@. Добавить в библиотеку?|%@ a été trouvé dans le presse-papiers. Ajouter à la bibliothèque ?|وُجدت %@ في الحافظة. هل تريد إضافتها إلى المكتبة؟
+Thêm kênh|添加频道|Añadir canal|Добавить канал|Ajouter une chaîne|إضافة قناة
+Bỏ qua|忽略|Omitir|Пропустить|Ignorer|تجاهل
+Không thêm được kênh|无法添加频道|No se pudo añadir el canal|Не удалось добавить канал|Impossible d’ajouter la chaîne|تعذّرت إضافة القناة
+Bài|歌曲|Canciones|Треки|Titres|الأغاني
+%@ kênh|%@ 频道|%@ canales|%@ каналов|%@ chaînes|%@ قنوات
+%@ danh sách|%@ 歌单|%@ listas|%@ плейлистов|%@ listes|%@ قوائم
+%@ bài trên máy|%@ 首已下载到本机|%@ canciones en el dispositivo|%@ треков на устройстве|%@ titres sur l’appareil|%@ أغاني على الجهاز
+Chưa có danh sách bài ở trang này.|此页面还没有歌曲列表。|Esta página todavía no tiene lista de canciones.|На этой странице пока нет списка треков.|Cette page n’a pas encore de liste de titres.|لا تحتوي هذه الصفحة على قائمة أغاني بعد.
+# The desktop's delivery lines: the phone names the recipient in the same sentence, so these are
+# separate keys, and two of them — the flash-call pattern and the missed call — only the desktop spells.
+Nhập từ bắt đầu bằng “%@” mà chúng tôi đã gửi.|输入我们以“%@”开头发送的词。|Introduce la palabra que empieza por «%@» que enviamos.|Введите слово, начинающееся с «%@», которое мы отправили.|Saisissez le mot commençant par « %@ » que nous avons envoyé.|أدخل الكلمة التي تبدأ بـ «%@» وأرسلناها.
+Nhập câu bắt đầu bằng “%@” mà chúng tôi đã gửi.|输入我们以“%@”开头发送的句子。|Introduce la frase que empieza por «%@» que enviamos.|Введите фразу, начинающуюся с «%@», которую мы отправили.|Saisissez la phrase commençant par « %@ » que nous avons envoyée.|أدخل الجملة التي تبدأ بـ «%@» وأرسلناها.
+Chúng tôi đã gửi mã %@ chữ số.|我们已发送 %@ 位验证码。|Enviamos un código de %@ dígitos.|Мы отправили код из %@ цифр.|Nous avons envoyé un code de %@ chiffres.|أرسلنا رمزًا من %@ رقمًا.
+Chúng tôi sẽ gọi và đọc mã theo dạng %@.|我们将致电并按 %@ 的形式播报验证码。|Llamaremos y leeremos el código con el formato %@.|Мы позвоним и продиктуем код в форме %@.|Nous appellerons et dicterons le code sous la forme %@.|سنتصل ونقرأ الرمز بالصيغة %@.
+Cuộc gọi nhỡ %@ và %@ số cuối.|未接来电 %@，末尾 %@ 位数字。|Llamada perdida: %@ y los %@ últimos dígitos.|Пропущенный звонок: %@ и последние %@ цифр.|Appel manquant : %@ et les %@ derniers chiffres.|مكالمة غير مجواب عليها: %@ وآخر %@ أرقام.
