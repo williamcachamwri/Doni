@@ -482,3 +482,9 @@ Khôi phục cài đặt…|恢复默认设置…|Restablecer valores…|Вос�
 Khôi phục cài đặt?|恢复默认设置？|¿Restablecer los valores?|Восстановить настройки?|Rétablir les réglages ?|هل تُستعاد الإعدادات؟
 Khôi phục|恢复|Restablecer|Восстановить|Rétablir|استعادة
 Lời bài hát và tuỳ chọn kiểm tra cập nhật trở lại như lúc mới cài. Ngôn ngữ giữ nguyên vì nó chỉ đổi được khi mở lại app.|歌词和更新检查选项恢复为初始设置。语言保持不变，因为它只有在重新启动应用后才会更改。|Las letras y la comprobación de actualizaciones vuelven a su estado inicial. El idioma no cambia, porque solo se aplica al reiniciar.|Тексты песен и проверка обновлений вернутся к исходным. Язык не меняется — он действует только после перезапуска.|Les paroles et la vérification des mises à jour reviendront à leur état initial. La langue ne change pas, car elle ne s'applique qu'au redémarrage.|تعود الكلمات وفحص التحديثات إلى حالتهما الأصلية. اللغة لا تتغير لأنها تُطبَّق عند إعادة التشغيل فقط.
+
+# The settings cards: their titles, the close pill, and the language note.
+Hoàn tất|完成|Listo|Готово|Terminer|تم
+Thư viện nhạc|音乐库|Biblioteca musical|Музыкальная библиотека|Bibliothèque musicale|المكتبة الموسيقية
+Đổi ngôn ngữ có hiệu lực khi mở lại Doni.|更改语言需要在重新启动 Doni 后生效。|El cambio de idioma se aplica al reiniciar Doni.|Смена языка действует после перезапуска Doni.|Le changement de langue s’applique au redémarrage de Doni.|يتطلّب تغيير اللغة إعادة تشغيل Doni.
+Bản dựng %@|构建版本 %@|Compilación %@|Сборка %@|Version de build %@|إصدار البناء %@
