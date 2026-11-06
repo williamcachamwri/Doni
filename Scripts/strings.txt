@@ -497,3 +497,5 @@ Tab ở thanh dưới|标签栏项目|Pestañas de la barra|Вкладки на 
 Phạm vi|范围|Ámbito|Область|Portée|النطاق
 Phần thư viện|库分区|Sección de la biblioteca|Раздел библиотеки|Section de la bibliothèque|قسم المكتبة
 Tìm bài của kênh|搜索频道歌曲|Buscar canciones del canal|Поиск песен канала|Rechercher les titres du canal|ابحث عن أغاني القناة
+Giới thiệu về Doni|关于 Doni|Acerca de Doni|О Doni|À propos de Doni|عن Doni
+Gợi ý phổ biến|热门推荐|Recomendaciones populares|Популярные рекомендации|Recommandations populaires|توصيات شائعة
