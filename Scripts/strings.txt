@@ -447,3 +447,26 @@ Những bài bạn đã giữ|你保存的歌曲|Las canciones que guardaste|П�
 Nhạc bạn tự đưa lên Telegram|你上传到 Telegram 的音乐|Música que subiste a Telegram|Музыка, которую вы загрузили в Telegram|Musique que vous avez téléversée sur Telegram|موسيقى رفعتها إلى تيليجرام
 Từ các kênh Telegram|来自 Telegram 频道|De canales de Telegram|Из каналов Telegram|Des chaînes Telegram|من قنوات تيليجرام
 Do bạn xếp|由你整理|Organizada por ti|Собраны вами|Organisée par vous|من ترتيبك
+
+# The desktop settings window: its four tabs, the language restart, and the words' time offset.
+0 giây|0 秒|0 s|0 с|0 s|0 ثانية
++%@ giây|+%@ 秒|+%@ s|+%@ с|+%@ s|+%@ ثانية
+-%@ giây|-%@ 秒|-%@ s|-%@ с|-%@ s|-%@ ثانية
+Bản dựng|构建版本|Compilación|Сборка|Numéro de build|إصدار البناء
+Bỏ một kênh khỏi danh sách ngừng đưa bài của nó vào thư viện; nhạc đã tải vẫn còn trên máy.|将频道移出列表会停止把它的歌曲加入资料库；已下载的音乐仍留在设备上。|Quitar un canal de la lista deja de añadir sus canciones a la biblioteca; la música descargada se mantiene.|Удаление канала из списка прекращает добавление его песен в библиотеку; загруженная музыка останется на устройстве.|Retirer un canal de la liste cesse d’ajouter ses titres à la bibliothèque ; la musique téléchargée reste sur l’appareil.|إزالة قناة من القائمة توقف إضافة أغانيها إلى المكتبة؛ الموسيقى المحمّلة تبقى على الجهاز.
+Chi tiết|详情|Detalles|Подробнее|Détails|التفاصيل
+Hiện lời không có thời gian|显示无时间轴歌词|Mostrar letras sin tiempo|Показывать текст без тайминга|Afficher les paroles sans minutage|إظهار الكلمات بدون توقيت
+Khởi động|启动|Inicio|Запуск|Démarrage|التشغيل
+Kiểm tra cập nhật khi mở app|打开应用时检查更新|Comprobar actualizaciones al abrir|Проверять обновления при запуске|Vérifier les mises à jour au lancement|فحص التحديثات عند فتح التطبيق
+Kiểm tra cập nhật ngay|立即检查更新|Comprobar ahora|Проверить сейчас|Vérifier maintenant|افحص التحديثات الآن
+Lệch thời gian|时间偏移|Desfase de tiempo|Смещение времени|Décalage temporel|إزاحة الوقت
+Mở lại Doni?|重新启动 Doni？|¿Reiniciar Doni?|Перезапустить Doni?|Relancer Doni ?|إعادة تشغيل Doni؟
+Nguồn|来源|Fuente|Источник|Source|المصدر
+Ngôn ngữ mới hiện ra từ lần mở kế tiếp.|新语言将在下次启动时生效。|El idioma nuevo se aplicará al reiniciar.|Новый язык появится после перезапуска.|La nouvelle langue s’affichera au prochain lancement.|ستظهر اللغة الجديدة عند إعادة التشغيل التالية.
+Thời gian|时间|Tiempo|Время|Temps|الوقت
+Tài khoản|账户|Cuenta|Аккаунт|Compte|الحساب
+Tải lời từ mạng|从网络获取歌词|Descargar letras por red|Загружать текст из сети|Télécharger les paroles en ligne|تنزيل الكلمات من الشبكة
+Tắt thì Doni chỉ hiện lời đã có trên máy.|关闭后 Doni 只显示设备上已有的歌词。|Si lo desactivas, Doni solo mostrará las letras que ya estén en el dispositivo.|Если выключить, Doni покажет только текст, уже сохранённый на устройстве.|Sinon, Doni n’affiche que les paroles déjà présentes sur l’appareil.|عند الإيقاف لن يعرض Doni إلا الكلمات الموجودة على الجهاز.
+Tổng|总计|Total|Всего|Total|الإجمالي
+Với một bản lời được canh theo một bản thu khác.|用于歌词是按另一个录音对齐的情况。|Para cuando las letras están sincronizadas con otra grabación.|Если текст синхронизирован с другой записью.|Si les paroles sont calées sur un autre enregistrement.|إذا كانت الكلمات محاذاة مع تسجيل آخر.
+Đặt lại 0 giây|重置为 0 秒|Restablecer a 0 s|Сбросить до 0 с|Réinitialiser à 0 s|إعادة الضبط إلى 0 ثانية

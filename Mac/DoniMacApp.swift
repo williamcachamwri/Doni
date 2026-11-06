@@ -51,5 +51,18 @@ struct DoniMacApp: App {
         .commands {
             DesktopCommands(model: model)
         }
+
+        // ⌘, is the system's own way into this, and the reference takes it the same way
+        // (`MeloXDesktopApp.swift:88-94`): a `Settings` scene rather than a pane in the main window, so
+        // the window the listener is looking at does not change shape while they decide a language.
+        Settings {
+            DesktopSettingsView()
+                .environment(model)
+                .environmentObject(model.session)
+                .environmentObject(model.library)
+                .environmentObject(model.indexer)
+                .environmentObject(model.artwork)
+        }
+        .windowResizability(.contentSize)
     }
 }

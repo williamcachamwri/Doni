@@ -128,7 +128,7 @@ struct DesktopSidebarAccountFooter: View {
             model.ui.sheet = .account
         } label: {
             HStack(spacing: 9) {
-                avatar
+                DesktopAccountMark(size: 30)
 
                 name
                     .font(.system(size: 13.5, weight: .semibold))
@@ -141,26 +141,6 @@ struct DesktopSidebarAccountFooter: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
         .frame(height: 50)
-    }
-
-    @ViewBuilder private var avatar: some View {
-        if let photo = session.accountPhoto {
-            Image(doni: photo)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 30, height: 30)
-                .clipShape(Circle())
-        } else {
-            // An account with no picture still has a first letter, and a letter is a better placeholder
-            // than a note glyph: this row is a person, not a song.
-            ZStack {
-                Circle().fill(MusicTint.accent.gradient)
-                Text(session.account?.name.first.map { String($0).uppercased() } ?? "?")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 30, height: 30)
-        }
     }
 
     private var name: Text {

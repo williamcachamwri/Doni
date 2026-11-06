@@ -76,3 +76,34 @@ enum StorageTally {
         }
     }
 }
+
+/// The two things the screen will throw away, and what each one says before it is allowed to.
+enum StorageCleanup: String, CaseIterable, Identifiable {
+    case pictures
+    case downloads
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .pictures: return "Xoá cache ảnh?"
+        case .downloads: return "Xoá nhạc Telegram đã tải?"
+        }
+    }
+
+    var confirmTitle: String {
+        switch self {
+        case .pictures: return "Xoá cache"
+        case .downloads: return "Xoá hết nhạc"
+        }
+    }
+
+    var confirmMessage: String {
+        switch self {
+        case .pictures:
+            return "Doni sẽ tải lại ảnh bìa và ảnh kênh khi cần. Ảnh bạn tự chọn cho một danh sách không nằm trong số này."
+        case .downloads:
+            return "Nhạc tải từ Telegram về máy sẽ bị xoá. Danh sách và bài yêu thích vẫn còn, và bài nào cũng tải lại được. File bạn thêm vào ở Cloud Music không bị đụng tới."
+        }
+    }
+}

@@ -181,6 +181,9 @@ RENDER_ALLOWLIST = {
     # The bar's panel buttons are handed their word already resolved, so the label must not look it up
     # a second time.
     "DesktopBottomPlayer.swift": ["Text(title)"],
+    # The settings window's offset line is built through `localized(_:)`, and a language's name is
+    # written in its own script on purpose — `Español` in a Spanish catalog is still `Español`.
+    "DesktopSettingsView.swift": ["Text(offsetLine)", "Text(option.nativeName)"],
 }
 
 

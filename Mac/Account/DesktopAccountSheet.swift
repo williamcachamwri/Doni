@@ -2,6 +2,33 @@ import Support
 import SwiftUI
 import TelegramDesignSystem
 
+/// The account's own mark, at whatever size a surface draws it: the Telegram picture when there is one,
+/// the name's first letter when there is not — a person, not a song, so no note glyph and no gradient
+/// square. The sidebar's footer, this sheet and the settings window all wear this one thing.
+struct DesktopAccountMark: View {
+    @EnvironmentObject private var session: TelegramSession
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let photo = session.accountPhoto {
+                Image(doni: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(Circle())
+            } else {
+                ZStack {
+                    Circle().fill(MusicTint.accent.gradient)
+                    Text(session.account?.name.first.map { String($0).uppercased() } ?? "?")
+                        .font(.system(size: max(11, size * 0.45), weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 /// The panel the sidebar's footer opens — the reference's account sheet (`DesktopSidebar.swift:145-147`
 /// opens `DesktopAccountView`), in the size and with the facts this app actually has: whose Telegram it
 /// is, how much of it Doni has read, and the one button that gives all of it back.
@@ -15,8 +42,7 @@ struct DesktopAccountSheet: View {
     var body: some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
-                avatar
-                    .frame(width: 52, height: 52)
+                DesktopAccountMark(size: 52)
 
                 VStack(alignment: .leading, spacing: 3) {
                     name
@@ -55,22 +81,6 @@ struct DesktopAccountSheet: View {
             Button("Huỷ", role: .cancel) {}
         } message: {
             Text("Toàn bộ thư viện, danh sách phát, nhạc đã tải về máy và cache ảnh bìa sẽ bị xoá. Phiên đăng nhập sẽ bị đóng.")
-        }
-    }
-
-    @ViewBuilder private var avatar: some View {
-        if let photo = session.accountPhoto {
-            Image(doni: photo)
-                .resizable()
-                .scaledToFill()
-                .clipShape(Circle())
-        } else {
-            ZStack {
-                Circle().fill(MusicTint.accent.gradient)
-                Text(session.account?.name.first.map { String($0).uppercased() } ?? "?")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(.white)
-            }
         }
     }
 
