@@ -278,6 +278,16 @@ final class TelegramSession: ObservableObject {
         })
     }
 
+    /// The quit path, and the only reason it is not just `close()`: the process is about to run its
+    /// destructors, so the receive loop has to be *out* of TDLib rather than merely told to leave.
+    /// Everything else the session owns can die with the process; a thread reading freed C++ memory
+    /// cannot.
+    func shutdown() {
+        client?.closeAndJoin()
+        client = nil
+        flow = nil
+    }
+
     private func run(
         _ action: @escaping @Sendable (TdLoginFlow) async throws -> Void,
         onSucceed then: (() -> Void)? = nil,

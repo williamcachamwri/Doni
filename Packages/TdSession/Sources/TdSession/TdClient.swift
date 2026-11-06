@@ -158,6 +158,21 @@ public final class TdClient: @unchecked Sendable {
         deleteYield.finish()
     }
 
+    /// Closes the instance and waits until the receive loop is out of TDLib.
+    ///
+    /// A process that starts running its global destructors while a thread is still inside
+    /// `td_json_client_receive` dies of it: the C++ objects that call reads are torn down underneath the
+    /// reader. A phone never sees this, because an iOS app is killed rather than exited — a Mac answers
+    /// ⌘Q with `exit()`, and `terminate:` does not wait for anybody.
+    ///
+    /// `sync` on the loop's own queue is the join: the queue is busy until the loop's closure returns,
+    /// and the loop returns on the next turn of its condition, which the 0.3-second receive timeout
+    /// bounds.
+    public func closeAndJoin() {
+        close()
+        receiveQueue.sync {}
+    }
+
     private func nextExtra() -> String {
         lock.lock()
         defer { lock.unlock() }

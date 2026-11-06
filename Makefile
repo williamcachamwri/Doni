@@ -42,6 +42,22 @@ mac: project ## Compile the macOS target under the same warning-free gate
 		-destination 'platform=macOS,arch=arm64' \
 		CODE_SIGNING_ALLOWED=NO build
 
+# Where the build above actually put the bundle, asked of the same settings the compiler used rather
+# than guessed at: DerivedData is per-clone.
+MAC_APP = $(shell xcodebuild -project $(XCODEPROJ) -scheme DoniMac -showBuildSettings 2>/dev/null \
+	| awk '/ TARGET_BUILD_DIR =/{d=$$3} / WRAPPER_NAME =/{n=$$3} END{print d "/" n}')
+
+# arm64 macOS will not run a binary with no signature at all, so a local install is ad-hoc signed
+# (`--sign -`) instead of waiting on a developer team. rsync --delete is scoped inside the bundle, so a
+# file the old build left behind cannot survive into the new one.
+mac-install: mac ## Ad-hoc sign the desktop app, put it in ~/Applications and open it
+	@test -n "$(MAC_APP)" || { echo "could not find the DoniMac build product"; exit 1; }
+	@codesign --force --deep --sign - "$(MAC_APP)"
+	@mkdir -p "$(HOME)/Applications/DoniMac.app"
+	@rsync -a --delete "$(MAC_APP)/" "$(HOME)/Applications/DoniMac.app/"
+	@open "$(HOME)/Applications/DoniMac.app"
+	@echo ">> opened ~/Applications/DoniMac.app"
+
 device: project ## Compile signed for real hardware with your free personal team
 	xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Debug \
 		-sdk iphoneos -destination 'generic/platform=iOS' \

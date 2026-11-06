@@ -11,6 +11,13 @@ import AppKit
 final class DesktopAppDelegate: NSObject, NSApplicationDelegate {
     let model = DesktopAppModel()
 
+    /// ⌘Q goes straight from `terminate:` to `exit()`, and `exit()` runs the C++ destructors that the
+    /// TDLib receive thread is still reading through — which is a `SIGSEGV` on the way out, not a clean
+    /// quit. The client has to be closed *and joined* before the process starts leaving.
+    func applicationWillTerminate(_ notification: Notification) {
+        model.session.shutdown()
+    }
+
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let playing = model.player.current != nil
         let favourited = model.player.current.map { model.library.isFavorite($0.uniqueId) } == true
