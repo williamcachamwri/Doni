@@ -6,6 +6,10 @@ options:
     # `.tabViewBottomAccessory`, `GlassEffectContainer`, `.buttonStyle(.glass)`, zoom
     # transitions. None of it exists before iOS 26, and the device this runs on is iOS 27.
     iOS: "26.0"
+    # The Mac target's floor is the one every Swift package already declares, so no
+    # package has to be widened to link it and none can be built for a system that
+    # cannot run it.
+    macOS: "14.0"
   createIntermediateGroups: true
   developmentLanguage: vi
   generationTag: M0
@@ -88,10 +92,50 @@ targets:
       - package: TdSession
       - package: TdBridge
 
+  # The Mac app. It is a second target rather than a Catalyst setting because
+  # Catalyst still has no AVAudioSession and would keep the iPhone's chrome; and
+  # its sources are `Mac/` only, not `App/` and `UI/`, because the iOS wiring is
+  # the part that cannot cross. The core it is built on — the store, the streaming
+  # policy, the resource loader, TDLib — is the same code the phone runs, reached
+  # through the packages below.
+  DoniMac:
+    type: application
+    platform: macOS
+    sources:
+      - Mac
+    info:
+      path: Mac/Info.plist
+      properties:
+        CFBundleDisplayName: Doni
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundlePackageType: APPL
+        LSApplicationCategoryType: public.app-category.music
+        # MTProto identifies the application, not the user, so the same two values
+        # the phone build reads come from the same gitignored xcconfig.
+        TDLibApiId: $(TDLIB_API_ID)
+        TDLibApiHash: $(TDLIB_API_HASH)
+    settings:
+      base:
+        # A separate identifier on purpose: two apps with one bundle id would share
+        # one Keychain item and one TDLib directory on the same machine.
+        PRODUCT_BUNDLE_IDENTIFIER: local.doni.mac
+    dependencies:
+      - package: Support
+      - package: TelegramDesignSystem
+      - package: TdSession
+      - package: TdBridge
+
 schemes:
   Doni:
     build:
       targets:
         Doni: all
+    run:
+      config: Debug
+  DoniMac:
+    build:
+      targets:
+        DoniMac: all
     run:
       config: Debug

@@ -37,6 +37,11 @@ build: project ## Compile for iOS; the build is a warning-free gate
 		-sdk iphoneos -destination 'generic/platform=iOS' \
 		CODE_SIGNING_ALLOWED=NO build
 
+mac: project ## Compile the macOS target under the same warning-free gate
+	xcodebuild -project $(XCODEPROJ) -scheme DoniMac -configuration Debug \
+		-destination 'platform=macOS,arch=arm64' \
+		CODE_SIGNING_ALLOWED=NO build
+
 device: project ## Compile signed for real hardware with your free personal team
 	xcodebuild -project $(XCODEPROJ) -scheme $(SCHEME) -configuration Debug \
 		-sdk iphoneos -destination 'generic/platform=iOS' \
