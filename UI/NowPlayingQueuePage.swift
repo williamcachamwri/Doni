@@ -18,10 +18,6 @@ struct NowPlayingQueuePage: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// How far the list has taken the header up, clamped to the header's own height so it stops at
-    /// the top rather than sliding out of the mask.
-    @State private var scrollOffset: CGFloat = 0
-
     private let headerHeight = MusicNowPlayingMetrics.songHeaderHeight
 
     var body: some View {
@@ -78,19 +74,12 @@ struct NowPlayingQueuePage: View {
             ModePills(player: player)
                 .padding(.vertical, MusicQueueMetrics.pillRowPadding)
                 .frame(height: MusicQueueMetrics.pillRowHeight)
-                .offset(y: pillsOffset)
+                .offset(y: headerHeight)
         }
         .overlay(alignment: .top) {
             QueueSongHeader(track: track, player: player, artwork: artwork, library: library)
-                .offset(y: -scrollOffset)
-                .clipped()
         }
         .padding(.bottom, MusicNowPlayingMetrics.coreHeight)
-        .onScrollGeometryChange(for: CGFloat.self) { edge in
-            min(max(edge.contentOffset.y + edge.contentInsets.top, 0), headerHeight)
-        } action: { _, offset in
-            scrollOffset = offset
-        }
     }
 
     /// The queue's tail — MeloX's `unplayedQueueIndices` (`PlayerStore.swift:89`), which is
@@ -105,14 +94,8 @@ struct NowPlayingQueuePage: View {
         }
     }
 
-    /// The pills sit directly under the header while it is still on screen, and stop at the top
-    /// once it has gone (`:181-183`).
-    private var pillsOffset: CGFloat {
-        max(headerHeight - scrollOffset, 0)
-    }
-
     private var visibleTop: CGFloat {
-        pillsOffset + MusicQueueMetrics.pillRowHeight
+        headerHeight + MusicQueueMetrics.pillRowHeight + MusicQueueMetrics.pillRowPadding * 2
     }
 
     /// A drag on this page moves rows of the tail, so the offsets are lifted onto the whole queue
