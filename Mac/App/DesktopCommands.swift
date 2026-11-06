@@ -17,6 +17,14 @@ struct DesktopCommands: Commands {
     let model: DesktopAppModel
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            // The standard about panel says one fact — the version — while the settings panel's
+            // About card says every one of them, so the menu row leads there instead.
+            Button("Giới thiệu về Doni") {
+                model.ui.openSettingsAtAbout = true
+                model.ui.sheet = .settings
+            }
+        }
         DesktopSystemCommands()
         DesktopPlaybackCommands(model: model)
         DesktopNavigationCommands(model: model)

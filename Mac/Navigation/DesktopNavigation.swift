@@ -133,6 +133,9 @@ final class DesktopUIState {
     var path: [DesktopRoute] = []
     var inspector: DesktopInspector?
     var sheet: DesktopSheet?
+    /// Set by the menu's "Giới thiệu về Doni" so the settings sheet scrolls to its About card;
+    /// the sheet clears it the moment it has honoured it.
+    var openSettingsAtAbout = false
     /// Set by any ⋯ that offers "make a new list"; the shell owns the sheet it opens.
     var playlistTarget: DesktopPlaylistTarget?
     private(set) var retainedInspector: DesktopInspector = .lyrics

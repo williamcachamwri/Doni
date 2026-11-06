@@ -71,7 +71,7 @@ struct AboutView: View {
             }
 
             Section("Bản quyền") {
-                Text("© 2026 williamcachamwri")
+                Text(verbatim: AppAbout.copyright)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Button {
@@ -80,7 +80,7 @@ struct AboutView: View {
                     Label("Kho GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
                 Button {
-                    openURL(Self.telegramURL)
+                    openURL(AppAbout.telegramURL)
                 } label: {
                     HStack(spacing: 12) {
                         // Telegram's own mark, unmodified, from the icon file the project ships: the
@@ -92,7 +92,7 @@ struct AboutView: View {
                             .frame(width: 22, height: 22)
                             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                         LabeledContent("Telegram") {
-                            Text(verbatim: "@williamcachamwri")
+                            Text(verbatim: AppAbout.telegramHandle)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -122,8 +122,6 @@ struct AboutView: View {
         .navigationBarTitleDisplayMode(.inline)
         .updateAlert($alert)
     }
-
-    private static let telegramURL = URL(string: "https://t.me/w1lliamcachamwri")!
 
     private func check() {
         isChecking = true
@@ -175,26 +173,10 @@ struct ReleaseNotesView: View {
 /// several feed views came from GPLv3 MeloX; TDLib and OpenSSL are linked, Telegram-iOS was only
 /// measured, and the lyrics sources are web requests rather than code.
 struct LicensesView: View {
-    private struct Part: Identifiable {
-        let name: String
-        let licence: String
-        var id: String { name }
-    }
-
-    private let parts: [Part] = [
-        Part(name: "Doni", licence: "GPL-3.0"),
-        Part(name: "TDLib", licence: "Boost Software License 1.0"),
-        Part(name: "OpenSSL", licence: "Apache-2.0"),
-        Part(name: "SQLite", licence: "Public domain"),
-        Part(name: "MeloX", licence: "GPL-3.0"),
-        Part(name: "Telegram-iOS", licence: "GPL-2.0"),
-        Part(name: "lrclib · NetEase · AMLL · QQ Music", licence: "Web API"),
-    ]
-
     var body: some View {
         List {
             Section {
-                ForEach(parts) { part in
+                ForEach(AppAbout.licences) { part in
                     HStack(alignment: .firstTextBaseline) {
                         // Project names and their authors' licence strings are other people's
                         // words, not table keys.
@@ -212,23 +194,5 @@ struct LicensesView: View {
         }
         .navigationTitle("Dự án & Giấy phép")
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-
-/// The app's own mark: the home-screen icon, at whatever side a surface draws it.
-///
-/// The corner radius is 22.5 % of the side, which is the proportion of the iOS icon mask itself, so
-/// this tile and the real icon on the springboard are the same shape rather than two different ones.
-struct DoniLogo: View {
-    var side: CGFloat = 72
-
-    var body: some View {
-        Image("DoniMark")
-            .resizable()
-            .interpolation(.high)
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
-            .accessibilityLabel("Doni")
     }
 }
