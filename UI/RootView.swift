@@ -100,6 +100,15 @@ struct RootView: View {
             // holding the files the user brought: it needs the library, the player and the covers,
             // not the session or the walk. The account sits in the header's avatar instead
             // (`ContentView.swift:453-457`).
+            // The channels as their own door: the reference keeps the places the music comes from
+            // beside the lists the listener made, and a grid of pictures is how both are drawn.
+            Tab(LocalizedStringKey(DoniTab.channels.title), systemImage: DoniTab.channels.symbol,
+                value: DoniTab.channels) {
+                NavigationStack {
+                    ChannelsView(session: session, indexer: indexer, player: player,
+                                 artwork: artwork, library: library)
+                }
+            }
             Tab(LocalizedStringKey(DoniTab.cloud.title), systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
                 NavigationStack {
                     CloudMusicView(session: session, player: player, artwork: artwork, library: library)
@@ -122,13 +131,14 @@ struct RootView: View {
     }
 }
 
-/// The five tabs, named and dressed as the reference names them (`NavigationPreferences.swift:22-60`,
+/// The six tabs, named and dressed as the reference names them (`NavigationPreferences.swift:22-60`,
 /// `:16,:36,:56` for the cloud title and `icloud` glyph). One outline glyph each: the glass selection
 /// says which tab is current, so a filled variant would only fight it.
 enum DoniTab: String, CaseIterable, Identifiable {
     case home
     case likes
     case playlists
+    case channels
     case cloud
     case search
 
@@ -139,6 +149,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
         case .home: return "Trang chủ"
         case .likes: return "Yêu thích"
         case .playlists: return "Danh sách"
+        case .channels: return "Kênh"
         case .cloud: return "Cloud Music"
         case .search: return "Tìm kiếm"
         }
@@ -149,6 +160,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
         case .home: return "house"
         case .likes: return "heart"
         case .playlists: return "music.quarternote.3"
+        case .channels: return "antenna.radiowaves.left.and.right"
         case .cloud: return "icloud"
         case .search: return "magnifyingglass"
         }
