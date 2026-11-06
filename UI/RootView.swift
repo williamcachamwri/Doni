@@ -96,22 +96,22 @@ struct RootView: View {
                                   library: library)
                 }
             }
-            // The slot the reference gives its cloud drive (`Features/Cloud/CloudMusicView.swift`),
-            // holding the files the user brought: it needs the library, the player and the covers,
-            // not the session or the walk. The account sits in the header's avatar instead
-            // (`ContentView.swift:453-457`).
-            // The channels as their own door: the reference keeps the places the music comes from
-            // beside the lists the listener made, and a grid of pictures is how both are drawn.
-            Tab(LocalizedStringKey(DoniTab.channels.title), systemImage: DoniTab.channels.symbol,
-                value: DoniTab.channels) {
-                NavigationStack {
-                    ChannelsView(session: session, indexer: indexer, player: player,
-                                 artwork: artwork, library: library)
+            // The two doors that are not the listener's own music live behind "Thêm" unless they are
+            // lifted into the bar — which is what leaves room for the search circle to stand on its
+            // own, the way MeloX draws it (`ContentView.swift:371`, `:393`).
+            if let extra = DoniTabPlacement.barExtra {
+                Tab(LocalizedStringKey(extra.title), systemImage: extra.symbol, value: extra) {
+                    NavigationStack {
+                        extra.screen(session: session, indexer: indexer, player: player,
+                                     artwork: artwork, library: library)
+                    }
                 }
             }
-            Tab(LocalizedStringKey(DoniTab.cloud.title), systemImage: DoniTab.cloud.symbol, value: DoniTab.cloud) {
+            Tab(LocalizedStringKey(DoniTab.more.title), systemImage: DoniTab.more.symbol,
+                value: DoniTab.more) {
                 NavigationStack {
-                    CloudMusicView(session: session, player: player, artwork: artwork, library: library)
+                    MoreView(session: session, indexer: indexer, player: player,
+                             artwork: artwork, library: library)
                 }
             }
             // The reference's search tab: a `Tab` with the `.search` role whose content is a
@@ -140,6 +140,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
     case playlists
     case channels
     case cloud
+    case more
     case search
 
     var id: String { rawValue }
@@ -151,6 +152,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
         case .playlists: return "Danh sách"
         case .channels: return "Kênh"
         case .cloud: return "Cloud Music"
+        case .more: return "Thêm"
         case .search: return "Tìm kiếm"
         }
     }
@@ -162,6 +164,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
         case .playlists: return "music.quarternote.3"
         case .channels: return "antenna.radiowaves.left.and.right"
         case .cloud: return "icloud"
+        case .more: return "ellipsis"
         case .search: return "magnifyingglass"
         }
     }

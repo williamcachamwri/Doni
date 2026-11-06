@@ -29,6 +29,7 @@ struct SettingsView: View {
     @State private var showsStorage = false
     @State private var showsAbout = false
     @State private var language = DoniLanguage.current
+    @State private var barExtra = DoniTabPlacement.barExtra
     @Environment(\.dismiss) private var dismiss
     @State private var needsRestart = false
 
@@ -41,7 +42,11 @@ struct SettingsView: View {
                 }
 
                 if showsAppCard {
-                    card("Ứng dụng") { languageRow }
+                    card("Ứng dụng") {
+                        languageRow
+                        divider
+                        tabRow
+                    }
                 }
 
                 // The reference puts the version, the update check and the licences behind one row at
@@ -369,6 +374,37 @@ struct SettingsView: View {
                 content
             }
         }
+    }
+
+    /// Which of the two doors also stands in the bar. One slot, because a fifth tab would fold the
+    /// search circle back into an overflow of its own — and the search circle is what the reference
+    /// puts at the end of the bar.
+    private var tabRow: some View {
+        HStack(spacing: MusicSettingsMetrics.rowIconGap) {
+            Image(systemName: "square.on.square")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.tint)
+                .frame(width: MusicSettingsMetrics.rowIconWidth)
+            Text("Tab ở thanh dưới")
+                .font(.body.weight(.semibold))
+            Spacer(minLength: 8)
+            Picker("Tab ở thanh dưới", selection: $barExtra) {
+                Text("Không").tag(DoniTab?.none)
+                ForEach(DoniTabPlacement.choices, id: \.title) { choice in
+                    Text(LocalizedStringKey(choice.title)).tag(choice.tab as DoniTab?)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .tint(.secondary)
+            .onChange(of: barExtra) { _, chosen in
+                DoniTabPlacement.setBarExtra(chosen)
+            }
+        }
+        .padding(.horizontal, MusicSettingsMetrics.rowPaddingH)
+        .padding(.vertical, MusicSettingsMetrics.rowPaddingV)
+        .frame(minHeight: MusicSettingsMetrics.rowMinHeight)
+        .contentShape(.rect)
     }
 
     /// The language, chosen from the system's own menu — the glass popup a `Picker` gets on iOS 26, not

@@ -488,3 +488,7 @@ Hoàn tất|完成|Listo|Готово|Terminer|تم
 Thư viện nhạc|音乐库|Biblioteca musical|Музыкальная библиотека|Bibliothèque musicale|المكتبة الموسيقية
 Đổi ngôn ngữ có hiệu lực khi mở lại Doni.|更改语言需要在重新启动 Doni 后生效。|El cambio de idioma se aplica al reiniciar Doni.|Смена языка действует после перезапуска Doni.|Le changement de langue s’applique au redémarrage de Doni.|يتطلّب تغيير اللغة إعادة تشغيل Doni.
 Bản dựng %@|构建版本 %@|Compilación %@|Сборка %@|Version de build %@|إصدار البناء %@
+
+# The settings row that chooses which door also stands in the tab bar.
+Không|无|Ninguna|Нет|Aucune|لا شيء
+Tab ở thanh dưới|标签栏项目|Pestañas de la barra|Вкладки на панели|Onglets de la barre|تبويانات الشريط
