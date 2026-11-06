@@ -1,6 +1,6 @@
 import CoreText
 import SwiftUI
-import UIKit
+import Support
 
 private struct LyricTextHorizontalOffset: Hashable {
     let characterOffset: Int
@@ -358,9 +358,9 @@ enum TimedLyricTextBuilder {
             return []
         }
 
-        let uiFont = UIFont.systemFont(
+        let uiFont = DoniFont.systemFont(
             ofSize: fontSize,
-            weight: fontWeight.uiKitWeight
+            weight: fontWeight.doniWeight
         )
         let layoutFont = CTFontCreateWithName(
             uiFont.fontName as CFString,

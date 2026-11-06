@@ -1,4 +1,10 @@
+// The two activity item sources exist to answer `UIActivityViewController` per service — a subject
+// for mail, a plain string for messages, a preview for Link Presentation. The desktop's picker takes
+// plain items and derives its own previews, so on macOS there is nothing for these to be.
+#if os(iOS)
+
 import LinkPresentation
+import Support
 import UIKit
 
 final class LyricShareTextActivityItemSource: NSObject,
@@ -36,11 +42,11 @@ final class LyricShareURLActivityItemSource: NSObject,
     UIActivityItemSource
 {
     private let payload: LyricSharePayload
-    private let artwork: UIImage?
+    private let artwork: DoniImage?
 
     init(
         payload: LyricSharePayload,
-        artwork: UIImage?
+        artwork: DoniImage?
     ) {
         self.payload = payload
         self.artwork = artwork
@@ -108,3 +114,5 @@ private extension LyricSharePayload {
         return components.url
     }
 }
+
+#endif

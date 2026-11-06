@@ -1,10 +1,10 @@
 import LinkPresentation
-import UIKit
+import Support
 
 enum LyricShareMetadataFactory {
     static func makeMetadata(
         payload: LyricSharePayload,
-        artwork: UIImage?
+        artwork: DoniImage?
     ) -> LPLinkMetadata {
         let metadata = LPLinkMetadata()
         let firstLine = payload.lyrics.first?.text.trimmingCharacters(

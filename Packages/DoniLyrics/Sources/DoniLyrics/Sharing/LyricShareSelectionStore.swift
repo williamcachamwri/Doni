@@ -1,12 +1,12 @@
 import Observation
-import UIKit
+import Support
 
 @MainActor
 @Observable
 final class LyricShareSelectionStore {
     let presentation: LyricSharePresentation
     private(set) var selection: LyricsSelectionManager
-    var artwork: UIImage?
+    var artwork: DoniImage?
 
     init(presentation: LyricSharePresentation) {
         self.presentation = presentation

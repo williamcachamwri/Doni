@@ -54,3 +54,31 @@ import Foundation
         }
     }
 #endif
+
+/// The font the lyric renderer measures with, under the same rule as `DoniImage`: `UIFont` and `NSFont`
+/// answer `systemFont(ofSize:weight:)` and `preferredFont(forTextStyle:)` identically, and their `Weight`
+/// enums carry the same cases, so the renderer needs the name rather than a translation.
+///
+/// One difference worth knowing: `preferredFont(forTextStyle:)` follows Dynamic Type on the phone and is a
+/// fixed size on the desktop, which is the platform's answer, not a bug to paper over.
+#if canImport(UIKit)
+    public typealias DoniFont = UIFont
+#else
+    public typealias DoniFont = NSFont
+#endif
+
+public extension DoniFont {
+    /// The line height the lyric layout measures against.
+    ///
+    /// `UIFont` publishes it; `NSFont` does not, and its em box is `ascender - descender + leading`,
+    /// which is the same distance for the system faces these screens draw with. Named once here rather
+    /// than computed at each call site, because a lyric line placed a few points low is a visible defect
+    /// and a reader should not have to re-derive the metric to check it.
+    var doniLineHeight: CGFloat {
+        #if canImport(UIKit)
+        lineHeight
+        #else
+        ascender - descender + leading
+        #endif
+    }
+}

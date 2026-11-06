@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+import Support
 
 enum SynchronizedLyricTextAlignment: Equatable {
     case leading
@@ -147,8 +147,8 @@ struct SynchronizedLyricText: View {
         self.romanizationFontSize = supplementalTextProfile == nil
             ? romanizationFontSize
                 ?? max(fontSize * 0.55, 13 * fontScale)
-            : UIFont.systemFont(
-                ofSize: UIFont.preferredFont(
+            : DoniFont.systemFont(
+                ofSize: DoniFont.preferredFont(
                     forTextStyle: .title3
                 ).pointSize,
                 weight: .bold

@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+import Support
 
 struct LyricsShareExperienceView: View {
     @State private var store: LyricShareSelectionStore
@@ -26,7 +26,7 @@ struct LyricsShareExperienceView: View {
         }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            guard !Task.isCancelled, let image = UIImage(data: data) else { return }
+            guard !Task.isCancelled, let image = DoniImage(data: data) else { return }
             store.artwork = image
         } catch {
             return

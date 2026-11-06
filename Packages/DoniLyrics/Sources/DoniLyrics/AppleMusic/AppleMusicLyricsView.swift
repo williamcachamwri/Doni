@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+import Support
 
 public struct AppleMusicLyricsView: View {
     private typealias RetainedCascadeLyric =
@@ -271,14 +271,14 @@ public struct AppleMusicLyricsView: View {
                 appleMusicMotionProfile == nil
                     ? nil
                     : AppleMusicLyricsSupplementalTextProfile.iOS26_6
-            let title3Font = UIFont.systemFont(
-                ofSize: UIFont.preferredFont(
+            let title3Font = DoniFont.systemFont(
+                ofSize: DoniFont.preferredFont(
                     forTextStyle: .title3
                 ).pointSize,
                 weight: .bold
             )
-            let calloutFont = UIFont.systemFont(
-                ofSize: UIFont.preferredFont(
+            let calloutFont = DoniFont.systemFont(
+                ofSize: DoniFont.preferredFont(
                     forTextStyle: .callout
                 ).pointSize,
                 weight: .bold
@@ -296,7 +296,7 @@ public struct AppleMusicLyricsView: View {
             let romanizationHeight = showsRomanizations
                 ? supplementalTextProfile == nil
                     ? romanizationFontSize * 1.2
-                    : title3Font.lineHeight
+                    : title3Font.doniLineHeight
                 : 0
             let translationHeight = showsTranslations
                 ? supplementalTextProfile == nil
@@ -306,8 +306,8 @@ public struct AppleMusicLyricsView: View {
                             * 1.2
                     )
                     : showsRomanizations
-                        ? calloutFont.lineHeight
-                        : title3Font.lineHeight
+                        ? calloutFont.doniLineHeight
+                        : title3Font.doniLineHeight
                 : 0
             let annotationHeight =
                 romanizationHeight
@@ -1453,10 +1453,10 @@ public struct AppleMusicLyricsView: View {
             let focusedHeight = focusedID.flatMap {
                 lyricGeometryCache.frames[$0]?.height
                     ?? lyricGeometryCache.layoutHeights[$0]
-            } ?? UIFont.systemFont(
+            } ?? DoniFont.systemFont(
                 ofSize: CGFloat(resolvedLyricsFontSize),
-                weight: resolvedLyricsFontWeight.uiKitWeight
-            ).lineHeight
+                weight: resolvedLyricsFontWeight.doniWeight
+            ).doniLineHeight
             // Align the focused row's center with the artwork, as on desktop.
             return min(max(
                 (focusAnchorOffset - focusedHeight * 0.5)
@@ -1477,9 +1477,9 @@ public struct AppleMusicLyricsView: View {
         // from the complete lyrics viewport, then subtracts the lyric ascender.
         // SwiftUI's scrollPosition anchor aligns the same unit point in the
         // row and viewport, so solve that alignment for the row's top edge.
-        let font = UIFont.systemFont(
+        let font = DoniFont.systemFont(
             ofSize: CGFloat(resolvedLyricsFontSize),
-            weight: resolvedLyricsFontWeight.uiKitWeight
+            weight: resolvedLyricsFontWeight.doniWeight
         )
         let focusedID = requestedFocusLyricID
             ?? visualCascadeFocusLyricID
@@ -1487,7 +1487,7 @@ public struct AppleMusicLyricsView: View {
         let focusedHeight = focusedID.flatMap {
             lyricGeometryCache.frames[$0]?.height
                 ?? lyricGeometryCache.layoutHeights[$0]
-        } ?? font.lineHeight
+        } ?? font.doniLineHeight
         let targetTop = viewportHeight
             * CGFloat(profile.selectedLineTopRelativePercent / 100)
             - font.ascender
@@ -1639,7 +1639,7 @@ public struct AppleMusicLyricsView: View {
 
     private var lyricRomanizationFontSize: CGFloat {
         if settings.appleMusicLyricsMotionProfile != nil {
-            return UIFont.preferredFont(
+            return DoniFont.preferredFont(
                 forTextStyle: .title3
             ).pointSize
         }

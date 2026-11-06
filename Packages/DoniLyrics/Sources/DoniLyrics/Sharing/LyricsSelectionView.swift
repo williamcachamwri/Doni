@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+import Support
 
 struct LyricsSelectionView: View {
     @Environment(\.dismiss) private var dismiss
@@ -60,7 +60,7 @@ struct LyricsSelectionView: View {
         HStack(spacing: 12) {
             Group {
                 if let artwork = store.artwork {
-                    Image(uiImage: artwork)
+                    Image(doni: artwork)
                         .resizable()
                         .scaledToFill()
                 } else {

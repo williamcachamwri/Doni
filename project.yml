@@ -6,10 +6,10 @@ options:
     # `.tabViewBottomAccessory`, `GlassEffectContainer`, `.buttonStyle(.glass)`, zoom
     # transitions. None of it exists before iOS 26, and the device this runs on is iOS 27.
     iOS: "26.0"
-    # The Mac target's floor is the one every Swift package already declares, so no
-    # package has to be widened to link it and none can be built for a system that
-    # cannot run it.
-    macOS: "14.0"
+    # The reference app's own desktop floor, and the one the lyrics renderer needs:
+    # `onScrollGeometryChange` and `ScrollPhase` are macOS 15. The vendored TDLib/OpenSSL stay built
+    # for 14, which costs nothing — a library's floor below the app's is simply a library that runs.
+    macOS: "15.0"
   createIntermediateGroups: true
   developmentLanguage: vi
   generationTag: M0
@@ -112,14 +112,8 @@ targets:
         excludes:
           - "Info.plist"
           - "Assets.xcassets"
+          # The other target's entry point; two `@main` in one binary is not a thing.
           - "DoniApp.swift"
-          # Not iOS-shaped, but it imports the DoniLyrics package, which still has
-          # 12 files importing UIKit. It comes back with that seam, not before it.
-          - "Lyrics.swift"
-          - "Player.swift"
-          # Codable, and it names `Player.RepeatMode` — so it crosses in the same step Player does,
-          # not before it.
-          - "PlaybackSnapshot.swift"
     info:
       path: Mac/Info.plist
       properties:
@@ -140,6 +134,7 @@ targets:
     dependencies:
       - package: Support
       - package: TelegramDesignSystem
+      - package: DoniLyrics
       - package: TdSession
       - package: TdBridge
 

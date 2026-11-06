@@ -8,7 +8,7 @@ import PackageDescription
 // package is the one place the copied lines can be left exactly as they were found.
 let package = Package(
     name: "DoniLyrics",
-    platforms: [.iOS(.v26), .macOS(.v14)],
+    platforms: [.iOS(.v26), .macOS(.v15)],
     products: [
         .library(name: "DoniLyrics", targets: ["DoniLyrics"])
     ],

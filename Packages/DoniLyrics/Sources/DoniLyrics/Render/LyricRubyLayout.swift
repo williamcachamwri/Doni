@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+import Support
 
 /// Moves a transliteration run to its mapped logical position without
 /// introducing placeholder whitespace into the attributed string.
@@ -82,13 +82,13 @@ enum LyricRubyLayoutPlanner {
             return cachedPlan
         }
 
-        let originalFont = UIFont.systemFont(
+        let originalFont = DoniFont.systemFont(
             ofSize: fontSize,
-            weight: primaryFontWeight.uiKitWeight
+            weight: primaryFontWeight.doniWeight
         )
-        let romanizationFont = UIFont.systemFont(
+        let romanizationFont = DoniFont.systemFont(
             ofSize: romanizationFontSize,
-            weight: romanizationFontWeight.uiKitWeight
+            weight: romanizationFontWeight.doniWeight
         )
         let measuredUnits = units.map { unit in
             MeasuredUnit(
@@ -172,7 +172,7 @@ enum LyricRubyLayoutPlanner {
 
     private static func measuredWidth(
         _ text: String,
-        font: UIFont
+        font: DoniFont
     ) -> CGFloat {
         guard !text.isEmpty else { return 0 }
         return max(
@@ -344,7 +344,7 @@ private final class LyricRubyStringWidthCache {
 
     func width(
         for text: String,
-        font: UIFont
+        font: DoniFont
     ) -> CGFloat {
         let key = Key(
             text: text,

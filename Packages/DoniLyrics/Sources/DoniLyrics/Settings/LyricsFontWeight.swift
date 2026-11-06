@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+import Support
 
 enum LyricsFontWeight: String, CaseIterable, Identifiable {
     case light
@@ -33,7 +33,7 @@ enum LyricsFontWeight: String, CaseIterable, Identifiable {
         }
     }
 
-    var uiKitWeight: UIFont.Weight {
+    var doniWeight: DoniFont.Weight {
         switch self {
         case .light: .light
         case .regular: .regular
