@@ -117,7 +117,8 @@ targets:
           # 12 files importing UIKit. It comes back with that seam, not before it.
           - "Lyrics.swift"
           - "Player.swift"
-          - "SongEngine.swift"
+          # Codable, and it names `Player.RepeatMode` — so it crosses in the same step Player does,
+          # not before it.
           - "PlaybackSnapshot.swift"
     info:
       path: Mac/Info.plist

@@ -2,7 +2,6 @@ import AVFoundation
 import Foundation
 import Support
 import TdSession
-import UIKit
 
 /// What `Player` actually does to the thing making noise, which is both of the two ways a song can reach
 /// an ear here. `AVAudioPlayer` opens a whole file — exact seeks, cheap start, a real `volume`; `AVPlayer`

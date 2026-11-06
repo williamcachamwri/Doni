@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Support
 import TdBridge
 import TdSession
 

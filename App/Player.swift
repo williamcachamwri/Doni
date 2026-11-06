@@ -5,7 +5,11 @@ import Support
 import SwiftUI
 import TelegramDesignSystem
 import TdSession
-import UIKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// The one thing that makes noise, over either of the two ways a song can reach an ear: `AVAudioPlayer`
 /// on a whole file the phone already has, where a segment favourite needs a seek that lands exactly, and
@@ -81,6 +85,11 @@ final class Player: ObservableObject {
     /// Whether sound was going when something else took the session. Only that question decides
     /// whether to give it back: a pause the user pressed themselves is not a pause to undo.
     private var wantsResumeAfterInterruption = false
+    #if os(macOS)
+    /// The device the current song was going to, or `nil` while nothing is playing. See
+    /// `watchOutputDevice`.
+    private var heldOutputDevice: AudioDeviceID?
+    #endif
     /// The lead-time fetch of the song queued behind this one, and the song it was started for; the
     /// id stops the quarter-second tick re-asking for the same file.
     private var prefetch: Task<Void, Never>?
@@ -95,7 +104,7 @@ final class Player: ObservableObject {
     /// lands.
     private var wantsPlayWhenReady = false
     /// The lock screen's cover, and the bitmap it was made from. See `artwork(for:)`.
-    private var artworkItem: (uniqueId: String, image: UIImage, item: MPMediaItemArtwork)?
+    private var artworkItem: (uniqueId: String, image: DoniImage, item: MPMediaItemArtwork)?
     /// Set once the session is authorized: a song is a `file_id` until TDLib puts it on the phone.
     private var downloader: TdFileDownloader?
     /// Where a file that has just landed is written down, so the row reads as downloaded next
@@ -119,9 +128,12 @@ final class Player: ObservableObject {
 
     init(library: Library = .shared) {
         self.library = library
+        #if os(iOS)
         // Background audio survives only with the `.playback` category set before the first file is
-        // opened; `UIBackgroundModes` lists `audio` for the same reason.
+        // opened; `UIBackgroundModes` lists `audio` for the same reason. The desktop has no session to
+        // declare, and its sound keeps playing while the app is hidden without one.
         try? AVAudioSession.sharedInstance().setCategory(.playback)
+        #endif
         let center = commands
         center.playCommand.addTarget { _ in
             Task { @MainActor in self.resume() }
@@ -163,25 +175,11 @@ final class Player: ObservableObject {
         // Held as properties rather than locals because an `AsyncStream` of notifications dies with
         // whoever is reading it.
         sessionObservers = [
-            Task { [weak self] in
-                for await note in NotificationCenter.default.notifications(
-                    named: AVAudioSession.interruptionNotification
-                ) {
-                    self?.handleInterruption(note.userInfo)
-                }
-            },
-            Task { [weak self] in
-                for await note in NotificationCenter.default.notifications(
-                    named: AVAudioSession.routeChangeNotification
-                ) {
-                    self?.handleRouteChange(note.userInfo)
-                }
-            },
             // Background audio keeps the sound going but not the run loop servicing timers, so the
             // clock stops mid-song; re-arming on every return is what makes the tick honest again.
             Task { [weak self] in
                 for await _ in NotificationCenter.default.notifications(
-                    named: UIApplication.didBecomeActiveNotification
+                    named: Self.didBecomeActiveNotification
                 ) {
                     self?.rewarmTicker()
                 }
@@ -195,9 +193,39 @@ final class Player: ObservableObject {
                 }
             },
         ]
+        #if os(iOS)
+        // The two session observers are the phone's, so they join the list rather than sit inside its
+        // literal — Swift does not allow a conditional branch in a container literal, and inventing an
+        // `else` for a notification the desktop cannot name would be worse than the two extra lines.
+        sessionObservers.append(Task { [weak self] in
+            for await note in NotificationCenter.default.notifications(
+                named: AVAudioSession.interruptionNotification
+            ) {
+                self?.handleInterruption(note.userInfo)
+            }
+        })
+        sessionObservers.append(Task { [weak self] in
+            for await note in NotificationCenter.default.notifications(
+                named: AVAudioSession.routeChangeNotification
+            ) {
+                self?.handleRouteChange(note.userInfo)
+            }
+        })
+        #endif
         network.start()
     }
 
+    /// The moment the user is looking at the app again. On the phone this is also the moment the clock
+    /// has to be re-armed after a background spell; the desktop's name for it is the same event.
+    private static var didBecomeActiveNotification: Notification.Name {
+        #if os(iOS)
+        UIApplication.didBecomeActiveNotification
+        #else
+        NSApplication.didBecomeActiveNotification
+        #endif
+    }
+
+    #if os(iOS)
     /// Something else took the audio session: a call, Siri, an alarm, another app's sound.
     ///
     /// `AVAudioPlayer` stops on its own and says nothing to the app, so the play glyph, the lock
@@ -232,6 +260,7 @@ final class Player: ObservableObject {
         else { return }
         pause()
     }
+    #endif
 
     /// Plays one track out of `list`, fetching its file first if the phone does not have it. The
     /// whole list becomes the queue, so next/previous walk the channel newest first.
@@ -393,9 +422,12 @@ final class Player: ObservableObject {
         wantsResumeAfterInterruption = false
         PlaybackPersistence.clear()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        #if os(iOS)
         // The engine went above, so this is when the session can be handed back: holding it after
-        // silence keeps every other app on the phone mute until this one is killed.
+        // silence keeps every other app on the phone mute until this one is killed. The desktop mixes
+        // every app's sound by default and has no session to give up.
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
     }
 
     func toggle() {
@@ -421,11 +453,13 @@ final class Player: ObservableObject {
             if isFetchingFile { wantsPlayWhenReady = true } else { startCurrent() }
             return
         }
+        #if os(iOS)
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             // A session that will not activate is not a reason to lose the row that is playing.
         }
+        #endif
         engine?.play()
         isBuffering = false
         // A play press is the listener saying the reason does not matter: the sentence goes, and the
@@ -885,6 +919,25 @@ final class Player: ObservableObject {
         ticker = timer
     }
 
+    #if os(macOS)
+    /// The song's output device going away is the one silence a listener did not ask for, and macOS
+    /// sends no notification about it — so the question is asked of Core Audio here, where the clock is
+    /// already being asked four times a second. A device that merely changed is not a reason to stop;
+    /// the one the song started on no longer existing is.
+    private func watchOutputDevice() {
+        guard isPlaying else { heldOutputDevice = nil; return }
+        if let held = heldOutputDevice {
+            if !OutputDeviceMonitor.isPresent(held) {
+                print("output device gone, pausing")
+                pause()
+                heldOutputDevice = nil
+            }
+            return
+        }
+        heldOutputDevice = OutputDeviceMonitor.current()
+    }
+    #endif
+
     /// Re-arming the clock after a background spell: the sound never stopped, so the timer has to be
     /// told where the song actually got to.
     private func rewarmTicker() {
@@ -909,6 +962,9 @@ final class Player: ObservableObject {
         // its rate at 1 and its position still, which is the false "still playing" this guards.
         if engine.isProducingSound { elapsed = engine.currentTime }
         watchStall(engine)
+        #if os(macOS)
+        watchOutputDevice()
+        #endif
         // A song waiting for bytes is neither paused nor playing, and the row and the transport
         // button have to say the same thing.
         let buffering = isPlaying && engine.isWaitingForData
@@ -1077,7 +1133,7 @@ final class Player: ObservableObject {
     /// (`_onQueue_pushNowPlayingInfoAndRetry:` → `jpegDataWithSize:`), so a closure carrying
     /// `@MainActor` trips `dispatch_assert_queue` and the process dies of a `SIGTRAP`. Only songs
     /// with an artwork can hit it.
-    private nonisolated static func mediaArtwork(_ image: UIImage) -> MPMediaItemArtwork {
+    private nonisolated static func mediaArtwork(_ image: DoniImage) -> MPMediaItemArtwork {
         MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 }
