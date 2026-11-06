@@ -7,7 +7,6 @@ final class DesktopPlayerToolbarController {
     private var windowUpdateObserver: NSObjectProtocol?
     private var isPlayerPresented = false
     private var isApplyingChange = false
-    private var contentExtendsUnderTitlebar = false
 
     func update(isPlayerPresented: Bool) {
         self.isPlayerPresented = isPlayerPresented
@@ -62,46 +61,20 @@ final class DesktopPlayerToolbarController {
         defer { isApplyingChange = false }
 
         let fullScreen = window.styleMask.contains(.fullScreen)
-        extendContentUnderTitlebar(window, presented: isPlayerPresented,
-                                   fullScreen: fullScreen)
+        // Re-applied on every window update, not only when the player toggles:
+        // entering or leaving full screen moves this lever while `isPlayerPresented`
+        // stays put, and a stale value is a black band over the player in full
+        // screen or flat paint over the traffic lights after exiting it.
+        let hidesToolbar = isPlayerPresented && fullScreen
+        if window.toolbar?.isVisible == hidesToolbar {
+            window.toolbar?.isVisible = !hidesToolbar
+        }
 
         if isPlayerPresented, fullScreen {
             makeToolbarWindowsTransparent(in: window)
         } else {
             restoreToolbarWindows()
         }
-    }
-
-    /// Doni's own, and the reason it is not in the file it was copied from: hiding the toolbar in real
-    /// full screen leaves its ~52 points *reserved*, so the player's backdrop began under a black band
-    /// across the top of the screen. `.fullSizeContentView` is what makes the content view the whole
-    /// screen, and a transparent titlebar stops AppKit drawing a bar over it. Both come back out again
-    /// the moment the player is dismissed or the window leaves full screen, because in an ordinary
-    /// window the content must not slide under the traffic lights.
-    /// Two different levers, for two different problems, and the last round confused them.
-    ///
-    /// Hiding the toolbar's *height* is only right in real full screen, where nothing lives in the
-    /// titlebar. In an ordinary window the player's own close button and volume slider are installed as
-    /// titlebar accessories — take the toolbar away and they go with it. What the windowed player
-    /// actually needs is the content to run up behind the titlebar, so the strip stops being a black
-    /// band and becomes the player's own artwork: `.fullSizeContentView` with a transparent titlebar
-    /// does that, and the accessories float over it the way they do in Apple Music.
-    private func extendContentUnderTitlebar(_ window: NSWindow, presented: Bool,
-                                            fullScreen: Bool) {
-        let immersive = presented
-        guard immersive != contentExtendsUnderTitlebar else { return }
-        contentExtendsUnderTitlebar = immersive
-        if immersive {
-            window.styleMask.insert(.fullSizeContentView)
-            window.titlebarAppearsTransparent = true
-            window.titlebarSeparatorStyle = .none
-            window.toolbar?.isVisible = !fullScreen
-            return
-        }
-        window.styleMask.remove(.fullSizeContentView)
-        window.titlebarAppearsTransparent = false
-        window.titlebarSeparatorStyle = .automatic
-        window.toolbar?.isVisible = true
     }
 
     private func makeToolbarWindowsTransparent(in window: NSWindow) {
