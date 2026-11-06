@@ -156,6 +156,8 @@ DATA_EXPRESSIONS = {
     # An alert's sentence is resolved when the alert is built (`UpdateAlert`), so this renders text
     # that has already been looked up; looking it up again would translate a translation.
     "shown.message",
+    # A line of a song's lyric: it came out of a file, and no table has a row for it.
+    "line.text",
 }
 
 
@@ -176,6 +178,9 @@ RENDER_ALLOWLIST = {
     # playlist's, a search's — so the render site must not look it up a second time.
     "DesktopTrackPane.swift": ["Text(title)"],
     "DesktopMediaCard.swift": ["Text(title)"],
+    # The bar's panel buttons are handed their word already resolved, so the label must not look it up
+    # a second time.
+    "DesktopBottomPlayer.swift": ["Text(title)"],
 }
 
 

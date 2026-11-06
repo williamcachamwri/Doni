@@ -86,10 +86,12 @@ struct DesktopRootView: View {
 /// leaves Home exactly where it was (`DesktopRootView.swift:246-253`).
 struct DesktopTabPage: View {
     @Environment(DesktopAppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let section: DesktopSection
 
     var body: some View {
         @Bindable var ui = model.ui
+        let isInspectorPresented = ui.inspector != nil
 
         let pageContent = NavigationStack(path: $ui.path) {
             DesktopSectionContentView(section: section)
@@ -101,13 +103,29 @@ struct DesktopTabPage: View {
         .toolbar(removing: .sidebarToggle)
         // A title is what tells a listener which of the eight columns they are looking at once the
         // sidebar has been scrolled out of the way.
-        .navigationTitle(localized(section.title))
+        .navigationTitle(Text(localized(section.title)))
 
         ZStack(alignment: .trailing) {
             pageContent
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     DesktopTabBottomPlayerInset()
                 }
+
+            // The panel slides in over the column rather than pushing it, because the window has
+            // already grown by its 258 points — `DesktopMainWindowConfiguration` does that first, which
+            // is what Apple Music does and why the rows never reflow (`DesktopRootView.swift:266-287`).
+            DesktopPlayerSidePanel(selection: ui.retainedInspector,
+                                   isPresented: isInspectorPresented)
+                .frame(width: DesktopMainWindowMetrics.playerSidePanelWidth)
+                .offset(x: isInspectorPresented
+                    ? 0
+                    : DesktopMainWindowMetrics.playerSidePanelWidth)
+                .opacity(isInspectorPresented ? 1 : 0)
+                .allowsHitTesting(isInspectorPresented)
+                .accessibilityHidden(!isInspectorPresented)
+                .zIndex(2)
+                .animation(reduceMotion ? nil : DesktopMainWindowMetrics.presentationAnimation,
+                           value: isInspectorPresented)
 
             // One bar for the whole app, drawn by the tab the listener is in — the reference's rule, and
             // the reason a hidden tab does not keep a second player tree alive.

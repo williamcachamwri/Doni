@@ -24,6 +24,9 @@ final class DesktopAppModel {
     /// desktop keeps the one, because the sidebar's footer and the pane have to agree about what is
     /// uploading.
     let cloud = CloudMusic()
+    /// The words for the song being played — the same singleton the phone's player writes the current
+    /// line into the lock screen from.
+    let lyrics = Lyrics.shared
     let ui = DesktopUIState()
 
     /// Whether the first `bootstrap()` has run. One restore per launch, however many views ask for it —

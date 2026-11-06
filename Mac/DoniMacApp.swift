@@ -36,6 +36,7 @@ struct DoniMacApp: App {
                 .environmentObject(model.player)
                 .environmentObject(model.indexer)
                 .environmentObject(model.cloud)
+                .environmentObject(model.lyrics)
                 .environmentObject(model.artwork)
                 .frame(
                     minWidth: DesktopMainWindowMetrics.minimumContentWidth,

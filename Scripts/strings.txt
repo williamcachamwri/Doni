@@ -422,3 +422,9 @@ Phát “%@”|播放“%@”|Reproducir «%@»|Воспроизвести «%@�
 Kết quả cho “%@”|“%@”的结果|Resultados de «%@»|Результаты по «%@»|Résultats pour « %@ »|نتائج «%@»
 %@ bài trong %@ tin|%@ 首，共 %@ 条消息|%@ canciones en %@ mensajes|%@ треков из %@ сообщений|%@ titres dans %@ messages|%@ أغاني ضمن %@ رسالة
 %@ bài · đang đọc|%@ 首 · 正在读取|%@ canciones · leyendo|%@ треков · чтение|%@ titres · lecture|%@ أغاني · جارٍ القراءة
+# The inspector panel: its two doors' states, the end of the queue, and a song with no words.
+Đang chọn|已选择|Seleccionado|Выбрано|Sélectionné|محدَّد
+Chưa chọn|未选择|No seleccionado|Не выбрано|Non sélectionné|غير محدَّد
+Xoá khỏi hàng đợi|从队列移除|Quitar de la cola|Убрать из очереди|Retirer de la file|إزالة من قائمة الانتظار
+Hàng đợi đã hết.|队列已放完。|La cola se ha terminado.|Очередь закончилась.|La file est terminée.|انتهت قائمة الانتظار.
+Chưa có lời cho bài này.|还没有这首歌的歌词。|Todavía no hay letra para esta canción.|Для этого трека пока нет текста.|Aucune parole pour ce titre pour l’instant.|لا توجد كلمات لهذه الأغنية بعد.

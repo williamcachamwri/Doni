@@ -101,6 +101,7 @@ struct DesktopTabBottomPlayerInset: View {
 /// material with a 0.65 pt white edge at 0.42, which is what the reference draws
 /// (`DesktopBottomPlayer.swift:70-78`).
 struct DesktopBottomPlayer: View {
+    @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var player: Player
     @State private var isVolumeExpanded = false
 
@@ -160,6 +161,20 @@ struct DesktopBottomPlayer: View {
 
                 Color.clear.frame(width: DesktopBottomPlayerMetrics.clusterSpacing)
 
+                // The two doors into the panel, and they fold away the moment the volume opens — the
+                // reference gives the capsule the space they were using (`DesktopBottomPlayer.swift:118-140`).
+                if !isVolumeExpanded {
+                    inspectorButton(.lyrics, systemImage: "text.quote",
+                                    title: localized("Lời bài hát"))
+
+                    Color.clear.frame(width: DesktopBottomPlayerMetrics.trailingControlSpacing)
+
+                    inspectorButton(.queue, systemImage: "list.bullet",
+                                    title: localized("Hàng đợi"))
+
+                    Color.clear.frame(width: DesktopBottomPlayerMetrics.trailingControlSpacing)
+                }
+
                 DesktopVolumeControl(isExpanded: $isVolumeExpanded)
             }
             .padding(.horizontal, DesktopBottomPlayerMetrics.horizontalInset)
@@ -168,5 +183,26 @@ struct DesktopBottomPlayer: View {
                 height: DesktopBottomPlayerMetrics.outerHeight
             )
         }
+    }
+
+    /// A panel button that is only a button when it is not the panel on screen: the reference draws the
+    /// selected one in the app's red and leaves the other in the text's own colour.
+    private func inspectorButton(_ destination: DesktopInspector, systemImage: String,
+                                 title: String) -> some View {
+        let isSelected = model.ui.inspector == destination
+
+        return Button {
+            model.ui.toggleInspector(destination)
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isSelected ? MusicTint.accent : Color.primary)
+                .frame(width: 36, height: 36)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(isSelected ? localized("Đang chọn") : localized("Chưa chọn"))
     }
 }

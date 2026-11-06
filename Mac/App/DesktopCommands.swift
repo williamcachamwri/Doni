@@ -66,6 +66,15 @@ private struct DesktopPlaybackCommands: Commands {
                 model.player.cycleRepeatMode()
             }
             .keyboardShortcut("r", modifiers: [.command, .option])
+
+            Divider()
+
+            // The two panel doors. Their buttons are on the bar, but the bar folds them away when the
+            // volume opens, and a listener who has learned the key does not care what is on screen.
+            Button("Lời bài hát") { model.ui.toggleInspector(.lyrics) }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+            Button("Hàng đợi") { model.ui.toggleInspector(.queue) }
+                .keyboardShortcut("q", modifiers: [.command, .shift])
         }
     }
 }
