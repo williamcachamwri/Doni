@@ -267,6 +267,12 @@ struct DesktopTabPage: View {
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     DesktopTabBottomPlayerInset()
                 }
+                // Keep the page content visible when the inspector panel is presented. The window grows
+                // by 258 pt to make room for the panel, but a user can still resize below that minimum;
+                // without this padding the panel would overlay and clip the trailing edge of the list.
+                .padding(.trailing, isInspectorPresented ? DesktopMainWindowMetrics.playerSidePanelWidth : 0)
+                .animation(reduceMotion ? nil : DesktopMainWindowMetrics.presentationAnimation,
+                           value: isInspectorPresented)
 
             // The panel slides in over the column rather than pushing it, because the window has
             // already grown by its 258 points — `DesktopMainWindowConfiguration` does that first, which

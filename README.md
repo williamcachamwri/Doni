@@ -40,16 +40,16 @@ register, and nothing is reported anywhere.
 
 <table>
   <tr>
-    <td><img src="Docs/screenshots/01-home-feed.jpg" alt="Home: recently played, newest and liked shelves" width="220"></td>
-    <td><img src="Docs/screenshots/02-now-playing.jpg" alt="Now Playing with cover art and lyrics" width="220"></td>
-    <td><img src="Docs/screenshots/03-up-next-queue.jpg" alt="Up-next queue beside Now Playing" width="220"></td>
-    <td><img src="Docs/screenshots/04-playlist-detail.jpg" alt="A playlist with its songs" width="220"></td>
+    <td><img src="Docs/screenshots/01-playlist-detail.jpg" alt="A playlist with its songs" width="220"></td>
+    <td><img src="Docs/screenshots/02-home-feed.jpg" alt="Home: recently played, newest and liked shelves" width="220"></td>
+    <td><img src="Docs/screenshots/03-now-playing.jpg" alt="Now Playing with cover art and lyrics" width="220"></td>
+    <td><img src="Docs/screenshots/04-up-next-queue.jpg" alt="Up-next queue beside Now Playing" width="220"></td>
   </tr>
   <tr>
+    <td align="center">A playlist.</td>
     <td align="center">The home feed.</td>
     <td align="center">Now Playing.</td>
     <td align="center">The up-next queue.</td>
-    <td align="center">A playlist.</td>
   </tr>
 </table>
 
