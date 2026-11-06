@@ -38,16 +38,28 @@ Saved Messages como biblioteca propia. Sin servidores detrás, sin registro, sin
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-playlist-detail.jpg" alt="Lista de reproducción con sus canciones" width="220"></td>
-    <td><img src="../screenshots/02-home-feed.jpg" alt="Inicio: estantes de reproducción reciente, nuevos y favoritos" width="220"></td>
-    <td><img src="../screenshots/03-now-playing.jpg" alt="Reproduciendo ahora con portada y letra" width="220"></td>
-    <td><img src="../screenshots/04-up-next-queue.jpg" alt="Cola de reproducción junto a Reproduciendo ahora" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.png" alt="Lista de reproducción con sus canciones" width="720"></td>
   </tr>
   <tr>
     <td align="center">Lista de reproducción.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/02-home-feed.png" alt="Inicio: estantes de reproducción reciente, nuevos y favoritos" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Inicio.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/03-now-playing.png" alt="Reproduciendo ahora con portada y letra" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Reproduciendo ahora.</td>
-    <td align="center">Cola de reproducción.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/04-recently-played.png" alt="Canciones reproducidas recientemente" width="720"></td>
+  </tr>
+  <tr>
+    <td align="center">Reproducidas recientemente.</td>
   </tr>
 </table>
 

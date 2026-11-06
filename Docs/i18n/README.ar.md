@@ -38,16 +38,28 @@
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-playlist-detail.jpg" alt="قائمة تشغيل مع أغانيها" width="220"></td>
-    <td><img src="../screenshots/02-home-feed.jpg" alt="الرئيسية: الأرفف الأخيرة والجديدة والمفضلة" width="220"></td>
-    <td><img src="../screenshots/03-now-playing.jpg" alt="يُشغَّل الآن مع الغلاف والكلمات" width="220"></td>
-    <td><img src="../screenshots/04-up-next-queue.jpg" alt="قائمة الانتظار بجانب يُشغَّل الآن" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.png" alt="قائمة تشغيل مع أغانيها" width="720"></td>
   </tr>
   <tr>
     <td align="center">قائمة تشغيل.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/02-home-feed.png" alt="الرئيسية: الأرفف الأخيرة والجديدة والمفضلة" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">الرئيسية.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/03-now-playing.png" alt="يُشغَّل الآن مع الغلاف والكلمات" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">يُشغَّل الآن.</td>
-    <td align="center">قائمة الانتظار.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/04-recently-played.png" alt="الأغاني التي سُمعت مؤخرًا" width="720"></td>
+  </tr>
+  <tr>
+    <td align="center">سُمعت مؤخرًا.</td>
   </tr>
 </table>
 

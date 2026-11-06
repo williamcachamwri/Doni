@@ -39,16 +39,28 @@
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-playlist-detail.jpg" alt="Плейлист с его треками" width="220"></td>
-    <td><img src="../screenshots/02-home-feed.jpg" alt="Главная: недавно прослушанные, новые и избранные" width="220"></td>
-    <td><img src="../screenshots/03-now-playing.jpg" alt="Сейчас играет с обложкой и текстом" width="220"></td>
-    <td><img src="../screenshots/04-up-next-queue.jpg" alt="Очередь воспроизведения рядом с Сейчас играет" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.png" alt="Плейлист с его треками" width="720"></td>
   </tr>
   <tr>
     <td align="center">Плейлист.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/02-home-feed.png" alt="Главная: недавно прослушанные, новые и избранные" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Главная.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/03-now-playing.png" alt="Сейчас играет с обложкой и текстом" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Сейчас играет.</td>
-    <td align="center">Очередь воспроизведения.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/04-recently-played.png" alt="Недавно прослушанные треки" width="720"></td>
+  </tr>
+  <tr>
+    <td align="center">Недавно прослушанные.</td>
   </tr>
 </table>
 
