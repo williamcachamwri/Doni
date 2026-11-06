@@ -6,10 +6,25 @@ bullet counts have to match — `make notes` fails when they do not.
 
 History lives in git tags and in GitHub Releases. This file holds the current release only.
 
+## macOS
+
+### Tiếng Việt
+
+- Cài đặt giờ giống iOS: mỗi mục (Giới thiệu, Bộ nhớ, Lời bài hát) mở một trang riêng thay vì nhồi vào một cuộn dài.
+- Menu "Giới thiệu về Doni" mở thẳng trang Giới thiệu trong Cài đặt.
+- Trang Giới thiệu có nút kiểm tra cập nhật riêng cho macOS và nhật ký cập nhật.
+
+### English
+
+- Settings now matches iOS: each topic (About, Storage, Lyrics) opens its own page instead of cramming everything into one scroll.
+- The "About Doni" menu item opens Settings already on the About page.
+- The About page has a dedicated update-check button for macOS and a release-notes sheet.
+
 ## iOS
 
 ### Tiếng Việt
 
+- Tìm kiếm: kệ "Gợi ý phổ biến" hiện dưới ô tìm kiếm trước khi bạn gõ gì, xếp 10 danh sách phát nhiều bài nhất của bạn.
 - Đăng xuất trên máy tính hoặc thu hồi phiên giờ cũng dừng nhạc và xoá dữ liệu như đăng xuất trong app. Trước đây app chỉ phản ứng khi bạn bấm nút; con đường kia đóng kết nối, xoá tệp Telegram, nhưng để nhạc tiếp tục phát và danh sách bài vẫn đọc được.
 - Kéo thanh thời gian khi bài đang tải không còn làm bài quay về 0:00. Vị trí sai đó còn được lưu lại, nên lần mở sau cũng bắt đầu lại từ đầu.
 - Mở lại app vào một bài đăng dạng tệp (loại phần lớn kênh nhạc dùng) giờ giữ đúng chỗ đang nghe; trước đây "chưa biết độ dài" bị hiểu thành "dài 0 giây" và mọi vị trí bị ép về đầu.
@@ -22,6 +37,7 @@ History lives in git tags and in GitHub Releases. This file holds the current re
 
 ### English
 
+- Search: a "Popular Recommendations" shelf appears under the search field before you type, showing your ten playlists with the most tracks.
 - Signing out on a desktop, or revoking the session, now stops the music and clears the data the way signing out inside the app does. The app only reacted to its own button; the other path closed the client and deleted Telegram's files while music kept playing and the song list stayed readable.
 - Dragging the progress bar while a song is still downloading no longer sends it back to 0:00 — and that wrong position used to be saved, so the next launch started over too.
 - Relaunching into a document-post song (the shape most music channels use) keeps the position you were at. "Length not known" was being read as "length zero", which clamped every stored position down to the start.
