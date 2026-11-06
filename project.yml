@@ -23,6 +23,11 @@ settings:
     CLANG_WARN_DOCUMENTATION_COMMENTS: YES
     DEAD_CODE_STRIPPING: YES
     ENABLE_USER_SCRIPT_SANDBOXING: NO
+    # The app's red, from Assets.xcassets/AccentColor.colorset. `.tint()` does not reach the system
+    # chrome — a macOS sidebar's selected row, an alert's default button, a slider's fill read this
+    # value instead — so without it the desktop's sidebar stays the blue of the system accent. This is
+    # how the reference does it too (`ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor`).
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     # Unsigned by default so `make build` stays a pure compile+link gate. Device
     # runs opt in with CODE_SIGNING_ALLOWED=YES (see `make device`).
     CODE_SIGNING_ALLOWED: NO

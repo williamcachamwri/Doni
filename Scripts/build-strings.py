@@ -172,9 +172,10 @@ RENDER_ALLOWLIST = {
     # The sidebar's footer line is assembled from `localized(_:)` calls one level up, so it is already
     # the translated sentence; looking it up a second time would translate a translation.
     "DesktopSidebar.swift": ["Text(loadingMessage)"],
-    # The desktop's placeholder panes print the library's own numbers, resolved one level up, and a
-    # route's title is a playlist's name or a channel's — somebody's word, never a catalog key.
-    "DesktopRootView.swift": ["Text(countLine)", "navigationTitle(title)"],
+    # Both panes and cards are handed a title the caller has already resolved — a section's name, a
+    # playlist's, a search's — so the render site must not look it up a second time.
+    "DesktopTrackPane.swift": ["Text(title)"],
+    "DesktopMediaCard.swift": ["Text(title)"],
 }
 
 

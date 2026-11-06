@@ -20,6 +20,10 @@ final class DesktopAppModel {
     let library = Library.shared
     let artwork = CoverArtwork.shared
     let player = Player(library: .shared)
+    /// Saved Messages, which is Cloud Music's whole library. The phone builds one per screen; the
+    /// desktop keeps the one, because the sidebar's footer and the pane have to agree about what is
+    /// uploading.
+    let cloud = CloudMusic()
     let ui = DesktopUIState()
 
     /// Whether the first `bootstrap()` has run. One restore per launch, however many views ask for it —

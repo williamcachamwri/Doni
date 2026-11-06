@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import TelegramDesignSystem
+import UniformTypeIdentifiers
 
 /// The desktop's root, in the shape the reference has it (`DesktopRootView.swift:11-95`).
 ///
@@ -119,60 +120,76 @@ struct DesktopTabPage: View {
     }
 }
 
-/// The pane each section draws.
-///
-/// Every one of these says something true — the library's own row counts — because the desktop panes are
-/// the next unit of this port. What is *not* placeholder is the machinery around them: the stack, the
-/// path, the destination and the sidebar that selects them are the reference's.
+/// The pane each section draws. The switch is the reference's (`DesktopRootView.swift:329-355`); the
+/// bodies are Doni's, because the rows come out of SQLite through `Library` rather than out of an HTTP
+/// response.
 struct DesktopSectionContentView: View {
-    @EnvironmentObject private var library: Library
+    @Environment(DesktopAppModel.self) private var model
     let section: DesktopSection
 
     var body: some View {
-        ContentUnavailableView(
-            localized(section.title),
-            systemImage: section.systemImage,
-            description: Text(countLine)
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    /// The library's own numbers, so a shell is honest about being a shell: these are real rows, only
-    /// the panes that list them are missing.
-    private var countLine: String {
         switch section {
-        case .home, .search: return localized("%@ bài", library.trackCount.formatted())
-        case .recent: return localized("%@ bài", library.recentlyPlayed.count.formatted())
-        case .liked: return localized("%@ bài", library.favorites.count.formatted())
-        case .playlists: return localized("%@ danh sách", library.playlists.count.formatted())
-        case .channels: return localized("%@ kênh", library.channels.count.formatted())
-        case .cloud: return "Saved Messages"
-        case .downloaded: return localized("%@ bài trên máy", library.downloadedCount.formatted())
+        case .search:
+            DesktopSearchPane()
+        case .home:
+            DesktopHomePane()
+        case .recent:
+            DesktopTrackPane(title: localized("Gần đây"), tracks: DesktopPanes.recent(model))
+        case .liked:
+            DesktopTrackPane(title: localized("Yêu thích"), tracks: DesktopPanes.favorites(model))
+        case .playlists:
+            DesktopPlaylistsPane()
+        case .channels:
+            DesktopChannelsPane()
+        case .cloud:
+            DesktopCloudPane()
+        case .downloaded:
+            DesktopTrackPane(title: localized("Đã tải"), tracks: DesktopPanes.downloaded(model))
         }
     }
 }
 
-/// A detail page pushed onto a section's stack. The name is real — the number of rows inside it is what
-/// this port has not written yet.
+/// Saved Messages as a library: the same rows, with the two verbs that belong to a file the listener
+/// put there themselves — bring one in, take one out.
+struct DesktopCloudPane: View {
+    @Environment(DesktopAppModel.self) private var model
+    @EnvironmentObject private var cloud: CloudMusic
+    @EnvironmentObject private var session: TelegramSession
+    @State private var picking = false
+
+    var body: some View {
+        DesktopTrackPane(title: "Cloud Music", tracks: cloud.songs)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        picking = true
+                    } label: {
+                        Label("Thêm nhạc", systemImage: "plus")
+                    }
+                    .help("Chọn file nhạc từ máy")
+                }
+            }
+            .fileImporter(isPresented: $picking,
+                          allowedContentTypes: [.audio],
+                          allowsMultipleSelection: true) { result in
+                guard case let .success(urls) = result, !urls.isEmpty else { return }
+                let service = cloud, held = session
+                Task { await service.upload(held, urls: urls) }
+            }
+            .task { await cloud.refresh(session) }
+    }
+}
+
+/// A page pushed onto a section's stack.
 struct DesktopRouteView: View {
-    @EnvironmentObject private var library: Library
     let route: DesktopRoute
 
     var body: some View {
-        ContentUnavailableView(
-            title,
-            systemImage: "music.note.list",
-            description: Text(localized("Chưa có danh sách bài ở trang này."))
-        )
-        .navigationTitle(title)
-    }
-
-    private var title: String {
         switch route {
         case let .playlist(id):
-            library.playlists.first { $0.id == id }?.name ?? localized("Danh sách")
-        case let .channel(_, name):
-            name
+            DesktopPlaylistDetail(id: id)
+        case let .channel(chatId, title):
+            DesktopChannelDetail(chatId: chatId, title: title)
         }
     }
 }

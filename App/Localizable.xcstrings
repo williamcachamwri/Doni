@@ -141,6 +141,41 @@
         }
       }
     },
+    "%@ bài trong %@ tin": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ أغاني ضمن %@ رسالة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ canciones en %@ mensajes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ titres dans %@ messages"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ треков из %@ сообщений"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 首，共 %@ 条消息"
+          }
+        }
+      }
+    },
     "%@ bài trong kênh đã nằm trong %@ bạn đang giữ.": {
       "extractionState": "manual",
       "localizations": {
@@ -312,6 +347,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 首 · %@ 段"
+          }
+        }
+      }
+    },
+    "%@ bài · đang đọc": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ أغاني · جارٍ القراءة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ canciones · leyendo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ titres · lecture"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ треков · чтение"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 首 · 正在读取"
           }
         }
       }
@@ -1961,6 +2031,41 @@
         }
       }
     },
+    "Chưa có bài nào ở đây.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا توجد أغاني هنا بعد."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no hay canciones aquí."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun titre ici pour le moment."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь пока нет треков."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此处还没有歌曲。"
+          }
+        }
+      }
+    },
     "Chưa có bản phát hành nào.": {
       "extractionState": "manual",
       "localizations": {
@@ -2132,6 +2237,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "暂无音乐频道"
+          }
+        }
+      }
+    },
+    "Chưa có kênh nào": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا توجد قنوات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin canales"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune chaîne"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет каналов"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚无频道"
           }
         }
       }
@@ -2622,6 +2762,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择要下载的歌曲"
+          }
+        }
+      }
+    },
+    "Chọn file nhạc từ máy": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اختر ملفات الموسيقى من الجهاز"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir archivos de música del equipo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir des fichiers musicaux sur l’ordinateur"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать аудиофайлы на устройстве"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从本机选择音乐文件"
           }
         }
       }
@@ -3221,6 +3396,41 @@
         }
       }
     },
+    "Danh sách trống": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "القائمة فارغة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista vacía"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste vide"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плейлист пуст"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌单为空"
+          }
+        }
+      }
+    },
     "Danh sách vẫn giữ ảnh bìa cũ.": {
       "extractionState": "manual",
       "localizations": {
@@ -3392,6 +3602,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "Doni 是非官方第三方客户端，与 Telegram 或任何音乐公司没有隶属关系，也未获其授权。它只打开你 Telegram 账号里已有的文件。"
+          }
+        }
+      }
+    },
+    "Doni lấy nhạc từ các kênh Telegram bạn thêm vào.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يجلب Doni الموسيقى من قنوات تيليجرام التي تضيفها."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni obtiene la música de los canales de Telegram que añadas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni puise la musique dans les chaînes Telegram que vous ajoutez."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni берёт музыку из добавленных вами каналов Telegram."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doni 从你添加的 Telegram 频道获取音乐。"
           }
         }
       }
@@ -3602,6 +3847,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "为你推荐"
+          }
+        }
+      }
+    },
+    "Dán một link t.me hoặc chọn từ danh sách trò chuyện.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الصق رابط t.me أو اختر من قائمة المحادثات."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega un enlace t.me o elige uno de la lista de chats."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collez un lien t.me ou choisissez dans la liste des conversations."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вставьте ссылку t.me или выберите из списка чатов."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴 t.me 链接，或从会话列表中选择。"
           }
         }
       }
@@ -5422,6 +5702,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "列表中的频道尚未读取到音乐文件。"
+          }
+        }
+      }
+    },
+    "Kết quả cho “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نتائج «%@»"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resultados de «%@»"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Résultats pour « %@ »"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Результаты по «%@»"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”的结果"
           }
         }
       }
@@ -7526,6 +7841,41 @@
         }
       }
     },
+    "Phát “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تشغيل «%@»"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproducir «%@»"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lire « %@ »"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизвести «%@»"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放“%@”"
+          }
+        }
+      }
+    },
     "Phần": {
       "extractionState": "manual",
       "localizations": {
@@ -7981,6 +8331,41 @@
         }
       }
     },
+    "Thêm một bài vào danh sách từ bất kỳ đâu.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أضف أغنية إلى قائمة من أي مكان."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade una canción a una lista desde cualquier pantalla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez un titre à une liste depuis n’importe où."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте трек в плейлист из любого раздела."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在任何地方把一首歌加入歌单。"
+          }
+        }
+      }
+    },
     "Thêm một kênh Telegram để Doni biết trong đó có bài nào.": {
       "extractionState": "manual",
       "localizations": {
@@ -8012,6 +8397,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加一个 Telegram 频道，Doni 就能知道里面有哪些歌曲。"
+          }
+        }
+      }
+    },
+    "Thêm nhạc": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إضافة موسيقى"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir música"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter de la musique"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить музыку"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加音乐"
           }
         }
       }
@@ -8751,6 +9171,41 @@
         }
       }
     },
+    "Trò chuyện đã tham gia": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المحادثات التي انضممت إليها"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chats a los que te has unido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conversations rejointes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чаты, в которых вы состоите"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已加入的会话"
+          }
+        }
+      }
+    },
     "Tài khoản Telegram": {
       "extractionState": "manual",
       "localizations": {
@@ -9346,6 +9801,41 @@
         }
       }
     },
+    "Tất cả bài hát": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "كل الأغاني"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las canciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les titres"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Все треки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有歌曲"
+          }
+        }
+      }
+    },
     "Tắt lặp lại": {
       "extractionState": "manual",
       "localizations": {
@@ -9696,6 +10186,41 @@
         }
       }
     },
+    "Xem tất cả": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عرض الكل"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver todo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout afficher"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать все"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看全部"
+          }
+        }
+      }
+    },
     "Xoá": {
       "extractionState": "manual",
       "localizations": {
@@ -10007,6 +10532,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除全部音乐"
+          }
+        }
+      }
+    },
+    "Xoá khỏi danh sách": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إزالة من القائمة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar de la lista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer de la liste"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить из плейлиста"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从歌单移除"
           }
         }
       }
@@ -13923,6 +14483,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "封面、Telegram 音乐和你的文件"
+          }
+        }
+      }
+    },
+    "Ẩn": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إخفاء"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏"
           }
         }
       }

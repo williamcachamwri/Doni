@@ -404,3 +404,21 @@ Không lặp lại|不循环|No repetir|Без повтора|Ne pas répéter|�
 Hiện âm lượng|显示音量|Mostrar volumen|Показать громкость|Afficher le volume|إظهار مستوى الصوت
 Tắt tiếng|静音|Silenciar|Выключить звук|Couper le son|كتم الصوت
 Thời gian phát|播放进度|Posición de reproducción|Позиция воспроизведения|Position de lecture|موضع التشغيل
+# The desktop's panes: shelves, cards, the channel picker and the empty states that point at them.
+Trò chuyện đã tham gia|已加入的会话|Chats a los que te has unido|Чаты, в которых вы состоите|Conversations rejointes|المحادثات التي انضممت إليها
+Tất cả bài hát|所有歌曲|Todas las canciones|Все треки|Tous les titres|كل الأغاني
+Xem tất cả|查看全部|Ver todo|Показать все|Tout afficher|عرض الكل
+Ẩn|隐藏|Ocultar|Скрыть|Masquer|إخفاء
+Xoá khỏi danh sách|从歌单移除|Quitar de la lista|Удалить из плейлиста|Retirer de la liste|إزالة من القائمة
+Thêm nhạc|添加音乐|Añadir música|Добавить музыку|Ajouter de la musique|إضافة موسيقى
+Chọn file nhạc từ máy|从本机选择音乐文件|Elegir archivos de música del equipo|Выбрать аудиофайлы на устройстве|Choisir des fichiers musicaux sur l’ordinateur|اختر ملفات الموسيقى من الجهاز
+Chưa có kênh nào|尚无频道|Sin canales|Нет каналов|Aucune chaîne|لا توجد قنوات
+Doni lấy nhạc từ các kênh Telegram bạn thêm vào.|Doni 从你添加的 Telegram 频道获取音乐。|Doni obtiene la música de los canales de Telegram que añadas.|Doni берёт музыку из добавленных вами каналов Telegram.|Doni puise la musique dans les chaînes Telegram que vous ajoutez.|يجلب Doni الموسيقى من قنوات تيليجرام التي تضيفها.
+Dán một link t.me hoặc chọn từ danh sách trò chuyện.|粘贴 t.me 链接，或从会话列表中选择。|Pega un enlace t.me o elige uno de la lista de chats.|Вставьте ссылку t.me или выберите из списка чатов.|Collez un lien t.me ou choisissez dans la liste des conversations.|الصق رابط t.me أو اختر من قائمة المحادثات.
+Danh sách trống|歌单为空|Lista vacía|Плейлист пуст|Liste vide|القائمة فارغة
+Thêm một bài vào danh sách từ bất kỳ đâu.|在任何地方把一首歌加入歌单。|Añade una canción a una lista desde cualquier pantalla.|Добавьте трек в плейлист из любого раздела.|Ajoutez un titre à une liste depuis n’importe où.|أضف أغنية إلى قائمة من أي مكان.
+Chưa có bài nào ở đây.|此处还没有歌曲。|Todavía no hay canciones aquí.|Здесь пока нет треков.|Aucun titre ici pour le moment.|لا توجد أغاني هنا بعد.
+Phát “%@”|播放“%@”|Reproducir «%@»|Воспроизвести «%@»|Lire « %@ »|تشغيل «%@»
+Kết quả cho “%@”|“%@”的结果|Resultados de «%@»|Результаты по «%@»|Résultats pour « %@ »|نتائج «%@»
+%@ bài trong %@ tin|%@ 首，共 %@ 条消息|%@ canciones en %@ mensajes|%@ треков из %@ сообщений|%@ titres dans %@ messages|%@ أغاني ضمن %@ رسالة
+%@ bài · đang đọc|%@ 首 · 正在读取|%@ canciones · leyendo|%@ треков · чтение|%@ titres · lecture|%@ أغاني · جارٍ القراءة
