@@ -211,7 +211,7 @@ struct LoginView: View {
             VStack(spacing: 0) {
                 // The mark travels with the title block, so a hand-over throws both of them up and
                 // the incoming one grows back from 30 % — the sticker's own rule in the reference.
-                LoginCrest(side: motion.crestSide)
+                DoniLogo(side: motion.crestSide)
                     .scaleEffect(motion.crestScale)
                     .padding(.bottom, TelegramLoginMetrics.crestToTitle)
 
@@ -617,25 +617,6 @@ struct LoginView: View {
 
     private func gap(_ height: CGFloat, maximum: CGFloat? = nil) -> some View {
         Color.clear.frame(minHeight: height, maxHeight: maximum ?? height)
-    }
-}
-
-/// The app's mark, in the slot the reference keeps for its 100×100 intro sticker: the same accent tile
-/// the settings header wears, since Doni ships no Lottie and no asset catalog.
-private struct LoginCrest: View {
-    let side: CGFloat
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: side * TelegramLoginMetrics.crestRadiusRatio,
-                         style: .continuous)
-            .fill(MusicTint.accent)
-            .overlay {
-                Image(systemName: "music.note")
-                    .font(.system(size: side * 0.42, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: side, height: side)
-            .accessibilityHidden(true)
     }
 }
 

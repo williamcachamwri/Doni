@@ -115,9 +115,6 @@ public enum TelegramLoginMetrics {
     public static let crestTuckedSide: CGFloat = 64
     /// The sequence's own 32 pt rhythm (`subtitleToField` is 30, the password gap 32).
     public static let crestToTitle: CGFloat = 32
-    /// A logo tile is rounder than a cover (`MusicArtworkMetrics.radius` is 10 at 154 pt), so the
-    /// clip is carried as a ratio and keeps its shape while the mark tucks.
-    public static let crestRadiusRatio: CGFloat = 0.22
     public static let titleToSubtitle: CGFloat = 18
     public static let subtitleToField: CGFloat = 30
     public static let fieldToResend: CGFloat = 50
