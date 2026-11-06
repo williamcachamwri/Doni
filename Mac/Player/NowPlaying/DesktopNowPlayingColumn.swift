@@ -326,7 +326,7 @@ struct DesktopNowPlayingColumn: View {
                 }
 
                 Divider()
-                DesktopPlaylistMenu(track: track)
+                DesktopPlaylistMenuItems(track: track)
             }
         } label: {
             Image(systemName: "ellipsis")

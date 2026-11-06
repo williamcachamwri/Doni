@@ -238,7 +238,7 @@ struct DesktopBottomMetadataSlot: View {
             }
 
             Divider()
-            DesktopPlaylistMenu(track: track)
+            DesktopPlaylistMenuItems(track: track)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 14, weight: .semibold))

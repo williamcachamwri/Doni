@@ -19,6 +19,10 @@ struct DesktopTrackRow: View {
     let index: Int
     let tracks: [any Playable]
     var showsArtwork = false
+    /// The collection page's second text column — the reference puts the album there
+    /// (`Shared/DesktopTrackRow.swift:78-84`), and the nearest true thing Doni has is the channel the
+    /// song came from.
+    var source: String?
     var displayNumber: String?
     var onRemove: ((any Playable) -> Void)?
 
@@ -72,6 +76,14 @@ struct DesktopTrackRow: View {
             }
 
             Spacer(minLength: 12)
+
+            if let source {
+                Text(source)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 180, alignment: .leading)
+            }
 
             if track.isDownloaded {
                 Image(systemName: "arrow.down.circle.fill")
@@ -133,7 +145,8 @@ struct DesktopTrackRow: View {
 
         Divider()
 
-        DesktopPlaylistMenu(track: track)
+        Divider()
+        DesktopPlaylistMenuItems(track: track)
 
         if let onRemove {
             Divider()

@@ -520,6 +520,12 @@ struct DesktopPlaylistDetail: View {
         .controlSize(.large)
     }
 
+    /// Which channel a song of the list was posted in. The list itself has no source: its songs come
+    /// from wherever they were kept.
+    private func channelTitle(for track: any Playable) -> String? {
+        library.channels.first { $0.chatId == track.chatId }?.title
+    }
+
     private var rows: some View {
         LazyVStack(spacing: 2) {
             ForEach(Array(tracks.enumerated()), id: \.element.uniqueId) { offset, track in
@@ -528,6 +534,7 @@ struct DesktopPlaylistDetail: View {
                     index: offset,
                     tracks: tracks,
                     showsArtwork: false,
+                    source: channelTitle(for: track),
                     onRemove: { library.removeTrack(uniqueId: $0.uniqueId, from: id) }
                 )
             }

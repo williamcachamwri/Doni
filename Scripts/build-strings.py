@@ -188,6 +188,8 @@ RENDER_ALLOWLIST = {
     # the naming card's sentence is built through `localized(_:)` one level up.
     "DesktopBrowsePanes.swift": ["Text(name)", "Text(singer)", "Text(metadata)"],
     "DesktopPlaylistMenu.swift": ["Text(title)"],
+    # A collection row's second column is a channel's name, which is data, not a word to translate.
+    "DesktopTrackRow.swift": ["Text(source)"],
 }
 
 
