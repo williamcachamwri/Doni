@@ -19,6 +19,7 @@ struct SearchDiscoveryView: View {
     let search: (String) -> Void
 
     private static let tileLimit = 12
+    private static let recommendationLimit = 10
 
     var body: some View {
         ScrollView {
@@ -35,10 +36,15 @@ struct SearchDiscoveryView: View {
 
     @ViewBuilder
     private var shelf: some View {
-        let lists = library.playlists
+        // The reference's "Popular Recommendations" shelf (`SearchDiscoveryView.swift:58-84`): ten
+        // cards, biggest first. Doni has no server to recommend from, so the recommendation is the
+        // listener's own most-filled lists — the same card, the same order rule, a local source.
+        let lists = Array(library.playlists
+            .sorted { $0.trackCount > $1.trackCount }
+            .prefix(Self.recommendationLimit))
         if !lists.isEmpty {
             VStack(alignment: .leading, spacing: MusicSearchMetrics.headingToContent) {
-                Text("Danh sách của bạn")
+                Text("Gợi ý phổ biến")
                     .font(.title2.bold())
                     .padding(.horizontal, MusicSearchMetrics.shelfMargin)
 
