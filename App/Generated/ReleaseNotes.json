@@ -3,7 +3,7 @@
   "platform": "ios",
   "version": "1.0.3",
   "buildNumber": "9010003",
-  "sourceRevision": "1377ecb",
+  "sourceRevision": "a138418",
   "localizedEntries": {
     "vi": [
       "Thư viện nhạc index trở lại. Ở 1.0.2 hai câu upsert chứa comment `//` ngay trong text SQL, mà SQLite chỉ nhận `--` và `/* */`, nên câu truy vấn không compile được và Trang chủ hiện nguyên văn nó.",
