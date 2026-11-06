@@ -10,14 +10,16 @@ History lives in git tags and in GitHub Releases. This file holds the current re
 
 ### Tiếng Việt
 
-- Thư viện nhạc index trở lại. Ở 1.0.2 hai câu upsert chứa comment `//` ngay trong text SQL, mà SQLite chỉ nhận `--` và `/* */`, nên câu truy vấn không compile được và Trang chủ hiện nguyên văn nó.
-- Mọi lượt ghi bài hát đều bị từ chối âm thầm vì lỗi đó: một channel đăng bao nhiêu bài thì thư viện vẫn trống bấy nhiêu. Từ bản này các lượt ghi chạy bình thường.
-- Không mất gì và không phải làm gì. Lượt ghi thất bại bị từ chối trước khi chạy, không ghi dở — database vẫn nguyên. Mở app lên, lượt đọc channel tự bù phần bài còn thiếu.
-- Quy tắc mà hai comment đó ghi (một bài đã ở Saved Messages giữ `message_id` của post đó) nay nằm trong doc comment phía trên câu truy vấn, nơi nó không chạm tới parser nữa.
+- Nhạc .mp4 và .wav giờ phát từ từng mảng byte thay vì chờ tải xong cả bài. Ba chỗ đã nhầm "message không ghi con số" thành "bài này không stream được" rồi đẩy nó sang đường tải toàn bộ.
+- Nguồn tải cả file lớn nhất hóa ra là prefetch: mười giây trước bài kế tiếp, app kéo nguyên file cho một bài người nghe chưa tới. Giờ nó chỉ lấy phần đầu.
+- Một bài document không ghi thời lượng từng bị kẹt ở đúng phần đầu đã tải — không có độ dài thì không tính được byte nào tương ứng với giây nào, nên cửa sổ tải đứng yên. Nay con số đó lấy lại từ chính container khi nó tự báo độ dài: `moov` của mp4 về cùng phần đuôi, header của wav nằm trong 44 byte đầu.
+- Mọi đường rơi về tải cả file nay nói rõ nó là đường nào trong log. Trước đây hàm stream trả `false` im lặng, và đó là lý do hai lỗi này sống qua mấy bản phát hành.
+- Màn hình đăng nhập dùng đúng icon app thay cho ô đỏ tự vẽ bằng symbol. Trang Giới thiệu đã đọc icon thật từ asset catalog từ lâu; comment nói app không có asset catalog là comment sai.
 
 ### English
 
-- The library indexes again. In 1.0.2 two upsert statements carried `//` comments inside the SQL text itself, and SQLite accepts only `--` and `/* */`, so the statement never prepared and the home screen printed it verbatim.
-- Every song write was refused silently because of it: however many songs a channel posted, the library stayed empty. Writes run normally from this build.
-- Nothing was lost and there is nothing to do. A refused write never runs, so it never half-wrote — the database is intact. Open the app and the channel walk back-fills the missing songs.
-- The rule those comments recorded (a song already in Saved Messages keeps that post's `message_id`) now lives in the doc comment above the statement, where it cannot reach the parser.
+- .mp4 and .wav now play from byte ranges instead of waiting for the whole file. Three places mistook "the message carries no number" for "this song cannot stream" and sent it down the whole-file path.
+- The largest source of whole-file downloads turned out to be the prefetch: ten seconds before the next song, the app pulled an entire file for a song the listener had not reached. It now takes the head and nothing more.
+- A document post with no recorded length used to strand at its own head — with no duration there is no byte-per-second map, so the download window never moved. That number is now recomputed from the container once it reports a length: an mp4's `moov` arrives in the tail ask, a wav's header in its first 44 bytes.
+- Every fallback to the whole file now says in the log which one it took. The streaming entry point used to return a silent refusal, which is exactly why these two defects survived several releases.
+- The login screen wears the actual app icon instead of a tile drawn from a system symbol. The About screen has read the real icon from the asset catalog for a while; the comment claiming the app had none was wrong.
