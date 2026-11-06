@@ -660,19 +660,6 @@ private struct LoginBackdrop: View {
 }
 
 extension TdAuthorizationStep.CodeDelivery {
-    /// Digit count for the box row, `nil` when Telegram asked for a word or a phrase instead,
-    /// which a number pad cannot type.
-    var lengthOfCode: Int? {
-        switch self {
-        case .telegramMessage(let length), .sms(let length), .call(let length):
-            length
-        case .missedCall(_, let length):
-            length
-        case .smsWord, .smsPhrase, .flashCall, .unknown:
-            nil
-        }
-    }
-
     var placeholder: String {
         switch self {
         case .smsWord(let letter):

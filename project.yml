@@ -111,7 +111,6 @@ targets:
       - path: App
         excludes:
           - "Info.plist"
-          - "Assets.xcassets"
           # The other target's entry point; two `@main` in one binary is not a thing.
           - "DoniApp.swift"
     info:
@@ -131,6 +130,9 @@ targets:
         # A separate identifier on purpose: two apps with one bundle id would share
         # one Keychain item and one TDLib directory on the same machine.
         PRODUCT_BUNDLE_IDENTIFIER: local.doni.mac
+        # The same catalog the phone compiles, now carrying a `mac` idiom beside the iOS one: one
+        # master 1024, one icon, and `DoniLogo`'s `Image("DoniMark")` resolves on both platforms.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: Support
       - package: TelegramDesignSystem

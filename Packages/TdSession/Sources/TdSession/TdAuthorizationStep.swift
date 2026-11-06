@@ -98,3 +98,19 @@ public enum TdAuthorizationStep: Equatable, Sendable {
         }
     }
 }
+
+    public extension TdAuthorizationStep.CodeDelivery {
+        /// Digit count for the box row, `nil` when Telegram asked for a word or a phrase instead, which a
+        /// number pad cannot type. It lives beside the type rather than in the screen that first needed
+        /// it, because both the phone and the desktop decide how to ask this way.
+        var lengthOfCode: Int? {
+            switch self {
+            case .telegramMessage(let length), .sms(let length), .call(let length):
+                length
+            case .missedCall(_, let length):
+                length
+            case .smsWord, .smsPhrase, .flashCall, .unknown:
+                nil
+            }
+        }
+    }

@@ -58,6 +58,9 @@ struct DesktopRootView: View {
                     .tag(section)
             }
         }
+        // The phone's accent, not the system's: a blue selection in a red app is how a port advertises
+        // that its chrome was not chosen.
+        .tint(MusicTint.accent)
         .navigationSplitViewColumnWidth(min: 190, ideal: 226, max: 300)
     }
 
@@ -79,13 +82,7 @@ struct DesktopRootView: View {
             if !session.hasAnswered {
                 ProgressView()
             } else if !session.isAuthorized {
-                // The phone's login sequence is UIKit-bound to a 520 pt canvas and has no desktop
-                // counterpart yet; signing in on the Mac is the next thing that has to be built here.
-                ContentUnavailableView(
-                    "Chưa đăng nhập",
-                    systemImage: "person.crop.circle",
-                    description: Text("Đăng nhập bằng Doni trên iPhone trước, hoặc chờ bản Mac này.")
-                )
+                DesktopLoginView(session: session)
             } else {
                 ContentUnavailableView(
                     ui.selection.title,
