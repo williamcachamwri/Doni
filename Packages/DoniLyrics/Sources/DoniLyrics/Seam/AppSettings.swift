@@ -101,14 +101,7 @@ public final class AppSettings {
 
     static let defaultLyricsLineSpacing = 28.0
 
-    #if os(macOS)
-    /// The reference's desktop column never blurs: `DesktopLyricsScrollView` has no `.blur` in it at
-    /// all, it only dims the lines it is not singing. The phone's Apple-Music blur reads as a smear on
-    /// a desktop column this wide, so the desktop starts where the reference starts.
-    static let defaultLyricsBlurIntensity = 0.0
-    #else
     static let defaultLyricsBlurIntensity = 0.8
-    #endif
 
     static let defaultLyricsUsesUniformDimmingWhileBrowsing = true
 

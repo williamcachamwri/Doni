@@ -343,9 +343,16 @@ public struct AppleMusicLyricsView: View {
                 lineSpacing: lineSpacing,
                 fallback: fallbackLyricStride
             )
+            #if os(macOS)
+            // Forced, not defaulted: the reference's desktop column has no `.blur` anywhere in
+            // `DesktopLyricsScrollView` — it dims the lines it is not singing and leaves them sharp —
+            // and a stored intensity from the phone would otherwise keep smearing them here.
+            let blurIntensity: CGFloat = 0
+            #else
             let blurIntensity = appleMusicMotionProfile == nil
                 ? CGFloat(settings.lyricsBlurIntensity)
                 : 1
+            #endif
             let usesUniformBrowsingDimming =
                 isBrowsingLyrics
                     && settings
