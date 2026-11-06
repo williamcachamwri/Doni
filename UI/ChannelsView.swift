@@ -126,7 +126,13 @@ private struct ChannelCard: View {
     }
 }
 
-/// What one channel posted, newest first, with the two verbs a collection has.
+/// What one channel posted, in Cloud Music's shape rather than a list of my own: a plain `List`, a
+/// play-everything row under a headline that counts, the phone's song row, and a search field that
+/// lives in the navigation bar's drawer so it is open before the listener types.
+///
+/// Two screens that both say "here are the songs, pick one" should not look different because one came
+/// from a Telegram channel and the other from Saved Messages — the difference is where the files are,
+/// not what the listener is doing.
 struct ChannelSongsView: View {
     @ObservedObject var session: TelegramSession
     @ObservedObject var indexer: LibraryIndexer
@@ -136,32 +142,39 @@ struct ChannelSongsView: View {
 
     let chatId: Int64
 
+    @State private var query = ""
+
     var body: some View {
         List {
-            if !songs.isEmpty {
-                Button(action: playAll) {
-                    HStack {
-                        Label("Phát tất cả", systemImage: "play.fill")
-                        Spacer()
+            if !visible.isEmpty {
+                Section {
+                    Button(action: playAll) {
+                        Label(query.isEmpty ? "Phát tất cả" : "Phát kết quả",
+                              systemImage: "play.fill")
                     }
+                } header: {
+                    Text(headline)
                 }
-            }
-            ForEach(songs, id: \.uniqueId) { track in
-                Button {
-                    player.play(track, in: songs)
-                } label: {
-                    MusicTrackRow(track: track, secondary: track.displayPerformer,
-                                  artwork: artwork)
-                        .task(id: track.uniqueId) {
-                            await artwork.load(track: track, via: session.covers(),
-                                               side: MusicSearchMetrics.songArt)
-                        }
+
+                ForEach(visible, id: \.uniqueId) { track in
+                    Button {
+                        player.play(track, in: visible.map { $0 as any Playable })
+                    } label: {
+                        MusicTrackRow(track: track, artwork: artwork)
+                            .task(id: track.uniqueId) {
+                                await artwork.load(track: track, via: session.covers(),
+                                                   side: MusicSearchMetrics.songArt)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .trackActions(track, library: library) {}
                 }
-                .buttonStyle(.plain)
-                .trackActions(track, library: library) {}
             }
         }
+        .listStyle(.plain)
         .navigationTitle(title)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "Tìm bài của kênh")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: shuffle) {
@@ -178,18 +191,31 @@ struct ChannelSongsView: View {
         indexer.tracks.filter { $0.chatId == chatId }
     }
 
+    private var visible: [any Playable] {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return songs }
+        let needle = query.lowercased()
+        return songs.filter {
+            $0.displayTitle.lowercased().contains(needle)
+                || $0.displayPerformer.lowercased().contains(needle)
+        }
+    }
+
+    private var headline: String {
+        localized("%@ bài", (query.isEmpty ? songs : visible).count.formatted())
+    }
+
     private var title: String {
         library.channels.first { $0.chatId == chatId }?.title ?? localized("Kênh")
     }
 
     private func playAll() {
-        guard let first = songs.first else { return }
-        player.play(first, in: songs)
+        guard let first = visible.first else { return }
+        player.play(first, in: visible.map { $0 as any Playable })
     }
 
     private func shuffle() {
-        guard let first = songs.first else { return }
+        guard let first = visible.first else { return }
         player.setShuffled(true)
-        player.play(first, in: songs)
+        player.play(first, in: visible.map { $0 as any Playable })
     }
 }
