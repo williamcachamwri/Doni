@@ -3,7 +3,7 @@
   "platform": "ios",
   "version": "1.0.5",
   "buildNumber": "9010005",
-  "sourceRevision": "6afad8b",
+  "sourceRevision": "0e966ad",
   "localizedEntries": {
     "vi": [
       "Đăng xuất trên máy tính hoặc thu hồi phiên giờ cũng dừng nhạc và xoá dữ liệu như đăng xuất trong app. Trước đây app chỉ phản ứng khi bạn bấm nút; con đường kia đóng kết nối, xoá tệp Telegram, nhưng để nhạc tiếp tục phát và danh sách bài vẫn đọc được.",

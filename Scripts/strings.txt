@@ -366,3 +366,8 @@ Làm mới Cloud Music|刷新 Cloud Music|Actualizar Cloud Music|Обновит�
 Đang tải danh sách…|正在加载列表…|Cargando la lista…|Загрузка списка…|Chargement de la liste…|جارٍ تحميل القائمة…
 Đã lưu vào Cloud Music|已保存到 Cloud Music|Guardado en Cloud Music|Сохранено в Cloud Music|Enregistré dans Cloud Music|تم الحفظ في Cloud Music
 Không lưu được bài này|无法保存此歌曲|No se pudo guardar esta canción|Не удалось сохранить этот трек|Impossible d'enregistrer ce titre|تعذّر حفظ هذه الأغنية
+Gần đây|最近|Recientes|Недавние|Récents|الأخيرة
+Đã tải|已下载|Descargadas|Загруженные|Téléchargées|المُنزَّلة
+Hàng đợi|播放队列|Cola|Очередь|File d'attente|قائمة الانتظار
+Chưa đăng nhập|尚未登录|Sin sesión|Нет входа|Non connecté|لم يتم تسجيل الدخول
+Chưa phát bài nào.|未播放任何歌曲。|No suena ninguna canción.|Сейчас ничего не играет.|Aucun titre en lecture.|لا تُشغَّل أي أغنية.
