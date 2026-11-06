@@ -83,17 +83,11 @@ struct RootView: View {
                                 onOpenPlayer: { showsPlayer = true })
                 }
             }
-            Tab(LocalizedStringKey(DoniTab.likes.title), systemImage: DoniTab.likes.symbol, value: DoniTab.likes) {
+            Tab(LocalizedStringKey(DoniTab.library.title), systemImage: DoniTab.library.symbol,
+                value: DoniTab.library) {
                 NavigationStack {
-                    LikesView(session: session, player: player, artwork: artwork,
-                              library: library)
-                }
-            }
-            Tab(LocalizedStringKey(DoniTab.playlists.title), systemImage: DoniTab.playlists.symbol,
-                value: DoniTab.playlists) {
-                NavigationStack {
-                    PlaylistsView(session: session, player: player, artwork: artwork,
-                                  library: library)
+                    LibrarySectionsView(session: session, player: player, artwork: artwork,
+                                        library: library)
                 }
             }
             // The two doors that are not the listener's own music live behind "Thêm" unless they are
@@ -136,8 +130,7 @@ struct RootView: View {
 /// says which tab is current, so a filled variant would only fight it.
 enum DoniTab: String, CaseIterable, Identifiable {
     case home
-    case likes
-    case playlists
+    case library
     case channels
     case cloud
     case more
@@ -148,8 +141,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .home: return "Trang chủ"
-        case .likes: return "Yêu thích"
-        case .playlists: return "Danh sách"
+        case .library: return "Thư viện"
         case .channels: return "Kênh"
         case .cloud: return "Cloud Music"
         case .more: return "Thêm"
@@ -160,8 +152,7 @@ enum DoniTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .home: return "house"
-        case .likes: return "heart"
-        case .playlists: return "music.quarternote.3"
+        case .library: return "music.note.list"
         case .channels: return "antenna.radiowaves.left.and.right"
         case .cloud: return "icloud"
         case .more: return "ellipsis"

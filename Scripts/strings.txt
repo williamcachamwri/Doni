@@ -492,3 +492,8 @@ Bản dựng %@|构建版本 %@|Compilación %@|Сборка %@|Version de build
 # The settings row that chooses which door also stands in the tab bar.
 Không|无|Ninguna|Нет|Aucune|لا شيء
 Tab ở thanh dưới|标签栏项目|Pestañas de la barra|Вкладки на панели|Onglets de la barre|تبويانات الشريط
+
+# The docked search field, the library segments, and the channel screen's own search prompt.
+Phạm vi|范围|Ámbito|Область|Portée|النطاق
+Phần thư viện|库分区|Sección de la biblioteca|Раздел библиотеки|Section de la bibliothèque|قسم المكتبة
+Tìm bài của kênh|搜索频道歌曲|Buscar canciones del canal|Поиск песен канала|Rechercher les titres du canal|ابحث عن أغاني القناة
