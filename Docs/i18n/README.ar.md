@@ -50,15 +50,141 @@
 
 ## كيف يعمل البث فعلًا
 
-- `downloadFile` يأخذ إزاحة وحدًّا، لكن الحد لا يوقف التنزيل؛ يواصل TDLib حتى الإلغاء، لذا يغلق التطبيق
-  النافذة بنفسه.
-- `getFileDownloadedPrefixSize` يخبر بعدد البايتات الجاهزة عند *أي* إزاحة. هذا قناع الجاهزية لا مؤشر
-  «انتهى/لم ينتهِ»، وهو ما يجعل ملفًا ناقصًا صالحًا للاستعمال.
-- القطع 64 كيلوبايت، والنافذة تبقى عدة ميجابايت أمام مؤشّر التشغيل وتزحزح حين يستهلك نصفها.
-- يطلب AVFoundation البايتات عبر `AVAssetResourceLoaderDelegate`، ويفتح الملف باستطلاع بطولين ويرفض أي
-  رد أطول مما طلب.
-- البايت خارج النافذة الجاهزة لا معنى له. لا يدخل المفكِّك شيء قبل أن يؤكده TDLib، ولهذا يتوقف الصوت عند
+لا طبقة هناك بالأسفل تطلب الملف كاملًا. يعطي `Player` لـ AVFoundation رابطًا بمخطّط خاص بالتطبيق،
+ويسأل AVFoundation عن نطاقات بايتات، ويُقطع كل ردّ عند آخر بايت يؤكّده TDLib موجودًا على الهاتف. لا
+يُنزَّل الملف كاملًا إلا إذا كانت الحاوية ما لا يفكّه AVFoundation، أو لم يكن لدى TDLib حجمٌ بعد، أو قال
+النقل إن هذه البايتات لن تصل.
+
+- `downloadFile` يأخذ إزاحة وحدًّا، لكن الحدّ لا يوقف التنزيل: يردّ TDLib بـ `ignore_download_limit`
+  (`FileManager.cpp:3111`)، فيقرّر الحدّ متى يُشبع *السائل* فقط ويستمر الملف في التنزيل. لذا يتبع كل
+  نافذة أمر `cancelDownloadFile`. والإلغاء لا يسترجع شيئًا: القطع كُتبت عند إزاحاتها هي
+  (`FileDownloader.cpp:281`)، وقناع الجاهزية يواصل عدها.
+- `getFileDownloadedPrefixSize` يخبر بعدد البايتات الجاهزة عند *أي* إزاحة لا عند البداية وحدها. هذا
+  قناع جاهزية لا مؤشر «انتهى/لم ينتهِ»، وهو ما يجعل ملفًا ناقصًا صالحًا: القفز إلى موضع سبق أن قرأه
+  الهاتف لا يكلّف شبكة.
+- يحفظ TDLib إزاحة واحدة لكل `file_id` (`FileManager.cpp:3103-3107`) ويزحزح نافذة التنزيل الجاري بدل
+  فتح تنزيل ثانٍ. فالنافذة واحدة وسؤالها من مكانين: يقول المحمِّل أين القارئ متى رجعت قراءة فارغة،
+  ويقول نبض الربع ثانية في التطبيق أين يجب أن تستقر النافذة — ولا يُعاد السؤال إلا بعد سماع نحو نصفها،
+  لأن إعادة السؤال كل ربع ثانية يلغي القطع القادمة.
+- القطع 64 كيلوبايت وتبدأ النافذة على هذه الشبكة، لأن القطع لا يُقرأ إلا من أوله، فالإزاحة غير المطابقة
+  تشتري بايتات لا يقرؤها أحد. والبايت خارج النافذة الجاهزة هو بيانات ملف آخر، ولهذا يتوقف الصوت عند
   انقطاع الشبكة بدل أن يصدّر ضجيجًا.
+- يفتح AVFoundation التدفق باستطلاع بطول بايتين ويرفض ردًّا أطول مما طلب، وحمّال الموارد ليس رابطًا
+  يفحصه ليعرف الصيغة: لا بد من تسليمه معرّف UTI للحاوية، وإلا رجع الخطأ بصيغة -11850 «the server is not
+  correctly configured» الذي يبدو كعطل شبكة وهو في الحقيقة نصّ مفقود.
+
+### الطبقات
+
+```mermaid
+flowchart TD
+    subgraph A["UI"]
+        view["rows · Now Playing · lock screen"]
+    end
+
+    subgraph B["Player — App/Player.swift"]
+        load["startCurrent(autoplay:startAt:)"]
+        gate{"AudioContentType.resolve(mimeType:fileName:)"}
+        tick["steerWindow(to:) every 0.25 s<br/>AudioWindowPolicy: 64 KiB grid · 768 KiB head<br/>1 MiB tail · lead 1 to 12 MiB"]
+        next["prefetchAhead(remaining:) at 10 s left<br/>the next song's head, at cover priority"]
+    end
+
+    subgraph C["Two engines — App/SongEngine.swift"]
+        stream["StreamSongEngine — AVPlayer + AVURLAsset<br/>doni-audio://song/audio.ext?key=file_unique_id"]
+        whole["FileSongEngine — AVAudioPlayer<br/>one finished file, exact duration"]
+    end
+
+    subgraph D["Ranges — Packages/Support/Sources/Support/Streaming"]
+        loader["AudioStreamLoader — AVAssetResourceLoaderDelegate<br/>2-byte probe · never more than asked · 256 KiB cap<br/>60 ms × 500 passes, then stalled"]
+    end
+
+    subgraph E["Transport — Packages/TdSession"]
+        src["TelegramAudioSource — totalBytes · read · want"]
+        dl["TdFileDownloader — state · readyBytes · ask · fetch · quiet"]
+        tdlib["TDLib — one offset and one limit per file_id"]
+    end
+
+    subgraph F["On the phone"]
+        disk["TDLib's file cache — 64 KiB parts with<br/>somebody else's bytes in the gaps"]
+        db["LibraryStore (SQLite) · AudioCachePolicy<br/>whole files given back over 2 GiB, oldest listen first"]
+    end
+
+    view -->|"play · pause · scrub"| load
+    load --> gate
+    gate -->|"mp3 m4a mp4 aac wav aif flac caf"| stream
+    gate -->|"ogg · opus · no size · already complete"| whole
+    stream --> loader
+    loader -->|"read(at:count:)"| src
+    src --> dl
+    dl --> tdlib
+    tdlib -->|"downloadFile(offset, limit), then cancelDownloadFile"| disk
+    disk -->|"getFileDownloadedPrefixSize: which bytes are ready"| dl
+    tick -->|"where the window has to sit"| dl
+    next -->|"a bounded ask, never the file"| dl
+    dl -->|"deleteFile"| db
+```
+
+حرفان من تلك الأضلاع هما الحجّة كلّها: `downloadFile` يتبعه دائمًا `cancelDownloadFile`، فيتوقف التنزيل
+عند النافذة بدل أن يجرّ نفسه إلى نهاية مجموعة بحجم 166 ميغابايت؛ والقراءة التي تجيب AVFoundation تُقطع
+عند `getFileDownloadedPrefixSize`، فتُنتظر الفجوة في وسط الملف بدل أن تُقرأ من فوقها. الضلع الأخير هو
+النصف الآخر من الوعد: البايتات التي تبقى هي ما يجعل الأغنية قابلة للتشغيل بلا شبكة، والكنس الذي يعيدها
+لا يمس الأغنية تحت رأس التشغيل أبدًا — يحرّر TDLib ملفات كاملة، فملفٌ نصفيّ يُطرد كاملًا لا نصفه.
+
+### ما كلفة القفز إلى 3:40
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as SwiftUI
+    participant P as Player
+    participant E as StreamSongEngine
+    participant L as AudioStreamLoader
+    participant S as TelegramAudioSource
+    participant D as TdFileDownloader
+    participant T as TDLib
+
+    V->>P: seek(to: 220)
+    P->>E: currentTime = 220
+    E->>L: AVFoundation asks for a range at byte 220 x bitrate
+    P->>D: fetch(window: plan.offset, bytes: plan.count)
+    D->>T: downloadFile(offset, limit, priority 16)
+    L->>S: read(at: offset, upTo: 256 KiB)
+    S->>D: read(file, at: offset, upTo:)
+    D->>T: getFileDownloadedPrefixSize
+    T-->>D: 0 — nothing there yet
+    D-->>L: empty Data ("not yet", which is waited through)
+    L->>S: want(offset, 1 MiB)
+    S->>D: ask(window: offset, bytes: 1 MiB)
+    D->>T: downloadFile — the one window moves
+    loop 60 ms apart, at most 500 passes
+        L->>S: read(at: currentOffset, upTo: 256 KiB)
+        S->>D: read(file, at:, upTo:)
+        D->>T: getFileDownloadedPrefixSize
+        T-->>D: parts landed at their own offsets
+        D-->>L: bytes, cut off at the last ready one
+    end
+    L-->>E: respond(with:) — never more than was asked
+    E-->>V: sound — the bar advances only while timeControlStatus is playing
+    P->>D: quiet(file)
+    D->>T: cancelDownloadFile — the rest of the file stays unfetched
+```
+
+### الأرقام وأين يسكن كل منها
+
+| الرقم | المكان | ما يقرّره |
+|---|---|---|
+| 64 KiB | `AudioWindowPolicy.partBytes` | شبكة قطع TDLib؛ كل نافذة تبدأ عليها |
+| 768 KiB | `AudioWindowPolicy.headBytes` | ما يطلبه البدء: قدرٌ يكفيه ليعثر المفكّك على حدّ إطار ويعلن المدة |
+| 1 MiB | `AudioWindowPolicy.tailBytes` | الطلب الزائد لـ `m4a`/`mp4`/`aac`/`m4b` التي يسكن `moov` آخر ملفها |
+| 1 → 12 MiB | `minimumLeadBytes` … `maximumLeadBytes` | كم تتقدّم النافذة على رأس التشغيل: يتضاعف بعد تعثّر المخزن، وينصف حين يفيض المخزن عن مثلَي الحاجة |
+| 256 KiB | `AudioStreamLoader.chunkBytes` | أطول ردّ يناله طلب واحد |
+| 1 MiB | `chunkBytes * 4` | إلى أي مدى يأمر المحمِّل النقلَ بالوصول حين ترجع قراءة فارغة |
+| 60 ms × 500 | `pollNanoseconds` · `maximumIdlePasses` | كم يُنتظر النطاق — نصف دقيقة بلا شيء فيُسمّى stalled |
+| 300 ms · 25 s | `TdFileDownloader.windowPoll` · `windowPatience` | كل كم ينظر التطبيق إلى النافذة هل هبطت، ومتى يحكم أنها لن تهبط |
+| 16 · 1 | `audioPriority` · `coverPriority` | ملف رأس التشغيل مقابل الأغلفة والأغنية التالية المخمَّنة |
+| 0,25 s | نبض `Player` | الموضع، ولقطة الاستئناف، وفحص التهيئة المسبقة، وتوجيه النافذة |
+| 10 s | `Player.prefetchLead` | متى تُؤخذ رأس الأغنية التالية — رأسها فقط لا أكثر |
+| 32 KiB · 64 KiB | `Library.probe` | كم تكلّف المدة حين لا تحملها الرسالة: الرأس، ذيلٌ لإضافة إلى `mp4` لم يُكتب للبث |
+| 2 GiB | `Library.defaultQuota` | سقف المخزن، والمقياس الذي يقاس عليه `AudioCachePolicy` |
 
 ## البناء
 

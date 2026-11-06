@@ -52,15 +52,145 @@ TDLib: вход, повторы, загрузки, файловый кэш, ре
 
 ## Как устроен стриминг
 
-- `downloadFile` принимает смещение и лимит, но лимит не ограничивает загрузку: TDLib качает до отмены,
-  поэтому окно закрывает само приложение.
-- `getFileDownloadedPrefixSize` отвечает, сколько байт готово при *любом* смещении. Это маска
-  готовности, а не флаг «закончено или нет», и именно из-за неё неполный файл полезен.
-  Части по 64 КиБ; окно держится на несколько мегабайт впереди и сдвигается, когда половина израсходована.
-- AVFoundation выпрашивает байты через `AVAssetResourceLoaderDelegate`, открывает файл пробником в 2 байта
-  и отвергает ответ длиннее запрошенного.
-- Байты вне готового окна — мусор. В декодер ничего не попадает без подтверждения TDLib, поэтому при
-  обрыве сети музыка останавливается, а не шипит.
+Ни один слой ниже не просит файл целиком. `Player` отдаёт AVFoundation URL со схемой самого
+приложения, AVFoundation спрашивает диапазоны байт, и каждый ответ обрезается по последний байт,
+который TDLib объявил готовым на телефоне. Целиком файл качается только в трёх случаях: контейнер, не
+декодируемый AVFoundation; TDLib ещё не знает размер; транспорт сказал, что эти байты не придут.
+
+- `downloadFile` принимает смещение и лимит, но лимит не ограничивает загрузку: TDLib отвечает через
+  `ignore_download_limit` (`FileManager.cpp:3111`), поэтому лимит решает лишь то, когда удовлетворён
+  *спрашивающий*, а файл продолжает качаться. За каждым окном следует `cancelDownloadFile`. Отмена
+  ничего не отбирает: части уже записаны по своим смещениям (`FileDownloader.cpp:281`), и маска
+  готовности продолжает их считать.
+- `getFileDownloadedPrefixSize` отвечает, сколько байт готово при *любом* смещении, а не только в
+  начале. Это маска готовности, а не флаг «закончено или нет», и именно из-за неё неполный файл полезен:
+  перемотка назад, в место, которое телефон уже читал, сети не стоит.
+- TDLib держит ровно одно смещение на `file_id` (`FileManager.cpp:3103-3107`) и двигает окно уже идущей
+  загрузки, а не открывает вторую. Значит окно одно, а решают, где ему быть, двое: loader говорит, где
+  читатель, как только чтение вернулось пустым, и четвертьсекундный такт приложения планирует окно —
+  переспрашивают, только когда прослушана примерно половина окна, потому что переспрашивать каждые
+  четверть секунды значит отменять собственные прибывающие части.
+- Части по 64 КиБ, и окно начинается на этой сетке: часть читается только с её начала, поэтому
+  несовпавшее смещение покупает байты, которые нечем прочитать. Байты вне готового диапазона — данные
+  другого файла, поэтому при обрыве сети музыка останавливается, а не шипит.
+- AVFoundation открывает поток пробником в 2 байта и отвергает ответ длиннее запрошенного, а resource
+  loader — не URL, из которого можно вынюхать формат: UTI контейнера надо передать, иначе ошибка придёт
+  как -11850 «the server is not correctly configured», что похоже на сломанную сеть, а на деле
+  пропущена строка.
+
+### Уровни
+
+```mermaid
+flowchart TD
+    subgraph A["UI"]
+        view["rows · Now Playing · lock screen"]
+    end
+
+    subgraph B["Player — App/Player.swift"]
+        load["startCurrent(autoplay:startAt:)"]
+        gate{"AudioContentType.resolve(mimeType:fileName:)"}
+        tick["steerWindow(to:) every 0.25 s<br/>AudioWindowPolicy: 64 KiB grid · 768 KiB head<br/>1 MiB tail · lead 1 to 12 MiB"]
+        next["prefetchAhead(remaining:) at 10 s left<br/>the next song's head, at cover priority"]
+    end
+
+    subgraph C["Two engines — App/SongEngine.swift"]
+        stream["StreamSongEngine — AVPlayer + AVURLAsset<br/>doni-audio://song/audio.ext?key=file_unique_id"]
+        whole["FileSongEngine — AVAudioPlayer<br/>one finished file, exact duration"]
+    end
+
+    subgraph D["Ranges — Packages/Support/Sources/Support/Streaming"]
+        loader["AudioStreamLoader — AVAssetResourceLoaderDelegate<br/>2-byte probe · never more than asked · 256 KiB cap<br/>60 ms × 500 passes, then stalled"]
+    end
+
+    subgraph E["Transport — Packages/TdSession"]
+        src["TelegramAudioSource — totalBytes · read · want"]
+        dl["TdFileDownloader — state · readyBytes · ask · fetch · quiet"]
+        tdlib["TDLib — one offset and one limit per file_id"]
+    end
+
+    subgraph F["On the phone"]
+        disk["TDLib's file cache — 64 KiB parts with<br/>somebody else's bytes in the gaps"]
+        db["LibraryStore (SQLite) · AudioCachePolicy<br/>whole files given back over 2 GiB, oldest listen first"]
+    end
+
+    view -->|"play · pause · scrub"| load
+    load --> gate
+    gate -->|"mp3 m4a mp4 aac wav aif flac caf"| stream
+    gate -->|"ogg · opus · no size · already complete"| whole
+    stream --> loader
+    loader -->|"read(at:count:)"| src
+    src --> dl
+    dl --> tdlib
+    tdlib -->|"downloadFile(offset, limit), then cancelDownloadFile"| disk
+    disk -->|"getFileDownloadedPrefixSize: which bytes are ready"| dl
+    tick -->|"where the window has to sit"| dl
+    next -->|"a bounded ask, never the file"| dl
+    dl -->|"deleteFile"| db
+```
+
+Два последних ребра — весь довод: за `downloadFile` всегда следует `cancelDownloadFile`, поэтому
+загрузка останавливается на окне, а не дотягивается до конца сета на 166 МБ; и чтение, отвечающее
+AVFoundation, обрезается по `getFileDownloadedPrefixSize`, поэтому дыра посередине файла дожидается, а
+не прочитывается насквозь. Последнее ребро — вторая половина обещания: оставшиеся байты и делают трек
+воспроизводимым без сети, а sweep, который их освобождает, никогда не трогает трек под головкой — TDLib
+освобождает файл целиком, поэтому докачанный наполовину выбрасывается целиком.
+
+### Что стоит перемотка на 3:40
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as SwiftUI
+    participant P as Player
+    participant E as StreamSongEngine
+    participant L as AudioStreamLoader
+    participant S as TelegramAudioSource
+    participant D as TdFileDownloader
+    participant T as TDLib
+
+    V->>P: seek(to: 220)
+    P->>E: currentTime = 220
+    E->>L: AVFoundation asks for a range at byte 220 x bitrate
+    P->>D: fetch(window: plan.offset, bytes: plan.count)
+    D->>T: downloadFile(offset, limit, priority 16)
+    L->>S: read(at: offset, upTo: 256 KiB)
+    S->>D: read(file, at: offset, upTo:)
+    D->>T: getFileDownloadedPrefixSize
+    T-->>D: 0 — nothing there yet
+    D-->>L: empty Data ("not yet", which is waited through)
+    L->>S: want(offset, 1 MiB)
+    S->>D: ask(window: offset, bytes: 1 MiB)
+    D->>T: downloadFile — the one window moves
+    loop 60 ms apart, at most 500 passes
+        L->>S: read(at: currentOffset, upTo: 256 KiB)
+        S->>D: read(file, at:, upTo:)
+        D->>T: getFileDownloadedPrefixSize
+        T-->>D: parts landed at their own offsets
+        D-->>L: bytes, cut off at the last ready one
+    end
+    L-->>E: respond(with:) — never more than was asked
+    E-->>V: sound — the bar advances only while timeControlStatus is playing
+    P->>D: quiet(file)
+    D->>T: cancelDownloadFile — the rest of the file stays unfetched
+```
+
+### Числа и где каждое из них живёт
+
+| Число | Где | Что решает |
+|---|---|---|
+| 64 KiB | `AudioWindowPolicy.partBytes` | сетка частей TDLib; каждое окно начинается с неё |
+| 768 KiB | `AudioWindowPolicy.headBytes` | сколько просит старт: довольно, чтобы декодер нашёл границу кадра и назвал длительность |
+| 1 MiB | `AudioWindowPolicy.tailBytes` | дополнительная просьба для `m4a`/`mp4`/`aac`/`m4b`, у которых `moov` в конце файла |
+| 1 → 12 MiB | `minimumLeadBytes` … `maximumLeadBytes` | насколько окно опережает головку: удваивается после ребуфера, уменьшается вдвое, когда буфера больше чем вдвое нужного |
+| 256 KiB | `AudioStreamLoader.chunkBytes` | самый длинный ответ на один запрос |
+| 1 MiB | `chunkBytes * 4` | как далеко велит послать транспорт loader, когда чтение вернулось пустым |
+| 60 ms × 500 | `pollNanoseconds` · `maximumIdlePasses` | сколько ждут диапазон — полминуты ничего, и это называется stalled |
+| 300 ms · 25 s | `TdFileDownloader.windowPoll` · `windowPatience` | как часто приложение смотрит, село ли окно, и когда решает, что оно не сядет |
+| 16 · 1 | `audioPriority` · `coverPriority` | файл под головкой против обложек и угаданного следующего трека |
+| 0,25 s | такт `Player` | позиция, снимок для продолжения, проверка prefetch и рулёжка окном |
+| 10 s | `Player.prefetchLead` | когда берётся голова следующего трека — только голова и ничего больше |
+| 32 KiB · 64 KiB | `Library.probe` | сколько стоит длительность, когда сообщение её не несёт: голова плюс хвост для `mp4`, не записанного под стриминг |
+| 2 GiB | `Library.defaultQuota` | потолок кэша и мера, относительно которой работает `AudioCachePolicy` |
 
 ## Сборка
 

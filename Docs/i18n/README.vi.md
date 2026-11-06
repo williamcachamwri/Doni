@@ -53,15 +53,145 @@ quyết hộ được.
 
 ## Streaming thật diễn ra thế nào
 
-- `downloadFile` nhận offset và limit, nhưng limit không chặn nổi việc tải — TDLib vẫn tải tiếp cho tới
-  khi bị cancel, nên app tự đóng từng cửa sổ.
-- `getFileDownloadedPrefixSize` trả số byte đã sẵn sàng ở *mọi* offset: đó là ready bitmask, không phải
-  cờ "xong chưa", và nó là lý do một file tải dở vẫn dùng được.
-- Mẩu có kích thước 64 KiB. Cửa sổ nằm trước đầu phát vài MB và dịch khi khoảng nửa cửa sổ đã nghe xong.
-- AVFoundation hỏi byte qua `AVAssetResourceLoaderDelegate`. Nó mở file bằng một probe 2 byte và từ chối
-  trả lời dài hơn chỗ nó xin, nên mọi phản hồi đều bị buộc theo yêu cầu.
-- Byte nằm ngoài cửa sổ đã sẵn sàng là rác. Không có gì được đưa vào decoder mà TDLib chưa xác nhận — vì
-  thế mất mạng thì nhạc dừng lại, không phát nhiễu.
+Không tầng nào dưới đó xin cả một file. `Player` đưa cho AVFoundation một URL theo scheme riêng
+của app, AVFoundation hỏi dải byte trên URL đó, và mọi câu trả lời bị cắt ở byte cuối cùng mà
+TDLib xác nhận là đã có trên máy. Chỉ tải trọn file khi container mà AVFoundation không giải mã
+được, khi TDLib chưa biết kích thước, hoặc khi phía truyền nói mấy byte ấy sẽ không tới.
+
+- `downloadFile` nhận offset và limit, nhưng limit không chặn nổi việc tải: TDLib trả lời với
+  `ignore_download_limit` (`FileManager.cpp:3111`), nên limit chỉ định lúc *bên hỏi* được đáp còn
+  file thì vẫn tải tiếp. Vì vậy sau mỗi cửa sổ là một `cancelDownloadFile`. Huỷ không lấy lại gì:
+  các mẩu đã được ghi đúng offset của chúng (`FileDownloader.cpp:281`) và bitmask sẵn sàng vẫn đếm
+  tiếp.
+- `getFileDownloadedPrefixSize` trả số byte đã sẵn sàng ở *mọi* offset chứ không riêng đầu file.
+  Đó là ready bitmask, không phải cờ "xong chưa", và nó là lý do một file tải dở vẫn dùng được:
+  tua lại chỗ mà máy đã đọc thì không tốn mạng.
+- TDLib giữ đúng một offset cho mỗi `file_id` (`FileManager.cpp:3103-3107`) và dịch cửa sổ của lượt
+  tải đang chạy chứ không mở lượt thứ hai. Nên chỉ có một cửa sổ và hai nơi quyết nó nằm đâu: loader
+  nói bên đọc đang ở đâu ngay khi một lần read trả về không có gì, còn nhịp 0,25 s của app tính cửa sổ nên
+  nằm đâu — và chỉ hỏi lại khi khoảng nửa cửa sổ đã nghe xong, vì hỏi lại mọi phần tư giây là tự
+  cancel những mẩu đang tới.
+- Mẩu có kích thước 64 KiB và cửa sổ bắt đầu trên lưới đó, vì một mẩu chỉ đọc được từ đầu của nó;
+  offset lệch một byte mua về những byte không reader nào dùng được. Byte nằm ngoài dải sẵn sàng là
+  dữ liệu của file khác — đó là lý do mất mạng thì nhạc dừng lại chứ không phát nhiễu.
+- AVFoundation mở stream bằng một probe 2 byte và từ chối trả lời dài hơn chỗ nó xin; mà resource
+  loader thì không phải một URL để nó tự dò format, nên phải đưa UTI của container, bằng không lỗi về
+  là -11850 "the server is not correctly configured" — trông như mạng hỏng nhưng thật ra là thiếu
+  một chuỗi.
+
+### Các tầng
+
+```mermaid
+flowchart TD
+    subgraph A["UI"]
+        view["rows · Now Playing · lock screen"]
+    end
+
+    subgraph B["Player — App/Player.swift"]
+        load["startCurrent(autoplay:startAt:)"]
+        gate{"AudioContentType.resolve(mimeType:fileName:)"}
+        tick["steerWindow(to:) every 0.25 s<br/>AudioWindowPolicy: 64 KiB grid · 768 KiB head<br/>1 MiB tail · lead 1 to 12 MiB"]
+        next["prefetchAhead(remaining:) at 10 s left<br/>the next song's head, at cover priority"]
+    end
+
+    subgraph C["Two engines — App/SongEngine.swift"]
+        stream["StreamSongEngine — AVPlayer + AVURLAsset<br/>doni-audio://song/audio.ext?key=file_unique_id"]
+        whole["FileSongEngine — AVAudioPlayer<br/>one finished file, exact duration"]
+    end
+
+    subgraph D["Ranges — Packages/Support/Sources/Support/Streaming"]
+        loader["AudioStreamLoader — AVAssetResourceLoaderDelegate<br/>2-byte probe · never more than asked · 256 KiB cap<br/>60 ms × 500 passes, then stalled"]
+    end
+
+    subgraph E["Transport — Packages/TdSession"]
+        src["TelegramAudioSource — totalBytes · read · want"]
+        dl["TdFileDownloader — state · readyBytes · ask · fetch · quiet"]
+        tdlib["TDLib — one offset and one limit per file_id"]
+    end
+
+    subgraph F["On the phone"]
+        disk["TDLib's file cache — 64 KiB parts with<br/>somebody else's bytes in the gaps"]
+        db["LibraryStore (SQLite) · AudioCachePolicy<br/>whole files given back over 2 GiB, oldest listen first"]
+    end
+
+    view -->|"play · pause · scrub"| load
+    load --> gate
+    gate -->|"mp3 m4a mp4 aac wav aif flac caf"| stream
+    gate -->|"ogg · opus · no size · already complete"| whole
+    stream --> loader
+    loader -->|"read(at:count:)"| src
+    src --> dl
+    dl --> tdlib
+    tdlib -->|"downloadFile(offset, limit), then cancelDownloadFile"| disk
+    disk -->|"getFileDownloadedPrefixSize: which bytes are ready"| dl
+    tick -->|"where the window has to sit"| dl
+    next -->|"a bounded ask, never the file"| dl
+    dl -->|"deleteFile"| db
+```
+
+Hai cạnh cuối là toàn bộ lập luận: `downloadFile` luôn đi kèm `cancelDownloadFile`, nên lượt tải dừng
+ở cửa sổ thay vì tải nốt một set 166 MB; và lần read trả lời AVFoundation bị cắt theo
+`getFileDownloadedPrefixSize`, nên một lỗ thủng giữa file được chờ chứ không bị đọc xuyên qua. Cạnh
+cuối là nửa còn lại của lời hứa: phần byte ở lại là thứ khiến một bài nghe lại được khi mất mạng, và
+vòng dọn không bao giờ đụng bài đang phát — TDLib chỉ thu hồi cả file, nên file tải dở bị xoá nguyên
+vẹn chứ không xoá một phần.
+
+### Một cú tua tới 3:40 tốn gì
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as SwiftUI
+    participant P as Player
+    participant E as StreamSongEngine
+    participant L as AudioStreamLoader
+    participant S as TelegramAudioSource
+    participant D as TdFileDownloader
+    participant T as TDLib
+
+    V->>P: seek(to: 220)
+    P->>E: currentTime = 220
+    E->>L: AVFoundation asks for a range at byte 220 x bitrate
+    P->>D: fetch(window: plan.offset, bytes: plan.count)
+    D->>T: downloadFile(offset, limit, priority 16)
+    L->>S: read(at: offset, upTo: 256 KiB)
+    S->>D: read(file, at: offset, upTo:)
+    D->>T: getFileDownloadedPrefixSize
+    T-->>D: 0 — nothing there yet
+    D-->>L: empty Data ("not yet", which is waited through)
+    L->>S: want(offset, 1 MiB)
+    S->>D: ask(window: offset, bytes: 1 MiB)
+    D->>T: downloadFile — the one window moves
+    loop 60 ms apart, at most 500 passes
+        L->>S: read(at: currentOffset, upTo: 256 KiB)
+        S->>D: read(file, at:, upTo:)
+        D->>T: getFileDownloadedPrefixSize
+        T-->>D: parts landed at their own offsets
+        D-->>L: bytes, cut off at the last ready one
+    end
+    L-->>E: respond(with:) — never more than was asked
+    E-->>V: sound — the bar advances only while timeControlStatus is playing
+    P->>D: quiet(file)
+    D->>T: cancelDownloadFile — the rest of the file stays unfetched
+```
+
+### Các con số, và mỗi số nằm ở đâu
+
+| Số | Ở đâu | Nó quyết định gì |
+|---|---|---|
+| 64 KiB | `AudioWindowPolicy.partBytes` | lưới mẩu của TDLib; mọi cửa sổ đều bắt đầu trên lưới đó |
+| 768 KiB | `AudioWindowPolicy.headBytes` | lượng mà một lần bắt đầu xin: đủ để decoder tìm ranh giới khung và báo độ dài |
+| 1 MiB | `AudioWindowPolicy.tailBytes` | phần xin thêm cho `m4a`/`mp4`/`aac`/`m4b`, những file có `moov` ở cuối file |
+| 1 → 12 MiB | `minimumLeadBytes` … `maximumLeadBytes` | cửa sổ dẫn trước đầu phát bao xa: nhân đôi sau một lần cạn buffer, giảm nửa khi buffer dư hơn hai lần mức cần |
+| 256 KiB | `AudioStreamLoader.chunkBytes` | câu trả lời dài nhất mà một request được nhận |
+| 1 MiB | `chunkBytes * 4` | loader bảo phía truyền với tới đâu khi một lần read trả về rỗng |
+| 60 ms × 500 | `pollNanoseconds` · `maximumIdlePasses` | chờ một dải bao lâu — nửa phút không có gì thì bị gọi là stalled |
+| 300 ms · 25 s | `TdFileDownloader.windowPoll` · `windowPatience` | app nhìn cửa sổ hạ xuống thường xuyên cỡ nào, và khi nào nó kết luận là cửa sổ không tới |
+| 16 · 1 | `audioPriority` · `coverPriority` | file ở đầu phát so với ảnh bìa và bài kế tiếp chỉ mới đoán |
+| 0,25 s | ticker của `Player` | vị trí, snapshot để nghe tiếp, việc kiểm tra prefetch và việc lái cửa sổ |
+| 10 s | `Player.prefetchLead` | lúc nào lấy đầu của bài kế tiếp — chỉ đầu chứ không hơn |
+| 32 KiB · 64 KiB | `Library.probe` | độ dài tốn gì khi message không mang theo: phần đầu, cộng phần đuôi cho `mp4` không viết để stream |
+| 2 GiB | `Library.defaultQuota` | trần của cache, và mốc mà `AudioCachePolicy` đo vào |
 
 ## Build
 

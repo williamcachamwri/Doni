@@ -64,17 +64,146 @@ parts nobody else decides for it.
 
 This is the part worth reading if you came to check whether it is real streaming.
 
-- `downloadFile` takes an offset and a limit, but the limit does not bound the fetch — TDLib keeps
-  going until it is cancelled, so the app cancels each window itself once it has enough.
-- `getFileDownloadedPrefixSize` answers how many bytes are ready at *any* offset. That is the ready
-  bitmask, not a done-or-not flag, and it is what makes a partial file useful.
-- Parts are 64 KiB. A window sits a few megabytes ahead of the playhead and moves when about half of
-  it has been consumed.
-- AVFoundation asks for bytes through `AVAssetResourceLoaderDelegate`. It opens a file with a 2-byte
-  probe and rejects an answer longer than what it asked for, so every response is bounded to the
-  request.
-- Bytes outside the ready window are garbage. Nothing is handed to the decoder that TDLib has not
-  confirmed, which is why a song that loses its network stops rather than playing noise.
+The short version: no layer down there asks for a whole file. `Player` hands AVFoundation a URL of the
+app's own scheme, AVFoundation asks that for byte ranges, and every answer is cut off at the last byte
+TDLib has confirmed is on the phone. A song is fetched in full only when its container is one
+AVFoundation cannot decode, when TDLib has no size for it yet, or when the transport says those bytes are
+not coming.
+
+- `downloadFile` takes an offset and a limit, but the limit does not bound the fetch: TDLib answers it
+  with `ignore_download_limit` (`FileManager.cpp:3111`), so the limit only says when the *asker* is
+  satisfied and the file keeps downloading. Every window is therefore followed by `cancelDownloadFile`.
+  Cancelling takes nothing back — parts already landed were written at their own offsets
+  (`FileDownloader.cpp:281`) and the ready bitmask goes on counting them.
+- `getFileDownloadedPrefixSize` answers how many bytes are ready at *any* offset, not just the start.
+  That is a ready bitmask rather than a done-or-not flag, and it is what makes a partial file useful: a
+  scrub back to a place the phone has already read costs no network.
+- TDLib holds exactly one offset per `file_id` (`FileManager.cpp:3103-3107`) and moves the window of a
+  download already running instead of opening a second one. So there is one window and two owners of the
+  question: the loader says where the reader is as soon as a read comes back with nothing, and the app's
+  quarter-second tick plans where the window should sit — re-asked only once about half of it has been
+  listened to, because a window re-asked every quarter second cancels its own arriving parts.
+- Parts are 64 KiB and a window starts on that grid, because a part is readable only from its start and
+  an odd offset buys bytes no reader can use. Bytes outside a ready range are somebody else's data —
+  which is why a song that loses its network stops rather than playing noise.
+- AVFoundation opens a stream with a 2-byte probe and rejects an answer longer than the request, and a
+  resource loader is not a URL it can probe for a format: the container's UTI has to be handed over, or
+  the failure comes back as -11850 "the server is not correctly configured", which reads like a broken
+  network and is really a missing string.
+
+### The tiers
+
+```mermaid
+flowchart TD
+    subgraph A["UI"]
+        view["rows · Now Playing · lock screen"]
+    end
+
+    subgraph B["Player — App/Player.swift"]
+        load["startCurrent(autoplay:startAt:)"]
+        gate{"AudioContentType.resolve(mimeType:fileName:)"}
+        tick["steerWindow(to:) every 0.25 s<br/>AudioWindowPolicy: 64 KiB grid · 768 KiB head<br/>1 MiB tail · lead 1 to 12 MiB"]
+        next["prefetchAhead(remaining:) at 10 s left<br/>the next song's head, at cover priority"]
+    end
+
+    subgraph C["Two engines — App/SongEngine.swift"]
+        stream["StreamSongEngine — AVPlayer + AVURLAsset<br/>doni-audio://song/audio.ext?key=file_unique_id"]
+        whole["FileSongEngine — AVAudioPlayer<br/>one finished file, exact duration"]
+    end
+
+    subgraph D["Ranges — Packages/Support/Sources/Support/Streaming"]
+        loader["AudioStreamLoader — AVAssetResourceLoaderDelegate<br/>2-byte probe · never more than asked · 256 KiB cap<br/>60 ms × 500 passes, then stalled"]
+    end
+
+    subgraph E["Transport — Packages/TdSession"]
+        src["TelegramAudioSource — totalBytes · read · want"]
+        dl["TdFileDownloader — state · readyBytes · ask · fetch · quiet"]
+        tdlib["TDLib — one offset and one limit per file_id"]
+    end
+
+    subgraph F["On the phone"]
+        disk["TDLib's file cache — 64 KiB parts with<br/>somebody else's bytes in the gaps"]
+        db["LibraryStore (SQLite) · AudioCachePolicy<br/>whole files given back over 2 GiB, oldest listen first"]
+    end
+
+    view -->|"play · pause · scrub"| load
+    load --> gate
+    gate -->|"mp3 m4a mp4 aac wav aif flac caf"| stream
+    gate -->|"ogg · opus · no size · already complete"| whole
+    stream --> loader
+    loader -->|"read(at:count:)"| src
+    src --> dl
+    dl --> tdlib
+    tdlib -->|"downloadFile(offset, limit), then cancelDownloadFile"| disk
+    disk -->|"getFileDownloadedPrefixSize: which bytes are ready"| dl
+    tick -->|"where the window has to sit"| dl
+    next -->|"a bounded ask, never the file"| dl
+    dl -->|"deleteFile"| db
+```
+
+Two of those edges are the whole argument. `downloadFile` is always followed by `cancelDownloadFile`, so
+the fetch stops at the window instead of carrying on to the end of a 166 MB set; and the read that answers
+AVFoundation is cut off at `getFileDownloadedPrefixSize`, so a hole in the middle of a file is waited for
+rather than read through. The last edge is the other half of the promise: the bytes that stay are what make
+a song replayable with no network, and the sweep that gives them back never touches the song under the
+playhead — TDLib frees a whole file, so a partial one is evicted whole, never partly.
+
+### What a scrub to 3:40 costs
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as SwiftUI
+    participant P as Player
+    participant E as StreamSongEngine
+    participant L as AudioStreamLoader
+    participant S as TelegramAudioSource
+    participant D as TdFileDownloader
+    participant T as TDLib
+
+    V->>P: seek(to: 220)
+    P->>E: currentTime = 220
+    E->>L: AVFoundation asks for a range at byte 220 x bitrate
+    P->>D: fetch(window: plan.offset, bytes: plan.count)
+    D->>T: downloadFile(offset, limit, priority 16)
+    L->>S: read(at: offset, upTo: 256 KiB)
+    S->>D: read(file, at: offset, upTo:)
+    D->>T: getFileDownloadedPrefixSize
+    T-->>D: 0 — nothing there yet
+    D-->>L: empty Data ("not yet", which is waited through)
+    L->>S: want(offset, 1 MiB)
+    S->>D: ask(window: offset, bytes: 1 MiB)
+    D->>T: downloadFile — the one window moves
+    loop 60 ms apart, at most 500 passes
+        L->>S: read(at: currentOffset, upTo: 256 KiB)
+        S->>D: read(file, at:, upTo:)
+        D->>T: getFileDownloadedPrefixSize
+        T-->>D: parts landed at their own offsets
+        D-->>L: bytes, cut off at the last ready one
+    end
+    L-->>E: respond(with:) — never more than was asked
+    E-->>V: sound — the bar advances only while timeControlStatus is playing
+    P->>D: quiet(file)
+    D->>T: cancelDownloadFile — the rest of the file stays unfetched
+```
+
+### The numbers, and where each one lives
+
+| Number | Where | What it decides |
+|---|---|---|
+| 64 KiB | `AudioWindowPolicy.partBytes` | TDLib's part grid; every window starts on it |
+| 768 KiB | `AudioWindowPolicy.headBytes` | what a start asks for: enough for the decoder to find a frame boundary and report a length |
+| 1 MiB | `AudioWindowPolicy.tailBytes` | the extra ask for `m4a`/`mp4`/`aac`/`m4b`, whose `moov` sits at the end of the file |
+| 1 to 12 MiB | `minimumLeadBytes` … `maximumLeadBytes` | how far ahead of the playhead the window sits: doubled after a rebuffer, halved once the buffer has more than twice what it needs |
+| 256 KiB | `AudioStreamLoader.chunkBytes` | the longest answer one request gets |
+| 1 MiB | `chunkBytes * 4` | how far the loader tells the transport to reach when a read comes back empty |
+| 60 ms, 500 times | `pollNanoseconds`, `maximumIdlePasses` | how long a range is waited for — half a minute of nothing, then it is called stalled |
+| 300 ms, 25 s | `TdFileDownloader.windowPoll`, `windowPatience` | how often the app looks for a window landing, and when it concludes it is not coming |
+| 16, 1 | `audioPriority`, `coverPriority` | the playhead's file against artwork and a guessed next song |
+| 0.25 s | `Player`'s ticker | position, the resume snapshot, the prefetch check and the window steering |
+| 10 s | `Player.prefetchLead` | when the next song's head is fetched — its head and nothing more |
+| 32 KiB, 64 KiB | `Library.probe` | what a length costs when the message carries none: the head, plus a tail for an `mp4` not written for streaming |
+| 2 GiB | `Library.defaultQuota` | the cache ceiling, and what `AudioCachePolicy` is measured against |
 
 ## Build it
 
@@ -126,6 +255,8 @@ checkout, which is the question CI is actually good for: *does this build somewh
 - No CarPlay yet: the audio entitlement needs a paid Apple developer account and Apple's approval.
 - Lyrics come from public sources. A song nobody has typed out has no words, and the app says so
   instead of showing a blank page.
+- `ogg`, `oga` and `opus` are still downloaded whole: AVFoundation cannot decode them on any iOS
+  version, so ranges would only delay the first sound rather than cause it.
 - Update checking tells you a newer version exists and opens the release page. It cannot install it.
 
 ## Licence and credit
