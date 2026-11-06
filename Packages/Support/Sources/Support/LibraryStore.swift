@@ -578,15 +578,18 @@ public final class LibraryStore: @unchecked Sendable {
         sqlite3_step(statement)
     }
 
+    /// Writing a song the walk found, keeping whatever the phone already knew about it.
+    ///
+    /// A song that is also in Saved Messages keeps *that* post's `message_id`, because it is the only
+    /// handle a delete update gives the cloud list; `saveCloud` is the writer allowed to move it, and a
+    /// channel walk that posted the same song elsewhere must not. SQLite takes `--` and `/* */` only, so
+    /// that rule lives here rather than inside the statement, where `//` failed to prepare it.
     private func insert(track: StoreTrack) {
         guard let statement = prepare("""
             INSERT INTO track (\(Self.columns))
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(unique_id) DO UPDATE SET
                 chat_id = excluded.chat_id,
-                // A song that is also in Saved Messages keeps that post's id, because that id is the only
-                // handle a delete update gives the cloud list. `saveCloud` is the writer allowed to move
-                // it; a channel walk that posted the same song elsewhere must not.
                 message_id = CASE WHEN track.in_cloud = 1 THEN track.message_id
                                   ELSE excluded.message_id END,
                 file_id = excluded.file_id,
@@ -1009,7 +1012,9 @@ public final class LibraryStore: @unchecked Sendable {
     /// An existing row keeps its `chat_id` — a forward into Saved Messages does not move the post —
     /// and the separate flag is what lets one song stand in its channel's list and in Cloud Music. A
     /// page answering before TDLib finishes the lookup must not make a column worse, so length, cover
-    /// and the streaming gate's mime type are `COALESCE`d, not replaced.
+    /// and the streaming gate's mime type are `COALESCE`d, not replaced. The Saved Messages post id
+    /// itself is always rewritten: it is the only number a delete update speaks, and a row that came in
+    /// from Files carries 0 until this walk gives it one.
     public func saveCloud(_ tracks: [StoreTrack]) {
         lock.lock()
         defer { lock.unlock() }
@@ -1019,9 +1024,6 @@ public final class LibraryStore: @unchecked Sendable {
             ON CONFLICT(unique_id) DO UPDATE SET
                 in_cloud = 1,
                 file_id = excluded.file_id,
-                // The Saved Messages post id, not the channel's: a delete update names the chat it was
-                // read from, and this row's only handle on that chat is the id written here. A song
-                // imported from Files carries 0 until the cloud walk gives it one.
                 message_id = excluded.message_id,
                 title = CASE WHEN track.title = '' THEN excluded.title ELSE track.title END,
                 duration = COALESCE(excluded.duration, track.duration),
