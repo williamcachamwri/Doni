@@ -24,81 +24,87 @@ struct DesktopSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var session: TelegramSession
     @EnvironmentObject private var library: Library
-    @EnvironmentObject private var artwork: CoverArtwork
 
     @State private var showsReset = false
-    @State private var usage: DoniStorage?
-    @State private var cleaning: StorageCleanup?
-    @State private var message: String?
-    @State private var failure: String?
+    @State private var path: [Page] = []
+
+    /// The pages the panel can push, the way the phone pushes its storage and its about
+    /// (`SettingsView.swift:143-149`): a screen of bytes or a screen of words is a page of its own,
+    /// not six cards loose in one scroll.
+    enum Page: Hashable {
+        case about
+        case storage
+        case lyrics
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    if session.isAuthorized {
-                        accountCard
-                        appCard
-                        libraryCard
-                        storageCard
-                        lyricsCard
-                        channelsCard
-                        aboutCard
-                        if let message {
-                            Text(message)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("Chưa đăng nhập")
-                            .font(.system(size: 15, weight: .semibold))
+            NavigationStack(path: $path) {
+                ScrollView { scrollContent }
+                    // The menu's "Giới thiệu về Doni" opens this panel with the About page already
+                    // pushed: the standard about window it replaces showed one fact, and the page it
+                    // leads to shows every one of them.
+                    .onAppear {
+                        guard model.ui.openSettingsAtAbout else { return }
+                        model.ui.openSettingsAtAbout = false
+                        path = [.about]
                     }
+                    .navigationDestination(for: Page.self) { page in
+                        switch page {
+                        case .about:
+                            DesktopAboutPage()
+                        case .storage:
+                            DesktopStoragePage()
+                        case .lyrics:
+                            DesktopLyricsPage()
+                        }
+                    }
+            }
+
+            if path.isEmpty {
+                Divider()
+
+                HStack(spacing: 12) {
+                    Button("Khôi phục cài đặt…", role: .destructive) { showsReset = true }
+
+                    Spacer()
+
+                    Button("Hoàn tất") { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                        .buttonStyle(.borderedProminent)
+                        .tint(MusicTint.accent)
                 }
-                .padding(24)
-                .frame(maxWidth: 560, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .top)
+                .controlSize(.large)
+                .padding(.horizontal, 24)
+                .frame(height: 62)
             }
-
-            Divider()
-
-            HStack(spacing: 12) {
-                Button("Khôi phục cài đặt…", role: .destructive) { showsReset = true }
-
-                Spacer()
-
-                Button("Hoàn tất") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .tint(MusicTint.accent)
-            }
-            .controlSize(.large)
-            .padding(.horizontal, 24)
-            .frame(height: 62)
         }
         .frame(width: 620, height: 640)
-        .task { await measure() }
         .alert("Khôi phục cài đặt?", isPresented: $showsReset) {
             Button("Khôi phục", role: .destructive) { resetPreferences() }
             Button("Huỷ", role: .cancel) {}
         } message: {
             Text("Lời bài hát và tuỳ chọn kiểm tra cập nhật trở lại như lúc mới cài. Ngôn ngữ giữ nguyên vì nó chỉ đổi được khi mở lại app.")
         }
-        .confirmationDialog(LocalizedStringKey(cleaning?.title ?? ""),
-                            isPresented: confirming, titleVisibility: .visible) {
-            if let action = cleaning {
-                Button(LocalizedStringKey(action.confirmTitle), role: .destructive) {
-                    Task { await perform(action) }
-                }
+    }
+
+    private var scrollContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            if session.isAuthorized {
+                accountCard
+                appCard
+                libraryCard
+                lyricsCard
+                channelsCard
+                aboutCard
+            } else {
+                Text("Chưa đăng nhập")
+                    .font(.system(size: 15, weight: .semibold))
             }
-            Button("Huỷ", role: .cancel) {}
-        } message: {
-            Text(LocalizedStringKey(cleaning?.confirmMessage ?? ""))
         }
-        .alert("Không dọn được", isPresented: failing) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(failure ?? "")
-        }
+        .padding(24)
+        .frame(maxWidth: 560, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     // MARK: Cards
@@ -133,6 +139,8 @@ struct DesktopSettingsView: View {
         }
     }
 
+    /// The bytes live behind a door in this card, the way the phone's storage row sits in its
+    /// library card (`SettingsView.swift:456-460`): the value on the row, the room behind the chevron.
     private var libraryCard: some View {
         SettingsCard(title: "Thư viện nhạc") {
             SettingsRow(symbol: "doc.text", title: "Bài đã chỉ mục",
@@ -146,58 +154,27 @@ struct DesktopSettingsView: View {
                         subtitle: "Nghe được khi không có mạng") {
                 SettingsValue(localized("%@ bài", library.downloadedCount.formatted()))
             }
-        }
-    }
 
-    /// The bytes and the two things that throw them away — the phone's storage screen, inline, because
-    /// a desktop window has the room and a settings screen should not hide a number the listener is
-    /// asking for behind another click.
-    private var storageCard: some View {
-        SettingsCard(title: "Bộ nhớ") {
-            SettingsRow(symbol: "arrow.down.circle.fill", title: "Nhạc Telegram",
-                        subtitle: "Bài đầy đủ và cache stream từng phần") {
-                SettingsValue(DataSize.string(usage?.telegramBytes ?? 0))
-            }
             SettingsDivider()
-            SettingsRow(symbol: "externaldrive", title: "Nhạc bạn thêm",
-                        subtitle: "File chọn từ máy, không lấy lại được") {
-                SettingsValue(DataSize.string(usage?.importedBytes ?? 0))
-            }
-            SettingsDivider()
-            SettingsRow(symbol: "photo.stack", title: "Cache ảnh",
-                        subtitle: "Ảnh bìa và ảnh kênh, tự tải lại") {
-                SettingsValue(DataSize.string(usage?.pictureBytes ?? 0))
-            }
-            SettingsDivider()
-            SettingsRow(symbol: "heart.text.square", title: "Thư viện của bạn",
-                        subtitle: "Danh sách, bài yêu thích, ảnh bìa bạn chọn") {
-                SettingsValue(DataSize.string(usage?.libraryBytes ?? 0))
-            }
-            SettingsDivider()
-            SettingsRow(symbol: "gearshape.2", title: "Phần Telegram của app",
-                        subtitle: "Cơ sở dữ liệu TDLib tự tạo — không xoá được khi đang đăng nhập") {
-                SettingsValue(DataSize.string(usage?.engineBytes ?? 0))
-            }
-            SettingsDivider()
-            SettingsRow(symbol: "internaldrive", title: "Tổng") {
-                SettingsValue(DataSize.string(usage?.managedBytes ?? 0), bold: true)
-            }
 
-            ForEach(Array(StorageCleanup.allCases.enumerated()), id: \.element.id) { index, action in
-                SettingsDivider()
-                SettingsRow(symbol: action == .pictures ? "photo" : "trash",
-                            title: action.title,
-                            destructive: true,
-                            action: { cleaning = action }) {
+            SettingsRow(symbol: "internaldrive", title: "Bộ nhớ",
+                        subtitle: "Ảnh bìa, nhạc Telegram, file của bạn",
+                        action: { path.append(.storage) }) {
+                HStack(spacing: 8) {
+                    SettingsValue(library.disk.map { DataSize.string($0.managedBytes) } ?? "…")
                     Chevron()
                 }
             }
         }
     }
 
+    /// One door into the words' own page, the way About is one door into its page.
     private var lyricsCard: some View {
-        SettingsCard(title: "Lời bài hát") {
-            DesktopLyricsRows()
+        SettingsCard(title: nil) {
+            SettingsRow(symbol: "text.quote", title: "Lời bài hát",
+                        action: { path.append(.lyrics) }) {
+                Chevron()
+            }
         }
     }
 
@@ -219,18 +196,15 @@ struct DesktopSettingsView: View {
         }
     }
 
+    /// One row behind which the whole About lives, the way the phone hides it behind one row at the
+    /// foot of its settings (`SettingsView.swift:51-57`): version, updates and licences are a page,
+    /// not six cards loose in the scroll.
     private var aboutCard: some View {
         SettingsCard(title: "Giới thiệu") {
-            SettingsRow(symbol: "info.circle", title: "Phiên bản",
-                        subtitle: localized("Bản dựng %@", AppVersion.build)) {
-                SettingsValue(AppVersion.current)
-            }
-
-            SettingsDivider()
-
-            SettingsRow(symbol: "arrow.triangle.2.circlepath",
-                        title: "Kiểm tra cập nhật khi mở app") {
-                DesktopUpdateCheckToggle()
+            SettingsRow(symbol: "info.circle", title: "Giới thiệu Doni",
+                        subtitle: "Phiên bản, cập nhật, giấy phép",
+                        action: { path.append(.about) }) {
+                Chevron()
             }
         }
     }
@@ -259,42 +233,6 @@ struct DesktopSettingsView: View {
         let songs = localized("%@ bài", library.store.trackCount(chatId: channel.chatId).formatted())
         let handle = channel.username.isEmpty ? nil : "@\(channel.username)"
         return [handle, songs].compactMap { $0 }.joined(separator: " · ")
-    }
-
-    private var confirming: Binding<Bool> {
-        Binding(get: { cleaning != nil }, set: { shown in if !shown { cleaning = nil } })
-    }
-
-    private var failing: Binding<Bool> {
-        Binding(get: { failure != nil }, set: { shown in if !shown { failure = nil } })
-    }
-
-    private func measure() async {
-        await library.remeasureDisk()
-        usage = library.disk
-    }
-
-    private func perform(_ action: StorageCleanup) async {
-        guard cleaning == nil else { return }
-        cleaning = action
-        message = nil
-        defer { cleaning = nil }
-
-        switch action {
-        case .pictures:
-            let freed = StorageTally.clearPictures(artwork)
-            message = localized("Đã giải phóng %@ ảnh.", DataSize.string(freed))
-        case .downloads:
-            guard let files = session.covers() else {
-                failure = "Chưa có kết nối Telegram, nên không thể báo cho TDLib biết các bài này đã không còn trên máy."
-                return
-            }
-            let count = await library.clearTelegramDownloads(with: files)
-            message = count == 1
-                ? "Đã xoá 1 bài khỏi máy."
-                : localized("Đã xoá %@ bài khỏi máy.", count.formatted())
-        }
-        await measure()
     }
 
     /// Doni has no player engine to reset — no equaliser, no sleep timer, no recognition — so what this
@@ -418,7 +356,7 @@ struct SettingsValue: View {
     }
 }
 
-private struct Chevron: View {
+struct Chevron: View {
     var body: some View {
         Image(systemName: "chevron.right")
             .font(.system(size: 11, weight: .semibold))
@@ -453,7 +391,7 @@ private struct DesktopLanguagePicker: View {
     }
 }
 
-private struct DesktopUpdateCheckToggle: View {
+struct DesktopUpdateCheckToggle: View {
     @State private var on = AppUpdateSettings.checksOnLaunch
 
     var body: some View {
@@ -468,7 +406,7 @@ private struct DesktopUpdateCheckToggle: View {
 
 /// Where the words come from and when they move — the three settings the phone keeps in the words
 /// screen and the desktop has no other place for.
-private struct DesktopLyricsRows: View {
+struct DesktopLyricsRows: View {
     @ObservedObject private var prefs = LyricsPreferences.shared
 
     var body: some View {
