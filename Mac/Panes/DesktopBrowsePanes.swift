@@ -96,7 +96,7 @@ struct DesktopHomePane: View {
                                 DesktopMediaCard(
                                     title: list.name,
                                     subtitle: localized("%@ bài", list.trackCount.formatted()),
-                                    artwork: .image(cover(list.coverPath))
+                                    artwork: library.cardArtwork(for: list)
                                 ) {
                                     model.ui.navigate(to: .playlist(list.id))
                                 } playAction: {
@@ -181,7 +181,7 @@ struct DesktopPlaylistsPane: View {
                             DesktopMediaCard(
                                 title: list.name,
                                 subtitle: localized("%@ bài", list.trackCount.formatted()),
-                                artwork: .image(cover(list.coverPath))
+                                artwork: library.cardArtwork(for: list)
                             ) {
                                 model.ui.navigate(to: .playlist(list.id))
                             }
@@ -201,10 +201,6 @@ struct DesktopPlaylistsPane: View {
         }
     }
 
-    private func cover(_ path: String?) -> DoniImage? {
-        guard let path else { return nil }
-        return CoverArtwork.shared.image(at: path)
-    }
 }
 
 /// The channels, as rows rather than cards: a channel is a place, and what a listener wants from the
@@ -236,9 +232,18 @@ struct DesktopChannelsPane: View {
                                            description: Text("Dán một link t.me hoặc chọn từ danh sách trò chuyện."))
                         .padding(.top, 60)
                 } else {
-                    LazyVStack(spacing: 2) {
+                    // Cards, as the reference shows them (`DesktopHomeQuickActionsView`'s grid and the
+                    // channel shelf): a channel is a place you go into, and its picture is the sign.
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 145, maximum: 205), spacing: 24)],
+                              alignment: .leading,
+                              spacing: 20) {
                         ForEach(library.channels) { channel in
-                            DesktopChannelRow(channel: channel) {
+                            DesktopMediaCard(
+                                title: channel.title,
+                                subtitle: nil,
+                                artwork: .image(channel.avatarPath
+                                    .flatMap { CoverArtwork.shared.image(at: $0) })
+                            ) {
                                 model.ui.navigate(to: .channel(chatId: channel.chatId,
                                                                title: channel.title))
                             }
@@ -248,6 +253,12 @@ struct DesktopChannelsPane: View {
             }
             .padding(.horizontal, 34)
             .padding(.vertical, 28)
+        }
+        .task(id: library.channels.map(\.chatId)) {
+            let store = library, chats = session
+            for channel in store.channels {
+                await store.loadAvatar(of: channel, on: chats)
+            }
         }
         .navigationTitle("Kênh")
         .sheet(isPresented: $showsAdd) {
@@ -589,5 +600,20 @@ struct DesktopNameSheet: View {
         }
         .padding(20)
         .frame(width: 320)
+    }
+}
+
+extension Library {
+    /// The phone's rule, kept: the picture the listener chose, else the first song's cover, else the
+    /// list glyph. A Telegram list has no artwork of its own — its songs do, and the first one is what
+    /// the list sounds like.
+    func cardArtwork(for list: StoredPlaylist) -> DesktopCardArtwork {
+        if let path = list.coverPath, let image = CoverArtwork.shared.image(at: path) {
+            return .image(image)
+        }
+        if let first = firstTrack(in: list.id) {
+            return .track(first)
+        }
+        return .glyph("music.note.list")
     }
 }
