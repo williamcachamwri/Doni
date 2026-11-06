@@ -584,7 +584,11 @@ public final class LibraryStore: @unchecked Sendable {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(unique_id) DO UPDATE SET
                 chat_id = excluded.chat_id,
-                message_id = excluded.message_id,
+                // A song that is also in Saved Messages keeps that post's id, because that id is the only
+                // handle a delete update gives the cloud list. `saveCloud` is the writer allowed to move
+                // it; a channel walk that posted the same song elsewhere must not.
+                message_id = CASE WHEN track.in_cloud = 1 THEN track.message_id
+                                  ELSE excluded.message_id END,
                 file_id = excluded.file_id,
                 cover_file_id = COALESCE(excluded.cover_file_id, track.cover_file_id),
                 title = excluded.title,
@@ -1015,6 +1019,10 @@ public final class LibraryStore: @unchecked Sendable {
             ON CONFLICT(unique_id) DO UPDATE SET
                 in_cloud = 1,
                 file_id = excluded.file_id,
+                // The Saved Messages post id, not the channel's: a delete update names the chat it was
+                // read from, and this row's only handle on that chat is the id written here. A song
+                // imported from Files carries 0 until the cloud walk gives it one.
+                message_id = excluded.message_id,
                 title = CASE WHEN track.title = '' THEN excluded.title ELSE track.title END,
                 duration = COALESCE(excluded.duration, track.duration),
                 local_path = COALESCE(excluded.local_path, track.local_path),
@@ -1055,15 +1063,53 @@ public final class LibraryStore: @unchecked Sendable {
         return sqlite3_step(statement) == SQLITE_ROW
     }
 
-    /// Taking the flag off songs the chat no longer holds — only once a read has reached the oldest
-    /// message, since a page is not the whole chat. The ids are bound in chunks of 500, because
-    /// SQLite's variable limit is a real number and a thousand-song cloud is a normal one.
+    /// Taking the flag off songs the chat no longer holds, within the part of the chat a read saw to its
+    /// bottom. `newerThan` is the oldest message id the walk reached: every row above it is either in
+    /// `keep` or gone, and every row at or below it is something this read never looked at, so it keeps
+    /// its flag. Pass 0 for a read that reached the oldest message in the chat.
+    public func clearCloud(newerThan: Int64, except uniqueIds: [String]) {
+        lock.lock()
+        defer { lock.unlock() }
+        let keep = Set(uniqueIds)
+        clearCloudFlagsLocked(cloudRowsLocked().filter { $0.id > newerThan && !keep.contains($0.key) }
+                                                     .map(\.key))
+    }
+
+    /// Taking the flag off the songs posted under the message ids Telegram says are gone.
+    ///
+    /// This is what a delete update can answer with on its own. A Saved Messages chat of a few thousand
+    /// posts is never walked to its end inside one app session, so a rule that waits for a full read
+    /// before it dares to clear anything is a rule that never clears anything — which is how a song
+    /// deleted in Telegram stayed on this list.
+    public func clearCloud(messageIds: [Int64]) {
+        guard !messageIds.isEmpty else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        var index = 0
+        while index < messageIds.count {
+            let chunk = Array(messageIds[index..<min(index + 500, messageIds.count)])
+            index += chunk.count
+            let marks = repeatElement("?", count: chunk.count).joined(separator: ", ")
+            guard let statement = prepare(
+                "UPDATE track SET in_cloud = 0 WHERE message_id IN (\(marks))"
+            ) else { return }
+            for (offset, id) in chunk.enumerated() {
+                sqlite3_bind_int64(statement, Int32(1 + offset), id)
+            }
+            sqlite3_step(statement)
+            sqlite3_finalize(statement)
+        }
+    }
+
+    /// The old rule, for the one caller that really does know the whole chat.
     public func clearCloud(except uniqueIds: [String]) {
         lock.lock()
         defer { lock.unlock() }
         let keep = Set(uniqueIds)
-        let held = cloudUniqueIdsLocked()
-        let gone = held.filter { !keep.contains($0) }
+        clearCloudFlagsLocked(cloudRowsLocked().filter { !keep.contains($0.key) }.map(\.key))
+    }
+
+    private func clearCloudFlagsLocked(_ gone: [String]) {
         guard !gone.isEmpty else { return }
         var index = 0
         while index < gone.count {
@@ -1079,6 +1125,19 @@ public final class LibraryStore: @unchecked Sendable {
             sqlite3_step(statement)
             sqlite3_finalize(statement)
         }
+    }
+
+    /// The cloud's rows with the message id each was posted under, which is the only number a delete
+    /// update speaks.
+    private func cloudRowsLocked() -> [(key: String, id: Int64)] {
+        guard let statement = prepare("SELECT unique_id, message_id FROM track WHERE in_cloud = 1")
+        else { return [] }
+        defer { sqlite3_finalize(statement) }
+        var found: [(String, Int64)] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            found.append((Self.text(statement, 0), sqlite3_column_int64(statement, 1)))
+        }
+        return found
     }
 
     /// Writing or clearing the cloud flag on named songs.
@@ -1104,14 +1163,6 @@ public final class LibraryStore: @unchecked Sendable {
             sqlite3_step(statement)
             sqlite3_finalize(statement)
         }
-    }
-
-    private func cloudUniqueIdsLocked() -> [String] {
-        guard let statement = prepare("SELECT unique_id FROM track WHERE in_cloud = 1") else { return [] }
-        defer { sqlite3_finalize(statement) }
-        var found: [String] = []
-        while sqlite3_step(statement) == SQLITE_ROW { found.append(Self.text(statement, 0)) }
-        return found
     }
 
     /// What the phone holds per song, in the numbers an eviction decides with. `size` is what the post

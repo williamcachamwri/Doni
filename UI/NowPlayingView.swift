@@ -554,8 +554,12 @@ struct SongActions: View {
     /// reason to thread a session through three views to reach it: a song can be liked and queued
     /// from there, but it is put into the cloud from where it is actually playing.
     var session: TelegramSession?
-    @StateObject private var cloud = CloudMusic()
+    /// The one cloud object the whole app uses: a second instance did the upload and wrote its result —
+    /// the refreshed list, the `isBusy`, the reason it refused — onto an object no screen was watching.
+    @StateObject private var cloud = CloudMusic.shared
     @State private var showsPlaylists = false
+    /// What the last cloud ask answered, because the menu is gone by the time it answers.
+    @State private var note: String?
 
     var body: some View {
         Menu {
@@ -585,7 +589,9 @@ struct SongActions: View {
                 Button {
                     let track = track
                     Task {
-                        await cloud.publish(session, track)
+                        let stored = await cloud.publish(session, track)
+                        note = stored ? "Đã lưu vào Cloud Music"
+                                      : (cloud.failure ?? "Không lưu được bài này")
                     }
                 } label: {
                     Label(cloud.isBusy ? "Đang tải lên…" : "Lưu vào Cloud Music",
@@ -615,6 +621,14 @@ struct SongActions: View {
         .accessibilityLabel("Khác")
         .sheet(isPresented: $showsPlaylists) {
             AddToPlaylistSheet(track: track, artwork: artwork, library: library)
+        }
+        .alert("Cloud Music", isPresented: Binding(
+            get: { note != nil },
+            set: { if !$0 { note = nil } }
+        )) {
+            Button("OK", role: .cancel) { note = nil; cloud.failure = nil }
+        } message: {
+            Text(note ?? "")
         }
     }
 

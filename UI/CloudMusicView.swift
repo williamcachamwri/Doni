@@ -16,7 +16,7 @@ struct CloudMusicView: View {
     @ObservedObject var library: Library
     /// The account's own chat, read and written by the same object the Now Playing menu uses, so the
     /// two surfaces agree about what is already in the cloud.
-    @StateObject private var cloud = CloudMusic()
+    @StateObject private var cloud = CloudMusic.shared
 
     @State private var query = ""
     @State private var showsFileImporter = false
@@ -80,10 +80,29 @@ struct CloudMusicView: View {
             }
         }
         .listStyle(.plain)
+        .refreshable {
+            // A walk of the chat is the one thing that can prove this list still matches Telegram, so the
+            // screen has to let a person ask for it: pull down, or the arrow in the bar.
+            await cloud.refresh(session)
+        }
         .navigationTitle("Cloud Music")
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Tìm bài của bạn")
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await cloud.refresh(session) }
+                } label: {
+                    if cloud.isBusy {
+                        ProgressView()
+                    } else {
+                        Label("Làm mới", systemImage: "arrow.clockwise")
+                            .labelStyle(.iconOnly)
+                    }
+                }
+                .disabled(cloud.isBusy)
+                .accessibilityLabel(cloud.isBusy ? "Đang tải danh sách…" : "Làm mới Cloud Music")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
@@ -143,7 +162,7 @@ struct CloudMusicView: View {
                 ? localized("Bài này sẽ mất khỏi Doni. Tệp gốc bạn đã chọn vẫn còn ở nơi nó đang nằm.")
                 : localized("Bài này sẽ bị xoá khỏi Saved Messages trên Telegram, không chỉ khỏi Doni."))
         }
-        .alert("Không thêm được bài", isPresented: cloudFailing) {
+        .alert("Cloud Music", isPresented: cloudFailing) {
             Button("OK", role: .cancel) { cloud.failure = nil }
         } message: {
             Text(cloud.failure ?? "")

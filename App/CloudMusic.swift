@@ -11,6 +11,11 @@ import UIKit
 /// about whether they are downloaded, which is the number the storage screen has to report.
 @MainActor
 final class CloudMusic: ObservableObject {
+    /// One object for the whole app. Two surfaces each making their own meant the Download on Now Playing
+    /// wrote its result — the refreshed list, the `isBusy`, the reason it refused — onto an object that no
+    /// screen was looking at, so the tap did its work and showed nothing.
+    static let shared = CloudMusic()
+
     /// What the screen shows: the account's own chat, newest first, one row per song.
     @Published private(set) var songs: [StoreTrack] = []
     /// Whether a read or an upload is running — the difference between a spinner and a button that does
@@ -67,20 +72,25 @@ final class CloudMusic: ObservableObject {
             held.append(contentsOf: page.tracks.map(\.uniqueId))
             sawMessages = sawMessages || !page.messages.isEmpty
             reload()
-            guard let oldest = page.oldestMessageId, oldest != cursor else {
-                // Older messages stopped arriving — TDLib answers with what it has, so a stall is a stall —
-                // and the flags below stay as they were.
-                break
-            }
-            cursor = oldest
+            // The end of the chat is a page with no messages in it, so it has to be recognised before the
+            // cursor moves: `oldestMessageId` is nil on exactly that page, and a loop that compares ids
+            // first never reaches an end-of-chat branch at all.
             if page.isLast {
                 reachedTheEnd = true
                 break
             }
+            guard let oldest = page.oldestMessageId, oldest != cursor else {
+                // Older messages stopped arriving — TDLib answers with what it has, so a stall is a stall —
+                // and the flags below cover only the range that was actually read.
+                break
+            }
+            cursor = oldest
         }
-        // Only a read that reached the oldest message may say which songs are gone; one page would call
-        // every older song deleted.
-        if reachedTheEnd, sawMessages { library.store.clearCloud(except: held) }
+        // A walk that went to the bottom may clear every flag it did not see; one that stopped partway
+        // clears only above the oldest id it read, because older songs were never on a page.
+        if sawMessages {
+            library.store.clearCloud(newerThan: reachedTheEnd ? 0 : cursor, except: held)
+        }
     }
 
     /// The chat, created on first use. `nil` means it could not be had, and `failure` has by then said
@@ -216,8 +226,19 @@ final class CloudMusic: ObservableObject {
     /// should not pay for ten walks of the chat.
     func watchDeletes(_ session: TelegramSession) async {
         guard let stream = session.deletedMessages() else { return }
+        // Resolved here rather than read from `chatId`: this task starts alongside the first refresh, and
+        // updates that arrive before the chat is had are updates about songs that would stay on the list
+        // until the app is reopened.
+        guard let id = await ensureChat(session) else { return }
         for await update in stream {
-            guard let chatId, update["chat_id"]?.int == chatId else { continue }
+            guard update["chat_id"]?.int == id else { continue }
+            let messageIds = (update["message_ids"]?.array ?? []).compactMap { $0.int }
+            // The update names the posts that are gone, which is enough to drop them now. The walk it also
+            // schedules is the backstop for rows a delete update never sends.
+            if !messageIds.isEmpty {
+                library.store.clearCloud(messageIds: messageIds)
+                reload()
+            }
             reconciling?.cancel()
             reconciling = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(1))
