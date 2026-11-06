@@ -504,7 +504,8 @@ public actor TdFileDownloader {
     }
 
     /// Releases everyone waiting on this file and tells TDLib to stop fetching it.
-    public func cancel(fileId: Int) {        resolve(fileId, with: nil)
+    public func cancel(fileId: Int) {
+        resolve(fileId, with: nil)
         listeners[fileId] = nil
         stop(fileId)
     }

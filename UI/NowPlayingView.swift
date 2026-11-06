@@ -590,8 +590,8 @@ struct SongActions: View {
                     let track = track
                     Task {
                         let stored = await cloud.publish(session, track)
-                        note = stored ? "Đã lưu vào Cloud Music"
-                                      : (cloud.failure ?? "Không lưu được bài này")
+                        note = stored ? String(localized: "Đã lưu vào Cloud Music")
+                                      : (cloud.failure ?? String(localized: "Không lưu được bài này"))
                     }
                 } label: {
                     Label(cloud.isBusy ? "Đang tải lên…" : "Lưu vào Cloud Music",
@@ -873,7 +873,8 @@ private struct TransportRow: View {
                         .contentShape(.circle)
                 }
                 .buttonStyle(PlayerTransportButtonStyle(reducesMotion: reduceMotion))
-                .accessibilityLabel(player.isPlaying ? "Tạm dừng" : "Phát")
+                .accessibilityLabel(player.isPlaying ? String(localized: "Tạm dừng")
+                    : String(localized: "Phát"))
             }
             Spacer(minLength: 0)
             step("forward.fill", MusicNowPlayingMetrics.transportSkipGlyph,

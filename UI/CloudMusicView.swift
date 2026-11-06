@@ -101,7 +101,11 @@ struct CloudMusicView: View {
                     }
                 }
                 .disabled(cloud.isBusy)
-                .accessibilityLabel(cloud.isBusy ? "Đang tải danh sách…" : "Làm mới Cloud Music")
+                // A ternary of two literals infers `String`, not `LocalizedStringKey`, and `accessibilityLabel(String)`
+// never consults the catalog: without resolving these eagerly the app ships Vietnamese to every
+// language behind a green strings gate, which only checks that a row exists.
+                .accessibilityLabel(cloud.isBusy ? String(localized: "Đang tải danh sách…")
+                    : String(localized: "Làm mới Cloud Music"))
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -127,7 +131,8 @@ struct CloudMusicView: View {
                     }
                 }
                 .disabled(importing > 0)
-                .accessibilityLabel(importing > 0 ? "Đang thêm nhạc…" : "Thêm nhạc từ file")
+                .accessibilityLabel(importing > 0 ? String(localized: "Đang thêm nhạc…")
+                : String(localized: "Thêm nhạc từ file"))
             }
         }
         .task {
@@ -170,7 +175,7 @@ struct CloudMusicView: View {
         .alert("Không thêm được bài", isPresented: failing) {
             Button("OK", role: .cancel) { failure = nil }
         } message: {
-            Text(failure ?? "File không đọc được.")
+            Text(failure ?? String(localized: "File không đọc được."))
         }
         .overlay {
             if visible.isEmpty && importing == 0 && !cloud.isBusy {

@@ -365,7 +365,7 @@ struct LibraryView: View {
             if indexer.isReading {
                 VStack(spacing: 12) {
                     Spinner(color: palette.navControl, side: 24)
-                    Text(indexer.statusLine.isEmpty ? "Đang đọc kênh…" : indexer.statusLine)
+                    Text(indexer.statusLine.isEmpty ? String(localized: "Đang đọc kênh…") : indexer.statusLine)
                         .font(TelegramLibraryTypography.preview)
                         .foregroundStyle(palette.chatListMessageText)
                 }

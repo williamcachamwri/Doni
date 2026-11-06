@@ -70,7 +70,7 @@ struct StorageView: View {
         .alert("Không dọn được", isPresented: failing) {
             Button("OK", role: .cancel) { failure = nil }
         } message: {
-            Text(failure ?? "Hệ thống không cho phép xoá.")
+            Text(failure ?? String(localized: "Hệ thống không cho phép xoá."))
         }
     }
 

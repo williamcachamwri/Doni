@@ -96,7 +96,8 @@ struct MiniPlayerBar: View {
                     .contentShape(.circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(player.isPlaying ? "Tạm dừng" : "Phát")
+            .accessibilityLabel(player.isPlaying ? String(localized: "Tạm dừng")
+                    : String(localized: "Phát"))
         }
     }
 
