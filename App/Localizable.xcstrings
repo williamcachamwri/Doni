@@ -5251,6 +5251,111 @@
         }
       }
     },
+    "Khôi phục": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "استعادة"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rétablir"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复"
+          }
+        }
+      }
+    },
+    "Khôi phục cài đặt?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هل تُستعاد الإعدادات؟"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Restablecer los valores?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rétablir les réglages ?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить настройки?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复默认设置？"
+          }
+        }
+      }
+    },
+    "Khôi phục cài đặt…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "استعادة الإعدادات…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer valores…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rétablir les réglages…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановить настройки…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复默认设置…"
+          }
+        }
+      }
+    },
     "Không có bài audio nào trong %@ tin gần nhất": {
       "extractionState": "manual",
       "localizations": {
@@ -6787,6 +6892,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "歌词"
+          }
+        }
+      }
+    },
+    "Lời bài hát và tuỳ chọn kiểm tra cập nhật trở lại như lúc mới cài. Ngôn ngữ giữ nguyên vì nó chỉ đổi được khi mở lại app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعود الكلمات وفحص التحديثات إلى حالتهما الأصلية. اللغة لا تتغير لأنها تُطبَّق عند إعادة التشغيل فقط."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las letras y la comprobación de actualizaciones vuelven a su estado inicial. El idioma no cambia, porque solo se aplica al reiniciar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les paroles et la vérification des mises à jour reviendront à leur état initial. La langue ne change pas, car elle ne s'applique qu'au redémarrage."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тексты песен и проверка обновлений вернутся к исходным. Язык не меняется — он действует только после перезапуска."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌词和更新检查选项恢复为初始设置。语言保持不变，因为它只有在重新启动应用后才会更改。"
           }
         }
       }

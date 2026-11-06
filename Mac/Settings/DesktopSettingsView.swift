@@ -17,6 +17,7 @@ struct DesktopSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection = DesktopSettingsTab.general
+    @State private var showsReset = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,9 +49,15 @@ struct DesktopSettingsView: View {
             Divider()
 
             HStack(spacing: 12) {
+                Button("Khôi phục cài đặt…", role: .destructive) { showsReset = true }
+
                 Spacer()
-                Button("Đóng") { dismiss() }
+
+                Button("Huỷ") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                Button("OK") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .tint(MusicTint.accent)
             }
             .controlSize(.large)
             .padding(.horizontal, 20)
@@ -58,6 +65,24 @@ struct DesktopSettingsView: View {
         }
         .frame(width: 650, height: selection.contentHeight)
         .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: selection)
+        .alert("Khôi phục cài đặt?", isPresented: $showsReset) {
+            Button("Khôi phục", role: .destructive) { resetPreferences() }
+            Button("Huỷ", role: .cancel) {}
+        } message: {
+            Text("Lời bài hát và tuỳ chọn kiểm tra cập nhật trở lại như lúc mới cài. Ngôn ngữ giữ nguyên vì nó chỉ đổi được khi mở lại app.")
+        }
+    }
+
+    /// The reference's footer button (`DesktopSettingsView.swift:55-58`, `:90-98`) does one thing: put
+    /// every switch Doni owns back where the first launch left it. Doni has no player engine to reset —
+    /// no equaliser, no sleep timer, no recognition — so what this returns is the words, the update
+    /// check and the language.
+    private func resetPreferences() {
+        let words = LyricsPreferences.shared
+        words.networkAllowed = true
+        words.offset = 0
+        words.showPlain = true
+        AppUpdateSettings.checksOnLaunch = true
     }
 }
 

@@ -476,3 +476,9 @@ Với một bản lời được canh theo một bản thu khác.|用于歌词�
 Danh sách phát|播放列表|Lista de reproducción|Плейлист|Liste de lecture|قائمة التشغيل
 Thêm một bài từ bất kỳ danh sách nào bằng dấu ⋯ cạnh bài đó.|从任意歌曲旁的 ⋯ 添加一首歌。|Añade una canción desde el ⋯ que aparece junto a ella.|Добавьте песню через ⋯ рядом с ней в любом списке.|Ajoutez un titre depuis le ⋯ affiché à côté de lui.|أضف أغنية عبر علامة ⋯ بجانب أي أغنية.
 Đổi tên…|重命名…|Cambiar nombre…|Переименовать…|Renommer…|إعادة التسمية…
+
+# The settings window's footer: the reference's restore-defaults button and what it promises.
+Khôi phục cài đặt…|恢复默认设置…|Restablecer valores…|Восстановить настройки…|Rétablir les réglages…|استعادة الإعدادات…
+Khôi phục cài đặt?|恢复默认设置？|¿Restablecer los valores?|Восстановить настройки?|Rétablir les réglages ?|هل تُستعاد الإعدادات؟
+Khôi phục|恢复|Restablecer|Восстановить|Rétablir|استعادة
+Lời bài hát và tuỳ chọn kiểm tra cập nhật trở lại như lúc mới cài. Ngôn ngữ giữ nguyên vì nó chỉ đổi được khi mở lại app.|歌词和更新检查选项恢复为初始设置。语言保持不变，因为它只有在重新启动应用后才会更改。|Las letras y la comprobación de actualizaciones vuelven a su estado inicial. El idioma no cambia, porque solo se aplica al reiniciar.|Тексты песен и проверка обновлений вернутся к исходным. Язык не меняется — он действует только после перезапуска.|Les paroles et la vérification des mises à jour reviendront à leur état initial. La langue ne change pas, car elle ne s'applique qu'au redémarrage.|تعود الكلمات وفحص التحديثات إلى حالتهما الأصلية. اللغة لا تتغير لأنها تُطبَّق عند إعادة التشغيل فقط.
