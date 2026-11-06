@@ -1082,26 +1082,6 @@ struct PlayerTransportButtonStyle: ButtonStyle {
     }
 }
 
-/// The three reasons a stream stops by itself are not the same sentence, and saying the wrong one
-/// sends the listener to the wrong setting: the router, the Telegram post, or nothing at all.
-private extension Player.PlaybackProblem {
-    var symbol: String {
-        switch self {
-        case .offline: return "wifi.slash"
-        case .stalled: return "exclamationmark.arrow.circlepath"
-        case .gone: return "exclamationmark.triangle"
-        }
-    }
-
-    var message: String {
-        switch self {
-        case .offline: return "Không có kết nối Internet"
-        case .stalled: return "Không tải được phần còn lại của bài hát"
-        case .gone: return "Bài hát này không còn trên Telegram"
-        }
-    }
-}
-
 #Preview {
     NowPlayingView(session: TelegramSession(), player: Player(), artwork: CoverArtwork.shared,
                    library: Library.shared, close: {})

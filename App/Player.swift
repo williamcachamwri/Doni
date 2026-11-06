@@ -1137,3 +1137,27 @@ final class Player: ObservableObject {
         MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
 }
+
+/// The three reasons a stream stops by itself are not the same sentence, and saying the wrong one sends
+/// the listener to the wrong setting: the router, the Telegram post, or nothing at all.
+///
+/// Both shells read this — the phone's Now Playing (`UI/NowPlayingView.swift`) and the desktop's bar
+/// (`Mac/Player/DesktopBottomPlayer.swift`) — so `message` stays a catalog key and each call site looks
+/// it up. A sentence resolved here would be translated twice.
+extension Player.PlaybackProblem {
+    var symbol: String {
+        switch self {
+        case .offline: return "wifi.slash"
+        case .stalled: return "exclamationmark.arrow.circlepath"
+        case .gone: return "exclamationmark.triangle"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .offline: return "Không có kết nối Internet"
+        case .stalled: return "Không tải được phần còn lại của bài hát"
+        case .gone: return "Bài hát này không còn trên Telegram"
+        }
+    }
+}

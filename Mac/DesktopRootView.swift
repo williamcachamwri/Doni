@@ -90,7 +90,7 @@ struct DesktopTabPage: View {
     var body: some View {
         @Bindable var ui = model.ui
 
-        NavigationStack(path: $ui.path) {
+        let pageContent = NavigationStack(path: $ui.path) {
             DesktopSectionContentView(section: section)
                 .navigationDestination(for: DesktopRoute.self) { route in
                     DesktopRouteView(route: route)
@@ -101,6 +101,21 @@ struct DesktopTabPage: View {
         // A title is what tells a listener which of the eight columns they are looking at once the
         // sidebar has been scrolled out of the way.
         .navigationTitle(localized(section.title))
+
+        ZStack(alignment: .trailing) {
+            pageContent
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    DesktopTabBottomPlayerInset()
+                }
+
+            // One bar for the whole app, drawn by the tab the listener is in — the reference's rule, and
+            // the reason a hidden tab does not keep a second player tree alive.
+            if section == ui.selection {
+                DesktopTabBottomPlayer()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .zIndex(3)
+            }
+        }
     }
 }
 

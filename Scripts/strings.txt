@@ -396,3 +396,11 @@ Nhập câu bắt đầu bằng “%@” mà chúng tôi đã gửi.|输入我�
 Chúng tôi đã gửi mã %@ chữ số.|我们已发送 %@ 位验证码。|Enviamos un código de %@ dígitos.|Мы отправили код из %@ цифр.|Nous avons envoyé un code de %@ chiffres.|أرسلنا رمزًا من %@ رقمًا.
 Chúng tôi sẽ gọi và đọc mã theo dạng %@.|我们将致电并按 %@ 的形式播报验证码。|Llamaremos y leeremos el código con el formato %@.|Мы позвоним и продиктуем код в форме %@.|Nous appellerons et dicterons le code sous la forme %@.|سنتصل ونقرأ الرمز بالصيغة %@.
 Cuộc gọi nhỡ %@ và %@ số cuối.|未接来电 %@，末尾 %@ 位数字。|Llamada perdida: %@ y los %@ últimos dígitos.|Пропущенный звонок: %@ и последние %@ цифр.|Appel manquant : %@ et les %@ derniers chiffres.|مكالمة غير مجواب عليها: %@ وآخر %@ أرقام.
+# The desktop's glass bar: what its five buttons, its volume capsule and its seek track are called.
+Phát (phím cách)|播放（空格键）|Reproducir (barra espaciadora)|Воспроизвести (пробел)|Lecture (barre d’espace)|تشغيل (مسطرة)
+Tạm dừng (phím cách)|暂停（空格键）|Pausar (barra espaciadora)|Пауза (пробел)|Pause (barre d’espace)|إيقاف مؤقت (مسطرة)
+Không lặp lại|不循环|No repetir|Без повтора|Ne pas répéter|بدون تكرار
+Âm lượng|音量|Volumen|Громкость|Volume|مستوى الصوت
+Hiện âm lượng|显示音量|Mostrar volumen|Показать громкость|Afficher le volume|إظهار مستوى الصوت
+Tắt tiếng|静音|Silenciar|Выключить звук|Couper le son|كتم الصوت
+Thời gian phát|播放进度|Posición de reproducción|Позиция воспроизведения|Position de lecture|موضع التشغيل

@@ -4131,6 +4131,41 @@
         }
       }
     },
+    "Hiện âm lượng": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إظهار مستوى الصوت"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar volumen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le volume"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать громкость"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示音量"
+          }
+        }
+      }
+    },
     "Huỷ": {
       "extractionState": "manual",
       "localizations": {
@@ -4722,6 +4757,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法保存此歌曲"
+          }
+        }
+      }
+    },
+    "Không lặp lại": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "بدون تكرار"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No repetir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne pas répéter"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без повтора"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不循环"
           }
         }
       }
@@ -7211,6 +7281,41 @@
         }
       }
     },
+    "Phát (phím cách)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تشغيل (مسطرة)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproducir (barra espaciadora)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture (barre d’espace)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Воспроизвести (пробел)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放（空格键）"
+          }
+        }
+      }
+    },
     "Phát / Tạm dừng": {
       "extractionState": "manual",
       "localizations": {
@@ -8331,6 +8436,41 @@
         }
       }
     },
+    "Thời gian phát": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "موضع التشغيل"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posición de reproducción"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position de lecture"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позиция воспроизведения"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放进度"
+          }
+        }
+      }
+    },
     "Thử lại": {
       "extractionState": "manual",
       "localizations": {
@@ -8996,6 +9136,41 @@
         }
       }
     },
+    "Tạm dừng (phím cách)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إيقاف مؤقت (مسطرة)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar (barra espaciadora)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause (barre d’espace)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза (пробел)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂停（空格键）"
+          }
+        }
+      }
+    },
     "Tạo": {
       "extractionState": "manual",
       "localizations": {
@@ -9237,6 +9412,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭随机播放"
+          }
+        }
+      }
+    },
+    "Tắt tiếng": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "كتم الصوت"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenciar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couper le son"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить звук"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "静音"
           }
         }
       }
@@ -12173,6 +12383,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用自定义参数：排版、焦点、行尾拖尾、追赶、弹动和布局。"
+          }
+        }
+      }
+    },
+    "Âm lượng": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مستوى الصوت"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volumen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громкость"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量"
           }
         }
       }
