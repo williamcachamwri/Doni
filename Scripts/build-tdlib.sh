@@ -10,6 +10,7 @@
 #   ./Scripts/build-tdlib.sh native     # TDLib API source generation on host
 #   ./Scripts/build-tdlib.sh device     # cross-compile iphoneos/arm64
 #   ./Scripts/build-tdlib.sh sim        # cross-compile iphonesimulator/arm64
+#   ./Scripts/build-tdlib.sh mac        # OpenSSL + TDLib for macosx/arm64
 #   ./Scripts/build-tdlib.sh framework  # assemble tdlib.xcframework
 #   ./Scripts/build-tdlib.sh all
 set -euo pipefail
@@ -21,6 +22,9 @@ set -euo pipefail
 TD_TAG="${TD_TAG:-4c6377aa7386c39217878a9a56d581922ad37ca4}"
 SSL_TAG="${SSL_TAG:-openssl-3.5.9}"
 IOS_MIN="${IOS_MIN:-17.0}"
+# The floor every Swift package already declares, so the macOS slice and the
+# packages cannot disagree about who can link it.
+MAC_MIN="${MAC_MIN:-14.0}"
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 VENDOR="$ROOT/Vendor"
 SRC="$VENDOR/src/td"
@@ -75,9 +79,9 @@ fetch_ssl_source() {
   echo "openssl commit: $(git -C "$SSL_SRC" rev-parse HEAD)"
 }
 
-# $1 = Configure target (ios64-xcrun | iossimulator-arm64-xcrun), $2 = sdk
+# $1 = Configure target, $2 = sdk, $3 = arch, $4 = deployment floor ($IOS_MIN unless given)
 phase_ssl() {
-  local target="$1" sdk="$2" arch="$3"
+  local target="$1" sdk="$2" arch="$3" min="${4:-$IOS_MIN}"
   local out="$VENDOR/ssl/$sdk-$arch" bdir="$VENDOR/build/ssl-$sdk-$arch"
   if [[ -f "$out/lib/libcrypto.a" ]]; then
     echo "openssl $sdk/$arch cached"; return
@@ -87,11 +91,13 @@ phase_ssl() {
   # Out-of-source: OpenSSL writes its makefile into the build dir.
   # `no-deprecated` is deliberately NOT passed: TDLib calls HMAC_Init_ex,
   # which OpenSSL 3.x deprecates but has not removed.
+  # The flag name is the sdk with `-version-min` on the end, which is a real clang
+  # option for both platforms: `-miphoneos-version-min` and `-mmacosx-version-min`.
   ( cd "$bdir"
     "$SSL_SRC/Configure" "$target" \
       --prefix="$out" --openssldir="$out/ssl" \
       no-shared no-tests no-apps no-dso no-engine \
-      -m"$sdk"-version-min="$IOS_MIN" \
+      -m"$sdk"-version-min="$min" \
       > "$VENDOR/log-openssl-configure.txt" 2>&1
     make -j "$JOBS" > "$VENDOR/log-openssl-build.txt" 2>&1
     make install_dev > /dev/null
@@ -125,16 +131,25 @@ phase_sdk() {
   [[ -f "$bdir/libtdjson_static.a" ]] && { echo "$sdk/$arch cached"; return; }
   [[ -f "$ssl/lib/libcrypto.a" ]] || { echo "run the ssl phase first ($sdk)"; exit 1; }
   rm -rf "$bdir"
-  cmake -S "$SRC" -B "$bdir" "${COMMON_ARGS[@]}" \
-    -DCMAKE_SYSTEM_NAME=iOS \
-    -DCMAKE_OSX_SYSROOT="$sdk" \
-    -DCMAKE_OSX_ARCHITECTURES="$arch" \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_MIN" \
-    -DOPENSSL_ROOT_DIR="$ssl" \
-    -DOPENSSL_INCLUDE_DIR="$ssl/include" \
-    -DOPENSSL_SSL_LIBRARY="$ssl/lib/libssl.a" \
-    -DOPENSSL_CRYPTO_LIBRARY="$ssl/lib/libcrypto.a" \
-    -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC" >/dev/null
+  local args=(
+    "${COMMON_ARGS[@]}"
+    -DCMAKE_OSX_SYSROOT="$sdk"
+    -DCMAKE_OSX_ARCHITECTURES="$arch"
+    -DOPENSSL_ROOT_DIR="$ssl"
+    -DOPENSSL_INCLUDE_DIR="$ssl/include"
+    -DOPENSSL_SSL_LIBRARY="$ssl/lib/libssl.a"
+    -DOPENSSL_CRYPTO_LIBRARY="$ssl/lib/libcrypto.a"
+    -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_CXX_FLAGS="-fPIC"
+  )
+  # Only iOS is a cross-compile. macOS is this host, so it is configured without
+  # CMAKE_SYSTEM_NAME: setting it by hand would make CMake claim it cannot run
+  # its own checks, on a build where it can.
+  if [[ "$sdk" == macosx ]]; then
+    args+=(-DCMAKE_OSX_DEPLOYMENT_TARGET="$MAC_MIN")
+  else
+    args+=(-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_MIN")
+  fi
+  cmake -S "$SRC" -B "$bdir" "${args[@]}" >/dev/null
   cmake --build "$bdir" --target tdjson_static -j 8
   echo "built tdlib for $sdk/$arch"
 }
@@ -169,7 +184,11 @@ phase_framework() {
   rm -rf "$out"
   phase_headers
   local args=()
-  for bdir in "$VENDOR/build"/iphone*/; do
+  # `native` and `ssl-*` are working directories, not slices, so the two globs name
+  # the platforms instead of taking everything under build/. `(N)` matters: zsh
+  # aborts an unmatched glob, and `macosx-*` legitimately does not exist until the
+  # mac phase has run once.
+  for bdir in "$VENDOR"/build/iphone*(N) "$VENDOR"/build/macosx*(N); do
     local name merged
     name="$(basename "$bdir")"
     [[ -d "$bdir" ]] || continue
@@ -200,12 +219,19 @@ case "${1:-all}" in
   device)    phase_native; phase_sdk iphoneos arm64 ;;
   sim)       phase_native; phase_sdk iphonesimulator arm64 ;;
   ios)       phase_native; phase_sdk iphoneos arm64; phase_sdk iphonesimulator arm64 ;;
+  # OpenSSL names its macOS target after the architecture it did not rename: the
+  # "64" in darwin64-arm64-cc is the historic 64-bit Unix, not x86-64.
+  mac)       phase_ssl darwin64-arm64-cc macosx arm64 "$MAC_MIN"
+             phase_native
+             phase_sdk macosx arm64 ;;
   framework) phase_framework ;;
   all)       phase_ssl ios64-xcrun iphoneos arm64
              phase_ssl iossimulator-arm64-xcrun iphonesimulator arm64
+             phase_ssl darwin64-arm64-cc macosx arm64 "$MAC_MIN"
              phase_native
              phase_sdk iphoneos arm64
              phase_sdk iphonesimulator arm64
+             phase_sdk macosx arm64
              phase_framework ;;
-  *)         echo "usage: $0 [ssl|native|device|sim|ios|framework|all]" >&2; exit 2 ;;
+  *)         echo "usage: $0 [ssl|native|device|sim|ios|mac|framework|all]" >&2; exit 2 ;;
 esac
