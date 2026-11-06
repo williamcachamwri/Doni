@@ -61,10 +61,11 @@ final class DesktopPlayerToolbarController {
         isApplyingChange = true
         defer { isApplyingChange = false }
 
-        let immersive = isPlayerPresented && window.styleMask.contains(.fullScreen)
-        extendContentUnderTitlebar(window, immersive: immersive)
+        let fullScreen = window.styleMask.contains(.fullScreen)
+        extendContentUnderTitlebar(window, presented: isPlayerPresented,
+                                   fullScreen: fullScreen)
 
-        if immersive {
+        if isPlayerPresented, fullScreen {
             makeToolbarWindowsTransparent(in: window)
         } else {
             restoreToolbarWindows()
@@ -77,19 +78,24 @@ final class DesktopPlayerToolbarController {
     /// screen, and a transparent titlebar stops AppKit drawing a bar over it. Both come back out again
     /// the moment the player is dismissed or the window leaves full screen, because in an ordinary
     /// window the content must not slide under the traffic lights.
-    private func extendContentUnderTitlebar(_ window: NSWindow, immersive: Bool) {
+    /// Two different levers, for two different problems, and the last round confused them.
+    ///
+    /// Hiding the toolbar's *height* is only right in real full screen, where nothing lives in the
+    /// titlebar. In an ordinary window the player's own close button and volume slider are installed as
+    /// titlebar accessories — take the toolbar away and they go with it. What the windowed player
+    /// actually needs is the content to run up behind the titlebar, so the strip stops being a black
+    /// band and becomes the player's own artwork: `.fullSizeContentView` with a transparent titlebar
+    /// does that, and the accessories float over it the way they do in Apple Music.
+    private func extendContentUnderTitlebar(_ window: NSWindow, presented: Bool,
+                                            fullScreen: Bool) {
+        let immersive = presented
         guard immersive != contentExtendsUnderTitlebar else { return }
         contentExtendsUnderTitlebar = immersive
-        // Three levers, because the black strip at the top of a full-screen player survived the first
-        // two on its own: the style mask makes the content view the whole screen, a transparent
-        // titlebar stops AppKit painting over it, and `toolbar.isVisible` is the one that actually
-        // removes the toolbar's reserved height — without it the strip stays, filled with the window's
-        // own black background.
         if immersive {
             window.styleMask.insert(.fullSizeContentView)
             window.titlebarAppearsTransparent = true
             window.titlebarSeparatorStyle = .none
-            window.toolbar?.isVisible = false
+            window.toolbar?.isVisible = !fullScreen
             return
         }
         window.styleMask.remove(.fullSizeContentView)
