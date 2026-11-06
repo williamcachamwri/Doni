@@ -45,8 +45,8 @@ struct ChannelsView: View {
         }
         // Chat ids route this stack; the tab's own list is the only thing that pushes them.
         .navigationDestination(for: Int64.self) { chatId in
-            ChannelSongsView(session: session, player: player, artwork: artwork,
-                             library: library, chatId: chatId)
+            ChannelSongsView(session: session, indexer: indexer, player: player,
+                             artwork: artwork, library: library, chatId: chatId)
         }
         .sheet(isPresented: $showsAdd) {
             AddChannelSheet(session: session, library: library) {
@@ -129,6 +129,7 @@ private struct ChannelCard: View {
 /// What one channel posted, newest first, with the two verbs a collection has.
 struct ChannelSongsView: View {
     @ObservedObject var session: TelegramSession
+    @ObservedObject var indexer: LibraryIndexer
     @ObservedObject var player: Player
     @ObservedObject var artwork: CoverArtwork
     @ObservedObject var library: Library
@@ -171,10 +172,10 @@ struct ChannelSongsView: View {
         }
     }
 
-    /// The channel's songs out of the library, not out of the walk: the walk only holds what it has
-    /// read this session, and a channel opened on a day it was not indexed would look empty.
+    /// The walk's list, filtered by chat. `Library.tracks(in:)` takes a *playlist* id, and handing it a
+    /// chat id is how a channel with two hundred songs opened empty.
     private var songs: [any Playable] {
-        library.tracks(in: chatId)
+        indexer.tracks.filter { $0.chatId == chatId }
     }
 
     private var title: String {
