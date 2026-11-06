@@ -18,12 +18,37 @@ Máy nghe nhạc cho iPhone, phát những bài đã có sẵn trong Telegram c�
 Saved Messages như thư viện riêng. Không có máy chủ đứng sau, không đăng ký tài khoản, không gửi số
 liệu đi đâu.
 
+### iOS
+
 <table>
   <tr>
-    <td><img src="../screenshots/home.jpg" width="220"></td>
-    <td><img src="../screenshots/now-playing.jpg" width="220"></td>
-    <td><img src="../screenshots/lock-screen.jpg" width="220"></td>
-    <td><img src="../screenshots/playlist.jpg" width="220"></td>
+    <td><img src="../screenshots/home.jpg" alt="Trang chủ: kệ nghe tiếp, mới và thích" width="220"></td>
+    <td><img src="../screenshots/now-playing.jpg" alt="Đang phát với ảnh bìa" width="220"></td>
+    <td><img src="../screenshots/lock-screen.jpg" alt="Màn hình khoá hiện dòng lời" width="220"></td>
+    <td><img src="../screenshots/playlist.jpg" alt="Danh sách phát" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Trang chủ.</td>
+    <td align="center">Đang phát.</td>
+    <td align="center">Dòng đang hát trên màn hình khoá.</td>
+    <td align="center">Danh sách bạn tạo.</td>
+  </tr>
+</table>
+
+### macOS
+
+<table>
+  <tr>
+    <td><img src="../screenshots/01-home-feed.jpg" alt="Trang chủ: kệ nghe tiếp, mới và thích" width="220"></td>
+    <td><img src="../screenshots/02-now-playing.jpg" alt="Đang phát với ảnh bìa và lời" width="220"></td>
+    <td><img src="../screenshots/03-up-next-queue.jpg" alt="Hàng đợi tiếp theo cạnh Đang phát" width="220"></td>
+    <td><img src="../screenshots/04-playlist-detail.jpg" alt="Danh sách phát với các bài" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Trang chủ.</td>
+    <td align="center">Đang phát.</td>
+    <td align="center">Hàng đợi tiếp theo.</td>
+    <td align="center">Danh sách phát.</td>
   </tr>
 </table>
 

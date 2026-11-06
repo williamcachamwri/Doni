@@ -18,12 +18,37 @@ Un lecteur de musique pour iPhone qui joue les titres déjà présents dans votr
 abonnées et Saved Messages comme bibliothèque personnelle. Pas de serveur, pas d'inscription, aucune
 donnée envoyée.
 
+### iOS
+
 <table>
   <tr>
-    <td><img src="../screenshots/home.jpg" width="220"></td>
-    <td><img src="../screenshots/now-playing.jpg" width="220"></td>
-    <td><img src="../screenshots/lock-screen.jpg" width="220"></td>
-    <td><img src="../screenshots/playlist.jpg" width="220"></td>
+    <td><img src="../screenshots/home.jpg" alt="Accueil : étagères récemment écoutés, nouveaux et favoris" width="220"></td>
+    <td><img src="../screenshots/now-playing.jpg" alt="Lecture en cours avec pochette" width="220"></td>
+    <td><img src="../screenshots/lock-screen.jpg" alt="Écran verrouillé montrant la ligne de parole" width="220"></td>
+    <td><img src="../screenshots/playlist.jpg" alt="Liste de lecture" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Accueil.</td>
+    <td align="center">Lecture en cours.</td>
+    <td align="center">La ligne chantée, sur l'écran verrouillé.</td>
+    <td align="center">Une liste que vous avez créée.</td>
+  </tr>
+</table>
+
+### macOS
+
+<table>
+  <tr>
+    <td><img src="../screenshots/01-home-feed.jpg" alt="Accueil : étagères récemment écoutés, nouveaux et favoris" width="220"></td>
+    <td><img src="../screenshots/02-now-playing.jpg" alt="Lecture en cours avec pochette et paroles" width="220"></td>
+    <td><img src="../screenshots/03-up-next-queue.jpg" alt="File d'attente à côté de Lecture en cours" width="220"></td>
+    <td><img src="../screenshots/04-playlist-detail.jpg" alt="Liste de lecture avec ses titres" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Accueil.</td>
+    <td align="center">Lecture en cours.</td>
+    <td align="center">File d'attente.</td>
+    <td align="center">Liste de lecture.</td>
   </tr>
 </table>
 
