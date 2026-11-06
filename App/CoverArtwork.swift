@@ -359,7 +359,9 @@ final class CoverArtwork: ObservableObject {
         inFlight.removeAll()
         unreadableSources.removeAll()
         retries.removeAll()
-        let freed = DiskUsage.clear(Self.sourceDirectory)
+        // The contents, never the directory: `sourceDirectory` is a `static let` that makes it once and
+        // carries the backup exclusion, and the write path does not recreate it.
+        let freed = DiskUsage.clearContents(Self.sourceDirectory)
         revision += 1
         return freed
     }

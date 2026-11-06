@@ -34,6 +34,24 @@ public enum DiskUsage {
         return fileManager.fileExists(atPath: url.path) ? 0 : freed
     }
 
+    /// Emptying a directory without removing it. A cache root carries things its children cannot: the
+    /// backup exclusion set once when it was made, and the fact that a `static let` creates it exactly
+    /// once — so a cleanup that unlinks the directory leaves every later write failing in silence for
+    /// the life of the process. Zero when anything is left, so a screen can promise room only when it
+    /// really made room.
+    @discardableResult
+    public static func clearContents(_ url: URL, fileManager: FileManager = .default) -> Int64 {
+        let freed = bytes(at: url, fileManager: fileManager)
+        guard let children = try? fileManager.contentsOfDirectory(
+            at: url, includingPropertiesForKeys: nil
+        ) else { return 0 }
+        for child in children {
+            try? fileManager.removeItem(at: child)
+        }
+        let left = (try? fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
+        return left.isEmpty ? freed : 0
+    }
+
     /// The volume this app lives on: its capacity and what is free. Either is `nil` when the system
     /// will not say, which is the signal to draw no bar at all rather than an empty one.
     public static func deviceCapacity() -> (total: Int64?, available: Int64?) {

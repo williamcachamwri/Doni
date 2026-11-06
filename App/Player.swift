@@ -295,7 +295,7 @@ final class Player: ObservableObject {
         }
         let place = min(index + 1, target.count)
         target.insert(track, at: place)
-        set(order: target)
+        set(order: target, pinAsSource: true)
     }
 
     /// Dragging a row somewhere else. A hand-made order is the user's, so it also becomes the order
@@ -647,7 +647,9 @@ final class Player: ObservableObject {
         segment = nil
         markIn = nil
         current = track
-        library.recordPlay(track)
+        // Restoring a position is not listening to anything, and this number drives both the "Gần đây
+        // phát" shelf and the eviction order — a cold start must not promote a song nobody played.
+        if autoplay { library.recordPlay(track) }
         // The words are asked for here rather than by the lyrics panel: the lock screen and the
         // Dynamic Island sing the current line even when the panel never opens. `load` is keyed by
         // the song and keeps its own cache, so a panel opening later costs nothing.
@@ -764,8 +766,12 @@ final class Player: ObservableObject {
                 await MainActor.run { self?.isFetchingFile = false }
                 return
             }
-            self?.library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
-            _ = await self?.open(path: onDisk, track: track, startAt: startAt, play: play)
+            // This Task is nobody's `loading`, so nothing cancels it when the queue moves on. Without
+            // the identity check the old song finishes downloading and installs itself: the screen, the
+            // strip and the lock screen would name song B while song A came out of the speaker.
+            guard let self, self.current?.uniqueId == track.uniqueId else { return }
+            self.library.recordDownload(path: onDisk, uniqueId: track.uniqueId)
+            _ = await self.open(path: onDisk, track: track, startAt: startAt, play: play)
         }
     }
 

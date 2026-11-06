@@ -153,6 +153,9 @@ public final class TdClient: @unchecked Sendable {
         yield.finish()
         fileYield.finish()
         messageYield.finish()
+        // The fourth stream this class owns. Left open, its reader never returns, and every re-login
+        // adds another one bound to a client that no longer exists.
+        deleteYield.finish()
     }
 
     private func nextExtra() -> String {

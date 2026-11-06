@@ -102,7 +102,9 @@ final class Library: ObservableObject {
     /// row and every picture, which is far too much to pay for a tap.
     func refreshFavorites() {
         storeFailure = store.failure
-        favorites = store.favorites()
+        // The same derivation as `refresh`, or a heart tap leaves a favourite listed as downloaded with
+        // no file behind it: `remembered` is what checks the path.
+        favorites = store.favorites().map { remembered($0) }
     }
 
     /// Checking the claims the rows make about files on the phone: one `stat` per row with a path, off

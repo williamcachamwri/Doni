@@ -121,12 +121,21 @@ final class Lyrics: ObservableObject {
                 lines = []
                 errorMessage = localized("Không kết nối được tới các nguồn lời")
             case .none:
-                Self.write(.lrclib(.none), for: song)
+                if track.duration != nil { Self.write(.lrclib(.none), for: song) }
                 isLoading = false
                 apply(.lrclib(.none), track: track)
             case .sources(let sources):
-                let payload = LyricsResolver.resolve(sources, duration: duration)
-                    ?? .lrclib(.none)
+                guard let payload = LyricsResolver.resolve(sources, duration: duration) else {
+                    // A miss is only worth keeping when the question was complete. A document post
+                    // carries no length (`td_api.tl:594`) and every source filters its candidates by
+                    // plus-or-minus seconds, so a query built with 0 asks about a different song than
+                    // the one the cache key names — and writing its miss answers that question forever,
+                    // even after the real length is learned and the next play asks again.
+                    if track.duration != nil { Self.write(.lrclib(.none), for: song) }
+                    isLoading = false
+                    apply(.lrclib(.none), track: track)
+                    return
+                }
                 Self.write(payload, for: song)
                 isLoading = false
                 apply(payload, track: track)
