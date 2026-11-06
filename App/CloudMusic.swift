@@ -41,6 +41,11 @@ final class CloudMusic: ObservableObject {
     /// screenshots for a minute, one server round trip at a time.
     private static let pageCap = 20
 
+    /// How many empty answers in a row say the chat is exhausted. Two, because TDLib returns what it
+    /// has and one empty page is worth asking about again; the clear that follows this number is the
+    /// only place the app removes a cloud flag it did not see, so it needs the stronger proof.
+    private static let emptyPagesForEnd = 2
+
     /// The session is a parameter rather than a property, the way every other Telegram call here takes it:
     /// the library outlives a sign-out, and a cloud object holding a dead session is how one screen keeps
     /// listing songs the current account cannot reach.
@@ -59,6 +64,8 @@ final class CloudMusic: ObservableObject {
         var cursor: Int64 = 0
         var held: [String] = []
         var reachedTheEnd = false
+        /// Consecutive pages that came back with nothing on them.
+        var emptyPages = 0
         // Whether the chat actually answered with messages. A walk that got nothing is not a chat with
         // nothing in it — TDLib can answer with an empty page while the server is still fetching — and a
         // clear built on that would empty the screen of songs perfectly well present in Telegram.
@@ -72,16 +79,19 @@ final class CloudMusic: ObservableObject {
             held.append(contentsOf: page.tracks.map(\.uniqueId))
             sawMessages = sawMessages || !page.messages.isEmpty
             reload()
-            // The end of the chat is a page with no messages in it, so it has to be recognised before the
-            // cursor moves: `oldestMessageId` is nil on exactly that page, and a loop that compares ids
-            // first never reaches an end-of-chat branch at all.
-            if page.isLast {
-                reachedTheEnd = true
-                break
+            // TDLib answers with what it has, so the first page with nothing on it is a pause in the
+            // read, not the bottom of the chat. Asking again at the same cursor is the whole test: only
+            // a second empty answer is proof enough to clear every flag the walk never saw — a walk that
+            // took one empty page for the end un-flagged a whole cloud in 1.0.2.
+            if page.messages.isEmpty {
+                emptyPages += 1
+                if emptyPages >= Self.emptyPagesForEnd { reachedTheEnd = true }
+                continue
             }
+            emptyPages = 0
             guard let oldest = page.oldestMessageId, oldest != cursor else {
-                // Older messages stopped arriving — TDLib answers with what it has, so a stall is a stall —
-                // and the flags below cover only the range that was actually read.
+                // Older messages stopped arriving while the pages themselves kept coming. That is a
+                // stall, and the flags below cover only the range that was actually read.
                 break
             }
             cursor = oldest

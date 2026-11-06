@@ -468,10 +468,13 @@ final class Player: ObservableObject {
     }
 
     func seek(to seconds: TimeInterval) {
+        // No engine is not a song at zero. The bar is live while a file is still arriving, and writing
+        // a clamped 0 here would persist the rewind the drag was meant to undo.
+        guard let engine else { return }
         let floor = segment?.lowerBound ?? 0
-        let ceiling = segment?.upperBound ?? (engine?.duration ?? 0)
+        let ceiling = segment?.upperBound ?? engine.duration
         let clamped = min(max(seconds, floor), ceiling)
-        engine?.currentTime = clamped
+        engine.currentTime = clamped
         elapsed = clamped
         lastPersistedSecond = Int(clamped)
         publishNowPlaying(elapsed: clamped)
@@ -553,7 +556,10 @@ final class Player: ObservableObject {
         repeatMode = snapshot.repeatMode
         current = tracks[index]
         duration = Double(tracks[index].duration ?? 0)
-        elapsed = min(max(snapshot.progress, 0), duration)
+        // A length the app has never measured is unknown, not zero — and a zero here would clamp every
+        // stored position down to the start of the song. Document posts carry no duration in the schema,
+        // so this is the common case rather than the odd one.
+        elapsed = duration > 0 ? min(max(snapshot.progress, 0), duration) : max(snapshot.progress, 0)
         volume = min(max(snapshot.volume, 0), 1)
         lastPersistedSecond = Int(elapsed)
         startCurrent(autoplay: false, startAt: elapsed)

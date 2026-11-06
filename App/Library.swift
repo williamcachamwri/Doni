@@ -427,14 +427,17 @@ final class Library: ObservableObject {
         }
         let victims = AudioCachePolicy.evictions(entries, quotaBytes: cacheQuota)
         guard !victims.isEmpty else { return 0 }
-        let byId = Dictionary(rows.map { ($0.uniqueId, $0) }, uniquingKeysWith: { first, _ in first })
         var freed = 0
         for uniqueId in victims {
-            guard let row = byId[uniqueId] else { continue }
-            if await files.remove(TdFile(fileId: row.fileId, uniqueId: row.uniqueId)) {
+            // The whole row, not the cache query's tuple: `deleteFile` is asked with a `file_id`, which
+            // is TDLib's row number inside its own database and points elsewhere after any rebuild.
+            // Only the message handle lets `remove` re-resolve it from the post, which is what
+            // `clearTelegramDownloads` below already does.
+            guard let track = store.track(uniqueId: uniqueId) else { continue }
+            if await files.remove(TdFile(audio: track)) {
                 store.setLocalPath(nil, uniqueId: uniqueId)
                 freed += 1
-                print("cache evicted \(uniqueId) size=\(row.size)")
+                print("cache evicted \(uniqueId) size=\(track.size)")
             }
         }
         if freed > 0 { refresh() }

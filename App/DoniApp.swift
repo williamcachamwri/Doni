@@ -50,6 +50,19 @@ struct DoniApp: App {
             // screen that waits for TDLib's answer cannot be the one that asks it: left there, every
             // launch was a black canvas forever.
             .task { session.start() }
+            // A session ending somewhere else is the one event no screen can see: TDLib only says it
+            // to the client. The four reactions the sign-out button runs by hand are handed over here
+            // so that the other path — a desktop logout, a revoked session — runs them too, and
+            // awaited, because nothing may write rows while the files are being thrown away.
+            .onAppear {
+                let walk = indexer, sound = player, books = library, pictures = artwork
+                session.onSessionEnded = {
+                    walk.reset()
+                    sound.stop()
+                    _ = await books.wipe()
+                    _ = pictures.clearCache()
+                }
+            }
         }
     }
 }

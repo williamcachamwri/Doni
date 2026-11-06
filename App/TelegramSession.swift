@@ -47,6 +47,15 @@ final class TelegramSession: ObservableObject {
     private var flow: TdLoginFlow?
     private var downloader: TdFileDownloader?
 
+    /// Everything that has to stop when a session ends, told to the one place that sees it end.
+    ///
+    /// TDLib's `authorizationStateClosed` is the only notice the app gets of a logout made elsewhere —
+    /// on a desktop, a revoked session, a forced password change — and only this class receives it.
+    /// Without a hook here, that path closes the client, wipes TDLib's directory and the Keychain key,
+    /// and leaves the player playing, the indexer writing and the library rows readable: the four
+    /// reactions the sign-out button runs are not owned by the button.
+    var onSessionEnded: (@MainActor () async -> Void)?
+
     /// Whether the interrupted sign-out has already been resumed this launch.
     private var eraseResumed = false
 
@@ -114,6 +123,9 @@ final class TelegramSession: ObservableObject {
     /// fired off: a new client opens its database and files directories on the way in, and a delete still
     /// running behind it would take back the space of the session that has just started.
     private func restart() async {
+        // Before anything is thrown away: a player still running holds a file inside the directory the
+        // next line deletes, and a walk still running writes rows into the database being wiped.
+        await onSessionEnded?()
         client?.close()
         client = nil
         flow = nil
