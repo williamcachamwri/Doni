@@ -130,6 +130,11 @@ struct DesktopBottomMetadataSlot: View {
                 setProgressExpanded(false)
             }
         }
+        // The bar's cover is 36 points and is often the first place a song's art is asked for at all —
+        // a listener can play from the queue without ever opening a list that prefetched it.
+        .task(id: track.uniqueId) {
+            await model.artwork.load(track: track, via: model.session.covers(), side: 36)
+        }
     }
 
     private var metadataContent: some View {

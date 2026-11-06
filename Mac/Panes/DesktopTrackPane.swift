@@ -12,6 +12,8 @@ import TelegramDesignSystem
 struct DesktopTrackPane: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var player: Player
+    @EnvironmentObject private var artwork: CoverArtwork
+    @EnvironmentObject private var session: TelegramSession
 
     /// A sentence already resolved by the caller: the pane is handed a title that is sometimes a
     /// section's name and sometimes a playlist's or a search's, and only the caller knows which.
@@ -46,7 +48,18 @@ struct DesktopTrackPane: View {
             .padding(.vertical, 28)
         }
         .navigationTitle(Text(title))
+        // A row asks for its cover when it appears, which is a round trip paid while the listener is
+        // still looking at the gap. The phone orders the first forty of a list for the same reason
+        // (`UI/SearchView.swift:119-121`, `UI/LibraryView.swift:118`); a desktop list is wider, so the
+        // same warm-up is worth it, and the queue runs them side by side.
+        .task(id: Array(tracks.prefix(Self.coverWarm).map(\.uniqueId))) {
+            artwork.prefetch(Array(tracks.prefix(Self.coverWarm)),
+                             via: session.covers(), side: Self.rowArtworkSide)
+        }
     }
+
+    private static let coverWarm = 40
+    private static let rowArtworkSide: CGFloat = 42
 
     private var rows: some View {
         LazyVStack(spacing: 2) {

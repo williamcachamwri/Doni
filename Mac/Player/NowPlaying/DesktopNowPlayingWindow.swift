@@ -13,6 +13,7 @@ import TelegramDesignSystem
 struct DesktopNowPlayingWindow: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var player: Player
+    @EnvironmentObject private var artwork: CoverArtwork
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let isActive: Bool
@@ -24,23 +25,24 @@ struct DesktopNowPlayingWindow: View {
         GeometryReader { proxy in
             let layout = DesktopNowPlayingLayout(viewport: proxy.size)
 
-            ZStack(alignment: .topLeading) {
-                content(in: proxy, layout: layout)
-
-                chrome
-                    .frame(width: proxy.size.width, height: proxy.size.height,
-                           alignment: .topLeading)
-                    .zIndex(100)
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-            .clipped()
+            content(in: proxy, layout: layout)
+                .frame(width: proxy.size.width, height: proxy.size.height,
+                       alignment: .topLeading)
+                .clipped()
         }
         .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: DesktopMainWindowMetrics.minimumContentWidth,
                minHeight: DesktopMainWindowMetrics.minimumContentHeight)
-        // The backdrop is a sibling of the white content, so both inherit the player's dark appearance
-        // from their common root (`DesktopRootView.swift:169-171`).
+        // The dark appearance from their common root.
         .environment(\.colorScheme, .dark)
+        // The hero asks for its own cover rather than borrowing the row's tier: the phone's Now Playing
+        // does the same before it asks for the words (`UI/NowPlayingView.swift:57-59`), and a 300-point
+        // surface drawn from a 96-pixel tile is the mushy-cover bug this app has already fixed twice.
+        .task(id: player.current?.uniqueId) {
+            guard let track = player.current else { return }
+            await artwork.load(track: track, via: model.session.covers(),
+                               side: MusicArtworkMetrics.heroSide)
+        }
     }
 
     private func content(in proxy: GeometryProxy,
@@ -59,16 +61,12 @@ struct DesktopNowPlayingWindow: View {
         .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
     }
 
+    /// The right half: the column, with the two page buttons floating at its bottom-right corner the way
+    /// the reference puts them (`DesktopNowPlayingWindow.swift:156-167` of the screenshot the layout was
+    /// measured from). No header — the words start at the top and the sung line is placed a quarter down
+    /// the viewport, which is what the column's own focus anchor does.
     private func panel(width: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                pageButton(.lyrics)
-                pageButton(.queue)
-                Spacer()
-            }
-            .padding(.top, DesktopNowPlayingLayout.lyricsTopPadding)
-            .padding(.trailing, 32)
-
+        ZStack(alignment: .bottomTrailing) {
             Group {
                 switch page {
                 case .lyrics:
@@ -79,43 +77,32 @@ struct DesktopNowPlayingWindow: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity)
+
+            HStack(spacing: 8) {
+                pageButton(.lyrics, systemImage: "text.quote")
+                pageButton(.queue, systemImage: "list.bullet")
+            }
+            .padding(.trailing, 18)
+            .padding(.bottom, 14)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: page)
     }
 
-    private func pageButton(_ destination: DesktopInspector) -> some View {
+    private func pageButton(_ destination: DesktopInspector, systemImage: String) -> some View {
         let isSelected = page == destination
 
         return Button {
             page = destination
         } label: {
-            Text(LocalizedStringKey(destination.title))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.55))
-                .padding(.horizontal, 12)
-                .frame(height: 30)
-                .contentShape(.capsule)
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .contentShape(.circle)
         }
         .buttonStyle(.plain)
-        .background(isSelected ? Color.white.opacity(0.14) : Color.clear, in: .capsule)
-    }
-
-    /// The row that lives where the window's titlebar is: exit on the left, volume on the right. The
-    /// reference installs these as real titlebar accessories when the window is not full-screen and
-    /// draws them in content when it is (`DesktopRootView.swift:156-167`); drawing them in content is
-    /// the half that works either way, and the accessory installer comes with the mini player.
-    private var chrome: some View {
-        HStack(alignment: .top) {
-            DesktopNowPlayingWindowControls(
-                close: { model.ui.isNowPlayingPresented = false },
-                openMiniPlayer: nil
-            )
-
-            Spacer()
-
-            DesktopNowPlayingVolumeControl()
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 8)
+        .modifier(DesktopNowPlayingCircularGlass())
+        .foregroundStyle(isSelected ? MusicTint.accent : Color.white)
+        .help(LocalizedStringKey(destination.title))
+        .accessibilityLabel(Text(localized(destination.title)))
     }
 }

@@ -100,11 +100,28 @@ struct DesktopRootView: View {
         )
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .background {
-            DesktopMainWindowConfiguration(
-                isPlayerSidePanelPresented: ui.inspector != nil,
-                isPlayerPresented: ui.isNowPlayingPresented,
-                isFullScreen: $isWindowFullScreen
-            )
+            ZStack {
+                DesktopMainWindowConfiguration(
+                    isPlayerSidePanelPresented: ui.inspector != nil,
+                    isPlayerPresented: ui.isNowPlayingPresented,
+                    isFullScreen: $isWindowFullScreen
+                )
+
+                // The player's own chrome lives in the titlebar the way the reference puts it there:
+                // a left accessory beside the traffic lights and a right one for the volume. In real
+                // full screen the titlebar is gone, so the same two are drawn in content instead
+                // (`DesktopRootView.swift:70-83`, `:156-167`).
+                DesktopNowPlayingLeadingAccessoryInstaller(
+                    isPresented: ui.isNowPlayingPresented && !isWindowFullScreen,
+                    close: { model.ui.isNowPlayingPresented = false }
+                )
+
+                DesktopNowPlayingTrailingAccessoryInstaller(
+                    isPresented: ui.isNowPlayingPresented && !isWindowFullScreen,
+                    player: player
+                )
+            }
+            .allowsHitTesting(false)
         }
         .onExitCommand {
             if ui.isNowPlayingPresented { ui.isNowPlayingPresented = false }
@@ -117,12 +134,32 @@ struct DesktopRootView: View {
     /// The player and the field behind it (`DesktopRootView.swift:138-172`): the artwork blown up under
     /// a veil, then the window on top, both reading the dark appearance from this root.
     private func nowPlayingLayer(isPresented: Bool, isRenderingActive: Bool) -> some View {
-        DesktopNowPlayingBackdrop(track: player.current, isActive: isRenderingActive)
-            .ignoresSafeArea()
-            .overlay {
-                DesktopNowPlayingWindow(isActive: isPresented,
-                                        isRenderingActive: isRenderingActive)
+        @Bindable var ui = model.ui
+
+        return ZStack(alignment: .top) {
+            DesktopNowPlayingBackdrop(track: player.current, isActive: isRenderingActive)
+                .ignoresSafeArea()
+
+            DesktopNowPlayingWindow(isActive: isPresented, isRenderingActive: isRenderingActive)
+
+            // Real full screen has no titlebar to put the accessories in, so the same two controls are
+            // drawn here instead — the reference's split, and the reason both halves exist.
+            if isWindowFullScreen {
+                HStack {
+                    DesktopNowPlayingWindowControls(
+                        close: { ui.isNowPlayingPresented = false },
+                        openMiniPlayer: nil
+                    )
+
+                    Spacer()
+
+                    DesktopNowPlayingVolumeControl()
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
             }
+        }
+        .environment(\.colorScheme, .dark)
     }
 
     /// Display-linked and geometry-driven work stops *before* the page starts moving, and the mounted
