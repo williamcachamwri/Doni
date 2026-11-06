@@ -3,7 +3,7 @@
   "platform": "ios",
   "version": "1.0.4",
   "buildNumber": "9010004",
-  "sourceRevision": "de1d32c",
+  "sourceRevision": "b0b394c",
   "localizedEntries": {
     "vi": [
       "Nhạc .mp4 và .wav giờ phát từ từng mảng byte thay vì chờ tải xong cả bài. Ba chỗ đã nhầm \"message không ghi con số\" thành \"bài này không stream được\" rồi đẩy nó sang đường tải toàn bộ.",
