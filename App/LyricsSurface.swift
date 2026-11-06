@@ -29,12 +29,16 @@ struct LyricsPage: View {
 /// The column itself: `AppleMusicLyricsView`, copied line for line for its scroll, focus cascade,
 /// per-line glow and tap-to-seek. Only its inputs are Doni's — this song's lines, plus a `PlayerStore`
 /// mirror, because the copied screen wants an `@Observable` player while Doni's is a `Publisher` one.
-private struct LyricsView: View {
+///
+/// It lives in `App/` rather than `UI/` because both shells draw the same column: the phone's Now
+/// Playing page and the desktop's inspector panel and player page. Nothing in it is UIKit.
+struct LyricsView: View {
     @ObservedObject var player: Player
     @ObservedObject var lyrics: Lyrics
-    let isInterfaceHidden: Bool
-    let onInterfaceInteraction: () -> Void
-    let onInterfaceVisibilityChange: (Bool) -> Void
+    var isActive = true
+    var isInterfaceHidden = false
+    var onInterfaceInteraction: () -> Void = {}
+    var onInterfaceVisibilityChange: (Bool) -> Void = { _ in }
     @State private var store = PlayerStore()
 
     var body: some View {
@@ -42,7 +46,7 @@ private struct LyricsView: View {
             lyrics: lyrics.lines,
             errorMessage: lyrics.errorMessage,
             highlightedLyricID: nil,
-            isActive: true,
+            isActive: isActive,
             isInterfaceHidden: isInterfaceHidden,
             // The transport row floats over this page, so the column has to be told how much of its
             // bottom is not really its bottom: that is where the fade stops and the last line may rest.
