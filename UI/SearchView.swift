@@ -43,6 +43,43 @@ struct SearchView: View {
     /// themselves too; the point here is that this batch outlives a keystroke.
     private static let coverWarm = 40
 
+    /// The docked field: a glass capsule with the prompt the drawer used to carry, and the scopes
+    /// above it as their own strip.
+    private var dock: some View {
+        VStack(spacing: 8) {
+            Picker("Phạm vi", selection: $scope) {
+                ForEach(DoniSearchScope.allCases) { kind in
+                    Text(LocalizedStringKey(kind.title)).tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Tìm bài hát", text: $query)
+                    .textFieldStyle(.plain)
+                    .submitLabel(.search)
+                if !query.isEmpty {
+                    Button {
+                        query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Xoá")
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: .capsule)
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
+    }
+
     var body: some View {
         Group {
             if trimmed.isEmpty {
@@ -58,13 +95,11 @@ struct SearchView: View {
                 .musicNavigationTransition(playlistID: id)
         }
         .navigationTitle("Tìm kiếm")
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                    prompt: "Tìm bài hát")
-        .searchScopes($scope) {
-            ForEach(DoniSearchScope.allCases) { kind in
-                Text(LocalizedStringKey(kind.title)).tag(kind)
-            }
-        }
+        // The field lives at the bottom, docked above the tab bar, as the reference draws it — not in
+        // the navigation drawer, which put the one thing this screen is for at the far end of the
+        // screen from the thumb. The scopes ride above it, because a field that is not the system's
+        // cannot carry the system's scope strip.
+        .safeAreaInset(edge: .bottom, spacing: 0) { dock }
         .overlay {
             if !trimmed.isEmpty && isEmpty {
                 ContentUnavailableView.search(text: query)

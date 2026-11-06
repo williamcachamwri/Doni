@@ -324,9 +324,9 @@ struct LibraryView: View {
         switch action {
         case .shuffle: shuffleAll()
         case .newest: play(visible)
-        case .likes: onOpenTab(.likes)
+        case .likes: onOpenTab(.library)
         case .offline: play(offlineAll)
-        case .lists: onOpenTab(.playlists)
+        case .lists: onOpenTab(.library)
         case .resume:
             if player.current != nil {
                 onOpenPlayer()
