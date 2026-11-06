@@ -39,16 +39,16 @@ donnée envoyée.
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-home-feed.jpg" alt="Accueil : étagères récemment écoutés, nouveaux et favoris" width="220"></td>
-    <td><img src="../screenshots/02-now-playing.jpg" alt="Lecture en cours avec pochette et paroles" width="220"></td>
-    <td><img src="../screenshots/03-up-next-queue.jpg" alt="File d'attente à côté de Lecture en cours" width="220"></td>
-    <td><img src="../screenshots/04-playlist-detail.jpg" alt="Liste de lecture avec ses titres" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.jpg" alt="Liste de lecture avec ses titres" width="220"></td>
+    <td><img src="../screenshots/02-home-feed.jpg" alt="Accueil : étagères récemment écoutés, nouveaux et favoris" width="220"></td>
+    <td><img src="../screenshots/03-now-playing.jpg" alt="Lecture en cours avec pochette et paroles" width="220"></td>
+    <td><img src="../screenshots/04-up-next-queue.jpg" alt="File d'attente à côté de Lecture en cours" width="220"></td>
   </tr>
   <tr>
+    <td align="center">Liste de lecture.</td>
     <td align="center">Accueil.</td>
     <td align="center">Lecture en cours.</td>
     <td align="center">File d'attente.</td>
-    <td align="center">Liste de lecture.</td>
   </tr>
 </table>
 

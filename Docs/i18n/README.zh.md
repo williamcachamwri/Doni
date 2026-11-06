@@ -38,16 +38,16 @@ iPhone 音乐播放器，播放你已经存在 Telegram 里的歌：你订阅的
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-home-feed.jpg" alt="主页：最近播放、最新和喜欢" width="220"></td>
-    <td><img src="../screenshots/02-now-playing.jpg" alt="正在播放，带封面和歌词" width="220"></td>
-    <td><img src="../screenshots/03-up-next-queue.jpg" alt="正在播放旁的待播队列" width="220"></td>
-    <td><img src="../screenshots/04-playlist-detail.jpg" alt="播放列表及其歌曲" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.jpg" alt="播放列表及其歌曲" width="220"></td>
+    <td><img src="../screenshots/02-home-feed.jpg" alt="主页：最近播放、最新和喜欢" width="220"></td>
+    <td><img src="../screenshots/03-now-playing.jpg" alt="正在播放，带封面和歌词" width="220"></td>
+    <td><img src="../screenshots/04-up-next-queue.jpg" alt="正在播放旁的待播队列" width="220"></td>
   </tr>
   <tr>
+    <td align="center">播放列表。</td>
     <td align="center">主页。</td>
     <td align="center">正在播放。</td>
     <td align="center">待播队列。</td>
-    <td align="center">播放列表。</td>
   </tr>
 </table>
 

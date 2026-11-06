@@ -39,16 +39,16 @@ liệu đi đâu.
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-home-feed.jpg" alt="Trang chủ: kệ nghe tiếp, mới và thích" width="220"></td>
-    <td><img src="../screenshots/02-now-playing.jpg" alt="Đang phát với ảnh bìa và lời" width="220"></td>
-    <td><img src="../screenshots/03-up-next-queue.jpg" alt="Hàng đợi tiếp theo cạnh Đang phát" width="220"></td>
-    <td><img src="../screenshots/04-playlist-detail.jpg" alt="Danh sách phát với các bài" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.jpg" alt="Danh sách phát với các bài" width="220"></td>
+    <td><img src="../screenshots/02-home-feed.jpg" alt="Trang chủ: kệ nghe tiếp, mới và thích" width="220"></td>
+    <td><img src="../screenshots/03-now-playing.jpg" alt="Đang phát với ảnh bìa và lời" width="220"></td>
+    <td><img src="../screenshots/04-up-next-queue.jpg" alt="Hàng đợi tiếp theo cạnh Đang phát" width="220"></td>
   </tr>
   <tr>
+    <td align="center">Danh sách phát.</td>
     <td align="center">Trang chủ.</td>
     <td align="center">Đang phát.</td>
     <td align="center">Hàng đợi tiếp theo.</td>
-    <td align="center">Danh sách phát.</td>
   </tr>
 </table>
 
