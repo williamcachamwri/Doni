@@ -80,15 +80,22 @@ final class DesktopPlayerToolbarController {
     private func extendContentUnderTitlebar(_ window: NSWindow, immersive: Bool) {
         guard immersive != contentExtendsUnderTitlebar else { return }
         contentExtendsUnderTitlebar = immersive
+        // Three levers, because the black strip at the top of a full-screen player survived the first
+        // two on its own: the style mask makes the content view the whole screen, a transparent
+        // titlebar stops AppKit painting over it, and `toolbar.isVisible` is the one that actually
+        // removes the toolbar's reserved height — without it the strip stays, filled with the window's
+        // own black background.
         if immersive {
             window.styleMask.insert(.fullSizeContentView)
             window.titlebarAppearsTransparent = true
             window.titlebarSeparatorStyle = .none
+            window.toolbar?.isVisible = false
             return
         }
         window.styleMask.remove(.fullSizeContentView)
         window.titlebarAppearsTransparent = false
         window.titlebarSeparatorStyle = .automatic
+        window.toolbar?.isVisible = true
     }
 
     private func makeToolbarWindowsTransparent(in window: NSWindow) {

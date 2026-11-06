@@ -122,13 +122,11 @@ struct DesktopSidebar: View {
 struct DesktopSidebarAccountFooter: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var session: TelegramSession
-    @Environment(\.openSettings) private var openSettings
-
     var body: some View {
         Button {
-            // The profile mark is the way in, as it is in the reference — the account itself is one
-            // section inside that window, not a separate panel beside it.
-            openSettings()
+            // The profile mark lifts the settings panel over the window, the way it does on the phone
+            // and in the reference's account sheet — not a separate window the listener has to find.
+            model.ui.sheet = .settings
         } label: {
             HStack(spacing: 9) {
                 DesktopAccountMark(size: 30)

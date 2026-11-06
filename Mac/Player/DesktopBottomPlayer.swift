@@ -59,7 +59,7 @@ struct DesktopTabBottomPlayer: View {
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
-            .padding(.leading, 24)
+            .padding(.leading, 24 + model.ui.tabLeadingInset)
             .padding(.trailing, 24 + reservedTrailingWidth)
             .padding(.bottom, 10)
         }

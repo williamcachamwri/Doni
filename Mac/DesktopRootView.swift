@@ -41,6 +41,9 @@ struct DesktopRootView: View {
                 case .account:
                     DesktopAccountSheet()
                         .environment(model)
+                case .settings:
+                    DesktopSettingsView()
+                        .environment(model)
                 }
             }
             // The one place the naming card is presented, so the row's ⋯, the bar's ⋯ and the player's ⋯
@@ -76,6 +79,15 @@ struct DesktopRootView: View {
 
         return ZStack {
             DesktopSidebar()
+
+            // The bar belongs to the shell, above the tab view rather than inside a tab. It lived in
+            // the tab's own stack first (and in the reference's code it still does), and on this
+            // machine a pushed page — a channel, a playlist — covered it: the listener had music
+            // playing and no pause, no queue, no lyrics until they went back. One bar, drawn last,
+            // centred in the column the selected tab occupies.
+            DesktopTabBottomPlayer()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .zIndex(0.5)
 
             GeometryReader { proxy in
                 if ui.isNowPlayingPresented || isNowPlayingLayerMounted {
@@ -242,6 +254,11 @@ struct DesktopTabPage: View {
 
         ZStack(alignment: .trailing) {
             pageContent
+                .onGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.frame(in: .global).minX
+                } action: { edge in
+                    if section == ui.selection { ui.setTabLeadingInset(max(edge, 0)) }
+                }
                 // The bar hangs off the bottom inset rather than floating beside the stack: an inset is
                 // part of the stack's chrome, so every page in it — the list and any channel pushed on
                 // top of the list — is drawn under the same reserved band. Mounted as a sibling of the
@@ -249,12 +266,6 @@ struct DesktopTabPage: View {
                 // opened, leaving a listener with a song playing and no way to stop it.
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     DesktopTabBottomPlayerInset()
-                        .overlay(alignment: .bottom) {
-                            // Only the tab the listener is in keeps a player tree alive.
-                            if section == ui.selection {
-                                DesktopTabBottomPlayer()
-                            }
-                        }
                 }
 
             // The panel slides in over the column rather than pushing it, because the window has

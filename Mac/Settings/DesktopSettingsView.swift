@@ -4,7 +4,11 @@ import SwiftUI
 import TdSession
 import TelegramDesignSystem
 
-/// The settings window: one scroll of cards, the phone's content, the reference's shape.
+/// The settings panel: one scroll of cards, the phone's content, the reference's shape.
+///
+/// It is the sheet the profile mark lifts over the window, the way the phone's settings arrive as a
+/// swipe-up panel and the reference's account sheet arrives over the home page — and the same view is
+/// what ⌘, opens, because two answers to "where do I change things" is one too many.
 ///
 /// MeloX's panels (`DesktopAccountView`, `DesktopSettingsView`) are a caption over a rounded dark card
 /// of rows — a tinted glyph, the row's name, its value or a chevron at the trailing edge, dividers
@@ -71,7 +75,7 @@ struct DesktopSettingsView: View {
             .padding(.horizontal, 24)
             .frame(height: 62)
         }
-        .frame(width: 650, height: 620)
+        .frame(width: 620, height: 640)
         .task { await measure() }
         .alert("Khôi phục cài đặt?", isPresented: $showsReset) {
             Button("Khôi phục", role: .destructive) { resetPreferences() }

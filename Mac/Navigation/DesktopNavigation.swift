@@ -114,10 +114,12 @@ enum DesktopInspector: String, CaseIterable, Identifiable, Hashable {
 /// does not do.
 enum DesktopSheet: Identifiable {
     case account
+    case settings
 
     var id: String {
         switch self {
         case .account: "account"
+        case .settings: "settings"
         }
     }
 }
@@ -135,6 +137,17 @@ final class DesktopUIState {
     var playlistTarget: DesktopPlaylistTarget?
     private(set) var retainedInspector: DesktopInspector = .lyrics
     var isNowPlayingPresented = false
+
+    /// Where the selected tab's content actually starts, measured from the window's left edge. The
+    /// player bar is drawn by the shell — above the tab view, so no pushed page can cover it — and it
+    /// has to centre itself in the column the tab occupies rather than in the whole window, which is
+    /// the sidebar width when the sidebar is open and nothing when the listener has collapsed it.
+    private(set) var tabLeadingInset: CGFloat = 0
+
+    func setTabLeadingInset(_ inset: CGFloat) {
+        guard abs(tabLeadingInset - inset) > 0.5 else { return }
+        tabLeadingInset = inset
+    }
 
     func navigate(to route: DesktopRoute) {
         path.append(route)

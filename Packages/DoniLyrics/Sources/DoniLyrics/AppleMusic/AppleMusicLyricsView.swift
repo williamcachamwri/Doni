@@ -1344,7 +1344,7 @@ public struct AppleMusicLyricsView: View {
                                 viewportHeight: viewportSize.height
                             )
                         )
-                        .blur(radius: focusBlurRadius)
+                        .blur(radius: Self.desktopBlur(focusBlurRadius))
                         .animation(
                             focusEffectAnimation,
                             value: focusBlurRadius
@@ -3252,6 +3252,18 @@ public struct AppleMusicLyricsView: View {
             1
             + (expandedBottomDistanceScale - 1) * progress
         return signedDistance * distanceScale
+    }
+
+    /// The reference's desktop column never blurs its un-sung lines — `DesktopLyricsScrollView` has no
+    /// `.blur` in it at all — and the intensity switch above was not enough to prove it, so the radius
+    /// itself is pinned to zero on macOS. The dimming, which is what actually carries the depth here,
+    /// is untouched.
+    nonisolated private static func desktopBlur(_ radius: CGFloat) -> CGFloat {
+        #if os(macOS)
+        0
+        #else
+        radius
+        #endif
     }
 
     nonisolated private static func lyricFocusBlurRadius(
