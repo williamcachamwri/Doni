@@ -63,56 +63,82 @@ struct DesktopNowPlayingWindow: View {
             panel(width: panelWidth, layout: layout)
                 .frame(width: panelWidth, height: layout.contentHeight, alignment: .top)
                 .offset(x: layout.panelLeading, y: layout.chromeHeight)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: page)
+
+            // The reference puts the switcher at the window's own bottom-right corner, not inside the
+            // panel it switches (`DesktopNowPlayingWindow.swift:196-204`) — a panel that is inset by
+            // `layout.trailing` would park the two buttons 32 points away from the corner.
+            pageSwitcher
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
     }
 
-    /// The right half: the column, with the two page buttons floating at its bottom-right corner the way
-    /// the reference puts them. No header — but the 40 points of room the reference leaves between the
-    /// chrome and the words are here, because `hostedContentMinY` is `chromeHeight + lyricsTopPadding`
+    /// The right half. No header — but the 40 points of room the reference leaves between the chrome
+    /// and the words are here, because `hostedContentMinY` is `chromeHeight + lyricsTopPadding`
     /// and a column that starts at the chrome itself puts the sung line too high (`DesktopNowPlaying
     /// Layout.swift:8-10`, measured off Apple Music at 1239 × 600: the lyrics container begins at y=88).
     private func panel(width: CGFloat, layout: DesktopNowPlayingLayout) -> some View {
-        ZStack(alignment: .bottomTrailing) {
-            Group {
-                switch page {
-                case .lyrics:
-                    DesktopLyricsPane(isActive: isActive && isRenderingActive,
-                                      compact: false,
-                                      focusAnchorOffset: layout.lyricsFocusAnchorOffset
-                                          + layout.lyricsViewportHeight * Self.focusDrop)
-                case .queue:
-                    DesktopQueuePane(presentation: .nowPlaying)
-                }
+        Group {
+            switch page {
+            case .lyrics:
+                DesktopLyricsPane(isActive: isActive && isRenderingActive,
+                                  compact: false,
+                                  focusAnchorOffset: layout.lyricsFocusAnchorOffset
+                                      + layout.lyricsViewportHeight * Self.focusDrop)
+            case .queue:
+                DesktopQueuePane(presentation: .nowPlaying)
             }
-            .padding(.top, DesktopNowPlayingLayout.lyricsTopPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .transition(.opacity)
-
-            HStack(spacing: 8) {
-                pageButton(.lyrics, systemImage: "text.quote")
-                pageButton(.queue, systemImage: "list.bullet")
-            }
-            .padding(.trailing, 18)
-            .padding(.bottom, 14)
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: page)
+        .padding(.top, DesktopNowPlayingLayout.lyricsTopPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.opacity)
     }
 
-    private func pageButton(_ destination: DesktopInspector, systemImage: String) -> some View {
-        let isSelected = page == destination
+    /// One glass capsule with two buttons inside it, the reference's shape
+    /// (`DesktopNowPlayingPage.swift:13-30`): a 72×36 `.clear.interactive()` surface, two 56×56 hit
+    /// areas overlapping at −20, the whole thing in a 92×56 frame that leaves the 10 points of margin
+    /// the corner needs. Two separate circles is not what Music shows.
+    private var pageSwitcher: some View {
+        ZStack {
+            switcherSurface
+                .frame(width: 72, height: 36)
 
-        return Button {
+            HStack(spacing: -20) {
+                switchButton(.lyrics, systemImage: "text.quote")
+                switchButton(.queue, systemImage: "list.bullet")
+            }
+        }
+        .frame(width: 92, height: 56)
+    }
+
+    @ViewBuilder private var switcherSurface: some View {
+        if #available(macOS 26.0, *) {
+            Capsule()
+                .fill(.clear)
+                .glassEffect(.clear.interactive(), in: .capsule)
+        } else {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    Capsule().stroke(.white.opacity(0.32), lineWidth: 0.75)
+                        .allowsHitTesting(false)
+                }
+        }
+    }
+
+    private func switchButton(_ destination: DesktopInspector,
+                              systemImage: String) -> some View {
+        Button {
             page = destination
         } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
-                .frame(width: 28, height: 28)
-                .contentShape(.circle)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 56, height: 56)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .modifier(DesktopNowPlayingCircularGlass())
-        .foregroundStyle(isSelected ? MusicTint.accent : Color.white)
+        .foregroundStyle(page == destination ? MusicTint.accent : Color.white)
         .help(LocalizedStringKey(destination.title))
         .accessibilityLabel(Text(localized(destination.title)))
     }
