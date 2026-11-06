@@ -237,8 +237,19 @@ struct DesktopTabPage: View {
 
         ZStack(alignment: .trailing) {
             pageContent
+                // The bar hangs off the bottom inset rather than floating beside the stack: an inset is
+                // part of the stack's chrome, so every page in it — the list and any channel pushed on
+                // top of the list — is drawn under the same reserved band. Mounted as a sibling of the
+                // stack, the bar belonged to the root page only and vanished the moment a channel was
+                // opened, leaving a listener with a song playing and no way to stop it.
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     DesktopTabBottomPlayerInset()
+                        .overlay(alignment: .bottom) {
+                            // Only the tab the listener is in keeps a player tree alive.
+                            if section == ui.selection {
+                                DesktopTabBottomPlayer()
+                            }
+                        }
                 }
 
             // The panel slides in over the column rather than pushing it, because the window has
@@ -256,14 +267,6 @@ struct DesktopTabPage: View {
                 .zIndex(2)
                 .animation(reduceMotion ? nil : DesktopMainWindowMetrics.presentationAnimation,
                            value: isInspectorPresented)
-
-            // One bar for the whole app, drawn by the tab the listener is in — the reference's rule, and
-            // the reason a hidden tab does not keep a second player tree alive.
-            if section == ui.selection {
-                DesktopTabBottomPlayer()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .zIndex(3)
-            }
         }
     }
 }

@@ -263,6 +263,7 @@ struct DesktopChannelsPane: View {
 struct DesktopChannelRow: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var session: TelegramSession
     let channel: StoreChannel
     let open: () -> Void
 
@@ -298,13 +299,20 @@ struct DesktopChannelRow: View {
         .background(isHovered ? Color.primary.opacity(0.045) : Color.clear,
                     in: .rect(cornerRadius: 8))
         .onHover { isHovered = $0 }
+        // Nothing else in the desktop app fetches a chat photo, so without this the row wore its
+        // initial forever. The phone asks from the row itself (`UI/SettingsView.swift:554`), which is
+        // where the one `getChat` and the one 160x160 JPEG belong; a channel that has no photo keeps
+        // the initial, because that is what there is to show.
+        .task(id: channel.chatId) {
+            await library.loadAvatar(of: channel, on: session)
+        }
     }
 
     private var avatar: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(MusicTint.accent.opacity(0.18))
-            if let path = channel.avatarPath, let image = CoverArtwork.shared.image(at: path) {
+            if let image = library.avatarImage(of: channel) {
                 Image(doni: image)
                     .resizable()
                     .scaledToFill()
