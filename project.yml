@@ -118,12 +118,6 @@ targets:
           - "Lyrics.swift"
           - "Player.swift"
           - "SongEngine.swift"
-          - "CoverArtwork.swift"
-          - "Library.swift"
-          - "LibraryIndexer.swift"
-          - "TelegramSession.swift"
-          - "CloudMusic.swift"
-          - "StorageTally.swift"
           - "PlaybackSnapshot.swift"
     info:
       path: Mac/Info.plist

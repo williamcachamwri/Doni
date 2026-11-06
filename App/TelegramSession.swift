@@ -2,7 +2,12 @@ import Foundation
 import SwiftUI
 import TdBridge
 import TdSession
-import UIKit
+
+// Only for `UIDevice`, which is how the phone names itself in Telegram's Devices list. The desktop
+// answers the same question with a constant, so it needs no AppKit here.
+#if os(iOS)
+    import UIKit
+#endif
 
 /// The four C functions behind the seam `TdSession` is tested against; the conformance lives here rather
 /// than in TdBridge so that package keeps no dependency on the session layer.
@@ -33,7 +38,7 @@ final class TelegramSession: ObservableObject {
     /// The account picture at 160 px rather than the ~100 px `getMe` sends inline, which the header's
     /// 28 pt circle needs to stop being blurry. Nil until the file lands; the inline thumbnail draws under
     /// it until then.
-    @Published private(set) var accountPhoto: UIImage?
+    @Published private(set) var accountPhoto: DoniImage?
 
     /// Whether TDLib has said anything about this phone's session yet. The app's first screen is decided
     /// by the answer and TDLib takes a few hundred ms to give it: until then a signed-in phone and one
@@ -243,7 +248,7 @@ final class TelegramSession: ObservableObject {
         guard let account, let fileId = account.avatarFileId, let files = covers() else { return }
         guard let path = await files.path(TdFile(fileId: fileId, uniqueId: account.avatarUniqueId),
                                           priority: TdFileDownloader.coverPriority) else { return }
-        accountPhoto = UIImage(contentsOfFile: path)
+        accountPhoto = DoniImage(contentsOfFile: path)
     }
 
     func submitPhoneNumber(_ number: String, then: (() -> Void)? = nil) {
@@ -313,10 +318,29 @@ final class TelegramSession: ObservableObject {
             apiHash: apiHash,
             databaseDirectory: directory(databaseDirectory),
             filesDirectory: directory(filesDirectory),
-            deviceModel: UIDevice.current.model,
-            systemVersion: UIDevice.current.systemVersion,
+            deviceModel: Self.deviceModel,
+            systemVersion: Self.systemVersion,
             applicationVersion: version
         )
+    }
+
+    /// What TDLib files under Telegram's Devices list, so it has to describe the machine the session was
+    /// opened on. `UIDevice.current.model` is just "iPhone" on the phone, and "Mac" is its exact
+    /// counterpart: the same amount of truth, and nothing the protocol did not already ask for.
+    private static var deviceModel: String {
+        #if os(iOS)
+        UIDevice.current.model
+        #else
+        "Mac"
+        #endif
+    }
+
+    private static var systemVersion: String {
+        #if os(iOS)
+        UIDevice.current.systemVersion
+        #else
+        ProcessInfo.processInfo.operatingSystemVersionString
+        #endif
     }
 
     /// TDLib's own storage root, kept out of Documents so it is never shared or picked up as user content.

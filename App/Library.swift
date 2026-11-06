@@ -4,7 +4,6 @@ import ImageIO
 import SwiftUI
 import Support
 import TdSession
-import UIKit
 
 /// The library on disk: every page of a channel walk is written as it lands and read back before the
 /// next walk, which is what lets the library open with no signal at all.
@@ -668,7 +667,7 @@ final class Library: ObservableObject {
     /// The picture a channel wears, decoded through the app's cover cache: a row redraws on every
     /// scroll, so the decode is the part worth not doing twice. `nil` until the bytes are on the
     /// phone, which is what keeps the row on its placeholder.
-    func avatarImage(of channel: StoreChannel) -> UIImage? {
+    func avatarImage(of channel: StoreChannel) -> DoniImage? {
         guard let path = channel.avatarPath else { return nil }
         return CoverArtwork.shared.image(at: path)
     }
@@ -891,7 +890,7 @@ final class Library: ObservableObject {
                       kCGImageSourceThumbnailMaxPixelSize: side,
                   ] as CFDictionary)
             else { return false }
-            guard let bytes = UIImage(cgImage: image).jpegData(compressionQuality: 0.82) else {
+            guard let bytes = DoniImage(cgImage: image).encodedJpeg(0.82) else {
                 return false
             }
             do {

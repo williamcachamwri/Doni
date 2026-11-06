@@ -4,7 +4,12 @@ import Foundation
 import ImageIO
 import Support
 import TdSession
-import UIKit
+
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// The cover art a surface shows, decoded at the size that surface actually draws. There are three covers
 /// to choose between, and the old pipeline looked at only the worst-served one of them:
@@ -63,14 +68,14 @@ final class CoverArtwork: ObservableObject {
     /// own, at their own size, instead of living off whatever a row fetched.
     var downloader: TdFileDownloader?
 
-    private let cache = NSCache<NSString, UIImage>()
+    private let cache = NSCache<NSString, DoniImage>()
 
     /// The last few dozen tiles, held outside `NSCache` where the system cannot take them back: `NSCache` is
     /// the app's own memory and iOS empties it the moment a suspended app is asked for room, which is
     /// precisely the moment the user is about to look again — so the list, the strip and Now Playing went
     /// back to the flat gradient and every cover had to be decoded again. It is a hard cap rather than a
     /// limit the OS may ignore, so the byte budget below is what keeps this from being why the app is killed.
-    private var pinned: [NSString: UIImage] = [:]
+    private var pinned: [NSString: DoniImage] = [:]
 
     /// The pinned keys, oldest first: a dictionary has no order, and the set must drop what was looked at
     /// longest ago rather than an arbitrary member of it.
@@ -162,11 +167,7 @@ final class CoverArtwork: ObservableObject {
         // Costed by bytes, not by count: a 192 px tile is 147 KB and a 768 px hero 2.3 MB, so a flat count
         // would either starve the list or let a handful of heroes walk past the process's memory.
         cache.totalCostLimit = 64 * 1024 * 1024
-        // Two hooks rather than one: `willEnterForeground` is the earlier and lands before anything here is
-        // drawn again, so covers are already decoding while the system's snapshot is still on screen;
-        // `didBecomeActive` also fires on a cold launch and after a system dialog, where the first never does.
-        foreground = [UIApplication.willEnterForegroundNotification,
-                      UIApplication.didBecomeActiveNotification].map { name in
+        foreground = Self.rewindNotifications.map { name in
             Task { [weak self] in
                 for await _ in NotificationCenter.default.notifications(named: name) {
                     await self?.rewind()
@@ -185,7 +186,7 @@ final class CoverArtwork: ObservableObject {
     /// re-warm) knew how to turn bytes on the phone back into a tile, so a surface that merely read went
     /// flat and stayed flat. The read now heals itself off the disk, the only arrangement that does not
     /// depend on somebody having remembered to ask.
-    func image(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
+    func image(for track: any Playable, side points: CGFloat = 60) -> DoniImage? {
         if let image = sharp(for: track, side: points) { return image }
         return mini(for: track, side: points)
     }
@@ -193,10 +194,10 @@ final class CoverArtwork: ObservableObject {
     /// A picture that is not a song's — the cover a user chose for a list — read from the file it was
     /// written to and kept in the same cache, because a list row redraws on every scroll. A path names one
     /// picture for its whole life: a new choice is a new file, so nothing here needs invalidating.
-    func image(at path: String) -> UIImage? {
+    func image(at path: String) -> DoniImage? {
         let key = Self.pathKey(path)
         if let image = held(key) { return image }
-        guard let image = UIImage(contentsOfFile: path) else { return nil }
+        guard let image = DoniImage(contentsOfFile: path) else { return nil }
         hold(image, forKey: key)
         return image
     }
@@ -207,7 +208,7 @@ final class CoverArtwork: ObservableObject {
     /// thumbnail may be borrowed at any size, because the pipeline that fetches it already asks for the
     /// biggest version there is. A tier that is not held still books its own decode before anything is
     /// borrowed: returning the stopgap and stopping there is how a hero ends up permanently soft.
-    func sharp(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
+    func sharp(for track: any Playable, side points: CGFloat = 60) -> DoniImage? {
         let pixels = Self.pixels(forSide: points)
         if let embedded = fileArtAtLeast(uniqueId: track.uniqueId, than: pixels) { return embedded }
         if let cover = Self.token(for: track),
@@ -220,14 +221,14 @@ final class CoverArtwork: ObservableObject {
 
     /// The 40×30 the message carried, which is what a row shows until the sharp file lands — and only on a
     /// surface small enough that four pixels of tile is still four pixels of cover.
-    func mini(for track: any Playable, side points: CGFloat = 60) -> UIImage? {
+    func mini(for track: any Playable, side points: CGFloat = 60) -> DoniImage? {
         // Measured against what the surface wants, not the tier it will be drawn at: the smallest tier is
         // 192, so comparing a 96 px ceiling to it would switch the placeholder off even for the 24 pt marks
         // it was made for.
         guard Self.neededPixels(forSide: points) <= Self.miniCeiling else { return nil }
         let key = Self.miniKey(uniqueId: track.uniqueId)
         if let image = held(key) { return image }
-        guard let data = track.miniArtwork, let image = UIImage(data: data) else { return nil }
+        guard let data = track.miniArtwork, let image = DoniImage(data: data) else { return nil }
         hold(image, forKey: key)
         return image
     }
@@ -282,7 +283,7 @@ final class CoverArtwork: ObservableObject {
     /// is not reading it for detail, so a small source still tells it the artwork's colour. Tiers are walked
     /// largest first because `sharp` already takes any server thumbnail it holds, while the art read out of
     /// the song is cached one tier at a time.
-    func largest(for track: any Playable) -> UIImage? {
+    func largest(for track: any Playable) -> DoniImage? {
         for tier in Self.tiers.reversed() {
             if let image = sharp(for: track, side: CGFloat(tier) / 3) { return image }
         }
@@ -536,7 +537,7 @@ final class CoverArtwork: ObservableObject {
 
     /// A tile decoded off the bytes kept on the phone. Nothing on disk is not a failure, it is the
     /// caller's cue to go to the network.
-    private func tile(from source: URL, pixels: Int) async -> UIImage? {
+    private func tile(from source: URL, pixels: Int) async -> DoniImage? {
         await Task.detached(priority: .userInitiated) {
             guard let bytes = Self.read(source) else { return nil }
             return Self.downsampled(data: bytes, side: pixels)
@@ -544,7 +545,7 @@ final class CoverArtwork: ObservableObject {
     }
 
     /// Writing a tile into both memory tiers and telling every surface that reads them.
-    private func put(_ image: UIImage, forKey key: NSString) {
+    private func put(_ image: DoniImage, forKey key: NSString) {
         hold(image, forKey: key)
         revision += 1
     }
@@ -553,7 +554,7 @@ final class CoverArtwork: ObservableObject {
     ///
     /// The quiet half is what `mini` and a playlist's own picture use: those are reads made inside a
     /// view's `body`, and a `revision` bump from there is a view updating itself mid-update.
-    private func hold(_ image: UIImage, forKey key: NSString) {
+    private func hold(_ image: DoniImage, forKey key: NSString) {
         cache.setObject(image, forKey: key, cost: Self.bytes(of: image))
         pin(image, forKey: key)
     }
@@ -566,7 +567,7 @@ final class CoverArtwork: ObservableObject {
     /// checked before anything is stored: a lone 768 px hero costs 2.3 MB and must not be rejected
     /// for that, but a tile bigger than the whole budget would empty the set and then be dropped
     /// itself, so it is not pinned at all.
-    private func pin(_ image: UIImage, forKey key: NSString) {
+    private func pin(_ image: DoniImage, forKey key: NSString) {
         let cost = Self.bytes(of: image)
         guard cost > 0, cost <= Self.pinnedBudget else { return }
         if let previous = pinned[key] { pinnedBytes -= Self.bytes(of: previous) }
@@ -584,14 +585,14 @@ final class CoverArtwork: ObservableObject {
 
     /// A tile still in memory: what `NSCache` holds, and if the system took that back while the app
     /// was in the pocket, what the pinned set is still holding.
-    private func held(_ key: NSString) -> UIImage? {
+    private func held(_ key: NSString) -> DoniImage? {
         cache.object(forKey: key) ?? pinned[key]
     }
 
     /// The art read out of the song, at this tier or the first bigger one already decoded. A 512 px
     /// tile fills a 60 pt row and a 192 px one does not fill a hero, which is the whole difference
     /// between this and `largestFileArt`.
-    private func fileArtAtLeast(uniqueId: String, than pixels: Int) -> UIImage? {
+    private func fileArtAtLeast(uniqueId: String, than pixels: Int) -> DoniImage? {
         for tier in Self.tiers where tier >= pixels {
             if let image = held(Self.fileKey(uniqueId: uniqueId, pixels: tier)) { return image }
         }
@@ -600,7 +601,7 @@ final class CoverArtwork: ObservableObject {
 
     /// The biggest art this song has in memory, however small: what a surface draws while the tier it
     /// asked for is still being decoded, because something real beats the gradient for a frame.
-    private func largestFileArt(uniqueId: String) -> UIImage? {
+    private func largestFileArt(uniqueId: String) -> DoniImage? {
         for tier in Self.tiers.reversed() {
             if let image = held(Self.fileKey(uniqueId: uniqueId, pixels: tier)) { return image }
         }
@@ -609,7 +610,7 @@ final class CoverArtwork: ObservableObject {
 
     /// This cover at the asked-for tier or the first bigger one already on the device. A 512 px
     /// card draws a 60 pt row perfectly, so a second decode would buy nothing but memory.
-    private func atLeast(_ cover: CoverToken, than pixels: Int) -> UIImage? {
+    private func atLeast(_ cover: CoverToken, than pixels: Int) -> DoniImage? {
         for tier in Self.tiers where tier >= pixels {
             if let image = held(Self.coverKey(cover, pixels: tier)) {
                 return image
@@ -620,7 +621,7 @@ final class CoverArtwork: ObservableObject {
 
     /// The biggest cover this file has, however small: what a surface falls back to when the tier
     /// it wants was never asked for, since one scaled a little still beats starting from scratch.
-    private func largest(_ cover: CoverToken) -> UIImage? {
+    private func largest(_ cover: CoverToken) -> DoniImage? {
         for tier in Self.tiers.reversed() {
             if let image = held(Self.coverKey(cover, pixels: tier)) {
                 return image
@@ -673,12 +674,29 @@ final class CoverArtwork: ObservableObject {
         "a:\(uniqueId)" as NSString
     }
 
+    /// The moments the user is about to look again, which is when a cache emptied by the system has to be
+    /// filled before the first row draws.
+    ///
+    /// Two hooks on the phone: `willEnterForeground` is the earlier and lands before anything here is drawn
+    /// again, so covers are already decoding while the system's snapshot is still on screen;
+    /// `didBecomeActive` also fires on a cold launch and after a system dialog, where the first never does.
+    /// The desktop has no foreground at all — becoming active and un-hiding are its two returns, and
+    /// `didUpdateNotification` is deliberately not one of them: it fires on every UI pass, and rewarming the
+    /// cache once per redraw is the opposite of what this is for.
+    private static var rewindNotifications: [Notification.Name] {
+        #if os(iOS)
+        [UIApplication.willEnterForegroundNotification, UIApplication.didBecomeActiveNotification]
+        #else
+        [NSApplication.didBecomeActiveNotification, NSApplication.didUnhideNotification]
+        #endif
+    }
+
     private static func miniKey(uniqueId: String) -> NSString {
         "m:\(uniqueId)" as NSString
     }
 
-    private static func bytes(of image: UIImage) -> Int {
-        guard let cgImage = image.cgImage else { return 0 }
+    private static func bytes(of image: DoniImage) -> Int {
+        guard let cgImage = image.coreImage else { return 0 }
         return cgImage.bytesPerRow * cgImage.height
     }
 
@@ -837,7 +855,7 @@ final class CoverArtwork: ObservableObject {
         write(data, to: url)
     }
 
-    private nonisolated static func downsampled(path: String, side: Int) -> UIImage? {
+    private nonisolated static func downsampled(path: String, side: Int) -> DoniImage? {
         let url = URL(fileURLWithPath: path)
         let read: [CFString: Any] = [kCGImageSourceShouldCache: false]
         guard let source = CGImageSourceCreateWithURL(url as CFURL, read as CFDictionary) else {
@@ -846,7 +864,7 @@ final class CoverArtwork: ObservableObject {
         return downsampled(source: source, side: side)
     }
 
-    private nonisolated static func downsampled(data: Data, side: Int) -> UIImage? {
+    private nonisolated static func downsampled(data: Data, side: Int) -> DoniImage? {
         let read: [CFString: Any] = [kCGImageSourceShouldCache: false]
         guard let source = CGImageSourceCreateWithData(data as CFData, read as CFDictionary) else {
             return nil
@@ -863,7 +881,7 @@ final class CoverArtwork: ObservableObject {
     /// The tier is then clamped to the source's own longest side, because inventing pixels is the
     /// other half of the complaint: a 320 px thumbnail asked for at 512 comes back the same picture
     /// with more of it smeared.
-    private nonisolated static func downsampled(source: CGImageSource, side: Int) -> UIImage? {
+    private nonisolated static func downsampled(source: CGImageSource, side: Int) -> DoniImage? {
         guard CGImageSourceGetCount(source) > 0 else { return nil }
         let native = widestSide(of: source)
         let options: [CFString: Any] = [
@@ -875,7 +893,7 @@ final class CoverArtwork: ObservableObject {
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             return nil
         }
-        return UIImage(cgImage: image)
+        return DoniImage(cgImage: image)
     }
 
     /// The source's own longest side, in pixels — 0 when ImageIO will not say.
