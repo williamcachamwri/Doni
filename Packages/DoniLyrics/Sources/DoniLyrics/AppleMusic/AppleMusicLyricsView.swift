@@ -645,9 +645,10 @@ public struct AppleMusicLyricsView: View {
                             : 1,
                     layoutWidth: context.lyricLayoutWidth,
                     motionProfile: context.motionProfile,
-                    suppressesTimedGlyphBlur:
+                    suppressesTimedGlyphBlur: Self.suppressesGlyphBlur(
                         context.motionProfile != nil
                             && colorSchemeContrast == .increased
+                    )
                 )
             }
             .opacity(
@@ -1292,9 +1293,10 @@ public struct AppleMusicLyricsView: View {
                             layoutWidth: lyricLayoutWidth,
                             motionProfile: motionProfile,
                             suppressesTimedGlyphBlur:
-                                motionProfile != nil
-                                    && colorSchemeContrast
-                                        == .increased
+                                Self.suppressesGlyphBlur(
+                                    motionProfile != nil
+                                        && colorSchemeContrast == .increased
+                                )
                         )
                         .opacity(
                             motionProfile == nil
@@ -3258,6 +3260,23 @@ public struct AppleMusicLyricsView: View {
     /// `.blur` in it at all — and the intensity switch above was not enough to prove it, so the radius
     /// itself is pinned to zero on macOS. The dimming, which is what actually carries the depth here,
     /// is untouched.
+    /// The smear that survived every intensity gate above.
+    ///
+    /// `SynchronizedLyricText.maximumUnplayedBlurRadius` reads `settings.lyricsBlurIntensity` for
+    /// itself — not the row's intensity, and not the radius the line layer applies — so a stored 0.8
+    /// kept blurring every glyph that has not been sung yet, however the outer line was pinned. The
+    /// reference's desktop column turns this off through `allowsUnplayedBlur`
+    /// (`DesktopLyricLineView.swift:103-104,148`), and its inspector column passes
+    /// `allowsLyricBlur: false` outright; the desktop here does the same, because a wide static
+    /// column reads per-glyph blur as a defect rather than as depth.
+    private static func suppressesGlyphBlur(_ phoneRule: Bool) -> Bool {
+        #if os(macOS)
+        true
+        #else
+        phoneRule
+        #endif
+    }
+
     nonisolated private static func desktopBlur(_ radius: CGFloat) -> CGFloat {
         #if os(macOS)
         0
