@@ -7,6 +7,7 @@ final class DesktopPlayerToolbarController {
     private var windowUpdateObserver: NSObjectProtocol?
     private var isPlayerPresented = false
     private var isApplyingChange = false
+    private var contentExtendsUnderTitlebar = false
 
     func update(isPlayerPresented: Bool) {
         self.isPlayerPresented = isPlayerPresented
@@ -60,11 +61,34 @@ final class DesktopPlayerToolbarController {
         isApplyingChange = true
         defer { isApplyingChange = false }
 
-        if isPlayerPresented, window.styleMask.contains(.fullScreen) {
+        let immersive = isPlayerPresented && window.styleMask.contains(.fullScreen)
+        extendContentUnderTitlebar(window, immersive: immersive)
+
+        if immersive {
             makeToolbarWindowsTransparent(in: window)
         } else {
             restoreToolbarWindows()
         }
+    }
+
+    /// Doni's own, and the reason it is not in the file it was copied from: hiding the toolbar in real
+    /// full screen leaves its ~52 points *reserved*, so the player's backdrop began under a black band
+    /// across the top of the screen. `.fullSizeContentView` is what makes the content view the whole
+    /// screen, and a transparent titlebar stops AppKit drawing a bar over it. Both come back out again
+    /// the moment the player is dismissed or the window leaves full screen, because in an ordinary
+    /// window the content must not slide under the traffic lights.
+    private func extendContentUnderTitlebar(_ window: NSWindow, immersive: Bool) {
+        guard immersive != contentExtendsUnderTitlebar else { return }
+        contentExtendsUnderTitlebar = immersive
+        if immersive {
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .none
+            return
+        }
+        window.styleMask.remove(.fullSizeContentView)
+        window.titlebarAppearsTransparent = false
+        window.titlebarSeparatorStyle = .automatic
     }
 
     private func makeToolbarWindowsTransparent(in window: NSWindow) {

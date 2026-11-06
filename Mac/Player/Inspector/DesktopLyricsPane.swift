@@ -37,40 +37,58 @@ struct DesktopLyricsPane: View {
     }
 
     private var list: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(lyrics.lines.enumerated()), id: \.element.id) { row, line in
-                        Text(line.text)
-                            .font(.system(size: row == activeRow ? 17 : 15,
-                                          weight: row == activeRow ? .semibold : .regular))
-                            .foregroundStyle(row == activeRow
-                                ? Color.primary : Color.primary.opacity(0.45))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .id(row)
-                            .contentShape(.rect)
-                            .onTapGesture { player.seek(to: line.time + timingOffset) }
+        GeometryReader { box in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        ForEach(Array(lyrics.lines.enumerated()), id: \.element.id) { row, line in
+                            Text(line.text)
+                                .font(.system(size: row == activeRow ? 17 : 15,
+                                              weight: row == activeRow ? .semibold : .regular))
+                                .foregroundStyle(row == activeRow
+                                    ? Color.primary : Color.primary.opacity(0.45))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .id(row)
+                                .contentShape(.rect)
+                                .onTapGesture { player.seek(to: line.time + timingOffset) }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
+                    .padding(.bottom, 120)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollContentBackground(.hidden)
+                .overlay {
+                    if lyrics.lines.isEmpty {
+                        state
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
-                .padding(.bottom, 120)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollContentBackground(.hidden)
-            .overlay {
-                if lyrics.lines.isEmpty {
-                    state
-                }
-            }
-            .onChange(of: activeRow) { _, row in
-                guard isActive, let row else { return }
-                withAnimation(.easeOut(duration: 0.24)) {
-                    proxy.scrollTo(row, anchor: .center)
+                .onChange(of: activeRow) { _, row in
+                    guard isActive, let row else { return }
+                    withAnimation(.easeOut(duration: 0.24)) {
+                        proxy.scrollTo(row, anchor: focusAnchor(viewportHeight: box.size.height))
+                    }
                 }
             }
         }
     }
+
+    /// Where the reference's panel puts the sung line: `AppSettings.defaultLyricsFocusPosition` is
+    /// `0.25` (`AppSettings.swift:76`), and `DesktopLyricsScrollView` scrolls the focused row to
+    /// `viewportHeight * focusPosition` — a quarter of the column down, not the middle of it.
+    ///
+    /// `scrollTo(anchor:)` aligns the same unit point of the row and of the viewport, so the row's top
+    /// lands at `a * (viewport - rowHeight)` and its centre a row-height lower. Solving that for the
+    /// centre being at a quarter of the viewport is the expression below.
+    private func focusAnchor(viewportHeight: CGFloat) -> UnitPoint {
+        let rowHeight: CGFloat = 22
+        guard viewportHeight > rowHeight else { return UnitPoint(x: 0.5, y: 0.25) }
+        let fraction = (Self.focusPosition * viewportHeight - rowHeight / 2) / (viewportHeight - rowHeight)
+        return UnitPoint(x: 0.5, y: min(max(fraction, 0), 1))
+    }
+
+    private static let focusPosition: CGFloat = 0.25
 
     /// The listener's own correction to the file's timings, which the phone's renderer honours too.
     private var timingOffset: TimeInterval { LyricsPreferences.shared.offset }
