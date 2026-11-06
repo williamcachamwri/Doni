@@ -120,11 +120,17 @@ def markdown(markers: dict[str, dict[str, list[str]]]) -> str:
 
 def main(argv: list[str]) -> int:
     check = "--check" in argv
+    platform_arg = next((a for a in argv if a.startswith("--platform=")), None)
     if not NOTES.exists():
         fail(f"{NOTES.name} is missing")
     short, build = version()
     markers = parse(NOTES.read_text(encoding="utf-8"))
     platforms = list(markers)
+    if platform_arg:
+        target = platform_arg.split("=", 1)[1].lower()
+        if target not in [p.lower() for p in platforms]:
+            fail(f"unknown platform {target!r}; have {platforms}")
+        platforms = [p for p in platforms if p.lower() == target]
     payload = {
         "schemaVersion": SCHEMA_VERSION,
         "platform": platforms[0].lower(),
@@ -136,18 +142,19 @@ def main(argv: list[str]) -> int:
         },
     }
     rendered = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    json_output = JSON_OUTPUT.with_name(f"ReleaseNotes-{platforms[0].lower()}.json")
     if check:
-        current = JSON_OUTPUT.read_text(encoding="utf-8") if JSON_OUTPUT.exists() else ""
+        current = json_output.read_text(encoding="utf-8") if json_output.exists() else ""
         if current != rendered:
-            fail(f"{JSON_OUTPUT.relative_to(ROOT)} is stale — run `make notes`")
+            fail(f"{json_output.relative_to(ROOT)} is stale — run `make notes`")
         return 0
-    JSON_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    JSON_OUTPUT.write_text(rendered, encoding="utf-8")
+    json_output.parent.mkdir(parents=True, exist_ok=True)
+    json_output.write_text(rendered, encoding="utf-8")
     MD_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     MD_OUTPUT.write_text(markdown(markers), encoding="utf-8")
     entries = len(payload["localizedEntries"]["vi"])
-    print(f"wrote {JSON_OUTPUT.relative_to(ROOT)}: {short} ({build}), "
-          f"{entries} entries in {len(LANGUAGES)} languages")
+    print(f"wrote {json_output.relative_to(ROOT)}: {short} ({build}), "
+          f"{entries} entries in {len(LANGUAGES)} languages for {payload['platform']}")
     return 0
 
 
