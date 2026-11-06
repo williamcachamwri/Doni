@@ -17,12 +17,37 @@
 Un reproductor de música para iPhone que toca lo que ya tienes en Telegram: los canales que sigues y
 Saved Messages como biblioteca propia. Sin servidores detrás, sin registro, sin enviar datos a ningún lado.
 
+### iOS
+
 <table>
   <tr>
-    <td><img src="../screenshots/home.jpg" width="220"></td>
-    <td><img src="../screenshots/now-playing.jpg" width="220"></td>
-    <td><img src="../screenshots/lock-screen.jpg" width="220"></td>
-    <td><img src="../screenshots/playlist.jpg" width="220"></td>
+    <td><img src="../screenshots/home.jpg" alt="Inicio: estantes de reproducción reciente, nuevos y favoritos" width="220"></td>
+    <td><img src="../screenshots/now-playing.jpg" alt="Reproduciendo ahora con portada" width="220"></td>
+    <td><img src="../screenshots/lock-screen.jpg" alt="Pantalla de bloqueo mostrando la línea de la letra" width="220"></td>
+    <td><img src="../screenshots/playlist.jpg" alt="Lista de reproducción" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Inicio.</td>
+    <td align="center">Reproduciendo ahora.</td>
+    <td align="center">La línea que se canta, en la pantalla de bloqueo.</td>
+    <td align="center">Una lista que creaste.</td>
+  </tr>
+</table>
+
+### macOS
+
+<table>
+  <tr>
+    <td><img src="../screenshots/01-home-feed.jpg" alt="Inicio: estantes de reproducción reciente, nuevos y favoritos" width="220"></td>
+    <td><img src="../screenshots/02-now-playing.jpg" alt="Reproduciendo ahora con portada y letra" width="220"></td>
+    <td><img src="../screenshots/03-up-next-queue.jpg" alt="Cola de reproducción junto a Reproduciendo ahora" width="220"></td>
+    <td><img src="../screenshots/04-playlist-detail.jpg" alt="Lista de reproducción con sus canciones" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Inicio.</td>
+    <td align="center">Reproduciendo ahora.</td>
+    <td align="center">Cola de reproducción.</td>
+    <td align="center">Lista de reproducción.</td>
   </tr>
 </table>
 

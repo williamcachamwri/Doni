@@ -18,12 +18,37 @@
 подписаны, и Saved Messages как личная фонотека. Никакого сервера, никакой регистрации, ничего никуда не
 отправляется.
 
+### iOS
+
 <table>
   <tr>
-    <td><img src="../screenshots/home.jpg" width="220"></td>
-    <td><img src="../screenshots/now-playing.jpg" width="220"></td>
-    <td><img src="../screenshots/lock-screen.jpg" width="220"></td>
-    <td><img src="../screenshots/playlist.jpg" width="220"></td>
+    <td><img src="../screenshots/home.jpg" alt="Главная: недавно прослушанные, новые и избранные" width="220"></td>
+    <td><img src="../screenshots/now-playing.jpg" alt="Сейчас играет с обложкой" width="220"></td>
+    <td><img src="../screenshots/lock-screen.jpg" alt="Экран блокировки показывает строку текста" width="220"></td>
+    <td><img src="../screenshots/playlist.jpg" alt="Плейлист" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Главная.</td>
+    <td align="center">Сейчас играет.</td>
+    <td align="center">Строка текста на экране блокировки.</td>
+    <td align="center">Созданный вами список.</td>
+  </tr>
+</table>
+
+### macOS
+
+<table>
+  <tr>
+    <td><img src="../screenshots/01-home-feed.jpg" alt="Главная: недавно прослушанные, новые и избранные" width="220"></td>
+    <td><img src="../screenshots/02-now-playing.jpg" alt="Сейчас играет с обложкой и текстом" width="220"></td>
+    <td><img src="../screenshots/03-up-next-queue.jpg" alt="Очередь воспроизведения рядом с Сейчас играет" width="220"></td>
+    <td><img src="../screenshots/04-playlist-detail.jpg" alt="Плейлист с его треками" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">Главная.</td>
+    <td align="center">Сейчас играет.</td>
+    <td align="center">Очередь воспроизведения.</td>
+    <td align="center">Плейлист.</td>
   </tr>
 </table>
 

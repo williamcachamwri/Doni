@@ -17,12 +17,37 @@
 مشغّل موسيقى لآيفون يشغّل الأغاني الموجودة أصلًا في تيليجرام الخاص بك: القنوات التي تتابعها،
 و«الرسائل المحفوظة» كمكتبتك الشخصية. لا خوادم في الخلف، ولا تسجيل، ولا تُرسَل أي بيانات.
 
+### iOS
+
 <table>
   <tr>
-    <td><img src="../screenshots/home.jpg" width="220"></td>
-    <td><img src="../screenshots/now-playing.jpg" width="220"></td>
-    <td><img src="../screenshots/lock-screen.jpg" width="220"></td>
-    <td><img src="../screenshots/playlist.jpg" width="220"></td>
+    <td><img src="../screenshots/home.jpg" alt="الرئيسية: الأرفف الأخيرة والجديدة والمفضلة" width="220"></td>
+    <td><img src="../screenshots/now-playing.jpg" alt="يُشغَّل الآن مع الغلاف" width="220"></td>
+    <td><img src="../screenshots/lock-screen.jpg" alt="شاشة القفل تظهر سطر الكلمات" width="220"></td>
+    <td><img src="../screenshots/playlist.jpg" alt="قائمة تشغيل" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">الرئيسية.</td>
+    <td align="center">يُشغَّل الآن.</td>
+    <td align="center">السطر المُغنَّى على شاشة القفل.</td>
+    <td align="center">قائمة أنشأتها.</td>
+  </tr>
+</table>
+
+### macOS
+
+<table>
+  <tr>
+    <td><img src="../screenshots/01-home-feed.jpg" alt="الرئيسية: الأرفف الأخيرة والجديدة والمفضلة" width="220"></td>
+    <td><img src="../screenshots/02-now-playing.jpg" alt="يُشغَّل الآن مع الغلاف والكلمات" width="220"></td>
+    <td><img src="../screenshots/03-up-next-queue.jpg" alt="قائمة الانتظار بجانب يُشغَّل الآن" width="220"></td>
+    <td><img src="../screenshots/04-playlist-detail.jpg" alt="قائمة تشغيل مع أغانيها" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">الرئيسية.</td>
+    <td align="center">يُشغَّل الآن.</td>
+    <td align="center">قائمة الانتظار.</td>
+    <td align="center">قائمة تشغيل.</td>
   </tr>
 </table>
 

@@ -19,6 +19,8 @@ A music player for iPhone that plays the songs you already keep on Telegram: the
 subscribe to, and Saved Messages as your own library. There is no server behind it, no account to
 register, and nothing is reported anywhere.
 
+### iOS
+
 <table>
   <tr>
     <td><img src="Docs/screenshots/home.jpg" alt="Home: recently played, newest and liked shelves" width="220"></td>
@@ -31,6 +33,23 @@ register, and nothing is reported anywhere.
     <td align="center">Now Playing.</td>
     <td align="center">The line being sung, on the lock screen.</td>
     <td align="center">A list you made.</td>
+  </tr>
+</table>
+
+### macOS
+
+<table>
+  <tr>
+    <td><img src="Docs/screenshots/01-home-feed.jpg" alt="Home: recently played, newest and liked shelves" width="220"></td>
+    <td><img src="Docs/screenshots/02-now-playing.jpg" alt="Now Playing with cover art and lyrics" width="220"></td>
+    <td><img src="Docs/screenshots/03-up-next-queue.jpg" alt="Up-next queue beside Now Playing" width="220"></td>
+    <td><img src="Docs/screenshots/04-playlist-detail.jpg" alt="A playlist with its songs" width="220"></td>
+  </tr>
+  <tr>
+    <td align="center">The home feed.</td>
+    <td align="center">Now Playing.</td>
+    <td align="center">The up-next queue.</td>
+    <td align="center">A playlist.</td>
   </tr>
 </table>
 
