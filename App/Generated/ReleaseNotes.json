@@ -1,23 +1,21 @@
 {
   "schemaVersion": 1,
   "platform": "ios",
-  "version": "1.0.2",
-  "buildNumber": "9010002",
-  "sourceRevision": "495ccfa",
+  "version": "1.0.3",
+  "buildNumber": "9010003",
+  "sourceRevision": "1377ecb",
   "localizedEntries": {
     "vi": [
-      "Xoá một bài trong Telegram là Cloud Music bỏ bài đó thật. Ba lỗi riêng biệt khiến danh sách không bao giờ tự dọn, và cả ba đã được sửa.",
-      "Bài mất khỏi danh sách ngay lúc nó mất khỏi Saved Messages, không cần mở lại app: tin Telegram báo \"bài này đã bị xoá\" giờ được dùng thẳng, thay vì chờ một lượt đọc cả chat.",
-      "\"Lưu vào Cloud Music\" ở Now Playing đã trả lời sau khi bấm. Trước đây nó tải lên thật nhưng kết quả — vòng quay, danh sách mới, lý do từ chối — rơi vào một bản Cloud Music thứ hai mà không màn hình nào nhìn.",
-      "Cloud Music có dấu làm mới ở thanh trên, và kéo danh sách xuống cũng đọc lại Saved Messages y hệt.",
-      "Số build về đúng mã: 9010002 đọc ra 1.0.2. Số cũ 9010101 đọc ra 1.1.1, nên trang Giới thiệu gọi tên một bản không tồn tại."
+      "Thư viện nhạc index trở lại. Ở 1.0.2 hai câu upsert chứa comment `//` ngay trong text SQL, mà SQLite chỉ nhận `--` và `/* */`, nên câu truy vấn không compile được và Trang chủ hiện nguyên văn nó.",
+      "Mọi lượt ghi bài hát đều bị từ chối âm thầm vì lỗi đó: một channel đăng bao nhiêu bài thì thư viện vẫn trống bấy nhiêu. Từ bản này các lượt ghi chạy bình thường.",
+      "Không mất gì và không phải làm gì. Lượt ghi thất bại bị từ chối trước khi chạy, không ghi dở — database vẫn nguyên. Mở app lên, lượt đọc channel tự bù phần bài còn thiếu.",
+      "Quy tắc mà hai comment đó ghi (một bài đã ở Saved Messages giữ `message_id` của post đó) nay nằm trong doc comment phía trên câu truy vấn, nơi nó không chạm tới parser nữa."
     ],
     "en": [
-      "Deleting a song in Telegram now really takes it out of Cloud Music. Three separate defects kept the list from reconciling; all three are fixed.",
-      "A row disappears the moment its post does, with no relaunch: the delete update Telegram sends is now applied directly instead of waiting on a walk of the whole chat.",
-      "\"Lưu vào Cloud Music\" on Now Playing answers the tap again. The upload ran, but its progress, its refreshed list and its reason for refusing all landed on a second Cloud Music object that no screen was observing.",
-      "Cloud Music has a refresh arrow in its bar, and pulling the list down asks Telegram the same question.",
-      "The build number decodes correctly: 9010002 says 1.0.2. The old 9010101 decoded as 1.1.1, so the About screen named a release that never existed."
+      "The library indexes again. In 1.0.2 two upsert statements carried `//` comments inside the SQL text itself, and SQLite accepts only `--` and `/* */`, so the statement never prepared and the home screen printed it verbatim.",
+      "Every song write was refused silently because of it: however many songs a channel posted, the library stayed empty. Writes run normally from this build.",
+      "Nothing was lost and there is nothing to do. A refused write never runs, so it never half-wrote — the database is intact. Open the app and the channel walk back-fills the missing songs.",
+      "The rule those comments recorded (a song already in Saved Messages keeps that post's `message_id`) now lives in the doc comment above the statement, where it cannot reach the parser."
     ]
   }
 }
