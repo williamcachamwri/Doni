@@ -23,8 +23,6 @@ struct DesktopTrackRow: View {
     var onRemove: ((any Playable) -> Void)?
 
     @State private var isHovered = false
-    @State private var namingPlaylist = false
-    @State private var playlistName = ""
 
     private var isCurrent: Bool {
         player.current?.uniqueId == track.uniqueId
@@ -100,13 +98,6 @@ struct DesktopTrackRow: View {
         .onHover { isHovered = $0 }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isHovered)
         .contextMenu { rowMenuContent }
-        .alert("Danh sách mới", isPresented: $namingPlaylist) {
-            TextField("Tên danh sách", text: $playlistName)
-            Button("Tạo") { createPlaylist() }
-            Button("Huỷ", role: .cancel) {}
-        } message: {
-            Text(localized("“%@” sẽ nằm trong danh sách mới.", track.displayTitle))
-        }
     }
 
     private var rowMenu: some View {
@@ -142,15 +133,7 @@ struct DesktopTrackRow: View {
 
         Divider()
 
-        ForEach(library.playlists) { list in
-            Button(localized("Thêm vào “%@”", list.name)) {
-                library.add(track, to: list.id)
-            }
-        }
-        Button("Danh sách mới…", systemImage: "plus") {
-            playlistName = ""
-            namingPlaylist = true
-        }
+        DesktopPlaylistMenu(track: track)
 
         if let onRemove {
             Divider()
@@ -158,13 +141,6 @@ struct DesktopTrackRow: View {
                 onRemove(track)
             }
         }
-    }
-
-    /// A blank name is refused by the store, so the song only goes in once the list really exists —
-    /// the phone's rule, kept.
-    private func createPlaylist() {
-        guard let created = library.createPlaylist(named: playlistName) else { return }
-        library.add(track, to: created.id)
     }
 
     private func clock(_ time: TimeInterval) -> String {

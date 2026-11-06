@@ -1,6 +1,41 @@
 {
   "sourceLanguage": "vi",
   "strings": {
+    "%1$@ bài · %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ أغنية · %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ canciones · %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ titres · %2$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ треков · %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 首歌曲 · %2$@"
+          }
+        }
+      }
+    },
     "%@ bài": {
       "extractionState": "manual",
       "localizations": {
@@ -3742,6 +3777,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "新建歌单…"
+          }
+        }
+      }
+    },
+    "Danh sách phát": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قائمة التشغيل"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista de reproducción"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плейлист"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放列表"
           }
         }
       }
@@ -9237,6 +9307,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加音乐频道"
+          }
+        }
+      }
+    },
+    "Thêm một bài từ bất kỳ danh sách nào bằng dấu ⋯ cạnh bài đó.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أضف أغنية عبر علامة ⋯ بجانب أي أغنية."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade una canción desde el ⋯ que aparece junto a ella."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez un titre depuis le ⋯ affiché à côté de lui."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте песню через ⋯ рядом с ней в любом списке."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从任意歌曲旁的 ⋯ 添加一首歌。"
           }
         }
       }
@@ -15708,6 +15813,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "重命名歌单"
+          }
+        }
+      }
+    },
+    "Đổi tên…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إعادة التسمية…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar nombre…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renommer…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重命名…"
           }
         }
       }

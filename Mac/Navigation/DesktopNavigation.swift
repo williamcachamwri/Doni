@@ -71,6 +71,19 @@ enum DesktopRoute: Hashable {
     case channel(chatId: Int64, title: String)
 }
 
+/// One song waiting to be filed into a list.
+///
+/// The naming lives with the shell rather than with the row that asked, because the same verb is on the
+/// list rows, the bar's ⋯ and the player's ⋯, and a sheet that opens from three places cannot belong to
+/// any of them. Keyed by the song's own durable id so `sheet(item:)` can drive it.
+struct DesktopPlaylistTarget: Identifiable, Equatable {
+    let track: any Playable
+
+    var id: String { track.uniqueId }
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+}
+
 /// The trailing panel. Two of them, exactly as the reference has them, because lyrics and up-next are
 /// different questions about the same song.
 enum DesktopInspector: String, CaseIterable, Identifiable, Hashable {
@@ -118,6 +131,8 @@ final class DesktopUIState {
     var path: [DesktopRoute] = []
     var inspector: DesktopInspector?
     var sheet: DesktopSheet?
+    /// Set by any ⋯ that offers "make a new list"; the shell owns the sheet it opens.
+    var playlistTarget: DesktopPlaylistTarget?
     private(set) var retainedInspector: DesktopInspector = .lyrics
     var isNowPlayingPresented = false
 

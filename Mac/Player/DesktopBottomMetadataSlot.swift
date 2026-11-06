@@ -236,6 +236,9 @@ struct DesktopBottomMetadataSlot: View {
                     Task { await sound.download(held) }
                 }
             }
+
+            Divider()
+            DesktopPlaylistMenu(track: track)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 14, weight: .semibold))

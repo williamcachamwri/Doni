@@ -324,6 +324,9 @@ struct DesktopNowPlayingColumn: View {
                 Button("Hàng đợi", systemImage: "list.bullet") {
                     model.ui.toggleInspector(.queue)
                 }
+
+                Divider()
+                DesktopPlaylistMenu(track: track)
             }
         } label: {
             Image(systemName: "ellipsis")

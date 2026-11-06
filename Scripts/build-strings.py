@@ -184,6 +184,10 @@ RENDER_ALLOWLIST = {
     # The settings window's offset line is built through `localized(_:)`, and a language's name is
     # written in its own script on purpose — `Español` in a Spanish catalog is still `Español`.
     "DesktopSettingsView.swift": ["Text(offsetLine)", "Text(option.nativeName)"],
+    # The playlist page renders a name, a singer and a count line the caller has already resolved, and
+    # the naming card's sentence is built through `localized(_:)` one level up.
+    "DesktopBrowsePanes.swift": ["Text(name)", "Text(singer)", "Text(metadata)"],
+    "DesktopPlaylistMenu.swift": ["Text(title)"],
 }
 
 

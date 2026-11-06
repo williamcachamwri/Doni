@@ -336,22 +336,212 @@ struct DesktopChannelRow: View {
 
 /// A playlist opened from a card. The pane's own header carries the two verbs, as it does everywhere
 /// else — a tab's toolbar puts a primary action at the top of the window, far from the list it acts on.
+/// A playlist opened from the list — the reference's collection page, not a list with a title.
+///
+/// `DesktopRouteView.swift:65-131`: a 278 pt cover at radius 11 with the metadata column beside it on
+/// the bottom baseline, 34 pt between them and capped at 620 pt wide; the eyebrow at 11 semibold
+/// secondary, the name at 32 bold over two lines, the source line at 22 semibold in red, the counts at
+/// 13 medium secondary, then the buttons 10 pt under them. `DesktopPlaylistDetailView.swift:34-58`:
+/// header, 34 pt, divider, 34 pt, rows — with 42 pt on the sides and 34 above and below, and the rows
+/// drawn without covers because in a list the song is the thing, not its picture.
 struct DesktopPlaylistDetail: View {
     @Environment(DesktopAppModel.self) private var model
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var player: Player
+    @EnvironmentObject private var artwork: CoverArtwork
+    @EnvironmentObject private var session: TelegramSession
+
     let id: Int64
 
+    @State private var renaming = false
+    @State private var newName = ""
+    @State private var isCoverHovered = false
+
+    private static let coverSide: CGFloat = 278
+    private static let coverRadius: CGFloat = 11
+
     var body: some View {
-        DesktopTrackPane(
-            title: name,
-            tracks: DesktopPanes.playlist(model, id: id),
-            emptyPrompt: localized("Danh sách trống"),
-            onRemove: { library.removeTrack(uniqueId: $0.uniqueId, from: id) }
-        )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 34) {
+                header
+                Divider()
+                if tracks.isEmpty { empty } else { rows }
+            }
+            .padding(.horizontal, 42)
+            .padding(.vertical, 34)
+        }
+        .navigationTitle(Text(name))
+        .task(id: Array(tracks.prefix(40).map(\.uniqueId))) {
+            artwork.prefetch(Array(tracks.prefix(40)), via: session.covers(), side: 42)
+        }
+        .alert("Danh sách mới", isPresented: $renaming) {
+            TextField("Tên danh sách", text: $newName)
+            Button("Lưu") {
+                guard !newName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                library.renamePlaylist(id: id, name: newName)
+            }
+            Button("Huỷ", role: .cancel) {}
+        }
+    }
+
+    private var playlist: StoredPlaylist? {
+        library.playlists.first { $0.id == id }
+    }
+
+    private var tracks: [any Playable] {
+        library.tracks(in: id)
     }
 
     private var name: String {
-        library.playlists.first { $0.id == id }?.name ?? localized("Danh sách")
+        playlist?.name ?? localized("Danh sách")
+    }
+
+    private var header: some View {
+        HStack(alignment: .bottom, spacing: 34) {
+            cover
+            details
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// The list's own picture when the listener chose one; otherwise its first song's, which is the
+    /// phone's rule for a playlist cover and the only honest fallback.
+    @ViewBuilder private var cover: some View {
+        ZStack {
+            if let path = playlist?.coverPath, let image = CoverArtwork.shared.image(at: path) {
+                Image(doni: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if let first = library.firstTrack(in: id) {
+                DesktopArtworkView(track: first, side: Self.coverSide,
+                                   cornerRadius: Self.coverRadius)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: Self.coverRadius, style: .continuous)
+                        .fill(MusicTint.accent.opacity(0.14))
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 92, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(MusicTint.accent)
+                }
+            }
+        }
+        .frame(width: Self.coverSide, height: Self.coverSide)
+        .clipShape(.rect(cornerRadius: Self.coverRadius, style: .continuous))
+        .scaleEffect(isCoverHovered ? 1.012 : 1)
+        .shadow(color: .black.opacity(isCoverHovered ? 0.24 : 0.20),
+                radius: isCoverHovered ? 22 : 18, y: isCoverHovered ? 12 : 10)
+        .onHover { isCoverHovered = $0 }
+        .animation(.snappy(duration: 0.25, extraBounce: 0.04), value: isCoverHovered)
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(localized("Danh sách phát"))
+                .font(.system(size: 11, weight: .semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+
+            Text(name)
+                .font(.system(size: 32, weight: .bold))
+                .lineLimit(2)
+
+            if let singer = firstSinger {
+                Text(singer)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(MusicTint.accent)
+                    .lineLimit(2)
+            }
+
+            Text(metadata)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            actions
+                .padding(.top, 10)
+        }
+        .frame(maxWidth: 620, alignment: .leading)
+        .padding(.bottom, 6)
+    }
+
+    /// The reference's red line is the playlist's owner. Doni has no owner field, and the one thing in
+    /// the same position that is true of the music is who is singing the first song.
+    private var firstSinger: String? {
+        guard let first = tracks.first, !first.displayPerformer.isEmpty else { return nil }
+        return first.displayPerformer
+    }
+
+    private var metadata: String {
+        let seconds = tracks.reduce(0) { $0 + ($1.duration ?? 0) }
+        return localized("%1$@ bài · %2$@",
+                         tracks.count.formatted(),
+                         MediaClock.duration(seconds) ?? "0:00")
+    }
+
+    private var actions: some View {
+        HStack(spacing: 10) {
+            Button {
+                guard let first = tracks.first else { return }
+                player.play(first, in: tracks)
+            } label: {
+                Label("Phát tất cả", systemImage: "play.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(MusicTint.accent)
+
+            Button {
+                guard let first = tracks.first else { return }
+                player.setShuffled(true)
+                player.play(first, in: tracks)
+            } label: {
+                Label("Phát ngẫu nhiên", systemImage: "shuffle")
+            }
+            .buttonStyle(.bordered)
+
+            Menu {
+                Button("Đổi tên…", systemImage: "pencil") {
+                    newName = name
+                    renaming = true
+                }
+                Divider()
+                Button("Xoá danh sách", systemImage: "trash", role: .destructive) {
+                    library.deletePlaylist(id: id)
+                    model.ui.path.removeAll()
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 28, height: 28)
+                    .contentShape(.circle)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+        }
+        .controlSize(.large)
+    }
+
+    private var rows: some View {
+        LazyVStack(spacing: 2) {
+            ForEach(Array(tracks.enumerated()), id: \.element.uniqueId) { offset, track in
+                DesktopTrackRow(
+                    track: track,
+                    index: offset,
+                    tracks: tracks,
+                    showsArtwork: false,
+                    onRemove: { library.removeTrack(uniqueId: $0.uniqueId, from: id) }
+                )
+            }
+        }
+    }
+
+    private var empty: some View {
+        ContentUnavailableView {
+            Label("Danh sách trống", systemImage: "music.note.list")
+        } description: {
+            Text("Thêm một bài từ bất kỳ danh sách nào bằng dấu ⋯ cạnh bài đó.")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
     }
 }
 

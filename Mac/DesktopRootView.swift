@@ -43,6 +43,11 @@ struct DesktopRootView: View {
                         .environment(model)
                 }
             }
+            // The one place the naming card is presented, so the row's ⋯, the bar's ⋯ and the player's ⋯
+            // all reach the same sheet rather than each carrying its own copy of the field.
+            .sheet(item: $ui.playlistTarget) { target in
+                DesktopNewPlaylistSheet(track: target.track)
+            }
             // The client is started here and nowhere else: a screen that waits for TDLib's answer cannot
             // be the one that asks it, and the desktop has no login button to hang it on.
             .task {
