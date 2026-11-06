@@ -39,16 +39,28 @@ liệu đi đâu.
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-playlist-detail.jpg" alt="Danh sách phát với các bài" width="220"></td>
-    <td><img src="../screenshots/02-home-feed.jpg" alt="Trang chủ: kệ nghe tiếp, mới và thích" width="220"></td>
-    <td><img src="../screenshots/03-now-playing.jpg" alt="Đang phát với ảnh bìa và lời" width="220"></td>
-    <td><img src="../screenshots/04-up-next-queue.jpg" alt="Hàng đợi tiếp theo cạnh Đang phát" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.png" alt="Danh sách phát với các bài" width="720"></td>
   </tr>
   <tr>
     <td align="center">Danh sách phát.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/02-home-feed.png" alt="Trang chủ: kệ nghe tiếp, mới và thích" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Trang chủ.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/03-now-playing.png" alt="Đang phát với ảnh bìa và lời" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Đang phát.</td>
-    <td align="center">Hàng đợi tiếp theo.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/04-recently-played.png" alt="Các bài đã nghe gần đây" width="720"></td>
+  </tr>
+  <tr>
+    <td align="center">Gần đây.</td>
   </tr>
 </table>
 

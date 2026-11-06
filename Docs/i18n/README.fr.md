@@ -39,16 +39,28 @@ donnée envoyée.
 
 <table>
   <tr>
-    <td><img src="../screenshots/01-playlist-detail.jpg" alt="Liste de lecture avec ses titres" width="220"></td>
-    <td><img src="../screenshots/02-home-feed.jpg" alt="Accueil : étagères récemment écoutés, nouveaux et favoris" width="220"></td>
-    <td><img src="../screenshots/03-now-playing.jpg" alt="Lecture en cours avec pochette et paroles" width="220"></td>
-    <td><img src="../screenshots/04-up-next-queue.jpg" alt="File d'attente à côté de Lecture en cours" width="220"></td>
+    <td><img src="../screenshots/01-playlist-detail.png" alt="Liste de lecture avec ses titres" width="720"></td>
   </tr>
   <tr>
     <td align="center">Liste de lecture.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/02-home-feed.png" alt="Accueil : étagères récemment écoutés, nouveaux et favoris" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Accueil.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/03-now-playing.png" alt="Lecture en cours avec pochette et paroles" width="720"></td>
+  </tr>
+  <tr>
     <td align="center">Lecture en cours.</td>
-    <td align="center">File d'attente.</td>
+  </tr>
+  <tr>
+    <td><img src="../screenshots/04-recently-played.png" alt="Titres écoutés récemment" width="720"></td>
+  </tr>
+  <tr>
+    <td align="center">Écoutés récemment.</td>
   </tr>
 </table>
 
