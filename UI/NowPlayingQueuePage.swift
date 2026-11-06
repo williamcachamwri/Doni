@@ -179,6 +179,11 @@ private struct QueueRowView: View {
 /// The header the queue scrolls under: the playing song at the reference's pinned size
 /// (`NowPlayingSongHeader.swift:65-97`). MeloX's `usesReferenceLayout` is the variant that drops the
 /// star and keeps only the ⋯ disc (`:117-119`, `NowPlayingSongActions.swift:16`).
+///
+/// The artwork slot is empty on purpose: the panel draws the cover itself
+/// (`NowPlayingView.swift:233-255`), which is what lets the same picture be the hero on the artwork
+/// page and this thumb on the queue. Without this, the header's own `TrackCover` would scroll with
+/// the list while the panel's cover stayed fixed — two covers, one of them disappearing.
 private struct QueueSongHeader: View {
     let track: any Playable
     @ObservedObject var player: Player
@@ -187,8 +192,9 @@ private struct QueueSongHeader: View {
 
     var body: some View {
         HStack(spacing: MusicNowPlayingMetrics.songHeaderGap) {
-            TrackCover(track: track, side: MusicNowPlayingMetrics.songHeaderHeight,
-                       radius: MusicNowPlayingMetrics.songHeaderArtRadius, artwork: artwork)
+            Color.clear
+                .frame(width: MusicNowPlayingMetrics.lyricsHeaderSide,
+                       height: MusicNowPlayingMetrics.lyricsHeaderSide)
             VStack(alignment: .leading, spacing: MusicNowPlayingMetrics.titleSpacing) {
                 Text(track.displayTitle)
                     .font(.title3.weight(.semibold))
