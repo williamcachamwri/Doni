@@ -1,19 +1,20 @@
+#if os(iOS)
 import SwiftUI
 
 /// Samples movement and focus at the same display timestamp. Keeping this
 /// container mounted also preserves the text's in-flight scale and layout.
-struct LyricRowPresentationTimeline<Content: View>: View {
+public struct LyricRowPresentationTimeline<Content: View>: View {
     @Environment(\.effectiveLyricsRefreshRate)
     private var effectiveLyricsRefreshRate
 
-    let lyricID: LyricLine.ID
-    let focusedLyricID: LyricLine.ID?
-    let movementPhase: LyricMovementPhase
-    let focusTransition: LyricFocusColorTransition?
-    let isActive: Bool
+    public let lyricID: LyricLine.ID
+    public let focusedLyricID: LyricLine.ID?
+    public let movementPhase: LyricMovementPhase
+    public let focusTransition: LyricFocusColorTransition?
+    public let isActive: Bool
     @ViewBuilder let content: (CGFloat, LyricFocusVisualProgress) -> Content
 
-    var body: some View {
+    public var body: some View {
         TimelineView(
             .animation(
                 minimumInterval: effectiveLyricsRefreshRate.minimumInterval,
@@ -42,3 +43,4 @@ struct LyricRowPresentationTimeline<Content: View>: View {
         )
     }
 }
+#endif

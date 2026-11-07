@@ -1,21 +1,21 @@
 import Foundation
 
-struct LyricRubyUnit: Identifiable, Hashable {
-    let id: Int
-    let originalText: String
-    let originalSyllables: [LyricSyllable]
-    let romanizationText: String?
-    let romanizationSyllables: [LyricSyllable]
+public struct LyricRubyUnit: Identifiable, Hashable {
+    public let id: Int
+    public let originalText: String
+    public let originalSyllables: [LyricSyllable]
+    public let romanizationText: String?
+    public let romanizationSyllables: [LyricSyllable]
 
     /// True only when the service supplied timing for this transliteration.
     /// Static fallbacks must never fabricate a second per-character timeline.
-    let hasAuthoredRomanizationTiming: Bool
+    public let hasAuthoredRomanizationTiming: Bool
 }
 
-enum LyricRomanizationAligner {
+public enum LyricRomanizationAligner {
     private static let cache = LyricRomanizationAlignmentCache()
 
-    static func units(
+    public static func units(
         for line: LyricLine,
         activeSyllables: [LyricSyllable]
     ) -> [LyricRubyUnit] {
@@ -664,22 +664,22 @@ enum LyricRomanizationAligner {
 }
 
 private struct UnitDraft {
-    let originalText: String
-    let originalSyllables: [LyricSyllable]
-    let romanizationText: String?
-    let romanizationSyllables: [LyricSyllable]
-    let hasAuthoredRomanizationTiming: Bool
+    public let originalText: String
+    public let originalSyllables: [LyricSyllable]
+    public let romanizationText: String?
+    public let romanizationSyllables: [LyricSyllable]
+    public let hasAuthoredRomanizationTiming: Bool
 }
 
 private struct PhoneticMatchState: Hashable {
-    let characterOffset: Int
-    let annotationOffset: Int
+    public let characterOffset: Int
+    public let annotationOffset: Int
 }
 
 private final class LyricRomanizationAlignmentCache:
     @unchecked Sendable
 {
-    struct Key: Hashable {
+    public struct Key: Hashable {
         let originalText: String
         let romanization: String
         let originalSyllables: [LyricSyllable]
@@ -691,13 +691,13 @@ private final class LyricRomanizationAlignmentCache:
     private var insertionOrder: [Key] = []
     private let capacity = 256
 
-    func units(for key: Key) -> [LyricRubyUnit]? {
+    public func units(for key: Key) -> [LyricRubyUnit]? {
         lock.lock()
         defer { lock.unlock() }
         return storage[key]
     }
 
-    func insert(
+    public func insert(
         _ units: [LyricRubyUnit],
         for key: Key
     ) {

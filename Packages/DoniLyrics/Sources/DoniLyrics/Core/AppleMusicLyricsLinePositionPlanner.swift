@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 
 /// Pure reconstruction of Apple Music 26.6's line-position cascade.
@@ -7,14 +8,14 @@ import Foundation
 /// forward content-offset change and in reverse lyric order for a negative
 /// change. Whether a row actually receives an animation descriptor remains a
 /// caller concern so an unchanged mounted row still retains its native order.
-nonisolated enum AppleMusicLyricsLinePositionPlanner {
-    nonisolated struct PlannedLine<ID: Hashable>: Hashable {
+public enum AppleMusicLyricsLinePositionPlanner {
+    public nonisolated struct PlannedLine<ID: Hashable>: Hashable {
         let id: ID
         let order: Int
         let delay: TimeInterval
     }
 
-    static func plan<ID: Hashable>(
+    public static func plan<ID: Hashable>(
         mountedIDsInLyricOrder: [ID],
         currentViewportIDs: Set<ID>,
         targetViewportIDs: Set<ID>,
@@ -51,3 +52,4 @@ nonisolated enum AppleMusicLyricsLinePositionPlanner {
         }
     }
 }
+#endif

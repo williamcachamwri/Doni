@@ -34,6 +34,8 @@ public final class AppSettings {
             static let lyricsHighlightGradientReduction =
                 "lyricsHighlightGradientReduction"
             static let lyricsGlowEnabled = "lyricsGlowEnabled"
+            static let lyricsInterludeCountdownEnabled = "lyricsInterludeCountdownEnabled"
+            static let lyricsRefreshRate = "lyricsRefreshRate"
             static let lyricsLongSyllableDetectionMode =
                 "lyricsLongSyllableDetectionMode"
             static let lyricsGlowLongSyllablesOnly =
@@ -85,122 +87,122 @@ public final class AppSettings {
             static let legacyLyricsKeepsScreenAwake = "lyricsKeepsScreenAwake"
     }
 
-    static let defaultAppleMusicLyricsInterfaceAutoHideDelay = 5.0
+    public static let defaultAppleMusicLyricsInterfaceAutoHideDelay = 5.0
 
-    static let appleMusicLyricsInterfaceAutoHideDelayRange = 3.0...15.0
+    public static let appleMusicLyricsInterfaceAutoHideDelayRange = 3.0...15.0
 
-    static let defaultAppleMusicLyricsScrollHideThreshold = 200.0
+    public static let defaultAppleMusicLyricsScrollHideThreshold = 200.0
 
-    static let appleMusicLyricsScrollHideThresholdRange = 40.0...240.0
+    public static let appleMusicLyricsScrollHideThresholdRange = 40.0...240.0
 
-    static let defaultLyricsFontSize = 34.0
+    public static let defaultLyricsFontSize = 34.0
 
-    static let defaultLyricsFontWeight: LyricsFontWeight = .heavy
+    public static let defaultLyricsFontWeight: LyricsFontWeight = .heavy
 
-    static let defaultLyricsCurrentLineScale = 1.02
+    public static let defaultLyricsCurrentLineScale = 1.02
 
-    static let defaultLyricsLineSpacing = 28.0
+    public static let defaultLyricsLineSpacing = 28.0
 
-    static let defaultLyricsBlurIntensity = 0.8
+    public static let defaultLyricsBlurIntensity = 0.8
 
-    static let defaultLyricsUsesUniformDimmingWhileBrowsing = true
+    public static let defaultLyricsUsesUniformDimmingWhileBrowsing = true
 
-    static let defaultLyricsDimAmount = 1.0
+    public static let defaultLyricsDimAmount = 1.0
 
-    static let defaultLyricsFocusPosition = 0.25
+    public static let defaultLyricsFocusPosition = 0.25
 
-    static let lyricsFocusPositionRange = 0.05...0.8
+    public static let lyricsFocusPositionRange = 0.05...0.8
 
-    static let lyricsCurrentLineScaleRange = 1.0...1.5
+    public static let lyricsCurrentLineScaleRange = 1.0...1.5
 
-    static let defaultLyricsDistanceBlurScale = 1.05
+    public static let defaultLyricsDistanceBlurScale = 1.05
 
-    static let defaultLyricsHiddenInterfaceBlurScale = 0.85
+    public static let defaultLyricsHiddenInterfaceBlurScale = 0.85
 
-    static let lyricsDistanceBlurScaleRange = 0.0...1.5
+    public static let lyricsDistanceBlurScaleRange = 0.0...1.5
 
-    static let defaultLyricsFocusCascadeDelay = 0.021
+    public static let defaultLyricsFocusCascadeDelay = 0.021
 
-    static let lyricsFocusCascadeDelayRange = 0.0...0.1
+    public static let lyricsFocusCascadeDelayRange = 0.0...0.1
 
-    static let defaultLyricsFocusCascadeDelayIncrease = 0.005
+    public static let defaultLyricsFocusCascadeDelayIncrease = 0.005
 
-    static let lyricsFocusCascadeDelayIncreaseRange = 0.0...0.1
+    public static let lyricsFocusCascadeDelayIncreaseRange = 0.0...0.1
 
-    static let defaultLyricsFocusCascadeFollowingDelay = 0.030
+    public static let defaultLyricsFocusCascadeFollowingDelay = 0.030
 
-    static let lyricsFocusCascadeFollowingDelayRange = 0.0...0.2
+    public static let lyricsFocusCascadeFollowingDelayRange = 0.0...0.2
 
-    static let defaultLyricsFocusCascadeCatchUpRatio = 0.97
+    public static let defaultLyricsFocusCascadeCatchUpRatio = 0.97
 
-    static let lyricsFocusCascadeCatchUpRatioRange = 0.5...1.0
+    public static let lyricsFocusCascadeCatchUpRatioRange = 0.5...1.0
 
-    static let defaultLyricsFocusCascadeChaseSpeedGradient = 0.70
+    public static let defaultLyricsFocusCascadeChaseSpeedGradient = 0.70
 
-    static let lyricsFocusCascadeChaseSpeedGradientRange = 0.0...1.0
+    public static let lyricsFocusCascadeChaseSpeedGradientRange = 0.0...1.0
 
-    static let defaultLyricsFocusCascadeDuration = 0.74
+    public static let defaultLyricsFocusCascadeDuration = 0.74
 
-    static let lyricsFocusCascadeDurationRange = 0.2...1.2
+    public static let lyricsFocusCascadeDurationRange = 0.2...1.2
 
-    static let defaultLyricsFocusSnapThreshold = 0.26
+    public static let defaultLyricsFocusSnapThreshold = 0.26
 
-    static let lyricsFocusSnapThresholdRange = 0.05...0.5
+    public static let lyricsFocusSnapThresholdRange = 0.05...0.5
 
-    static let defaultLyricsFocusCascadeBounceEnabled = true
+    public static let defaultLyricsFocusCascadeBounceEnabled = true
 
-    static let defaultLyricsFocusCascadeBounce = 0.26
+    public static let defaultLyricsFocusCascadeBounce = 0.26
 
-    static let lyricsFocusCascadeBounceRange = 0.0...0.8
+    public static let lyricsFocusCascadeBounceRange = 0.0...0.8
 
-    static let defaultLyricsFocusCascadeBounceGradient = 0.85
+    public static let defaultLyricsFocusCascadeBounceGradient = 0.85
 
-    static let lyricsFocusCascadeBounceGradientRange = 0.0...1.0
+    public static let lyricsFocusCascadeBounceGradientRange = 0.0...1.0
 
-    static let defaultLyricsFocusScaleBounceEnabled = true
+    public static let defaultLyricsFocusScaleBounceEnabled = true
 
-    static let defaultLyricsFocusScaleBounce = 0.32
+    public static let defaultLyricsFocusScaleBounce = 0.32
 
-    static let lyricsFocusScaleBounceRange = 0.0...0.5
+    public static let lyricsFocusScaleBounceRange = 0.0...0.5
 
-    static let defaultLyricsFocusScaleBounceDuration = 0.58
+    public static let defaultLyricsFocusScaleBounceDuration = 0.58
 
-    static let lyricsFocusScaleBounceDurationRange = 0.15...0.8
+    public static let lyricsFocusScaleBounceDurationRange = 0.15...0.8
 
-    static let defaultLyricsFocusColorLeadTime = 0.0
+    public static let defaultLyricsFocusColorLeadTime = 0.0
 
-    static let lyricsFocusColorLeadTimeRange = -0.3...0.3
+    public static let lyricsFocusColorLeadTimeRange = -0.3...0.3
 
-    static let defaultLyricsRomanizationFontScale = 0.65
+    public static let defaultLyricsRomanizationFontScale = 0.65
 
-    static let defaultLyricsRomanizationOpacity = 0.9
+    public static let defaultLyricsRomanizationOpacity = 0.9
 
-    static let defaultLyricsTranslationFontScale = 0.65
+    public static let defaultLyricsTranslationFontScale = 0.65
 
-    static let defaultLyricsTranslationOpacity = 0.9
+    public static let defaultLyricsTranslationOpacity = 0.9
 
-    static let defaultLyricsLiftMode: LyricsLiftMode = .character
+    public static let defaultLyricsLiftMode: LyricsLiftMode = .character
 
-    static let defaultLyricsLongSyllableDetectionMode:
+    public static let defaultLyricsLongSyllableDetectionMode:
         LyricsLongSyllableDetectionMode = .character
 
-    static let defaultLyricsGlowLongSyllablesOnly = true
+    public static let defaultLyricsGlowLongSyllablesOnly = true
 
-    static let defaultLyricsLongSyllableDurationThreshold = 0.95
+    public static let defaultLyricsLongSyllableDurationThreshold = 0.95
 
-    static let lyricsLongSyllableDurationThresholdRange = 0.3...1.5
+    public static let lyricsLongSyllableDurationThresholdRange = 0.3...1.5
 
-    static let defaultLyricsLongToneExpansionAmount = 0.05
+    public static let defaultLyricsLongToneExpansionAmount = 0.05
 
-    static let lyricsLongToneExpansionAmountRange = 0.0...0.15
+    public static let lyricsLongToneExpansionAmountRange = 0.0...0.15
 
-    static let defaultLyricsHighlightGradientWidth = 0.7
+    public static let defaultLyricsHighlightGradientWidth = 0.7
 
-    static let lyricsHighlightGradientWidthRange = 0.4...3.0
+    public static let lyricsHighlightGradientWidthRange = 0.4...3.0
 
-    static let defaultLyricsHighlightGradientReduction = 0.65
+    public static let defaultLyricsHighlightGradientReduction = 0.65
 
-    static let lyricsHighlightGradientReductionRange = 0.0...1.0
+    public static let lyricsHighlightGradientReductionRange = 0.0...1.0
 
     public var appleMusicLyricsInterfaceAutoHideDelay: Double {
         didSet {
@@ -211,7 +213,7 @@ public final class AppSettings {
         }
     }
 
-    var appleMusicLyricsScrollHideThreshold: Double {
+    public var appleMusicLyricsScrollHideThreshold: Double {
         didSet {
             defaults.set(
                 appleMusicLyricsScrollHideThreshold,
@@ -220,11 +222,11 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFontSize: Double {
+    public var lyricsFontSize: Double {
         didSet { defaults.set(lyricsFontSize, forKey: Key.lyricsFontSize) }
     }
 
-    var lyricsFontWeight: LyricsFontWeight {
+    public var lyricsFontWeight: LyricsFontWeight {
         didSet {
             defaults.set(
                 lyricsFontWeight.rawValue,
@@ -233,19 +235,19 @@ public final class AppSettings {
         }
     }
 
-    var lyricsCurrentLineScale: Double {
+    public var lyricsCurrentLineScale: Double {
         didSet { defaults.set(lyricsCurrentLineScale, forKey: Key.lyricsCurrentLineScale) }
     }
 
-    var lyricsLineSpacing: Double {
+    public var lyricsLineSpacing: Double {
         didSet { defaults.set(lyricsLineSpacing, forKey: Key.lyricsLineSpacing) }
     }
 
-    var lyricsBlurIntensity: Double {
+    public var lyricsBlurIntensity: Double {
         didSet { defaults.set(lyricsBlurIntensity, forKey: Key.lyricsBlurIntensity) }
     }
 
-    var lyricsUsesUniformDimmingWhileBrowsing: Bool {
+    public var lyricsUsesUniformDimmingWhileBrowsing: Bool {
         didSet {
             defaults.set(
                 lyricsUsesUniformDimmingWhileBrowsing,
@@ -254,7 +256,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsDistanceBlurScale: Double {
+    public var lyricsDistanceBlurScale: Double {
         didSet {
             defaults.set(
                 lyricsDistanceBlurScale,
@@ -263,7 +265,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsHiddenInterfaceBlurScale: Double {
+    public var lyricsHiddenInterfaceBlurScale: Double {
         didSet {
             defaults.set(
                 lyricsHiddenInterfaceBlurScale,
@@ -272,15 +274,15 @@ public final class AppSettings {
         }
     }
 
-    var lyricsDimAmount: Double {
+    public var lyricsDimAmount: Double {
         didSet { defaults.set(lyricsDimAmount, forKey: Key.lyricsDimAmount) }
     }
 
-    var lyricsTapToSeek: Bool {
+    public var lyricsTapToSeek: Bool {
         didSet { defaults.set(lyricsTapToSeek, forKey: Key.lyricsTapToSeek) }
     }
 
-    var lyricsLongPressToShare: Bool {
+    public var lyricsLongPressToShare: Bool {
         didSet {
             defaults.set(
                 lyricsLongPressToShare,
@@ -289,15 +291,15 @@ public final class AppSettings {
         }
     }
 
-    var lyricsWordByWord: Bool {
+    public var lyricsWordByWord: Bool {
         didSet { defaults.set(lyricsWordByWord, forKey: Key.lyricsWordByWord) }
     }
 
-    var lyricsPseudoWordByWord: Bool {
+    public var lyricsPseudoWordByWord: Bool {
         didSet { defaults.set(lyricsPseudoWordByWord, forKey: Key.lyricsPseudoWordByWord) }
     }
 
-    var lyricsDuetLayoutEnabled: Bool {
+    public var lyricsDuetLayoutEnabled: Bool {
         didSet {
             defaults.set(
                 lyricsDuetLayoutEnabled,
@@ -306,7 +308,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsLiftMode: LyricsLiftMode {
+    public var lyricsLiftMode: LyricsLiftMode {
         didSet {
             defaults.set(
                 lyricsLiftMode.rawValue,
@@ -315,7 +317,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsHighlightGradientWidth: Double {
+    public var lyricsHighlightGradientWidth: Double {
         didSet {
             defaults.set(
                 lyricsHighlightGradientWidth,
@@ -324,7 +326,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsHighlightGradientReduction: Double {
+    public var lyricsHighlightGradientReduction: Double {
         didSet {
             defaults.set(
                 lyricsHighlightGradientReduction,
@@ -333,11 +335,23 @@ public final class AppSettings {
         }
     }
 
-    var lyricsGlowEnabled: Bool {
+    /// The frame rate the lyrics column drives its per-line timelines at. The desktop column reads it
+    /// straight off `EnvironmentValues.effectiveLyricsRefreshRate`; the phone has never asked.
+    public var lyricsRefreshRate: LyricsRefreshRate {
+        didSet { defaults.set(lyricsRefreshRate.rawValue, forKey: Key.lyricsRefreshRate) }
+    }
+
+    /// Whether Music counts down the gap between lines with its three dots. The desktop column
+    /// pauses that on request; the phone has never asked, so it keeps the reference default of on.
+    public var lyricsInterludeCountdownEnabled: Bool {
+        didSet { defaults.set(lyricsInterludeCountdownEnabled, forKey: Key.lyricsInterludeCountdownEnabled) }
+    }
+
+    public var lyricsGlowEnabled: Bool {
         didSet { defaults.set(lyricsGlowEnabled, forKey: Key.lyricsGlowEnabled) }
     }
 
-    var lyricsLongSyllableDetectionMode:
+    public var lyricsLongSyllableDetectionMode:
         LyricsLongSyllableDetectionMode {
         didSet {
             defaults.set(
@@ -347,7 +361,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsGlowLongSyllablesOnly: Bool {
+    public var lyricsGlowLongSyllablesOnly: Bool {
         didSet {
             defaults.set(
                 lyricsGlowLongSyllablesOnly,
@@ -356,7 +370,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsLongSyllableDurationThreshold: Double {
+    public var lyricsLongSyllableDurationThreshold: Double {
         didSet {
             defaults.set(
                 lyricsLongSyllableDurationThreshold,
@@ -365,7 +379,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsLongToneExpansionAmount: Double {
+    public var lyricsLongToneExpansionAmount: Double {
         didSet {
             defaults.set(
                 lyricsLongToneExpansionAmount,
@@ -374,11 +388,11 @@ public final class AppSettings {
         }
     }
 
-    var lyricsGlowIntensity: Double {
+    public var lyricsGlowIntensity: Double {
         didSet { defaults.set(lyricsGlowIntensity, forKey: Key.lyricsGlowIntensity) }
     }
 
-    var lyricsRomanizationEnabled: Bool {
+    public var lyricsRomanizationEnabled: Bool {
         didSet {
             defaults.set(
                 lyricsRomanizationEnabled,
@@ -387,7 +401,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsRomanizationFontScale: Double {
+    public var lyricsRomanizationFontScale: Double {
         didSet {
             defaults.set(
                 lyricsRomanizationFontScale,
@@ -396,7 +410,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsRomanizationOpacity: Double {
+    public var lyricsRomanizationOpacity: Double {
         didSet {
             defaults.set(
                 lyricsRomanizationOpacity,
@@ -405,7 +419,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsRomanizationDisplayMode: LyricsTranslationDisplayMode {
+    public var lyricsRomanizationDisplayMode: LyricsTranslationDisplayMode {
         didSet {
             defaults.set(
                 lyricsRomanizationDisplayMode.rawValue,
@@ -414,11 +428,11 @@ public final class AppSettings {
         }
     }
 
-    var lyricsTranslationEnabled: Bool {
+    public var lyricsTranslationEnabled: Bool {
         didSet { defaults.set(lyricsTranslationEnabled, forKey: Key.lyricsTranslationEnabled) }
     }
 
-    var lyricsTranslationDisplayMode: LyricsTranslationDisplayMode {
+    public var lyricsTranslationDisplayMode: LyricsTranslationDisplayMode {
         didSet {
             defaults.set(
                 lyricsTranslationDisplayMode.rawValue,
@@ -427,27 +441,27 @@ public final class AppSettings {
         }
     }
 
-    var lyricsTranslationFontScale: Double {
+    public var lyricsTranslationFontScale: Double {
         didSet { defaults.set(lyricsTranslationFontScale, forKey: Key.lyricsTranslationFontScale) }
     }
 
-    var lyricsTranslationOpacity: Double {
+    public var lyricsTranslationOpacity: Double {
         didSet { defaults.set(lyricsTranslationOpacity, forKey: Key.lyricsTranslationOpacity) }
     }
 
-    var lyricsAutoFollow: Bool {
+    public var lyricsAutoFollow: Bool {
         didSet { defaults.set(lyricsAutoFollow, forKey: Key.lyricsAutoFollow) }
     }
 
-    var lyricsFollowDelay: Double {
+    public var lyricsFollowDelay: Double {
         didSet { defaults.set(lyricsFollowDelay, forKey: Key.lyricsFollowDelay) }
     }
 
-    var lyricsFocusPosition: Double {
+    public var lyricsFocusPosition: Double {
         didSet { defaults.set(lyricsFocusPosition, forKey: Key.lyricsFocusPosition) }
     }
 
-    var lyricsFocusCascadeDelay: Double {
+    public var lyricsFocusCascadeDelay: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeDelay,
@@ -456,7 +470,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeDelayIncrease: Double {
+    public var lyricsFocusCascadeDelayIncrease: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeDelayIncrease,
@@ -465,7 +479,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeFollowingDelay: Double {
+    public var lyricsFocusCascadeFollowingDelay: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeFollowingDelay,
@@ -474,7 +488,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeCatchUpRatio: Double {
+    public var lyricsFocusCascadeCatchUpRatio: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeCatchUpRatio,
@@ -483,7 +497,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeChaseSpeedGradient: Double {
+    public var lyricsFocusCascadeChaseSpeedGradient: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeChaseSpeedGradient,
@@ -492,7 +506,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeBounceEnabled: Bool {
+    public var lyricsFocusCascadeBounceEnabled: Bool {
         didSet {
             defaults.set(
                 lyricsFocusCascadeBounceEnabled,
@@ -501,7 +515,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeBounce: Double {
+    public var lyricsFocusCascadeBounce: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeBounce,
@@ -510,7 +524,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeBounceGradient: Double {
+    public var lyricsFocusCascadeBounceGradient: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeBounceGradient,
@@ -519,7 +533,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusScaleBounceEnabled: Bool {
+    public var lyricsFocusScaleBounceEnabled: Bool {
         didSet {
             defaults.set(
                 lyricsFocusScaleBounceEnabled,
@@ -528,7 +542,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusScaleBounce: Double {
+    public var lyricsFocusScaleBounce: Double {
         didSet {
             defaults.set(
                 lyricsFocusScaleBounce,
@@ -537,7 +551,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusScaleBounceDuration: Double {
+    public var lyricsFocusScaleBounceDuration: Double {
         didSet {
             defaults.set(
                 lyricsFocusScaleBounceDuration,
@@ -546,7 +560,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusCascadeDuration: Double {
+    public var lyricsFocusCascadeDuration: Double {
         didSet {
             defaults.set(
                 lyricsFocusCascadeDuration,
@@ -555,7 +569,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusSnapThreshold: Double {
+    public var lyricsFocusSnapThreshold: Double {
         didSet {
             defaults.set(
                 lyricsFocusSnapThreshold,
@@ -564,7 +578,7 @@ public final class AppSettings {
         }
     }
 
-    var lyricsFocusColorLeadTime: Double {
+    public var lyricsFocusColorLeadTime: Double {
         didSet {
             defaults.set(
                 lyricsFocusColorLeadTime,
@@ -573,11 +587,11 @@ public final class AppSettings {
         }
     }
 
-    var lyricsAdvanceTime: Double {
+    public var lyricsAdvanceTime: Double {
         didSet { defaults.set(lyricsAdvanceTime, forKey: Key.lyricsAdvanceTime) }
     }
 
-    var lyricsAdvanceTimeAppliesToWordByWord: Bool {
+    public var lyricsAdvanceTimeAppliesToWordByWord: Bool {
         didSet {
             defaults.set(
                 lyricsAdvanceTimeAppliesToWordByWord,
@@ -586,13 +600,13 @@ public final class AppSettings {
         }
     }
 
-    var wordByWordLyricsAdvanceTime: TimeInterval {
+    public var wordByWordLyricsAdvanceTime: TimeInterval {
         lyricsAdvanceTimeAppliesToWordByWord
             ? lyricsAdvanceTime
             : 0
     }
 
-    func effectiveLyricsAdvanceTime(
+    public func effectiveLyricsAdvanceTime(
         hasSyllableSyncedLyrics: Bool
     ) -> TimeInterval {
         let usesWordByWordPresentation = hasSyllableSyncedLyrics
@@ -603,7 +617,7 @@ public final class AppSettings {
             : lyricsAdvanceTime
     }
 
-    func effectiveLyricsAdvanceTime(
+    public func effectiveLyricsAdvanceTime(
         for lyrics: [LyricLine]
     ) -> TimeInterval {
         effectiveLyricsAdvanceTime(
@@ -613,8 +627,8 @@ public final class AppSettings {
     }
 
     private let defaults: UserDefaults
-    let appleMusicLyrics: AppleMusicLyricsPreferences
-    let lyricsInterlude: LyricsInterludePreferences
+    public let appleMusicLyrics: AppleMusicLyricsPreferences
+    public let lyricsInterlude: LyricsInterludePreferences
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -718,6 +732,8 @@ public final class AppSettings {
             ),
             Self.lyricsHighlightGradientReductionRange.upperBound
         )
+        lyricsInterludeCountdownEnabled = defaults.object(forKey: Key.lyricsInterludeCountdownEnabled) as? Bool ?? true
+        lyricsRefreshRate = LyricsRefreshRate(rawValue: defaults.object(forKey: Key.lyricsRefreshRate) as? Int ?? 0) ?? .defaultValue
         lyricsGlowEnabled = defaults.object(forKey: Key.lyricsGlowEnabled) as? Bool ?? true
         lyricsLongSyllableDetectionMode =
             LyricsLongSyllableDetectionMode(

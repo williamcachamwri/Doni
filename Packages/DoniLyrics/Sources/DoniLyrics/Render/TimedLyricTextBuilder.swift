@@ -1,17 +1,18 @@
+#if os(iOS)
 import CoreText
 import SwiftUI
 import Support
 
 private struct LyricTextHorizontalOffset: Hashable {
-    let characterOffset: Int
-    let horizontalOffset: CGFloat
+    public let characterOffset: Int
+    public let horizontalOffset: CGFloat
 }
 
 @MainActor
-enum TimedLyricTextBuilder {
+public enum TimedLyricTextBuilder {
     private static let cache = LyricTextCache()
 
-    static func text(
+    public static func text(
         from syllables: [LyricSyllable],
         constrainedWidth: CGFloat?,
         fontSize: CGFloat,
@@ -48,7 +49,7 @@ enum TimedLyricTextBuilder {
         return text
     }
 
-    static func text(
+    public static func text(
         from source: String,
         constrainedWidth: CGFloat?,
         fontSize: CGFloat,
@@ -507,7 +508,7 @@ enum TimedLyricTextBuilder {
 
 @MainActor
 private final class LyricTextCache {
-    enum Key: Hashable {
+    public enum Key: Hashable {
         case timed(
             syllables: [LyricSyllable],
             constrainedWidth: CGFloat?,
@@ -530,11 +531,11 @@ private final class LyricTextCache {
     private var storage: [Key: Text] = [:]
     private var insertionOrder: [Key] = []
 
-    func text(for key: Key) -> Text? {
+    public func text(for key: Key) -> Text? {
         storage[key]
     }
 
-    func insert(_ text: Text, for key: Key) {
+    public func insert(_ text: Text, for key: Key) {
         guard storage[key] == nil else { return }
         storage[key] = text
         insertionOrder.append(key)
@@ -549,7 +550,7 @@ private final class LyricTextCache {
 }
 
 private extension TimedLyricTextBuilder {
-    struct WordTiming {
+    public struct WordTiming {
         let startTime: TimeInterval
         let endTime: TimeInterval
         let characterIndex: Int
@@ -557,7 +558,7 @@ private extension TimedLyricTextBuilder {
         let usesWordTimingForLongTone: Bool
     }
 
-    struct TimedCharacter {
+    public struct TimedCharacter {
         let text: String
         let startTime: TimeInterval
         let endTime: TimeInterval
@@ -583,3 +584,4 @@ private extension TimedLyricTextBuilder {
         }
     }
 }
+#endif

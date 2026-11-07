@@ -1,15 +1,16 @@
+#if os(iOS)
 import SwiftUI
 
-struct LyricAnnotationLayout: Layout {
-    var expansion: CGFloat
-    let spacing: CGFloat
+public struct LyricAnnotationLayout: Layout {
+    public var expansion: CGFloat
+    public let spacing: CGFloat
 
-    var animatableData: CGFloat {
+    public var animatableData: CGFloat {
         get { expansion }
         set { expansion = newValue }
     }
 
-    func sizeThatFits(
+    public func sizeThatFits(
         proposal: ProposedViewSize,
         subviews: Subviews,
         cache: inout ()
@@ -36,7 +37,7 @@ struct LyricAnnotationLayout: Layout {
         )
     }
 
-    func placeSubviews(
+    public func placeSubviews(
         in bounds: CGRect,
         proposal: ProposedViewSize,
         subviews: Subviews,
@@ -79,3 +80,4 @@ struct LyricAnnotationLayout: Layout {
         )
     }
 }
+#endif

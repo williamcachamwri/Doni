@@ -1,18 +1,19 @@
+#if os(iOS)
 import SwiftUI
 
-nonisolated struct LyricTimingTextAttribute: TextAttribute, Hashable, Sendable {
-    let startTime: TimeInterval
-    let endTime: TimeInterval
-    let syllableStartTime: TimeInterval
-    let syllableEndTime: TimeInterval
-    let characterIndex: Int
-    let characterCount: Int
-    let wordStartTime: TimeInterval
-    let wordEndTime: TimeInterval
-    let wordCharacterIndex: Int
-    let wordCharacterCount: Int
-    let usesWordTimingForLongTone: Bool
-    let isWhitespace: Bool
+public struct LyricTimingTextAttribute: TextAttribute, Hashable, Sendable {
+    public let startTime: TimeInterval
+    public let endTime: TimeInterval
+    public let syllableStartTime: TimeInterval
+    public let syllableEndTime: TimeInterval
+    public let characterIndex: Int
+    public let characterCount: Int
+    public let wordStartTime: TimeInterval
+    public let wordEndTime: TimeInterval
+    public let wordCharacterIndex: Int
+    public let wordCharacterCount: Int
+    public let usesWordTimingForLongTone: Bool
+    public let isWhitespace: Bool
 }
 
 /// Absolute alpha endpoints used while a lyric line gains focus. Apple Music
@@ -20,12 +21,12 @@ nonisolated struct LyricTimingTextAttribute: TextAttribute, Hashable, Sendable {
 /// spring. The upcoming renderer sits inside the line's outer opacity, so it
 /// must compensate for that parent alpha instead of multiplying a second
 /// independent fade onto it.
-struct LyricFocusOpacityEndpoints: Equatable, Sendable {
-    let deselected: Double
-    let selected: Double
-    let selectedUpcoming: Double
+public struct LyricFocusOpacityEndpoints: Equatable, Sendable {
+    public let deselected: Double
+    public let selected: Double
+    public let selectedUpcoming: Double
 
-    func relativeUpcomingOpacity(at progress: Double) -> Double {
+    public func relativeUpcomingOpacity(at progress: Double) -> Double {
         let progress = Self.unitProgress(progress)
         let outerOpacity = Self.interpolate(
             from: deselected,
@@ -61,8 +62,8 @@ struct LyricFocusOpacityEndpoints: Equatable, Sendable {
 /// envelope: every glyph expands around its own center, blooms, then settles
 /// while the following glyphs enter the same animation. Glow and text stay
 /// composited through all transforms.
-struct LyricGlowTextRenderer: TextRenderer {
-    struct Style: Equatable, Sendable {
+public struct LyricGlowTextRenderer: TextRenderer {
+    public struct Style: Equatable, Sendable {
         let glowRadius: CGFloat
         let glowOpacity: Double
         let glowsLongSyllablesOnly: Bool
@@ -86,7 +87,7 @@ struct LyricGlowTextRenderer: TextRenderer {
         }
     }
 
-    struct LayoutConfiguration: Equatable, Sendable {
+    public struct LayoutConfiguration: Equatable, Sendable {
         let width: CGFloat?
         let centersLines: Bool
         let trailingVisualOverflow: CGFloat
@@ -107,15 +108,15 @@ struct LyricGlowTextRenderer: TextRenderer {
         }
     }
 
-    static let glowTailDuration: TimeInterval = 0.55
+    public static let glowTailDuration: TimeInterval = 0.55
 
-    var playbackTime: TimeInterval
-    let style: Style
-    let layoutConfiguration: LayoutConfiguration
-    let appliesTimingEffects: Bool
-    var timingEffectsStrength: Double
+    public var playbackTime: TimeInterval
+    public let style: Style
+    public let layoutConfiguration: LayoutConfiguration
+    public let appliesTimingEffects: Bool
+    public var timingEffectsStrength: Double
 
-    var animatableData: AnimatablePair<Double, Double> {
+    public var animatableData: AnimatablePair<Double, Double> {
         get {
             AnimatablePair(
                 playbackTime,
@@ -128,7 +129,7 @@ struct LyricGlowTextRenderer: TextRenderer {
         }
     }
 
-    var displayPadding: EdgeInsets {
+    public var displayPadding: EdgeInsets {
         let padding = style.glowRadius * Metrics.displayPaddingMultiplier
         let expansionPadding = max(style.longSyllableExpansionPadding, 0)
         return EdgeInsets(
@@ -142,7 +143,7 @@ struct LyricGlowTextRenderer: TextRenderer {
         )
     }
 
-    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+    public func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         let effectsStrength = effectiveTimingEffectsStrength
         if layoutConfiguration.centersLines {
             // TextRenderer offsets drawing by its leading display padding.
@@ -678,14 +679,14 @@ struct LyricGlowTextRenderer: TextRenderer {
 }
 
 private extension LyricGlowTextRenderer {
-    struct RevealMask {
+    public struct RevealMask {
         let frontX: CGFloat
         let featherWidth: CGFloat
         let gradient: Gradient
         let layoutDirection: LayoutDirection
     }
 
-    struct RunVisualState {
+    public struct RunVisualState {
         let liftProgress: Double
         let expansionScale: CGFloat
         let emphasis: LyricLongToneEmphasis.State
@@ -693,7 +694,7 @@ private extension LyricGlowTextRenderer {
         let glowStrength: Double
     }
 
-    enum Metrics {
+    public enum Metrics {
         static let displayPaddingMultiplier: CGFloat = 6
         static let unplayedBlurLeadDuration: TimeInterval = 2.4
         static let minimumUnplayedBlurFraction = 0.12
@@ -710,3 +711,4 @@ private extension LyricGlowTextRenderer {
         static let minimumRevealFeatherWidth: CGFloat = 2
     }
 }
+#endif

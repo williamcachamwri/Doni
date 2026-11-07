@@ -1,17 +1,17 @@
 import SwiftUI
 
-nonisolated enum LyricSupplementalTextRole: Hashable {
+public enum LyricSupplementalTextRole: Hashable {
     case primary
     case transliteration
     case translation
 }
 
 nonisolated private struct LyricSupplementalTextRoleKey: LayoutValueKey {
-    static let defaultValue = LyricSupplementalTextRole.primary
+    public static let defaultValue = LyricSupplementalTextRole.primary
 }
 
 extension View {
-    func lyricSupplementalTextRole(
+    public func lyricSupplementalTextRole(
         _ role: LyricSupplementalTextRole
     ) -> some View {
         layoutValue(key: LyricSupplementalTextRoleKey.self, value: role)
@@ -21,14 +21,14 @@ extension View {
 /// A stable three-layer lyric row. Visibility changes resize only the
 /// supplemental layers, so enabling pronunciation never swaps or rewraps the
 /// primary lyric view tree.
-struct LyricSupplementalTextLayout: Layout {
-    var transliterationExpansion: CGFloat
-    var translationExpansion: CGFloat
-    let transliterationSpacing: CGFloat
-    let translationSpacing: CGFloat
-    let translationBottomPadding: CGFloat
+public struct LyricSupplementalTextLayout: Layout {
+    public var transliterationExpansion: CGFloat
+    public var translationExpansion: CGFloat
+    public let transliterationSpacing: CGFloat
+    public let translationSpacing: CGFloat
+    public let translationBottomPadding: CGFloat
 
-    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+    public var animatableData: AnimatablePair<CGFloat, CGFloat> {
         get {
             AnimatablePair(
                 transliterationExpansion,
@@ -41,7 +41,7 @@ struct LyricSupplementalTextLayout: Layout {
         }
     }
 
-    func sizeThatFits(
+    public func sizeThatFits(
         proposal: ProposedViewSize,
         subviews: Subviews,
         cache: inout ()
@@ -90,7 +90,7 @@ struct LyricSupplementalTextLayout: Layout {
         )
     }
 
-    func placeSubviews(
+    public func placeSubviews(
         in bounds: CGRect,
         proposal: ProposedViewSize,
         subviews: Subviews,

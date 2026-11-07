@@ -1,18 +1,18 @@
 import SwiftUI
 
-struct LyricPressInteraction<Content: View>: View {
+public struct LyricPressInteraction<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
-    let isSelected: Bool
-    let allowsTap: Bool
-    let allowsLongPress: Bool
-    let onTap: () -> Void
-    let onLongPress: () -> Void
+    public let isSelected: Bool
+    public let allowsTap: Bool
+    public let allowsLongPress: Bool
+    public let onTap: () -> Void
+    public let onLongPress: () -> Void
     private let content: (Double) -> Content
 
     @State private var suppressesTap = false
 
-    init(
+    public init(
         isSelected: Bool,
         allowsTap: Bool = true,
         allowsLongPress: Bool = true,
@@ -28,7 +28,7 @@ struct LyricPressInteraction<Content: View>: View {
         self.content = content
     }
 
-    var body: some View {
+    public var body: some View {
         Button(action: performTap) {
             LyricPressLabel(
                 content: content
@@ -72,18 +72,18 @@ private struct LyricPressLabel<Content: View>: View {
     @Environment(\.lyricPressBackgroundProgress)
     private var backgroundProgress
 
-    let content: (Double) -> Content
+    public let content: (Double) -> Content
 
-    var body: some View {
+    public var body: some View {
         content(backgroundProgress)
     }
 }
 
 private struct LyricPressButtonStyle: ButtonStyle {
-    let isSelected: Bool
-    let reducesMotion: Bool
+    public let isSelected: Bool
+    public let reducesMotion: Bool
 
-    func makeBody(configuration: Configuration) -> some View {
+    public func makeBody(configuration: Configuration) -> some View {
         LyricPressButtonStyleBody(
             label: configuration.label,
             isPressed: configuration.isPressed,
@@ -94,15 +94,15 @@ private struct LyricPressButtonStyle: ButtonStyle {
 }
 
 private struct LyricPressButtonStyleBody<Label: View>: View {
-    let label: Label
-    let isPressed: Bool
-    let isSelected: Bool
-    let reducesMotion: Bool
+    public let label: Label
+    public let isPressed: Bool
+    public let isSelected: Bool
+    public let reducesMotion: Bool
 
     @State private var scale: CGFloat = 1
     @State private var backgroundProgress = 0.0
 
-    var body: some View {
+    public var body: some View {
         label
             .environment(
                 \.lyricPressBackgroundProgress,
@@ -205,18 +205,18 @@ private struct LyricPressButtonStyleBody<Label: View>: View {
 }
 
 private enum LyricPressAnimation {
-    static let pressedScale: CGFloat = 0.96
-    static let pressDuration: TimeInterval = 0.10
-    static let releaseDuration: TimeInterval = 0.38
-    static let backgroundReleaseDuration: TimeInterval = 0.28
+    public static let pressedScale: CGFloat = 0.96
+    public static let pressDuration: TimeInterval = 0.10
+    public static let releaseDuration: TimeInterval = 0.38
+    public static let backgroundReleaseDuration: TimeInterval = 0.28
 }
 
 private struct LyricPressBackgroundProgressKey: EnvironmentKey {
-    static let defaultValue = 0.0
+    public static let defaultValue = 0.0
 }
 
 private extension EnvironmentValues {
-    var lyricPressBackgroundProgress: Double {
+    public var lyricPressBackgroundProgress: Double {
         get { self[LyricPressBackgroundProgressKey.self] }
         set { self[LyricPressBackgroundProgressKey.self] = newValue }
     }

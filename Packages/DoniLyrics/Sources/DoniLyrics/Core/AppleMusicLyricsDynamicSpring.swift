@@ -1,9 +1,10 @@
+#if os(iOS)
 import Foundation
 
 /// Pure reconstruction of the duration-dependent spring calculation observed
 /// in LyricsX `sub_100E4B558` / `sub_100DE7764`. The behavior-oriented names
 /// below are internal descriptions, not names from a public Apple API.
-nonisolated enum AppleMusicLyricsDynamicSpring {
+public enum AppleMusicLyricsDynamicSpring {
     private static let minimumSourceDuration: TimeInterval = 0.20
     private static let maximumSourceDuration: TimeInterval = 0.75
     private static let sourceDurationRange: TimeInterval = 0.55
@@ -12,7 +13,7 @@ nonisolated enum AppleMusicLyricsDynamicSpring {
     private static let minimumPeriod: TimeInterval = 0.48
     private static let periodRange: TimeInterval = 0.27
 
-    static func parameters(
+    public static func parameters(
         sourceDuration: TimeInterval
     ) -> LyricPhysicalSpringParameters {
         let cappedSourceDuration: TimeInterval
@@ -49,3 +50,4 @@ nonisolated enum AppleMusicLyricsDynamicSpring {
         return min(max(value, 0), 1)
     }
 }
+#endif

@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum LyricInterludeTimingSource: Hashable, Sendable {
+public nonisolated enum LyricInterludeTimingSource: Hashable, Sendable {
     /// YRC supplies an authored line or syllable end time.
     case precise
 
@@ -8,7 +8,7 @@ nonisolated enum LyricInterludeTimingSource: Hashable, Sendable {
     case lineSynchronized
 }
 
-nonisolated enum LyricInterludeDetectionPolicy: Hashable, Sendable {
+public nonisolated enum LyricInterludeDetectionPolicy: Hashable, Sendable {
     /// Match Music's authored-timeline path and ignore inferred LRC gaps.
     case preciseTiming
 
@@ -16,24 +16,24 @@ nonisolated enum LyricInterludeDetectionPolicy: Hashable, Sendable {
     case automatic(minimumInferredGapDuration: TimeInterval)
 }
 
-struct LyricInterlude: Identifiable, Hashable {
-    let startTime: TimeInterval
-    let countdownEndTime: TimeInterval
-    let precedingLyricID: LyricLine.ID?
-    let followingLyricID: LyricLine.ID
-    let displayBeforeLyricID: LyricLine.ID
-    let timingSource: LyricInterludeTimingSource
+public struct LyricInterlude: Identifiable, Hashable {
+    public let startTime: TimeInterval
+    public let countdownEndTime: TimeInterval
+    public let precedingLyricID: LyricLine.ID?
+    public let followingLyricID: LyricLine.ID
+    public let displayBeforeLyricID: LyricLine.ID
+    public let timingSource: LyricInterludeTimingSource
 
-    var id: String {
+    public var id: String {
         "lyric-interlude-\(startTime)-\(displayBeforeLyricID)-\(followingLyricID)"
     }
 
-    var isPrelude: Bool {
+    public var isPrelude: Bool {
         precedingLyricID == nil
     }
 
     /// The dots begin their visual exit before the following lyric starts.
-    var cueOutTime: TimeInterval {
+    public var cueOutTime: TimeInterval {
         max(
             startTime,
             countdownEndTime
@@ -41,37 +41,44 @@ struct LyricInterlude: Identifiable, Hashable {
         )
     }
 
-    var gapDuration: TimeInterval {
+    public var gapDuration: TimeInterval {
         max(countdownEndTime - startTime, 0)
     }
 }
 
-struct LyricInterludePlaybackPosition: Equatable {
+public struct LyricInterludePlaybackPosition: Equatable {
+    public init(visibleInterludeID: LyricInterlude.ID?, focusedInterludeID: LyricInterlude.ID?, promotedLyricID: LyricLine.ID?, nextTransitionTime: TimeInterval?) {
+        self.visibleInterludeID = visibleInterludeID
+        self.focusedInterludeID = focusedInterludeID
+        self.promotedLyricID = promotedLyricID
+        self.nextTransitionTime = nextTransitionTime
+    }
+
     /// The resident 40-point row owns the indicator lifecycle. Its resolved
     /// dot presentation can already be visually empty near the lyric
     /// boundary.
-    let visibleInterludeID: LyricInterlude.ID?
+    public let visibleInterludeID: LyricInterlude.ID?
 
     /// The slot owns focus until the cue-out animation is visually complete.
-    let focusedInterludeID: LyricInterlude.ID?
+    public let focusedInterludeID: LyricInterlude.ID?
 
     /// The lyric promoted after the dots have disappeared, but before its
     /// authored start timestamp.
-    let promotedLyricID: LyricLine.ID?
+    public let promotedLyricID: LyricLine.ID?
 
-    let nextTransitionTime: TimeInterval?
+    public let nextTransitionTime: TimeInterval?
 }
 
-enum LyricInterludeTimeline {
+public enum LyricInterludeTimeline {
     /// The recovered animation needs one second before fill begins and the
     /// final 1.8 seconds for cue-out. Shorter gaps cannot express both stages.
-    static let minimumAnimatedGapDuration: TimeInterval =
+    public static let minimumAnimatedGapDuration: TimeInterval =
         AppleMusicInterludeMotionProfile.iOS26_6.fillLeadInDuration
         + AppleMusicInterludeMotionProfile.iOS26_6.cueOutLeadTime
 
     /// Build timing candidates once. Presentation policy can then be changed
     /// without reparsing lyrics or estimating vocal tails on every frame.
-    static func candidates(in lyrics: [LyricLine]) -> [LyricInterlude] {
+    public static func candidates(in lyrics: [LyricLine]) -> [LyricInterlude] {
         guard let firstLyric = lyrics.first else { return [] }
 
         var result: [LyricInterlude] = []
@@ -112,7 +119,13 @@ enum LyricInterludeTimeline {
         return result
     }
 
-    static func interludes(
+    /// The desktop column asks for every gap it is given, with no detection policy at all, so this
+    /// is its overload rather than a looser default for the phone's call.
+    public static func interludes(in lyrics: [LyricLine]) -> [LyricInterlude] {
+        candidates(in: lyrics)
+    }
+
+    public static func interludes(
         in lyrics: [LyricLine],
         detectionPolicy: LyricInterludeDetectionPolicy
     ) -> [LyricInterlude] {
@@ -122,7 +135,7 @@ enum LyricInterludeTimeline {
         )
     }
 
-    static func interludes(
+    public static func interludes(
         from candidates: [LyricInterlude],
         detectionPolicy: LyricInterludeDetectionPolicy
     ) -> [LyricInterlude] {
@@ -145,7 +158,7 @@ enum LyricInterludeTimeline {
         }
     }
 
-    static func position(
+    public static func position(
         at playbackTime: TimeInterval,
         in interludes: [LyricInterlude]
     ) -> LyricInterludePlaybackPosition {
@@ -272,7 +285,7 @@ enum LyricInterludeTimeline {
 }
 
 private extension LyricLineTimingKind {
-    var interludeTimingSource: LyricInterludeTimingSource {
+    public var interludeTimingSource: LyricInterludeTimingSource {
         switch self {
         case .precise:
             .precise

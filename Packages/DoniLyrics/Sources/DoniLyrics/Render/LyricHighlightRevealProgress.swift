@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 
 /// Maps playback time to the horizontal lyric highlight front.
@@ -6,8 +7,8 @@ import Foundation
 /// most of itself quickly, keeps drifting near its trailing edge, then completes
 /// shortly before the next glyph. This avoids leaving a slow syllable visibly
 /// split or frozen for most of its duration.
-enum LyricHighlightRevealProgress {
-    static func progress(
+public enum LyricHighlightRevealProgress {
+    public static func progress(
         playbackTime: TimeInterval,
         timing: LyricTimingTextAttribute,
         detectionMode: LyricsLongSyllableDetectionMode,
@@ -85,7 +86,7 @@ enum LyricHighlightRevealProgress {
 }
 
 private extension LyricHighlightRevealProgress {
-    enum Metrics {
+    public enum Metrics {
         static let attackDuration: TimeInterval = 0.3
         static let releaseDuration: TimeInterval = 0.16
         static let attackContribution = 0.82
@@ -93,3 +94,4 @@ private extension LyricHighlightRevealProgress {
         static let releaseContribution = 0.1
     }
 }
+#endif

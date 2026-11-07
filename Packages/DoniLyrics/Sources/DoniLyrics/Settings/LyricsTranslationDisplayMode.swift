@@ -1,12 +1,12 @@
 import Foundation
 
-enum LyricsTranslationDisplayMode: String, CaseIterable, Identifiable {
+public enum LyricsTranslationDisplayMode: String, CaseIterable, Identifiable {
     case focusedLine
     case allLines
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .focusedLine:
             L10n.string("ui.settings.lyrics.auxiliary.focused_line")

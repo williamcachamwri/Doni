@@ -1,7 +1,11 @@
 import SwiftUI
 import Support
 
-enum LyricsFontWeight: String, CaseIterable, Identifiable {
+#if os(macOS)
+    import AppKit
+#endif
+
+public enum LyricsFontWeight: String, CaseIterable, Identifiable {
     case light
     case regular
     case medium
@@ -9,9 +13,9 @@ enum LyricsFontWeight: String, CaseIterable, Identifiable {
     case bold
     case heavy
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .light: L10n.string("ui.settings.font_weight.light")
         case .regular: L10n.string("ui.settings.font_weight.regular")
@@ -22,7 +26,7 @@ enum LyricsFontWeight: String, CaseIterable, Identifiable {
         }
     }
 
-    var swiftUIWeight: Font.Weight {
+    public var swiftUIWeight: Font.Weight {
         switch self {
         case .light: .light
         case .regular: .regular
@@ -33,7 +37,7 @@ enum LyricsFontWeight: String, CaseIterable, Identifiable {
         }
     }
 
-    var doniWeight: DoniFont.Weight {
+    public var doniWeight: DoniFont.Weight {
         switch self {
         case .light: .light
         case .regular: .regular
@@ -44,3 +48,20 @@ enum LyricsFontWeight: String, CaseIterable, Identifiable {
         }
     }
 }
+
+#if os(macOS)
+    extension LyricsFontWeight {
+        /// The desktop column draws ruby text through Core Text, which wants an `NSFont.Weight`. The
+        /// phone has no AppKit, so this lives behind the same guard as its only caller.
+        public var appKitWeight: NSFont.Weight {
+            switch self {
+            case .light: .light
+            case .regular: .regular
+            case .medium: .medium
+            case .semibold: .semibold
+            case .bold: .bold
+            case .heavy: .heavy
+            }
+        }
+    }
+#endif

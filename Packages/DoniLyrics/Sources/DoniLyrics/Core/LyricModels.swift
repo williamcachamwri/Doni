@@ -69,7 +69,7 @@ public struct LyricBackgroundVocal: Hashable, Sendable {
     public let translation: String?
     public let position: LyricBackgroundVocalsPosition
 
-    func lyricLine(
+    public func lyricLine(
         parentID: LyricLine.ID,
         agent: LyricAgent?
     ) -> LyricLine {
@@ -180,7 +180,7 @@ public struct LyricLine: Identifiable, Hashable, Sendable {
             .isEmpty
     }
 
-    func makePseudoSyllables() -> [LyricSyllable] {
+    public func makePseudoSyllables() -> [LyricSyllable] {
         guard syllables.isEmpty,
               let duration,
               duration > 0 else { return [] }
@@ -199,7 +199,7 @@ public struct LyricLine: Identifiable, Hashable, Sendable {
         }
     }
 
-    func attachingTranslation(_ translation: String?) -> LyricLine {
+    public func attachingTranslation(_ translation: String?) -> LyricLine {
         LyricLine(
             id: id,
             time: time,
@@ -215,7 +215,7 @@ public struct LyricLine: Identifiable, Hashable, Sendable {
         )
     }
 
-    func attachingRomanization(
+    public func attachingRomanization(
         _ romanization: String?,
         romanizationSyllables: [LyricSyllable] = []
     ) -> LyricLine {
@@ -234,7 +234,7 @@ public struct LyricLine: Identifiable, Hashable, Sendable {
         )
     }
 
-    func attachingAgent(
+    public func attachingAgent(
         _ agent: LyricAgent?,
         text: String? = nil,
         syllables: [LyricSyllable]? = nil
@@ -254,7 +254,7 @@ public struct LyricLine: Identifiable, Hashable, Sendable {
         )
     }
 
-    func accessibilityText(
+    public func accessibilityText(
         includingTranslation: Bool,
         includingRomanization: Bool = false
     ) -> String {

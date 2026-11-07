@@ -50,6 +50,11 @@ packages:
   # than a folder of UI because the transcription is Swift 5 and the app is Swift 6.
   DoniLyrics:
     path: Packages/DoniLyrics
+  # The desktop lyrics column, transcribed from the reference's `MeloXDesktop` target. It is
+  # a second package because the reference names its desktop types the same as its iOS ones,
+  # and one module cannot hold both; the model is imported from DoniLyrics, not copied.
+  DoniLyricsDesktop:
+    path: Packages/DoniLyricsDesktop
   TdSession:
     path: Packages/TdSession
   TdBridge:
@@ -142,6 +147,8 @@ targets:
       - package: Support
       - package: TelegramDesignSystem
       - package: DoniLyrics
+      # The reference's own desktop lyrics column, macOS-only by construction.
+      - package: DoniLyricsDesktop
       - package: TdSession
       - package: TdBridge
 

@@ -1,12 +1,12 @@
 import Foundation
 
-enum AppleMusicLyricsMotionPreset: String, CaseIterable, Identifiable {
+public enum AppleMusicLyricsMotionPreset: String, CaseIterable, Identifiable {
     case appleMusic26
     case custom
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .appleMusic26:
             L10n.string("ui.settings.lyrics.motion_preset.apple_music_26")
@@ -15,7 +15,7 @@ enum AppleMusicLyricsMotionPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
         case .appleMusic26:
             L10n.string("ui.settings.lyrics.motion_preset.apple_music_26.mobile_detail")

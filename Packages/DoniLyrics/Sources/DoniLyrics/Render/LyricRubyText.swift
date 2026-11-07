@@ -1,25 +1,26 @@
+#if os(iOS)
 import SwiftUI
 
 /// Renders the supplemental transliteration stream only. The primary lyric is
 /// owned by `SynchronizedLyricText`, keeping its wrapping and animation tree
 /// stable when pronunciation is shown or hidden.
-struct LyricRubyText: View {
-    let rows: [LyricRubyRow]
-    let romanizationFontSize: CGFloat
-    let fontWeight: LyricsFontWeight
-    let primaryColor: Color
-    let romanizationOpacity: Double
-    let staticRomanizationOpacity: Double
-    let alignment: SynchronizedLyricTextAlignment
+public struct LyricRubyText: View {
+    public let rows: [LyricRubyRow]
+    public let romanizationFontSize: CGFloat
+    public let fontWeight: LyricsFontWeight
+    public let primaryColor: Color
+    public let romanizationOpacity: Double
+    public let staticRomanizationOpacity: Double
+    public let alignment: SynchronizedLyricTextAlignment
     /// Extra height Apple reserves after each Core Text visual line. The
     /// parent owns the separate primary-to-transliteration spacing.
-    let lineHeightAdjustment: CGFloat
-    let playbackTime: TimeInterval
-    let rendererStyle: LyricGlowTextRenderer.Style
-    let appliesTimingEffects: Bool
-    let timingEffectsStrength: Double
+    public let lineHeightAdjustment: CGFloat
+    public let playbackTime: TimeInterval
+    public let rendererStyle: LyricGlowTextRenderer.Style
+    public let appliesTimingEffects: Bool
+    public let timingEffectsStrength: Double
 
-    var body: some View {
+    public var body: some View {
         VStack(
             alignment: alignment.horizontalAlignment,
             spacing: max(lineHeightAdjustment, 0)
@@ -86,3 +87,4 @@ struct LyricRubyText: View {
             )
     }
 }
+#endif

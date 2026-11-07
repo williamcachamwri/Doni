@@ -1,5 +1,7 @@
+#if os(iOS)
 import CoreGraphics
 
-enum LyricAnnotationMetrics {
-    static let verticalSpacing: CGFloat = 4
+public enum LyricAnnotationMetrics {
+    public static let verticalSpacing: CGFloat = 4
 }
+#endif

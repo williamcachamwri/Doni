@@ -1,6 +1,7 @@
+#if os(iOS)
 import SwiftUI
 
-enum AppleMusicLyricsPlaybackFocus: Hashable {
+public enum AppleMusicLyricsPlaybackFocus: Hashable {
     case lyric(LyricLine.ID)
     case interlude(LyricInterlude.ID)
 
@@ -312,3 +313,4 @@ private struct AppleMusicLyricsPlaybackFocusPosition {
     let activeLyricIDs: Set<LyricLine.ID>
     let nextTransitionTime: TimeInterval?
 }
+#endif

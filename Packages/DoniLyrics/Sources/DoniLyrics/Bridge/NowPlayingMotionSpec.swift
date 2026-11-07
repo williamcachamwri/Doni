@@ -33,7 +33,7 @@ struct NowPlayingPageSpatialState: Equatable, Sendable {
 }
 
 struct NowPlayingAnimationSpec: Equatable, Sendable {
-    enum Curve: Equatable, Sendable {
+    public enum Curve: Equatable, Sendable {
         case smooth
         case easeInOut
         case spring(bounce: Double)
@@ -210,7 +210,7 @@ struct NowPlayingMotionSpec: Equatable, Sendable {
         epsilon: 0.001
     )
 
-    struct PageMotion: Equatable, Sendable {
+    public struct PageMotion: Equatable, Sendable {
         let selection: NowPlayingAnimationSpec
         let directAlternate: NowPlayingAnimationSpec
         let outgoing: NowPlayingAnimationSpec
@@ -356,7 +356,7 @@ struct NowPlayingMotionSpec: Equatable, Sendable {
         }
     }
 
-    struct InterfaceMotion: Equatable, Sendable {
+    public struct InterfaceMotion: Equatable, Sendable {
         struct LayerMotion: Equatable, Sendable {
             let hiddenOffset: CGFloat
             let showDelay: TimeInterval

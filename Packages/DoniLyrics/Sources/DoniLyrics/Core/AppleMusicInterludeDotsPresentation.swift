@@ -1,12 +1,13 @@
+#if os(iOS)
 import CoreGraphics
 import Foundation
 
-struct AppleMusicInterludeDotsPresentation: Equatable, Sendable {
-    let dotOpacities: [Double]
-    let scale: CGFloat
-    let opacity: Double
+public struct AppleMusicInterludeDotsPresentation: Equatable, Sendable {
+    public let dotOpacities: [Double]
+    public let scale: CGFloat
+    public let opacity: Double
 
-    static func make(
+    public static func make(
         playbackTime: TimeInterval,
         interlude: LyricInterlude,
         reducesMotion: Bool,
@@ -226,12 +227,12 @@ struct AppleMusicInterludeDotsPresentation: Equatable, Sendable {
 }
 
 private struct ScalarTransitionEvent {
-    let startTime: TimeInterval
-    let duration: TimeInterval
-    let targetValue: Double
-    let curve: AppleMusicInterludeTimingCurve
+    public let startTime: TimeInterval
+    public let duration: TimeInterval
+    public let targetValue: Double
+    public let curve: AppleMusicInterludeTimingCurve
 
-    static func value(
+    public static func value(
         at playbackTime: TimeInterval,
         initialValue: Double,
         events: [ScalarTransitionEvent]
@@ -257,13 +258,13 @@ private struct ScalarTransitionEvent {
 }
 
 private struct ScalarTransition {
-    let startTime: TimeInterval
-    let duration: TimeInterval
-    let fromValue: Double
-    let toValue: Double
-    let curve: AppleMusicInterludeTimingCurve
+    public let startTime: TimeInterval
+    public let duration: TimeInterval
+    public let fromValue: Double
+    public let toValue: Double
+    public let curve: AppleMusicInterludeTimingCurve
 
-    func value(at playbackTime: TimeInterval) -> Double {
+    public func value(at playbackTime: TimeInterval) -> Double {
         guard duration > 0 else { return toValue }
         let progress = min(
             max((playbackTime - startTime) / duration, 0),
@@ -280,7 +281,7 @@ private enum AppleMusicInterludeTimingCurve {
     case easeOut
     case cuePeak
 
-    func value(at progress: Double) -> Double {
+    public func value(at progress: Double) -> Double {
         switch self {
         case .linear:
             return progress
@@ -304,10 +305,10 @@ private enum AppleMusicInterludeTimingCurve {
 }
 
 private struct CubicBezier {
-    let firstControlPoint: (x: Double, y: Double)
-    let secondControlPoint: (x: Double, y: Double)
+    public let firstControlPoint: (x: Double, y: Double)
+    public let secondControlPoint: (x: Double, y: Double)
 
-    func value(at progress: Double) -> Double {
+    public func value(at progress: Double) -> Double {
         let progress = min(max(progress, 0), 1)
         guard progress > 0, progress < 1 else { return progress }
 
@@ -377,3 +378,4 @@ private struct CubicBezier {
             + 3 * parameter * parameter * (1 - second)
     }
 }
+#endif

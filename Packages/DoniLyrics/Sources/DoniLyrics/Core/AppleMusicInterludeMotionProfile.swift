@@ -3,8 +3,8 @@ import Foundation
 
 /// Geometry and timing recovered from Music 26.6's
 /// `InstrumentalContentLayer` and `LyricsSpecs` implementation.
-struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
-    static let iOS26_6 = AppleMusicInterludeMotionProfile(
+public struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
+    public static let iOS26_6 = AppleMusicInterludeMotionProfile(
         dotCount: 3,
         dotLength: 12,
         dotMargin: 8,
@@ -25,26 +25,26 @@ struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
         breathAnimationInset: 0.4
     )
 
-    let dotCount: Int
-    let dotLength: CGFloat
-    let dotMargin: CGFloat
-    let viewHeight: CGFloat
-    let fillLeadInDuration: TimeInterval
-    let fillAnimationDuration: TimeInterval
-    let fillStagger: TimeInterval
-    let inactiveDotOpacity: Double
-    let cueOutLeadTime: TimeInterval
-    let cuePeakScale: CGFloat
-    let cuePeakDuration: TimeInterval
-    let cueFadeDuration: TimeInterval
-    let cueTerminalScale: CGFloat
-    let cueTerminalScaleDuration: TimeInterval
-    let breathLowerScale: CGFloat
-    let breathUpperScale: CGFloat
-    let breathDelay: TimeInterval
-    let breathAnimationInset: TimeInterval
+    public let dotCount: Int
+    public let dotLength: CGFloat
+    public let dotMargin: CGFloat
+    public let viewHeight: CGFloat
+    public let fillLeadInDuration: TimeInterval
+    public let fillAnimationDuration: TimeInterval
+    public let fillStagger: TimeInterval
+    public let inactiveDotOpacity: Double
+    public let cueOutLeadTime: TimeInterval
+    public let cuePeakScale: CGFloat
+    public let cuePeakDuration: TimeInterval
+    public let cueFadeDuration: TimeInterval
+    public let cueTerminalScale: CGFloat
+    public let cueTerminalScaleDuration: TimeInterval
+    public let breathLowerScale: CGFloat
+    public let breathUpperScale: CGFloat
+    public let breathDelay: TimeInterval
+    public let breathAnimationInset: TimeInterval
 
-    var contentWidth: CGFloat {
+    public var contentWidth: CGFloat {
         CGFloat(dotCount) * dotLength
             + CGFloat(max(dotCount - 1, 0)) * dotMargin
     }
@@ -52,7 +52,7 @@ struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
     /// The recovered exit animation has finished visually before the
     /// following lyric's timestamp: fade ends after 1.3 seconds, while scale
     /// collapse ends after 1.5 seconds. The resident row remains in layout.
-    var visualExitDuration: TimeInterval {
+    public var visualExitDuration: TimeInterval {
         max(
             cuePeakDuration + cueFadeDuration,
             cuePeakDuration + cueTerminalScaleDuration
@@ -61,7 +61,7 @@ struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
 
     /// Music uses deliberately out-of-bounds anchor points for the outside
     /// dots, causing them to spread at 1.2x and collapse inward at 0.2x.
-    func dotAnchorX(at index: Int) -> CGFloat {
+    public func dotAnchorX(at index: Int) -> CGFloat {
         switch index {
         case 0:
             return 1.8
@@ -72,7 +72,7 @@ struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
         }
     }
 
-    func timing(
+    public func timing(
         for interlude: LyricInterlude
     ) -> AppleMusicInterludeMotionTiming {
         let startTime = interlude.startTime
@@ -103,12 +103,12 @@ struct AppleMusicInterludeMotionProfile: Hashable, Sendable {
     }
 }
 
-struct AppleMusicInterludeMotionTiming: Hashable, Sendable {
-    let startTime: TimeInterval
-    let endTime: TimeInterval
-    let visualEndTime: TimeInterval
-    let cueOutTime: TimeInterval
-    let fillStartTime: TimeInterval
-    let fillStageInterval: TimeInterval
-    let breathHalfCycleDuration: TimeInterval
+public struct AppleMusicInterludeMotionTiming: Hashable, Sendable {
+    public let startTime: TimeInterval
+    public let endTime: TimeInterval
+    public let visualEndTime: TimeInterval
+    public let cueOutTime: TimeInterval
+    public let fillStartTime: TimeInterval
+    public let fillStageInterval: TimeInterval
+    public let breathHalfCycleDuration: TimeInterval
 }

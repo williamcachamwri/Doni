@@ -1,6 +1,6 @@
 import CoreGraphics
 
-struct LyricsScrollInterfaceVisibilityTracker {
+public struct LyricsScrollInterfaceVisibilityTracker {
     private var downwardDistance: CGFloat = 0
     private var isInterfaceVisible = true
 

@@ -1,12 +1,13 @@
+#if os(iOS)
 import Foundation
 
 /// Pure timing planner for the editable MeloX focus cascade. A valid plan
 /// guarantees finite, nonnegative timings, nondecreasing delays,
 /// nonincreasing durations, and completion within `availableDuration`.
-enum LyricFocusCascadePlanner {
+public enum LyricFocusCascadePlanner {
     private static let maximumMinimumCatchUpDuration: TimeInterval = 0.18
 
-    static func lineTimings(
+    public static func lineTimings(
         maximumLineOrder: Int,
         delayPerLine: TimeInterval,
         delayIncreasePerLine: TimeInterval,
@@ -115,3 +116,4 @@ enum LyricFocusCascadePlanner {
         return sum.isFinite ? sum : .greatestFiniteMagnitude
     }
 }
+#endif

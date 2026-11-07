@@ -1,10 +1,11 @@
+#if os(iOS)
 import SwiftUI
 
 // The reference annotates this `@MainActor`. It only builds `Text` values, and the row
 // builder that calls it is not on the main actor, so under this toolchain the annotation
 // is a hard isolation error rather than the nothing it was where it was written.
-enum LyricRubyTextBuilder {
-    static func romanizationText(
+public enum LyricRubyTextBuilder {
+    public static func romanizationText(
         from units: [LyricRubyPlacementUnit]
     ) -> Text {
         units.reduce(into: LyricAttributedText(verbatim: "")) { result, unit in
@@ -29,7 +30,7 @@ enum LyricRubyTextBuilder {
         }.text
     }
 
-    static func hasTimedRomanization(
+    public static func hasTimedRomanization(
         _ unit: LyricRubyUnit
     ) -> Bool {
         guard unit.hasAuthoredRomanizationTiming,
@@ -82,3 +83,4 @@ enum LyricRubyTextBuilder {
         }
     }
 }
+#endif

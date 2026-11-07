@@ -3,17 +3,17 @@ import CoreGraphics
 /// Keeps source-viewport lyric rows renderable while a non-adjacent scroll
 /// retargets the lazy stack. Rows that remain in the destination viewport do
 /// not need a retained copy because `LazyVStack` keeps their resident view.
-nonisolated enum AppleMusicRetainedViewportPlanner {
-    nonisolated struct RetainedLyric<ID: Hashable>:
+public enum AppleMusicRetainedViewportPlanner {
+    public nonisolated struct RetainedLyric<ID: Hashable>:
         Identifiable,
         Equatable
     {
-        let id: ID
-        let frame: CGRect
-        let movementDistance: CGFloat
+        public let id: ID
+        public let frame: CGRect
+        public let movementDistance: CGFloat
     }
 
-    static func retainedLyrics<ID: Hashable>(
+    public static func retainedLyrics<ID: Hashable>(
         isNonAdjacentTransition: Bool,
         initialVisibleIDs: [ID],
         framesByID: [ID: CGRect],

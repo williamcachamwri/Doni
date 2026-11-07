@@ -1,32 +1,33 @@
+#if os(iOS)
 import Foundation
 
 @MainActor
 extension AppSettings {
-    var appleMusicLyricsMotionProfile:
+    public var appleMusicLyricsMotionProfile:
         AppleMusicLyricsMotionProfile? {
         appleMusicLyrics.usesAppleMusic26Motion
             ? .iOS26_6
             : nil
     }
 
-    var appleMusicLyricsTypographyProfile:
+    public var appleMusicLyricsTypographyProfile:
         AppleMusicLyricsTypographyProfile? {
         appleMusicLyrics.usesAppleMusic26Motion
             ? .iOS26_6
             : nil
     }
 
-    var effectiveAppleMusicLyricsPrimaryFontSize: Double {
+    public var effectiveAppleMusicLyricsPrimaryFontSize: Double {
         appleMusicLyricsTypographyProfile?.primaryFontSize
             ?? lyricsFontSize
     }
 
-    var effectiveAppleMusicLyricsLineSpacing: Double {
+    public var effectiveAppleMusicLyricsLineSpacing: Double {
         appleMusicLyricsMotionProfile?.lineSpacing
             ?? lyricsLineSpacing
     }
 
-    var effectiveAppleMusicLyricsCurrentLineScale: Double {
+    public var effectiveAppleMusicLyricsCurrentLineScale: Double {
         guard let profile = appleMusicLyricsMotionProfile else {
             return lyricsCurrentLineScale
         }
@@ -36,51 +37,52 @@ extension AppSettings {
         return 1
     }
 
-    var effectiveAppleMusicLyricsCascadeDelay: TimeInterval {
+    public var effectiveAppleMusicLyricsCascadeDelay: TimeInterval {
         appleMusicLyricsMotionProfile?.cascadeDelay
             ?? lyricsFocusCascadeDelay
     }
 
-    var effectiveAppleMusicLyricsCascadeDelayIncrease:
+    public var effectiveAppleMusicLyricsCascadeDelayIncrease:
         TimeInterval {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusCascadeDelayIncrease
             : 0
     }
 
-    var effectiveAppleMusicLyricsFollowingDelay: TimeInterval {
+    public var effectiveAppleMusicLyricsFollowingDelay: TimeInterval {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusCascadeFollowingDelay
             : 0
     }
 
-    var effectiveAppleMusicLyricsCatchUpRatio: Double {
+    public var effectiveAppleMusicLyricsCatchUpRatio: Double {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusCascadeCatchUpRatio
             : 1
     }
 
-    var effectiveAppleMusicLyricsChaseSpeedGradient: Double {
+    public var effectiveAppleMusicLyricsChaseSpeedGradient: Double {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusCascadeChaseSpeedGradient
             : 1
     }
 
-    var effectiveAppleMusicLyricsCascadeDuration: TimeInterval {
+    public var effectiveAppleMusicLyricsCascadeDuration: TimeInterval {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusCascadeDuration
             : 0
     }
 
-    var effectiveAppleMusicLyricsSnapThreshold: TimeInterval {
+    public var effectiveAppleMusicLyricsSnapThreshold: TimeInterval {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusSnapThreshold
             : 0
     }
 
-    var effectiveAppleMusicLyricsFocusColorLeadTime: TimeInterval {
+    public var effectiveAppleMusicLyricsFocusColorLeadTime: TimeInterval {
         appleMusicLyricsMotionProfile == nil
             ? lyricsFocusColorLeadTime
             : 0
     }
 }
+#endif

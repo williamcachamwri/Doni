@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-nonisolated enum LyricsInterludePresentationMode:
+public enum LyricsInterludePresentationMode:
     String,
     CaseIterable,
     Identifiable,
@@ -11,9 +11,9 @@ nonisolated enum LyricsInterludePresentationMode:
     case preciseTiming
     case automatic
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .hidden:
             L10n.string("ui.common.off")
@@ -24,7 +24,7 @@ nonisolated enum LyricsInterludePresentationMode:
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
         case .hidden:
             L10n.string("ui.settings.lyrics.interlude.hidden.detail")
@@ -39,10 +39,10 @@ nonisolated enum LyricsInterludePresentationMode:
 
 @MainActor
 @Observable
-final class LyricsInterludePreferences {
-    static let inferredGapDurationRange = 3.0...12.0
-    static let defaultMode: LyricsInterludePresentationMode = .automatic
-    static let defaultMinimumInferredGapDuration = 4.0
+public class LyricsInterludePreferences {
+    public static let inferredGapDurationRange = 3.0...12.0
+    public static let defaultMode: LyricsInterludePresentationMode = .automatic
+    public static let defaultMinimumInferredGapDuration = 4.0
 
     private enum Key {
         static let mode = "melox.lyrics.interlude.mode"
@@ -51,11 +51,11 @@ final class LyricsInterludePreferences {
         static let legacyEnabled = "lyricsInterludeCountdownEnabled"
     }
 
-    var mode: LyricsInterludePresentationMode {
+    public var mode: LyricsInterludePresentationMode {
         didSet { defaults.set(mode.rawValue, forKey: Key.mode) }
     }
 
-    var minimumInferredGapDuration: TimeInterval {
+    public var minimumInferredGapDuration: TimeInterval {
         didSet {
             defaults.set(
                 minimumInferredGapDuration,
@@ -67,7 +67,7 @@ final class LyricsInterludePreferences {
     @ObservationIgnored
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let storedMode = defaults.string(forKey: Key.mode),
            let mode = LyricsInterludePresentationMode(
@@ -91,7 +91,7 @@ final class LyricsInterludePreferences {
         )
     }
 
-    func reset() {
+    public func reset() {
         mode = Self.defaultMode
         minimumInferredGapDuration =
             Self.defaultMinimumInferredGapDuration

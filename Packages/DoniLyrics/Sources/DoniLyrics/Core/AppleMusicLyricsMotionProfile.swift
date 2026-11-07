@@ -1,55 +1,56 @@
+#if os(iOS)
 import Foundation
 
 /// Internal reconstruction of motion constants observed in Apple Music 26.6.
 /// Property names describe inferred behavior; they are not public Apple API.
-nonisolated struct AppleMusicLyricsMotionProfile: Equatable, Sendable {
-    let firstLineStartOffset: Double
+public struct AppleMusicLyricsMotionProfile: Equatable, Sendable {
+    public let firstLineStartOffset: Double
     /// Percentage of the effective viewport height used for synced-line
     /// positioning before subtracting the lyric font ascender.
-    let selectedLineTopRelativePercent: Double
+    public let selectedLineTopRelativePercent: Double
     /// Static-mode vertical insets; these do not combine with synced mode.
-    let staticTopContentInset: Double
-    let staticBottomContentInset: Double
-    let paragraphSpacing: Double
-    let lineSpacing: Double
-    let backgroundVocalsTopSpacing: Double
-    let backgroundVocalsDeselectedScale: Double
-    let backgroundVocalsFontCoefficient: Double
-    let translationBackgroundVocalsFontCoefficient: Double
-    let transliterationBackgroundVocalsFontCoefficient: Double
-    let cascadeDelay: TimeInterval
-    let deselectedScale: Double
-    let nonFocusedBlurRadius: Double
-    let maximumNonFocusedBlurRadius: Double
-    let selectedTextOpacity: Double
-    let selectedUpcomingTextOpacity: Double
-    let deselectedTextOpacity: Double
-    let increasedContrastSelectedTextOpacity: Double
-    let increasedContrastSelectedUpcomingTextOpacity: Double
-    let increasedContrastDeselectedTextOpacity: Double
+    public let staticTopContentInset: Double
+    public let staticBottomContentInset: Double
+    public let paragraphSpacing: Double
+    public let lineSpacing: Double
+    public let backgroundVocalsTopSpacing: Double
+    public let backgroundVocalsDeselectedScale: Double
+    public let backgroundVocalsFontCoefficient: Double
+    public let translationBackgroundVocalsFontCoefficient: Double
+    public let transliterationBackgroundVocalsFontCoefficient: Double
+    public let cascadeDelay: TimeInterval
+    public let deselectedScale: Double
+    public let nonFocusedBlurRadius: Double
+    public let maximumNonFocusedBlurRadius: Double
+    public let selectedTextOpacity: Double
+    public let selectedUpcomingTextOpacity: Double
+    public let deselectedTextOpacity: Double
+    public let increasedContrastSelectedTextOpacity: Double
+    public let increasedContrastSelectedUpcomingTextOpacity: Double
+    public let increasedContrastDeselectedTextOpacity: Double
     /// The native line-focus blur animator also drives its brightness filter.
-    let focusBlurTransitionDuration: TimeInterval
-    let focusBlurTransitionControlPoint1X: Double
-    let focusBlurTransitionControlPoint1Y: Double
-    let focusBlurTransitionControlPoint2X: Double
-    let focusBlurTransitionControlPoint2Y: Double
-    let animationHeadstart: TimeInterval
+    public let focusBlurTransitionDuration: TimeInterval
+    public let focusBlurTransitionControlPoint1X: Double
+    public let focusBlurTransitionControlPoint1Y: Double
+    public let focusBlurTransitionControlPoint2X: Double
+    public let focusBlurTransitionControlPoint2Y: Double
+    public let animationHeadstart: TimeInterval
     /// Timed glyph/syllable emphasis range. Never scale the complete row.
-    let emphasisScaleRange: ClosedRange<Double>
-    let lineFinishProgressAnimationDuration: TimeInterval
-    let lineProgressionGradientFeather: Double
-    let glowRadius: Double
-    let syllableLift: Double
+    public let emphasisScaleRange: ClosedRange<Double>
+    public let lineFinishProgressAnimationDuration: TimeInterval
+    public let lineProgressionGradientFeather: Double
+    public let glowRadius: Double
+    public let syllableLift: Double
     /// Default focus and line-change solver values observed in Lyrics.Specs.
-    let lineChangeSpring: LyricPhysicalSpringParameters
+    public let lineChangeSpring: LyricPhysicalSpringParameters
     /// Solver values observed on the forced/special line catch-up path.
-    let forcedLineCatchUpSpring: LyricPhysicalSpringParameters
+    public let forcedLineCatchUpSpring: LyricPhysicalSpringParameters
     /// Translation/transliteration reveal solver values.
-    let supplementalTextShowSpring: LyricPhysicalSpringParameters
+    public let supplementalTextShowSpring: LyricPhysicalSpringParameters
     /// Translation/transliteration removal solver values.
-    let supplementalTextHideSpring: LyricPhysicalSpringParameters
+    public let supplementalTextHideSpring: LyricPhysicalSpringParameters
 
-    static let iOS26_6 = Self(
+    public static let iOS26_6 = Self(
         firstLineStartOffset: 60,
         selectedLineTopRelativePercent: 12,
         staticTopContentInset: 22,
@@ -104,7 +105,7 @@ nonisolated struct AppleMusicLyricsMotionProfile: Equatable, Sendable {
         )
     )
 
-    func dynamicSpring(
+    public func dynamicSpring(
         sourceDuration: TimeInterval
     ) -> LyricPhysicalSpringParameters {
         AppleMusicLyricsDynamicSpring.parameters(
@@ -112,3 +113,4 @@ nonisolated struct AppleMusicLyricsMotionProfile: Equatable, Sendable {
         )
     }
 }
+#endif

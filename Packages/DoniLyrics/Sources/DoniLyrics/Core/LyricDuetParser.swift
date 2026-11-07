@@ -4,7 +4,7 @@ import Foundation
 /// equivalent information from TTML agents; NetEase's YRC payload does not
 /// expose those agents, so the ordinary LRC track is used as the source of
 /// truth even when YRC is selected for display.
-enum LyricDuetParser {
+public enum LyricDuetParser {
     private struct SourceLine {
         let order: Int
         let time: TimeInterval
@@ -35,7 +35,7 @@ enum LyricDuetParser {
         let role: RoleLabel
     }
 
-    static func apply(lrc: String, to lines: [LyricLine]) -> [LyricLine] {
+    public static func apply(lrc: String, to lines: [LyricLine]) -> [LyricLine] {
         guard !lrc.isEmpty, !lines.isEmpty else { return lines }
 
         let sourceLines = parseSourceLines(lrc)

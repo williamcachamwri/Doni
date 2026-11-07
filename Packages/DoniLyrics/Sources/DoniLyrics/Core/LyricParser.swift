@@ -1,7 +1,7 @@
 import Foundation
 
 public enum LyricParser {
-    static func parse(
+    public static func parse(
         yrc: String,
         lrc: String,
         translatedYRC: String = "",
@@ -51,7 +51,7 @@ public enum LyricParser {
         )
     }
 
-    static func parseYRC(_ source: String) -> [LyricLine] {
+    public static func parseYRC(_ source: String) -> [LyricLine] {
         let lines = source
             .split(whereSeparator: \Character.isNewline)
             .compactMap { rawLine in
@@ -491,7 +491,7 @@ private enum SecondaryLyricKind {
     case translation
     case romanization
 
-    func text(in line: LyricLine) -> String? {
+    public func text(in line: LyricLine) -> String? {
         switch self {
         case .translation:
             line.translation
@@ -500,7 +500,7 @@ private enum SecondaryLyricKind {
         }
     }
 
-    func attaching(_ text: String?, to line: LyricLine) -> LyricLine {
+    public func attaching(_ text: String?, to line: LyricLine) -> LyricLine {
         switch self {
         case .translation:
             line.attachingTranslation(text)
@@ -511,7 +511,7 @@ private enum SecondaryLyricKind {
 }
 
 private struct YRCCredits: Decodable {
-    struct Item: Decodable {
+    public struct Item: Decodable {
         let text: String?
 
         private enum CodingKeys: String, CodingKey {
@@ -519,8 +519,8 @@ private struct YRCCredits: Decodable {
         }
     }
 
-    let timestamp: Int
-    let items: [Item]
+    public let timestamp: Int
+    public let items: [Item]
 
     private enum CodingKeys: String, CodingKey {
         case timestamp = "t"

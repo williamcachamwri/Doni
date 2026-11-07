@@ -1,12 +1,13 @@
+#if os(iOS)
 import SwiftUI
 import Support
 
-enum SynchronizedLyricTextAlignment: Equatable {
+public enum SynchronizedLyricTextAlignment: Equatable {
     case leading
     case center
     case trailing
 
-    var textAlignment: TextAlignment {
+    public var textAlignment: TextAlignment {
         switch self {
         case .leading: .leading
         case .center: .center
@@ -14,7 +15,7 @@ enum SynchronizedLyricTextAlignment: Equatable {
         }
     }
 
-    var frameAlignment: Alignment {
+    public var frameAlignment: Alignment {
         switch self {
         case .leading: .leading
         case .center: .center
@@ -22,7 +23,7 @@ enum SynchronizedLyricTextAlignment: Equatable {
         }
     }
 
-    var horizontalAlignment: HorizontalAlignment {
+    public var horizontalAlignment: HorizontalAlignment {
         switch self {
         case .leading: .leading
         case .center: .center
@@ -30,7 +31,7 @@ enum SynchronizedLyricTextAlignment: Equatable {
         }
     }
 
-    var scaleAnchor: UnitPoint {
+    public var scaleAnchor: UnitPoint {
         switch self {
         case .leading: .topLeading
         case .center: .top
@@ -38,7 +39,7 @@ enum SynchronizedLyricTextAlignment: Equatable {
         }
     }
 
-    static func resolved(
+    public static func resolved(
         for line: LyricLine,
         duetLayoutEnabled: Bool
     ) -> SynchronizedLyricTextAlignment {
@@ -50,8 +51,8 @@ enum SynchronizedLyricTextAlignment: Equatable {
     }
 }
 
-struct SynchronizedLyricText: View {
-    static let interactionBackgroundVisualOverflow: CGFloat = 16
+public struct SynchronizedLyricText: View {
+    public static let interactionBackgroundVisualOverflow: CGFloat = 16
 
     private static let interactionBackgroundCornerRadius: CGFloat = 16
 
@@ -61,36 +62,36 @@ struct SynchronizedLyricText: View {
     @Environment(PlayerStore.self) private var player
     @Environment(AppSettings.self) private var settings
 
-    let line: LyricLine
-    let isPlaybackLine: Bool
-    let isVocalActive: Bool
-    let isAnimationActive: Bool
-    let playbackFocusProgress: CGFloat?
-    let usesPseudoTiming: Bool
-    let fontSize: CGFloat
-    let romanizationFontSize: CGFloat
-    let fontWeight: LyricsFontWeight
-    let alignment: SynchronizedLyricTextAlignment
-    let fontScale: CGFloat
-    let primaryColor: Color
-    let showsTranslation: Bool
-    let showsRomanization: Bool
-    let includesTranslation: Bool
-    let includesRomanization: Bool
-    let reservesAnnotationSpace: Bool
-    let onAnnotationHeightChange: ((CGFloat) -> Void)?
-    let annotationLayoutAnimation: Animation?
-    let annotationVisibilityAnimation: Animation?
-    let interactionBackgroundOpacity: Double
-    let visualScale: CGFloat
-    let visualScaleAnimation: Animation?
-    let promotedLayoutScale: CGFloat
-    let layoutWidth: CGFloat?
-    let motionProfile: AppleMusicLyricsMotionProfile?
-    let suppressesTimedGlyphBlur: Bool
-    let isBackgroundVocalPresentation: Bool
-    let playbackScaleRange: ClosedRange<CGFloat>?
-    let playbackScaleStartDelay: TimeInterval
+    public let line: LyricLine
+    public let isPlaybackLine: Bool
+    public let isVocalActive: Bool
+    public let isAnimationActive: Bool
+    public let playbackFocusProgress: CGFloat?
+    public let usesPseudoTiming: Bool
+    public let fontSize: CGFloat
+    public let romanizationFontSize: CGFloat
+    public let fontWeight: LyricsFontWeight
+    public let alignment: SynchronizedLyricTextAlignment
+    public let fontScale: CGFloat
+    public let primaryColor: Color
+    public let showsTranslation: Bool
+    public let showsRomanization: Bool
+    public let includesTranslation: Bool
+    public let includesRomanization: Bool
+    public let reservesAnnotationSpace: Bool
+    public let onAnnotationHeightChange: ((CGFloat) -> Void)?
+    public let annotationLayoutAnimation: Animation?
+    public let annotationVisibilityAnimation: Animation?
+    public let interactionBackgroundOpacity: Double
+    public let visualScale: CGFloat
+    public let visualScaleAnimation: Animation?
+    public let promotedLayoutScale: CGFloat
+    public let layoutWidth: CGFloat?
+    public let motionProfile: AppleMusicLyricsMotionProfile?
+    public let suppressesTimedGlyphBlur: Bool
+    public let isBackgroundVocalPresentation: Bool
+    public let playbackScaleRange: ClosedRange<CGFloat>?
+    public let playbackScaleStartDelay: TimeInterval
     private let supplementalTextProfile:
         AppleMusicLyricsSupplementalTextProfile?
     private let synchronizedText: Text
@@ -101,7 +102,7 @@ struct SynchronizedLyricText: View {
     private let romanizationRows: [LyricRubyRow]
     private let primaryTrailingVisualOverflow: CGFloat
 
-    init(
+    public init(
         line: LyricLine,
         isPlaybackLine: Bool,
         isVocalActive: Bool? = nil,
@@ -208,7 +209,7 @@ struct SynchronizedLyricText: View {
         primaryTrailingVisualOverflow = layout.primaryTrailingVisualOverflow
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: alignment.horizontalAlignment, spacing: 0) {
             if line.backgroundVocal?.position == .beforePrimary {
                 backgroundVocalContent
@@ -981,3 +982,4 @@ struct SynchronizedLyricText: View {
                 * CGFloat(timedLyricPresentationProgress)
     }
 }
+#endif

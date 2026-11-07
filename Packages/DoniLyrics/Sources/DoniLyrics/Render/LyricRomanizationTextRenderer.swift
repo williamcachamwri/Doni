@@ -1,18 +1,19 @@
+#if os(iOS)
 import SwiftUI
 
 /// Draws pronunciation as a lightweight karaoke reveal. Ruby text deliberately
 /// omits blur, glow, lift, and scale so only the gray-to-white sweep animates.
-struct LyricRomanizationTextRenderer: TextRenderer {
-    var playbackTime: TimeInterval
-    let unplayedOpacity: Double
-    let focusOpacityEndpoints: LyricFocusOpacityEndpoints?
-    let revealFeatherWidth: CGFloat?
-    let lineFinishProgressAnimationDuration: TimeInterval?
-    let trailingVisualOverflow: CGFloat
-    let appliesTimingEffects: Bool
-    var timingEffectsStrength: Double
+public struct LyricRomanizationTextRenderer: TextRenderer {
+    public var playbackTime: TimeInterval
+    public let unplayedOpacity: Double
+    public let focusOpacityEndpoints: LyricFocusOpacityEndpoints?
+    public let revealFeatherWidth: CGFloat?
+    public let lineFinishProgressAnimationDuration: TimeInterval?
+    public let trailingVisualOverflow: CGFloat
+    public let appliesTimingEffects: Bool
+    public var timingEffectsStrength: Double
 
-    var animatableData: AnimatablePair<Double, Double> {
+    public var animatableData: AnimatablePair<Double, Double> {
         get {
             AnimatablePair(
                 playbackTime,
@@ -25,7 +26,7 @@ struct LyricRomanizationTextRenderer: TextRenderer {
         }
     }
 
-    var displayPadding: EdgeInsets {
+    public var displayPadding: EdgeInsets {
         EdgeInsets(
             top: 0,
             leading: 0,
@@ -34,7 +35,7 @@ struct LyricRomanizationTextRenderer: TextRenderer {
         )
     }
 
-    func draw(
+    public func draw(
         layout: Text.Layout,
         in context: inout GraphicsContext
     ) {
@@ -189,8 +190,9 @@ struct LyricRomanizationTextRenderer: TextRenderer {
 }
 
 private extension LyricRomanizationTextRenderer {
-    enum Metrics {
+    public enum Metrics {
         static let gradientWidth: CGFloat = 0.7
         static let minimumFeatherWidth: CGFloat = 2
     }
 }
+#endif

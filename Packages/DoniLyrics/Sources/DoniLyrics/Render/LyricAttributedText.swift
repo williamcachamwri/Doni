@@ -1,11 +1,12 @@
+#if os(iOS)
 import SwiftUI
 
 /// Keeps runtime lyric runs in one attributed string. Repeated Text interpolation
 /// nests localization work inside every character and stalls layout on long lines.
-struct LyricAttributedText {
+public struct LyricAttributedText {
     private var content: AttributedString
 
-    init(verbatim source: String) {
+    public init(verbatim source: String) {
         content = AttributedString(source)
     }
 
@@ -13,19 +14,19 @@ struct LyricAttributedText {
         content.append(fragment.content)
     }
 
-    func customAttribute(_ timing: LyricTimingTextAttribute) -> Self {
+    public func customAttribute(_ timing: LyricTimingTextAttribute) -> Self {
         var result = self
         result.content[LyricTimingAttributeKey.self] = timing
         return result
     }
 
-    func customAttribute(_ placement: LyricRubyPlacementTextAttribute) -> Self {
+    public func customAttribute(_ placement: LyricRubyPlacementTextAttribute) -> Self {
         var result = self
         result.content[LyricPlacementAttributeKey.self] = placement
         return result
     }
 
-    var text: Text {
+    public var text: Text {
         #if os(macOS)
         if #unavailable(macOS 26) {
             // macOS 15 supports nonlocalized Text concatenation, but cannot
@@ -48,28 +49,28 @@ struct LyricAttributedText {
 
 nonisolated private enum LyricTimingAttributeKey: AttributedStringKey {
     typealias Value = LyricTimingTextAttribute
-    static let name = "MeloX.lyricTiming"
+    public static let name = "MeloX.lyricTiming"
 }
 
 nonisolated private enum LyricPlacementAttributeKey: AttributedStringKey {
     typealias Value = LyricRubyPlacementTextAttribute
-    static let name = "MeloX.lyricPlacement"
+    public static let name = "MeloX.lyricPlacement"
 }
 
 nonisolated private struct LyricAttributeScope: AttributeScope {
-    let timing: LyricTimingAttributeKey
-    let placement: LyricPlacementAttributeKey
-    let swiftUI: AttributeScopes.SwiftUIAttributes
+    public let timing: LyricTimingAttributeKey
+    public let placement: LyricPlacementAttributeKey
+    public let swiftUI: AttributeScopes.SwiftUIAttributes
 }
 
 @available(iOS 26, macOS 26, *)
 private struct LyricTextFormatting: AttributedTextFormattingDefinition {
-    var body: some AttributedTextFormattingDefinition<LyricAttributeScope> {}
+    public var body: some AttributedTextFormattingDefinition<LyricAttributeScope> {}
 }
 
 extension View {
     @ViewBuilder
-    func lyricTextAttributes() -> some View {
+    public func lyricTextAttributes() -> some View {
         if #available(iOS 26, macOS 26, *) {
             attributedTextFormattingDefinition(LyricTextFormatting())
         } else {
@@ -77,3 +78,4 @@ extension View {
         }
     }
 }
+#endif

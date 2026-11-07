@@ -1,7 +1,8 @@
+#if os(iOS)
 import SwiftUI
 
-struct LyricFocusColorTransition: Equatable, Identifiable {
-    enum TimingCurve: Equatable {
+public struct LyricFocusColorTransition: Equatable, Identifiable {
+    public enum TimingCurve: Equatable {
         case smoothStep
         case cubicBezier(
             controlPoint1X: CGFloat,
@@ -12,19 +13,19 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
         case physicalSpring(LyricPhysicalSpringParameters)
     }
 
-    let id: UUID
-    let initialColorProgressByID: [LyricLine.ID: CGFloat]
+    public let id: UUID
+    public let initialColorProgressByID: [LyricLine.ID: CGFloat]
     /// Absolute focus-progress velocity in progress units per second.
-    let initialColorVelocityByID: [LyricLine.ID: CGFloat]
-    let initialBlurProgressByID: [LyricLine.ID: CGFloat]
-    let destinationLyricID: LyricLine.ID?
-    let startedAt: Date
-    let colorDuration: TimeInterval
-    let blurDuration: TimeInterval
-    let colorTimingCurve: TimingCurve
-    let blurTimingCurve: TimingCurve
+    public let initialColorVelocityByID: [LyricLine.ID: CGFloat]
+    public let initialBlurProgressByID: [LyricLine.ID: CGFloat]
+    public let destinationLyricID: LyricLine.ID?
+    public let startedAt: Date
+    public let colorDuration: TimeInterval
+    public let blurDuration: TimeInterval
+    public let colorTimingCurve: TimingCurve
+    public let blurTimingCurve: TimingCurve
 
-    init(
+    public init(
         id: UUID = UUID(),
         initialColorProgressByID: [LyricLine.ID: CGFloat],
         initialColorVelocityByID: [LyricLine.ID: CGFloat],
@@ -59,11 +60,11 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
         self.blurTimingCurve = blurTimingCurve
     }
 
-    var completionDate: Date {
+    public var completionDate: Date {
         startedAt.addingTimeInterval(max(colorDuration, blurDuration))
     }
 
-    static func settlingDuration(
+    public static func settlingDuration(
         initialProgressByID: [LyricLine.ID: CGFloat],
         initialVelocityByID: [LyricLine.ID: CGFloat],
         destinationLyricID: LyricLine.ID?,
@@ -97,14 +98,14 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
         }
     }
 
-    func includes(_ lyricID: LyricLine.ID) -> Bool {
+    public func includes(_ lyricID: LyricLine.ID) -> Bool {
         initialColorProgressByID[lyricID] != nil
             || initialColorVelocityByID[lyricID] != nil
             || initialBlurProgressByID[lyricID] != nil
             || destinationLyricID == lyricID
     }
 
-    func colorProgress(
+    public func colorProgress(
         for lyricID: LyricLine.ID,
         at date: Date
     ) -> CGFloat {
@@ -179,7 +180,7 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
         )
     }
 
-    func blurProgress(
+    public func blurProgress(
         for lyricID: LyricLine.ID,
         at date: Date
     ) -> CGFloat {
@@ -213,13 +214,13 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
         )
     }
 
-    func presentationColorProgressByID(
+    public func presentationColorProgressByID(
         at date: Date
     ) -> [LyricLine.ID: CGFloat] {
         presentationProgressByID(at: date, usesBlurProgress: false)
     }
 
-    func presentationColorVelocityByID(
+    public func presentationColorVelocityByID(
         at date: Date
     ) -> [LyricLine.ID: CGFloat] {
         var lyricIDs = Set(initialColorProgressByID.keys)
@@ -238,7 +239,7 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
         }
     }
 
-    func presentationBlurProgressByID(
+    public func presentationBlurProgressByID(
         at date: Date
     ) -> [LyricLine.ID: CGFloat] {
         presentationProgressByID(at: date, usesBlurProgress: true)
@@ -358,12 +359,13 @@ struct LyricFocusColorTransition: Equatable, Identifiable {
     }
 }
 
-private struct LyricFocusColorPresentation {
-    let progress: CGFloat
-    let velocity: CGFloat
+public struct LyricFocusColorPresentation {
+    public let progress: CGFloat
+    public let velocity: CGFloat
 }
 
-struct LyricFocusVisualProgress: Equatable {
-    let color: CGFloat
-    let blur: CGFloat
+public struct LyricFocusVisualProgress: Equatable {
+    public let color: CGFloat
+    public let blur: CGFloat
 }
+#endif

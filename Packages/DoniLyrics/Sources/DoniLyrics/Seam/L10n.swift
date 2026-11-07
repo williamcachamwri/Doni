@@ -4,7 +4,7 @@ import Foundation
 /// `.strings` catalog with English and Chinese; Doni's interface is Vietnamese, so the
 /// same keys carry Vietnamese values here and the copied views ask for them by the same
 /// keys they were written with.
-nonisolated enum L10n {
+public enum L10n {
     private static let strings: [String: String] = [
         "ui.common.cancel": "Huỷ",
         "ui.common.custom": "Tuỳ chỉnh",
@@ -60,7 +60,7 @@ nonisolated enum L10n {
             "Dùng các thông số tự chỉnh: typography, tiêu điểm, đuôi dòng, bắt kịp, nảy và layout.",
     ]
 
-    static func string(_ key: String, comment: StaticString? = nil) -> String {
+    public static func string(_ key: String, comment: StaticString? = nil) -> String {
         // The app's catalog, not a table of our own. The copied views ask for some strings by key
         // through this seam and for others by key straight into SwiftUI's own localized initializers,
         // and those two paths have to agree: one catalog is the only way a screen cannot end up
@@ -69,11 +69,11 @@ nonisolated enum L10n {
         NSLocalizedString(key, bundle: .main, value: strings[key] ?? key, comment: "")
     }
 
-    static func format(_ key: String, _ arguments: CVarArg...) -> String {
+    public static func format(_ key: String, _ arguments: CVarArg...) -> String {
         String(format: string(key), locale: .current, arguments: arguments)
     }
 
-    static func joined(_ values: [String], separatorKey: String) -> String {
+    public static func joined(_ values: [String], separatorKey: String) -> String {
         values.joined(separator: string(separatorKey))
     }
 }

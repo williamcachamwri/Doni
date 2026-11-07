@@ -3,7 +3,7 @@ import Observation
 
 @MainActor
 @Observable
-final class AppleMusicLyricsPreferences {
+public class AppleMusicLyricsPreferences {
     private enum Key {
         static let motionPreset =
             "melox.lyrics.appleMusic.motionPreset"
@@ -14,7 +14,7 @@ final class AppleMusicLyricsPreferences {
             .appleMusic26
     }
 
-    var motionPreset: AppleMusicLyricsMotionPreset {
+    public var motionPreset: AppleMusicLyricsMotionPreset {
         didSet {
             defaults.set(
                 motionPreset.rawValue,
@@ -23,21 +23,21 @@ final class AppleMusicLyricsPreferences {
         }
     }
 
-    var usesAppleMusic26Motion: Bool {
+    public var usesAppleMusic26Motion: Bool {
         motionPreset == .appleMusic26
     }
 
     @ObservationIgnored
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         motionPreset = AppleMusicLyricsMotionPreset(
             rawValue: defaults.string(forKey: Key.motionPreset) ?? ""
         ) ?? Default.motionPreset
     }
 
-    func reset() {
+    public func reset() {
         motionPreset = Default.motionPreset
     }
 }

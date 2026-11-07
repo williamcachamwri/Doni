@@ -1,13 +1,14 @@
+#if os(iOS)
 import Foundation
 
 /// Solver inputs for a physical spring. Values are normalized on creation so
 /// animation code never hands non-finite or non-physical inputs to SwiftUI.
-nonisolated struct LyricPhysicalSpringParameters: Equatable, Sendable {
-    let mass: Double
-    let stiffness: Double
-    let damping: Double
+public nonisolated struct LyricPhysicalSpringParameters: Equatable, Sendable {
+    public let mass: Double
+    public let stiffness: Double
+    public let damping: Double
 
-    init(
+    public init(
         mass: Double,
         stiffness: Double,
         damping: Double
@@ -17,11 +18,11 @@ nonisolated struct LyricPhysicalSpringParameters: Equatable, Sendable {
         self.damping = Self.nonnegativeFinite(damping, fallback: 0)
     }
 
-    var dampingRatio: Double {
+    public var dampingRatio: Double {
         damping / (2 * sqrt(mass * stiffness))
     }
 
-    var undampedPeriod: TimeInterval {
+    public var undampedPeriod: TimeInterval {
         2 * .pi * sqrt(mass / stiffness)
     }
 
@@ -39,3 +40,4 @@ nonisolated struct LyricPhysicalSpringParameters: Equatable, Sendable {
         value.isFinite && value >= 0 ? value : fallback
     }
 }
+#endif

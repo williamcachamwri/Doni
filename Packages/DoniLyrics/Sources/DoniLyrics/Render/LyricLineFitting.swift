@@ -1,14 +1,15 @@
+#if os(iOS)
 import SwiftUI
 
-enum LyricLineFitting {
-    static func validWidth(_ width: CGFloat?) -> CGFloat? {
+public enum LyricLineFitting {
+    public static func validWidth(_ width: CGFloat?) -> CGFloat? {
         guard let width, width.isFinite, width > 0 else {
             return nil
         }
         return width
     }
 
-    static func drawingScale(
+    public static func drawingScale(
         for layout: Text.Layout,
         constrainedWidth: CGFloat?,
         trailingSafety: CGFloat
@@ -32,7 +33,7 @@ enum LyricLineFitting {
         return min(max(availableWidth / widestLine, 0), 1)
     }
 
-    static func drawingTransform(
+    public static func drawingTransform(
         for line: Text.Layout.Line,
         scale: CGFloat?,
         centersLine: Bool
@@ -75,3 +76,4 @@ enum LyricLineFitting {
         )
     }
 }
+#endif

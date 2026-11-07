@@ -1,10 +1,10 @@
 import Foundation
 
-enum LyricsTypography {
-    static let heavySerifFontName = "SourceHanSerifCN-Heavy"
-    static let latinSerifFontName = "TimesNewRomanPS-BoldMT"
+public enum LyricsTypography {
+    public static let heavySerifFontName = "SourceHanSerifCN-Heavy"
+    public static let latinSerifFontName = "TimesNewRomanPS-BoldMT"
 
-    static func normalizedDisplayText(_ source: String) -> String {
+    public static func normalizedDisplayText(_ source: String) -> String {
         let text = source
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
@@ -12,7 +12,7 @@ enum LyricsTypography {
         return text.isEmpty ? "……" : text
     }
 
-    static func isPredominantlyLatin(_ text: String) -> Bool {
+    public static func isPredominantlyLatin(_ text: String) -> Bool {
         var visibleCount = 0
         var latinCount = 0
 

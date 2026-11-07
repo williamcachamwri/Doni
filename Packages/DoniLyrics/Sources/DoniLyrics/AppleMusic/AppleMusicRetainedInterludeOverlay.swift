@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 
 struct AppleMusicRetainedInterludePresentation: Identifiable, Equatable {
@@ -85,3 +86,4 @@ private struct LifecycleTrigger: Hashable {
     let isAnimationActive: Bool
     let advanceTime: TimeInterval
 }
+#endif

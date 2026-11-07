@@ -3,8 +3,8 @@ import NaturalLanguage
 /// Produces contiguous character ranges for lyric lift animation blocks.
 /// Tokenizing each whitespace-delimited phrase separately keeps code-switched
 /// lyrics covered when the system tokenizer changes languages within a line.
-enum LyricWordSegmenter {
-    static func blockRanges(in text: String) -> [Range<Int>] {
+public enum LyricWordSegmenter {
+    public static func blockRanges(in text: String) -> [Range<Int>] {
         guard !text.isEmpty else { return [] }
 
         let textLength = text.count

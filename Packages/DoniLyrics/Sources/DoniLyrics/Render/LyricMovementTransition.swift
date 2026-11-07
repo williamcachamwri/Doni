@@ -1,19 +1,20 @@
+#if os(iOS)
 import SwiftUI
 
-enum LyricMovementSpringModel: Equatable, Sendable {
+public enum LyricMovementSpringModel: Equatable, Sendable {
     case durationBounce(usesBounce: Bool, bounce: Double)
     case physical(LyricPhysicalSpringParameters)
 }
 
-struct LyricMovementAnimationConfiguration: Equatable {
-    let delay: TimeInterval
-    let duration: TimeInterval
-    let springModel: LyricMovementSpringModel
-    let initialVelocity: Double
-    let presentationDuration: TimeInterval
-    let timeScale: Double
+public struct LyricMovementAnimationConfiguration: Equatable {
+    public let delay: TimeInterval
+    public let duration: TimeInterval
+    public let springModel: LyricMovementSpringModel
+    public let initialVelocity: Double
+    public let presentationDuration: TimeInterval
+    public let timeScale: Double
 
-    init(
+    public init(
         delay: TimeInterval,
         duration: TimeInterval,
         usesBounce: Bool,
@@ -31,7 +32,7 @@ struct LyricMovementAnimationConfiguration: Equatable {
         )
     }
 
-    init(
+    public init(
         delay: TimeInterval,
         duration: TimeInterval,
         physicalSpring: LyricPhysicalSpringParameters,
@@ -45,7 +46,7 @@ struct LyricMovementAnimationConfiguration: Equatable {
         )
     }
 
-    init(
+    public init(
         delay: TimeInterval,
         duration: TimeInterval,
         springModel: LyricMovementSpringModel,
@@ -82,14 +83,14 @@ struct LyricMovementAnimationConfiguration: Equatable {
         }
     }
 
-    var usesBounce: Bool {
+    public var usesBounce: Bool {
         guard case let .durationBounce(usesBounce, _) = springModel else {
             return false
         }
         return usesBounce
     }
 
-    var bounce: Double {
+    public var bounce: Double {
         guard case let .durationBounce(_, bounce) = springModel else {
             return 0
         }
@@ -108,7 +109,7 @@ struct LyricMovementAnimationConfiguration: Equatable {
         )
     }
 
-    var resolvedSpring: Spring {
+    public var resolvedSpring: Spring {
         switch springModel {
         case let .durationBounce(usesBounce, bounce):
             return usesBounce
@@ -126,12 +127,12 @@ struct LyricMovementAnimationConfiguration: Equatable {
 
 }
 
-struct LyricMovementPresentation: Equatable {
-    let offset: CGFloat
-    let velocity: CGFloat
+public struct LyricMovementPresentation: Equatable {
+    public let offset: CGFloat
+    public let velocity: CGFloat
 }
 
-enum LyricMovementPhase: Equatable {
+public enum LyricMovementPhase: Equatable {
     case stationary(offset: CGFloat)
     case animated(
         transitionID: UUID,
@@ -141,7 +142,7 @@ enum LyricMovementPhase: Equatable {
         startedAt: Date
     )
 
-    var targetOffset: CGFloat {
+    public var targetOffset: CGFloat {
         switch self {
         case let .stationary(offset):
             offset
@@ -150,7 +151,7 @@ enum LyricMovementPhase: Equatable {
         }
     }
 
-    var isAnimated: Bool {
+    public var isAnimated: Bool {
         if case .animated = self {
             true
         } else {
@@ -158,7 +159,7 @@ enum LyricMovementPhase: Equatable {
         }
     }
 
-    func presentation(
+    public func presentation(
         at date: Date
     ) -> LyricMovementPresentation {
         switch self {
@@ -227,17 +228,17 @@ enum LyricMovementPhase: Equatable {
     }
 }
 
-struct LyricMovementTransition: Equatable {
-    let id: UUID
-    let focusID: LyricLine.ID
-    let initialOffsetsByID: [LyricLine.ID: CGFloat]
-    let destinationOffsetsByID: [LyricLine.ID: CGFloat]
-    let animationByID: [
+public struct LyricMovementTransition: Equatable {
+    public let id: UUID
+    public let focusID: LyricLine.ID
+    public let initialOffsetsByID: [LyricLine.ID: CGFloat]
+    public let destinationOffsetsByID: [LyricLine.ID: CGFloat]
+    public let animationByID: [
         LyricLine.ID: LyricMovementAnimationConfiguration
     ]
-    let startedAt: Date?
+    public let startedAt: Date?
 
-    init(
+    public init(
         id: UUID = UUID(),
         focusID: LyricLine.ID,
         initialOffsetsByID: [LyricLine.ID: CGFloat],
@@ -255,7 +256,7 @@ struct LyricMovementTransition: Equatable {
         self.startedAt = startedAt
     }
 
-    func starting(
+    public func starting(
         with animationByID: [
             LyricLine.ID: LyricMovementAnimationConfiguration
         ],
@@ -289,7 +290,7 @@ struct LyricMovementTransition: Equatable {
         )
     }
 
-    var completionDuration: TimeInterval {
+    public var completionDuration: TimeInterval {
         animationByID.values.reduce(0) { duration, configuration in
             max(
                 duration,
@@ -299,7 +300,7 @@ struct LyricMovementTransition: Equatable {
         }
     }
 
-    func presentationStates(
+    public func presentationStates(
         at date: Date
     ) -> [LyricLine.ID: LyricMovementPresentation] {
         guard let startedAt else {
@@ -332,7 +333,7 @@ struct LyricMovementTransition: Equatable {
         }
     }
 
-    func phase(
+    public func phase(
         for id: LyricLine.ID,
         fallbackOffset: CGFloat
     ) -> LyricMovementPhase {
@@ -354,3 +355,4 @@ struct LyricMovementTransition: Equatable {
         )
     }
 }
+#endif

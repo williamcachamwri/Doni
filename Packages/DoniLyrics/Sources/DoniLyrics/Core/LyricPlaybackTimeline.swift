@@ -1,21 +1,22 @@
+#if os(iOS)
 import Foundation
 
-struct LyricPlaybackPosition: Equatable {
-    let highlightedLyricID: LyricLine.ID?
-    let activeLyricIDs: Set<LyricLine.ID>
-    let nextTransitionTime: TimeInterval?
+public struct LyricPlaybackPosition: Equatable {
+    public let highlightedLyricID: LyricLine.ID?
+    public let activeLyricIDs: Set<LyricLine.ID>
+    public let nextTransitionTime: TimeInterval?
 }
 
-struct LyricFocusCascadeLineTiming: Equatable {
-    let delay: TimeInterval
-    let duration: TimeInterval
+public struct LyricFocusCascadeLineTiming: Equatable {
+    public let delay: TimeInterval
+    public let duration: TimeInterval
 }
 
-struct LyricFocusCascadeTiming: Equatable {
-    let lineTimingsByLineOrder: [LyricFocusCascadeLineTiming]
-    let usesBounce: Bool
+public struct LyricFocusCascadeTiming: Equatable {
+    public let lineTimingsByLineOrder: [LyricFocusCascadeLineTiming]
+    public let usesBounce: Bool
 
-    func lineTiming(for lineOrder: Int) -> LyricFocusCascadeLineTiming {
+    public func lineTiming(for lineOrder: Int) -> LyricFocusCascadeLineTiming {
         guard !lineTimingsByLineOrder.isEmpty else {
             return LyricFocusCascadeLineTiming(delay: 0, duration: 0)
         }
@@ -29,8 +30,8 @@ struct LyricFocusCascadeTiming: Equatable {
     }
 }
 
-enum LyricPlaybackTimeline {
-    static func position(
+public enum LyricPlaybackTimeline {
+    public static func position(
         at playbackTime: TimeInterval,
         in lyrics: [LyricLine]
     ) -> LyricPlaybackPosition {
@@ -160,7 +161,7 @@ enum LyricPlaybackTimeline {
         return target.id
     }
 
-    static func focusAnimationDuration(
+    public static func focusAnimationDuration(
         for highlightedLyricID: LyricLine.ID?,
         in lyrics: [LyricLine]
     ) -> TimeInterval {
@@ -174,7 +175,7 @@ enum LyricPlaybackTimeline {
         return min(max(availableDuration * 0.35, 0.05), 0.3)
     }
 
-    static func focusCascadeAnimationDuration(
+    public static func focusCascadeAnimationDuration(
         baseDuration: TimeInterval,
         preferredDuration: TimeInterval
     ) -> TimeInterval {
@@ -187,7 +188,7 @@ enum LyricPlaybackTimeline {
         return max(duration, configuredDuration)
     }
 
-    static func focusCascadeTiming(
+    public static func focusCascadeTiming(
         maximumLineOrder: Int,
         preferredDelayPerLine: TimeInterval,
         preferredDelayIncreasePerLine: TimeInterval,
@@ -276,7 +277,7 @@ enum LyricPlaybackTimeline {
         )
     }
 
-    static func remainingFocusDuration(
+    public static func remainingFocusDuration(
         for highlightedLyricID: LyricLine.ID?,
         at playbackTime: TimeInterval,
         in lyrics: [LyricLine]
@@ -315,3 +316,4 @@ enum LyricPlaybackTimeline {
         return availableDuration
     }
 }
+#endif

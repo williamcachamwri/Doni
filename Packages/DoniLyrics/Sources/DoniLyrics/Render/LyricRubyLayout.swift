@@ -1,14 +1,15 @@
+#if os(iOS)
 import SwiftUI
 import Support
 
 /// Moves a transliteration run to its mapped logical position without
 /// introducing placeholder whitespace into the attributed string.
-nonisolated struct LyricRubyPlacementTextAttribute:
+public struct LyricRubyPlacementTextAttribute:
     TextAttribute,
     Hashable,
     Sendable
 {
-    let horizontalOffset: CGFloat
+    public let horizontalOffset: CGFloat
 }
 
 /// One visual line of the supplemental transliteration stream.
@@ -16,41 +17,41 @@ nonisolated struct LyricRubyPlacementTextAttribute:
 /// The primary lyric is deliberately not stored here. Apple Music lays the
 /// transliteration out as a separate text line below the primary lyric; the
 /// source text is used only to preserve its mapped width and wrap points.
-struct LyricRubyRow: Identifiable {
-    let id: Int
-    let width: CGFloat
-    let romanizationText: Text
-    let plainRomanizationText: String
-    let romanizationTrailingVisualOverflow: CGFloat
-    let hasTimedContent: Bool
+public struct LyricRubyRow: Identifiable {
+    public let id: Int
+    public let width: CGFloat
+    public let romanizationText: Text
+    public let plainRomanizationText: String
+    public let romanizationTrailingVisualOverflow: CGFloat
+    public let hasTimedContent: Bool
 }
 
 /// A single wrap plan shared by the primary and transliteration streams.
 /// Offsets are expressed in Characters of the original lyric, before any
 /// visual newlines are inserted.
-struct LyricRubyLayoutPlan {
-    let rows: [LyricRubyRow]
+public struct LyricRubyLayoutPlan {
+    public let rows: [LyricRubyRow]
     /// `nil` means a single mapped unit is wider than the viewport, so the
     /// primary text must keep its own Core Text wrapping fallback. An empty
     /// set is a reliable one-line plan and intentionally suppresses extra
     /// automatic breaks in the primary stream.
-    let sourceLineBreakCharacterOffsets: Set<Int>?
+    public let sourceLineBreakCharacterOffsets: Set<Int>?
     /// Horizontal space inserted before a source unit after a wider
     /// transliteration token expands its mapped source range.
-    let sourceHorizontalOffsetsByCharacterOffset: [Int: CGFloat]
+    public let sourceHorizontalOffsetsByCharacterOffset: [Int: CGFloat]
 }
 
-struct LyricRubyPlacementUnit {
-    let lyric: LyricRubyUnit
-    let romanizationOffset: CGFloat
+public struct LyricRubyPlacementUnit {
+    public let lyric: LyricRubyUnit
+    public let romanizationOffset: CGFloat
 }
 
 @MainActor
-enum LyricRubyLayoutPlanner {
+public enum LyricRubyLayoutPlanner {
     private static let cache = LyricRubyLayoutCache()
     private static let stringWidthCache = LyricRubyStringWidthCache()
 
-    static func plan(
+    public static func plan(
         for units: [LyricRubyUnit],
         fontSize: CGFloat,
         romanizationFontSize: CGFloat,
@@ -204,11 +205,11 @@ enum LyricRubyLayoutPlanner {
 }
 
 private struct MeasuredUnit {
-    let lyric: LyricRubyUnit
-    let originalWidth: CGFloat
-    let romanizationWidth: CGFloat
+    public let lyric: LyricRubyUnit
+    public let originalWidth: CGFloat
+    public let romanizationWidth: CGFloat
 
-    var hasRomanization: Bool {
+    public var hasRomanization: Bool {
         romanizationWidth > 0
             && !(lyric.romanizationText ?? "").isEmpty
     }
@@ -219,8 +220,8 @@ private struct MeasuredUnit {
 /// pronunciation token itself starts after the previous pronunciation token;
 /// it is never centered or distributed inside the source range.
 private struct RowBuilder {
-    let id: Int
-    let minimumWordSpacing: CGFloat
+    public let id: Int
+    public let minimumWordSpacing: CGFloat
 
     private(set) var measuredUnits: [MeasuredUnit] = []
     private(set) var placements: [LyricRubyPlacementUnit] = []
@@ -229,7 +230,7 @@ private struct RowBuilder {
     private(set) var naturalRomanizationEnd: CGFloat = 0
     private var hasPlacedRomanization = false
 
-    init(
+    public init(
         id: Int,
         minimumWordSpacing: CGFloat
     ) {
@@ -237,11 +238,11 @@ private struct RowBuilder {
         self.minimumWordSpacing = minimumWordSpacing
     }
 
-    var containsContent: Bool {
+    public var containsContent: Bool {
         !measuredUnits.isEmpty
     }
 
-    var sourceOffsetForNextUnit: CGFloat? {
+    public var sourceOffsetForNextUnit: CGFloat? {
         let naturalSourceWidth = measuredUnits.reduce(CGFloat.zero) {
             $0 + $1.originalWidth
         }
@@ -249,7 +250,7 @@ private struct RowBuilder {
         return offset > 0.001 ? offset : nil
     }
 
-    func canAppend(
+    public func canAppend(
         _ measuredUnit: MeasuredUnit,
         within maximumWidth: CGFloat
     ) -> Bool {
@@ -259,7 +260,7 @@ private struct RowBuilder {
         return candidate.mappedWidth <= maximumWidth
     }
 
-    func fits(within maximumWidth: CGFloat) -> Bool {
+    public func fits(within maximumWidth: CGFloat) -> Bool {
         !maximumWidth.isFinite || mappedWidth <= maximumWidth
     }
 
@@ -300,7 +301,7 @@ private struct RowBuilder {
         }
     }
 
-    func makeRow() -> LyricRubyRow? {
+    public func makeRow() -> LyricRubyRow? {
         guard !placements.isEmpty else { return nil }
 
         return LyricRubyRow(
@@ -332,7 +333,7 @@ private struct RowBuilder {
 
 @MainActor
 private final class LyricRubyStringWidthCache {
-    struct Key: Hashable {
+    public struct Key: Hashable {
         let text: String
         let fontName: String
         let pointSize: CGFloat
@@ -342,7 +343,7 @@ private final class LyricRubyStringWidthCache {
     private var insertionOrder: [Key] = []
     private let capacity = 4_096
 
-    func width(
+    public func width(
         for text: String,
         font: DoniFont
     ) -> CGFloat {
@@ -370,7 +371,7 @@ private final class LyricRubyStringWidthCache {
 
 @MainActor
 private final class LyricRubyLayoutCache {
-    struct Key: Hashable {
+    public struct Key: Hashable {
         let units: [LyricRubyUnit]
         let fontSize: CGFloat
         let romanizationFontSize: CGFloat
@@ -384,11 +385,11 @@ private final class LyricRubyLayoutCache {
     private var insertionOrder: [Key] = []
     private let capacity = 512
 
-    func plan(for key: Key) -> LyricRubyLayoutPlan? {
+    public func plan(for key: Key) -> LyricRubyLayoutPlan? {
         storage[key]
     }
 
-    func insert(
+    public func insert(
         _ plan: LyricRubyLayoutPlan,
         for key: Key
     ) {
@@ -402,3 +403,4 @@ private final class LyricRubyLayoutCache {
         }
     }
 }
+#endif

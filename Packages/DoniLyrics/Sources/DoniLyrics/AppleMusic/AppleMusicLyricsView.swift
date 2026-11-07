@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 import Support
 
@@ -3735,3 +3736,4 @@ private nonisolated struct LyricGeometryMeasurement:
     let frame: CGRect
     let layoutHeight: CGFloat
 }
+#endif

@@ -1,16 +1,17 @@
+#if os(iOS)
 import SwiftUI
 
 /// Reuses the complete text/ruby layout during display-clock updates. Playback,
 /// focus, and interaction values do not participate in this bounded cache.
 @MainActor
-struct SynchronizedLyricTextLayout {
-    let synchronizedText: Text
-    let pseudoSynchronizedText: Text
-    let layoutStableText: Text
-    let hasPseudoSyllables: Bool
-    let timedPlaybackRange: ClosedRange<TimeInterval>?
-    let romanizationRows: [LyricRubyRow]
-    let primaryTrailingVisualOverflow: CGFloat
+public struct SynchronizedLyricTextLayout {
+    public let synchronizedText: Text
+    public let pseudoSynchronizedText: Text
+    public let layoutStableText: Text
+    public let hasPseudoSyllables: Bool
+    public let timedPlaybackRange: ClosedRange<TimeInterval>?
+    public let romanizationRows: [LyricRubyRow]
+    public let primaryTrailingVisualOverflow: CGFloat
 
     private struct Key: Hashable {
         let lineID: LyricLine.ID
@@ -35,7 +36,7 @@ struct SynchronizedLyricTextLayout {
     private static var entries: [Key: Entry] = [:]
     private static let capacity = 256
 
-    static func resolve(
+    public static func resolve(
         line: LyricLine,
         usesPseudoTiming: Bool,
         fontSize: CGFloat,
@@ -188,3 +189,4 @@ struct SynchronizedLyricTextLayout {
         }
     }
 }
+#endif

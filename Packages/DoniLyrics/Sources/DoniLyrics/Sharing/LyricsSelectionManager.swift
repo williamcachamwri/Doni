@@ -3,20 +3,20 @@ import Foundation
 struct LyricsSelectionManager {
     static let defaultCharacterLimit = 150
 
-    enum TapResult: Equatable {
+    public enum TapResult: Equatable {
         case changed
         case requiresReplacement(index: Int)
         case ignored
     }
 
-    enum RowState: Equatable {
+    public enum RowState: Equatable {
         case selected(SelectionPosition)
         case selectable
         case replaceable
         case disabled
     }
 
-    enum SelectionPosition: Equatable {
+    public enum SelectionPosition: Equatable {
         case single
         case first
         case middle

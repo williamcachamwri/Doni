@@ -2,8 +2,8 @@ import Foundation
 
 /// Converts QQ's `text(start,duration)` word layout into the NetEase-style
 /// `(start,duration,metadata)text` layout consumed by `LyricParser`.
-nonisolated enum QRCLyricNormalizer {
-    static func normalize(_ source: String) -> String {
+public enum QRCLyricNormalizer {
+    public static func normalize(_ source: String) -> String {
         source.split(whereSeparator: \.isNewline).compactMap { rawLine in
             normalizeLine(String(rawLine))
         }.joined(separator: "\n")

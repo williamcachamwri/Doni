@@ -1,3 +1,4 @@
+#if os(iOS)
 import CoreGraphics
 import Foundation
 import SwiftUI
@@ -8,8 +9,8 @@ import SwiftUI
 /// staggered animation starts. The final glyph enters just after the first
 /// glyph passes its peak, creating a continuous swell instead of a simultaneous
 /// word-scale pulse.
-enum LyricLongToneEmphasis {
-    struct State {
+public enum LyricLongToneEmphasis {
+    public struct State {
         let isLongTone: Bool
         let envelope: Double
         let expansionAmount: Double
@@ -72,7 +73,7 @@ enum LyricLongToneEmphasis {
         }
     }
 
-    static func state(
+    public static func state(
         playbackTime: TimeInterval,
         timing: LyricTimingTextAttribute,
         detectionMode: LyricsLongSyllableDetectionMode,
@@ -127,7 +128,7 @@ enum LyricLongToneEmphasis {
         )
     }
 
-    static func isLongTone(
+    public static func isLongTone(
         timing: LyricTimingTextAttribute,
         detectionMode: LyricsLongSyllableDetectionMode,
         durationThreshold: TimeInterval
@@ -253,14 +254,14 @@ enum LyricLongToneEmphasis {
 }
 
 private extension LyricLongToneEmphasis {
-    struct TimingGroup {
+    public struct TimingGroup {
         let startTime: TimeInterval
         let endTime: TimeInterval
         let characterIndex: Int
         let characterCount: Int
     }
 
-    enum Metrics {
+    public enum Metrics {
         static let minimumAnimationDuration: TimeInterval = 1
         static let staggerSpanRatio = 0.55
         static let peakProgress = 0.5
@@ -274,3 +275,4 @@ private extension LyricLongToneEmphasis {
         static let maximumGlowAmount = 0.7
     }
 }
+#endif
