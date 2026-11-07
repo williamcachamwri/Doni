@@ -218,6 +218,7 @@ struct Spinner: View {
     let color: Color
     var side: CGFloat = 18
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var turned = false
 
     var body: some View {
@@ -226,11 +227,23 @@ struct Spinner: View {
             .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
             .frame(width: side, height: side)
             .rotationEffect(.degrees(turned ? 360 : 0))
-            .onAppear {
-                withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
-                    turned = true
-                }
-            }
+            .onAppear { spin(scenePhase == .active) }
+            .onChange(of: scenePhase) { _, phase in spin(phase == .active) }
             .accessibilityHidden(true)
+    }
+
+    /// The forever curve never ends by itself, so a spinner still on screen when the app went
+    /// background kept asking for frames. The repeat rides on the change that started it, which means
+    /// an unanimated change is what takes it away.
+    private func spin(_ on: Bool) {
+        if on {
+            withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
+                turned = true
+            }
+        } else {
+            var drop = Transaction()
+            drop.disablesAnimations = true
+            withTransaction(drop) { turned = false }
+        }
     }
 }

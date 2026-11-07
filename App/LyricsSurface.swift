@@ -13,9 +13,15 @@ struct LyricsPage: View {
     let isInterfaceHidden: Bool
     let onInterfaceInteraction: () -> Void
     let onInterfaceVisibilityChange: (Bool) -> Void
+    /// The column redraws its words sixty times a second while they are being sung, and a panel the
+    /// user cannot see does not need that: left running, it is what pushed the app past the 80 %
+    /// background CPU budget and got it killed mid-song (`LyricsRefreshRate.fps60`).
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        LyricsView(player: player, lyrics: lyrics, isInterfaceHidden: isInterfaceHidden,
+        LyricsView(player: player, lyrics: lyrics,
+                   isActive: scenePhase == .active,
+                   isInterfaceHidden: isInterfaceHidden,
                    onInterfaceInteraction: onInterfaceInteraction,
                    onInterfaceVisibilityChange: onInterfaceVisibilityChange)
             // The panel draws the header over this page, so the column only reserves its room: 72 pt
@@ -65,7 +71,13 @@ struct LyricsView: View {
         .onAppear(perform: publish)
         // The reference's clock: it answers from the last position it was told plus the time since.
         // Four ticks a second from Doni's player would stutter under a screen redrawing at sixty.
-        .onChange(of: player.elapsed) { _, seconds in store.progress = seconds }
+        // Written only while the column is being looked at: each write invalidates every line of it,
+        // and behind a dark screen that is four full re-lays of the words a second for nobody.
+        .onChange(of: player.elapsed) { _, seconds in
+            guard isActive else { return }
+            store.progress = seconds
+        }
+        .onChange(of: isActive) { _, live in if live { publish() } }
         .onChange(of: player.isPlaying) { _, playing in
             store.isPlaying = playing
             store.rate = playing ? 1 : 0

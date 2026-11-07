@@ -409,6 +409,8 @@ final class Player: ObservableObject {
         engine?.stop()
         engine = nil
         artworkItem = nil
+        // The lock screen has been emptied above, so nothing it shows is already published.
+        lastPublishedNowPlaying = nil
         current = nil
         queue = []
         source = []
@@ -977,7 +979,7 @@ final class Player: ObservableObject {
             lastPersistedSecond = second
             persist()
         }
-        if isPlaying { publishNowPlaying(elapsed: engine.currentTime) }
+        if isPlaying { publishIfChanged(elapsed: engine.currentTime) }
     }
 
     /// Why the sound stopped: no path out (`offline`), the path is there and Telegram is not sending
@@ -1063,19 +1065,49 @@ final class Player: ObservableObject {
         publishNowPlaying(elapsed: elapsed)
     }
 
+    /// What the lock screen is showing right now. A tuple would not answer `!=` through `Optional`,
+    /// so this is a type of its own rather than a label.
+    private struct NowPlayingSignature: Equatable {
+        let uniqueId: String
+        let line: String?
+        let rate: Double
+        let second: Int
+    }
+
+    private var lastPublishedNowPlaying: NowPlayingSignature?
+
+    /// The tick's own publish: says nothing when the lock screen would show exactly what it already is.
+    ///
+    /// The lock screen runs its clock from `PlaybackRate`, so the position only has to be re-anchored
+    /// when something it shows has moved. Writing the dictionary every quarter-second tick cost one
+    /// cross-process write and one scan of the favourites list four times a second, for a screen nobody
+    /// was looking at; the second is in the signature so the shown time stays true while the writes drop
+    /// to a quarter of what they were.
+    private func publishIfChanged(elapsed: TimeInterval) {
+        guard let track = current else { return }
+        let signature = NowPlayingSignature(uniqueId: track.uniqueId,
+                                            line: sungLine(for: track, at: elapsed),
+                                            rate: isPlaying ? 1 : 0,
+                                            second: Int(elapsed))
+        guard signature != lastPublishedNowPlaying else { return }
+        publishNowPlaying(elapsed: elapsed, track: track)
+    }
+
     private func publishNowPlaying(elapsed: TimeInterval, track: (any Playable)? = nil) {
         let shown = track ?? current
         guard let shown else { return }
+        let line = sungLine(for: shown, at: elapsed)
+        let rate = isPlaying ? 1.0 : 0.0
         var info: [String: Any] = [
             // The line being sung goes in the title slot — MeloX's default now-playing title is the
             // lyric token (`AppSettings.swift:18`). With no words available the song keeps its name.
-            MPMediaItemPropertyTitle: sungLine(for: shown, at: elapsed) ?? shown.displayTitle,
+            MPMediaItemPropertyTitle: line ?? shown.displayTitle,
             MPMediaItemPropertyArtist: Self.byline(title: shown.displayTitle,
                                                    artist: shown.displayPerformer),
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: elapsed,
             // The lock screen runs its own clock from this rate, so 0 is what holds it still.
-            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
+            MPNowPlayingInfoPropertyPlaybackRate: rate
         ]
         if let artwork = artwork(for: shown) {
             info[MPMediaItemPropertyArtwork] = artwork
@@ -1086,6 +1118,8 @@ final class Player: ObservableObject {
         // answer actually moved — read from the list the library publishes, not from the store.
         let on = library.favorites.contains(where: { $0.track.uniqueId == shown.uniqueId })
         if commands.likeCommand.isActive != on { commands.likeCommand.isActive = on }
+        lastPublishedNowPlaying = NowPlayingSignature(uniqueId: shown.uniqueId, line: line,
+                                                      rate: rate, second: Int(elapsed))
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
