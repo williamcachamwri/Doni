@@ -3,7 +3,7 @@
   "platform": "macos",
   "version": "1.0.7",
   "buildNumber": "9010007",
-  "sourceRevision": "ea08717",
+  "sourceRevision": "af55fa8",
   "localizedEntries": {
     "vi": [
       "Lệnh Cmd+Q không còn làm app sụp (SIGABRT trong bộ lập lịch TDLib). Trước đây khi thoát, tiến trình huỷ các luồng trước khi TDLib kịp xác nhận đã đóng cơ sở dữ liệu, nên bộ kiểm tra luồng bị kích hoạt. Nay app đợi tín hiệu \"đã đóng\" từ TDLib trước khi thực sự thoát, với trần 10 giây.",
