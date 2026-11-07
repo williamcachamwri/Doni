@@ -29,6 +29,9 @@ public final class TdClient: @unchecked Sendable {
     private var extraSequence = 0
     private var isStarted = false
     private var isClosed = false
+    /// TDLib's `authorizationStateClosed` has been received. The ClientManager delivers it only after it
+    /// has destroyed the client and joined its scheduler threads, so this flag is what makes `exit()` safe.
+    private var hasConfirmedClose = false
     private let stream: AsyncStream<TdJSON>
     private let yield: AsyncStream<TdJSON>.Continuation
     private let fileStream: AsyncStream<TdJSON>
@@ -97,7 +100,10 @@ public final class TdClient: @unchecked Sendable {
         receiveQueue.async { [self] in
             while !isClosedFlag() {
                 let text = transport.receive(timeout: timeout)
-                if let text, let json = TdJSON.parse(text) { route(json) }
+                if let text, let json = TdJSON.parse(text) {
+                    route(json)
+                    noteClosed(json)
+                }
             }
         }
     }
@@ -158,19 +164,26 @@ public final class TdClient: @unchecked Sendable {
         deleteYield.finish()
     }
 
-    /// Closes the instance and waits until the receive loop is out of TDLib.
+    /// Closes the instance and does not return until TDLib has finished tearing it down.
     ///
-    /// A process that starts running its global destructors while a thread is still inside
-    /// `td_json_client_receive` dies of it: the C++ objects that call reads are torn down underneath the
-    /// reader. A phone never sees this, because an iOS app is killed rather than exited — a Mac answers
-    /// ⌘Q with `exit()`, and `terminate:` does not wait for anybody.
-    ///
-    /// `sync` on the loop's own queue is the join: the queue is busy until the loop's closure returns,
-    /// and the loop returns on the next turn of its condition, which the 0.3-second receive timeout
-    /// bounds.
+    /// Two waits, not one. `sync` on the loop's own queue gets the reader out of `td_receive` (the loop
+    /// returns on its next 0.3-second turn). But `close` only *starts* the teardown: TDLib flushes its
+    /// database on its own threads, and the ClientManager releases the client — joining those threads —
+    /// only inside `receive`, when `authorizationStateClosed` comes back. A process that calls `exit()`
+    /// before that delivery runs TDLib's static destructors mid-close: `ExitGuard` flips, the scheduler
+    /// thread is detached instead of joined, and its destructor CHECK-fails on actors still running —
+    /// `abort()`, the ⌘Q crash dialog. So after the join this thread owns receive (TDLib forbids two
+    /// simultaneous receivers) and drains it until the closed update arrives. The loop may have consumed
+    /// that update in its final turn, hence the flag rather than a drain-only wait. The deadline is the
+    /// escape hatch for a close that never completes; proceeding then is no worse than not waiting.
     public func closeAndJoin() {
         close()
         receiveQueue.sync {}
+        let deadline = Date().addingTimeInterval(10)
+        while !closeConfirmedFlag(), Date() < deadline {
+            guard let text = transport.receive(timeout: 0.3) else { continue }
+            if let json = TdJSON.parse(text) { noteClosed(json) }
+        }
     }
 
     private func nextExtra() -> String {
@@ -184,6 +197,20 @@ public final class TdClient: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return isClosed
+    }
+
+    private func closeConfirmedFlag() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return hasConfirmedClose
+    }
+
+    private func noteClosed(_ json: TdJSON) {
+        guard json.type == "updateAuthorizationState",
+              json["authorization_state"]?.type == "authorizationStateClosed" else { return }
+        lock.lock()
+        hasConfirmedClose = true
+        lock.unlock()
     }
 
     private func route(_ json: TdJSON) {

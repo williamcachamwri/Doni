@@ -279,9 +279,8 @@ final class TelegramSession: ObservableObject {
     }
 
     /// The quit path, and the only reason it is not just `close()`: the process is about to run its
-    /// destructors, so the receive loop has to be *out* of TDLib rather than merely told to leave.
-    /// Everything else the session owns can die with the process; a thread reading freed C++ memory
-    /// cannot.
+    /// destructors, so TDLib has to have finished closing — database flushed, scheduler threads joined —
+    /// rather than merely been told to leave. `closeAndJoin` waits for that confirmation.
     func shutdown() {
         client?.closeAndJoin()
         client = nil
