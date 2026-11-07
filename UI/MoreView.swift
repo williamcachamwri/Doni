@@ -20,15 +20,15 @@ struct MoreView: View {
     var body: some View {
         List {
             NavigationLink(value: MoreDoor.channels) {
-                Label("Kênh", systemImage: "antenna.radiowaves.left.and.right")
-                    .foregroundStyle(MusicTint.accent)
+                doorRow("Kênh", symbol: "antenna.radiowaves.left.and.right")
             }
             NavigationLink(value: MoreDoor.cloud) {
-                Label("Cloud Music", systemImage: "icloud")
-                    .foregroundStyle(MusicTint.accent)
+                doorRow("Cloud Music", symbol: "icloud.fill")
             }
         }
+        .listStyle(.plain)
         .navigationTitle("Thêm")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: MoreDoor.self) { door in
             switch door {
             case .channels:
@@ -38,6 +38,18 @@ struct MoreView: View {
                 CloudMusicView(session: session, player: player, artwork: artwork,
                                library: library)
             }
+        }
+    }
+
+    /// The reference's overflow row: the glyph wears the accent while the title keeps the label colour,
+    /// and the chevron and separator are the system's — not a label painted wholly in the tint.
+    private func doorRow(_ title: String, symbol: String) -> some View {
+        Label {
+            Text(LocalizedStringKey(title))
+                .foregroundStyle(.primary)
+        } icon: {
+            Image(systemName: symbol)
+                .foregroundStyle(MusicTint.accent)
         }
     }
 }
