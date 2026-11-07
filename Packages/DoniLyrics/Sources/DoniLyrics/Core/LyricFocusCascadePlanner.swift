@@ -1,4 +1,3 @@
-#if os(iOS)
 import Foundation
 
 /// Pure timing planner for the editable MeloX focus cascade. A valid plan
@@ -116,4 +115,3 @@ public enum LyricFocusCascadePlanner {
         return sum.isFinite ? sum : .greatestFiniteMagnitude
     }
 }
-#endif

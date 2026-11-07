@@ -15,7 +15,8 @@ import SwiftUI
 /// The reference's own model carries the whole desktop app (library, playback, network).
 /// Only the four members the lyrics column touches are reproduced here, because anything
 /// more would be a second source of truth for something Doni already decides.
-@MainActor
+/// Not `@MainActor`: the view that owns this is a plain struct, and Swift 6 would refuse the call
+/// from its initializer. The references it holds were all made on the main actor anyway.
 @Observable
 public final class DesktopAppModel {
     /// Where the song is, in the reference's own shape: it answers progress from the last
@@ -33,8 +34,8 @@ public final class DesktopAppModel {
     /// letting the outer player chrome observe progress and rebuild every tick.
     public var currentLyricsFocusID: LyricLine.ID?
 
-    /// No default values: a default argument is evaluated off the main actor even for a `@MainActor`
-    /// type, and both `AppSettings` and `PlayerStore` may only be built on it.
+        /// No default values: both `AppSettings` and `PlayerStore` may only be built on the main actor,
+    /// and a default argument is evaluated off it.
     public init(player: PlayerStore,
                 lyrics: DesktopLyricsModel,
                 settings: AppSettings) {
@@ -50,7 +51,6 @@ public final class DesktopAppModel {
 /// both shells already share. This is the shape the column speaks, filled from that one
 /// source — `songID` is Doni's durable track identity, which is what the column uses to
 /// decide the words changed.
-@MainActor
 @Observable
 public final class DesktopLyricsModel {
     public var lyrics: [LyricLine] = []

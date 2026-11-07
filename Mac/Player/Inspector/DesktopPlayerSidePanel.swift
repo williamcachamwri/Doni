@@ -96,7 +96,7 @@ struct DesktopPlayerInspector: View {
     var body: some View {
         Group {
             switch kind {
-            case .lyrics: DesktopLyricsPane(isActive: isActive)
+            case .lyrics: DesktopLyricsPane(isActive: isActive, allowsLyricBlur: false)
             case .queue: DesktopQueuePane()
             }
         }

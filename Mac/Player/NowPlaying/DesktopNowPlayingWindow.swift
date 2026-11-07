@@ -21,12 +21,6 @@ struct DesktopNowPlayingWindow: View {
 
     @State private var page: DesktopInspector = .lyrics
 
-    /// Doni's own, and the one place the port disagrees with the reference: Apple Music puts the sung
-    /// line exactly on the artwork's centre (`DesktopNowPlayingLayout.swift:38-55`), and in a window
-    /// this wide that reads as sitting too high. The line is dropped this fraction of the column's
-    /// height below the artwork — about 36 pt in a 600-pt window, 54 pt in a 900-pt one.
-    private static let focusDrop: CGFloat = 0.06
-
     var body: some View {
         GeometryReader { proxy in
             let layout = DesktopNowPlayingLayout(viewport: proxy.size)
@@ -84,8 +78,7 @@ struct DesktopNowPlayingWindow: View {
             case .lyrics:
                 DesktopLyricsPane(isActive: isActive && isRenderingActive,
                                   compact: false,
-                                  focusAnchorOffset: layout.lyricsFocusAnchorOffset
-                                      + layout.lyricsViewportHeight * Self.focusDrop)
+                                  focusLift: DesktopNowPlayingLayout.lyricsTopPadding)
             case .queue:
                 DesktopQueuePane(presentation: .nowPlaying)
             }

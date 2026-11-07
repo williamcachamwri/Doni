@@ -1,4 +1,3 @@
-#if os(iOS)
 import Foundation
 
 /// The line a song is on, for the surfaces that are not the lyrics screen.
@@ -25,4 +24,3 @@ public enum LyricLineTimeline {
         return lyrics.first { $0.id == id }
     }
 }
-#endif

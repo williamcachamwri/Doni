@@ -1,3 +1,4 @@
+// doni:ios-renderer — the desktop column ships its own AppSettings extension
 #if os(iOS)
 import Foundation
 

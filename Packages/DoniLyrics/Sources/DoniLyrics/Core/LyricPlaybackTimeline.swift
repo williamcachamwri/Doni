@@ -1,4 +1,3 @@
-#if os(iOS)
 import Foundation
 
 public struct LyricPlaybackPosition: Equatable {
@@ -316,4 +315,3 @@ public enum LyricPlaybackTimeline {
         return availableDuration
     }
 }
-#endif

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "platform": "macos",
+  "version": "1.0.6",
+  "buildNumber": "9010006",
+  "sourceRevision": "1589b18",
+  "localizedEntries": {
+    "vi": [
+      "Cài đặt giờ giống iOS: mỗi mục (Giới thiệu, Bộ nhớ, Lời bài hát) mở một trang riêng thay vì nhồi vào một cuộn dài.",
+      "Menu \"Giới thiệu về Doni\" mở thẳng trang Giới thiệu trong Cài đặt.",
+      "Trang Giới thiệu có nút kiểm tra cập nhật riêng cho macOS và nhật ký cập nhật."
+    ],
+    "en": [
+      "Settings now matches iOS: each topic (About, Storage, Lyrics) opens its own page instead of cramming everything into one scroll.",
+      "The \"About Doni\" menu item opens Settings already on the About page.",
+      "The About page has a dedicated update-check button for macOS and a release-notes sheet."
+    ]
+  }
+}

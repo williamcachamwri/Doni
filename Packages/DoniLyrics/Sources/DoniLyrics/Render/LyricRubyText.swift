@@ -1,3 +1,4 @@
+// doni:ios-renderer — the desktop column is DoniLyricsDesktop's own copy
 #if os(iOS)
 import SwiftUI
 
