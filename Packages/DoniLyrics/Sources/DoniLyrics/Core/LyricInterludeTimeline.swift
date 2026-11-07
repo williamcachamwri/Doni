@@ -119,10 +119,17 @@ public enum LyricInterludeTimeline {
         return result
     }
 
-    /// The desktop column asks for every gap it is given, with no detection policy at all, so this
-    /// is its overload rather than a looser default for the phone's call.
+    /// The desktop column's policy, matching MeloXDesktop: only authored YRC
+    /// end times may synthesize a break, and the gap must fit the fill lead-in
+    /// plus cue-out. Every accepted candidate mounts a resident 40-point row,
+    /// so an unfiltered gap list inflates the pitch of every lyric pair.
     public static func interludes(in lyrics: [LyricLine]) -> [LyricInterlude] {
-        candidates(in: lyrics)
+        candidates(in: lyrics).filter { interlude in
+            guard interlude.gapDuration >= minimumAnimatedGapDuration else {
+                return false
+            }
+            return interlude.isPrelude || interlude.timingSource == .precise
+        }
     }
 
     public static func interludes(
@@ -285,7 +292,7 @@ public enum LyricInterludeTimeline {
 }
 
 private extension LyricLineTimingKind {
-    public var interludeTimingSource: LyricInterludeTimingSource {
+    var interludeTimingSource: LyricInterludeTimingSource {
         switch self {
         case .precise:
             .precise

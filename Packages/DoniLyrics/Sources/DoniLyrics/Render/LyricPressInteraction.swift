@@ -216,7 +216,7 @@ private struct LyricPressBackgroundProgressKey: EnvironmentKey {
 }
 
 private extension EnvironmentValues {
-    public var lyricPressBackgroundProgress: Double {
+    var lyricPressBackgroundProgress: Double {
         get { self[LyricPressBackgroundProgressKey.self] }
         set { self[LyricPressBackgroundProgressKey.self] = newValue }
     }
