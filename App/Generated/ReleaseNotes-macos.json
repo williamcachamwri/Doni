@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "platform": "macos",
-  "version": "1.0.6",
-  "buildNumber": "9010006",
-  "sourceRevision": "1589b18",
+  "version": "1.0.7",
+  "buildNumber": "9010007",
+  "sourceRevision": "ea08717",
   "localizedEntries": {
     "vi": [
-      "Cài đặt giờ giống iOS: mỗi mục (Giới thiệu, Bộ nhớ, Lời bài hát) mở một trang riêng thay vì nhồi vào một cuộn dài.",
-      "Menu \"Giới thiệu về Doni\" mở thẳng trang Giới thiệu trong Cài đặt.",
-      "Trang Giới thiệu có nút kiểm tra cập nhật riêng cho macOS và nhật ký cập nhật."
+      "Lệnh Cmd+Q không còn làm app sụp (SIGABRT trong bộ lập lịch TDLib). Trước đây khi thoát, tiến trình huỷ các luồng trước khi TDLib kịp xác nhận đã đóng cơ sở dữ liệu, nên bộ kiểm tra luồng bị kích hoạt. Nay app đợi tín hiệu \"đã đóng\" từ TDLib trước khi thực sự thoát, với trần 10 giây.",
+      "Lời bài hát trên desktop giờ vẽ từ renderer riêng của desktop (DoniLyricsDesktop), không còn dùng chung renderer của iOS. Khoảng cách giữa các dòng cũng được sửa cho khớp với tham chiếu.",
+      "Có thể chọn nguồn lời bài hát mặc định (NetEase, QQ, LRCLIB) trong Cài đặt. Bộ chuyển đổi nguồn cho từng bài đã bị xoá vì thừa — một menu đã liệt kê đủ lựa chọn thì không cần thêm công tắc bật/tắt từng cái."
     ],
     "en": [
-      "Settings now matches iOS: each topic (About, Storage, Lyrics) opens its own page instead of cramming everything into one scroll.",
-      "The \"About Doni\" menu item opens Settings already on the About page.",
-      "The About page has a dedicated update-check button for macOS and a release-notes sheet."
+      "Cmd+Q no longer crashes the app (SIGABRT in the TDLib scheduler). Previously, the process destroyed its threads before TDLib could confirm the database was closed, triggering a thread assertion. The app now waits for TDLib's \"closed\" signal before exiting, with a 10-second ceiling.",
+      "Desktop lyrics now draw from a dedicated desktop renderer (DoniLyricsDesktop) instead of reusing the iOS renderer. The vertical spacing between lines has also been fixed to match the reference.",
+      "You can now choose the default lyrics source (NetEase, QQ, LRCLIB) in Settings. The per-source toggles have been removed — redundant, since a menu that already lists every choice does not need individual on/off switches for each one."
     ]
   }
 }
