@@ -1,4 +1,5 @@
 import SwiftUI
+import DoniLyrics
 import Support
 import TelegramDesignSystem
 import TdSession
@@ -32,6 +33,7 @@ struct SettingsView: View {
     @State private var barExtra = DoniTabPlacement.barExtra
     @Environment(\.dismiss) private var dismiss
     @State private var needsRestart = false
+    @Bindable private var lyricsSettings = Lyrics.settings
 
     var body: some View {
         ScrollView {
@@ -47,6 +49,10 @@ struct SettingsView: View {
                         divider
                         tabRow
                     }
+                }
+
+                if showsLyricsCard {
+                    lyricsSourceSection
                 }
 
                 // The reference puts the version, the update check and the licences behind one row at
@@ -93,7 +99,7 @@ struct SettingsView: View {
                     }
                 }
 
-                if !showsAccount && lines.isEmpty && !showsChannels && !showsAppCard {
+                if !showsAccount && lines.isEmpty && !showsChannels && !showsAppCard && !showsLyricsCard {
                     ContentUnavailableView("Không tìm thấy", systemImage: "magnifyingglass",
                                            description: Text("Thử từ khoá khác."))
                         .frame(maxWidth: .infinity)
@@ -436,6 +442,65 @@ struct SettingsView: View {
         .padding(.vertical, MusicSettingsMetrics.rowPaddingV)
         .frame(minHeight: MusicSettingsMetrics.rowMinHeight)
         .contentShape(.rect)
+    }
+
+    // MARK: Lyrics sources
+
+    /// The source card with its footnote close under it, one element in the screen's 32 pt stack so the
+    /// footnote does not drift a whole section away from the switches it explains.
+    private var lyricsSourceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            card("Nguồn lời") {
+                sourcePickerRow
+            }
+            Text("Chọn một nguồn thì chỉ dùng nguồn đó. Tự động hỏi tất cả nguồn rồi chọn theo thứ tự: AMLL TTML, NetEase YRC, QQ QRC, NetEase LRC, LRCLIB, QQ LRC. NetEase luôn được hỏi vì AMLL tra theo ID bài hát của NetEase.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, MusicSettingsMetrics.headerPadding)
+        }
+    }
+
+    /// The default source, chosen from the system menu the language row already wears. A named choice
+    /// uses only that source; automatic ranks the enabled ones.
+    private var sourcePickerRow: some View {
+        HStack(spacing: MusicSettingsMetrics.rowIconGap) {
+            Image(systemName: "arrow.triangle.branch")
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.tint)
+                .frame(width: MusicSettingsMetrics.rowIconWidth)
+            Text("Nguồn lời mặc định")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.primary)
+            Spacer(minLength: 8)
+            Picker("Nguồn lời mặc định", selection: $lyricsSettings.lyricsSourcePreference) {
+                ForEach(LyricSourcePreference.allCases) { preference in
+                    sourceLabel(preference).tag(preference)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .tint(.secondary)
+        }
+        .padding(.horizontal, MusicSettingsMetrics.rowPaddingH)
+        .padding(.vertical, MusicSettingsMetrics.rowPaddingV)
+        .frame(minHeight: MusicSettingsMetrics.rowMinHeight)
+        .contentShape(.rect)
+    }
+
+    private func sourceLabel(_ preference: LyricSourcePreference) -> Text {
+        switch preference {
+        case .automatic: return Text("Tự động")
+        case .amll: return Text("AMLL TTML")
+        case .netease: return Text("NetEase")
+        case .qqMusic: return Text("QQ Music")
+        case .lrclib: return Text("LRCLIB")
+        }
+    }
+
+    private var showsLyricsCard: Bool {
+        SettingsSearch.matches(searchText, in: ["nguồn lời", "lời bài hát", "lyrics", "source",
+                                                "amll", "netease", "qq", "lrclib"])
     }
 
     // MARK: What is on the phone

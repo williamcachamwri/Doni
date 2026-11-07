@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Support
 
 /// The lyrics half of the reference's settings object, lifted out with its defaults,
 /// its UserDefaults keys and its clamps intact. Each of those numbers is what the copied
@@ -28,6 +29,7 @@ public final class AppSettings {
             static let lyricsWordByWord = "lyricsWordByWord"
             static let lyricsPseudoWordByWord = "lyricsPseudoWordByWord"
             static let lyricsDuetLayoutEnabled = "lyricsDuetLayoutEnabled"
+            static let lyricsSourcePreference = "lyricsSourcePreference"
             static let lyricsLiftMode = "lyricsLiftMode"
             static let lyricsHighlightGradientWidth =
                 "lyricsHighlightGradientWidth"
@@ -183,6 +185,8 @@ public final class AppSettings {
 
     public static let defaultLyricsLiftMode: LyricsLiftMode = .character
 
+    public static let defaultLyricsSourcePreference: LyricSourcePreference = .automatic
+
     public static let defaultLyricsLongSyllableDetectionMode:
         LyricsLongSyllableDetectionMode = .character
 
@@ -306,6 +310,12 @@ public final class AppSettings {
                 forKey: Key.lyricsDuetLayoutEnabled
             )
         }
+    }
+
+    /// Which source the words come from. `automatic` asks every source and ranks by quality; a named
+    /// one uses only itself. NetEase is always asked because AMLL keys off its song ID.
+    public var lyricsSourcePreference: LyricSourcePreference {
+        didSet { defaults.set(lyricsSourcePreference.rawValue, forKey: Key.lyricsSourcePreference) }
     }
 
     public var lyricsLiftMode: LyricsLiftMode {
@@ -709,6 +719,9 @@ public final class AppSettings {
         lyricsDuetLayoutEnabled = defaults.object(
             forKey: Key.lyricsDuetLayoutEnabled
         ) as? Bool ?? true
+        lyricsSourcePreference = LyricSourcePreference(
+            rawValue: defaults.string(forKey: Key.lyricsSourcePreference) ?? ""
+        ) ?? Self.defaultLyricsSourcePreference
         lyricsLiftMode = LyricsLiftMode(
             rawValue: defaults.string(forKey: Key.lyricsLiftMode) ?? ""
         ) ?? Self.defaultLyricsLiftMode

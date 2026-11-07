@@ -1,4 +1,5 @@
 import AppKit
+import DoniLyrics
 import Support
 import SwiftUI
 import TdSession
@@ -448,6 +449,34 @@ struct DesktopLyricsRows: View {
         guard abs(seconds) >= 0.05 else { return localized("0 giây") }
         let magnitude = abs(seconds).formatted(.number.precision(.fractionLength(1)))
         return localized(seconds < 0 ? "-%@ giây" : "+%@ giây", magnitude)
+    }
+}
+
+/// Where the words may come from: one picker. A named choice uses only that source; automatic asks
+/// every source and ranks by quality. NetEase is always asked because AMLL keys off its song ID.
+struct DesktopLyricsSourceRows: View {
+    @Bindable private var settings = Lyrics.settings
+
+    var body: some View {
+        SettingsRow(symbol: "arrow.triangle.branch", title: "Nguồn lời mặc định") {
+            Picker("Nguồn lời mặc định", selection: $settings.lyricsSourcePreference) {
+                ForEach(LyricSourcePreference.allCases) { preference in
+                    label(preference).tag(preference)
+                }
+            }
+            .labelsHidden()
+            .fixedSize()
+        }
+    }
+
+    private func label(_ preference: LyricSourcePreference) -> Text {
+        switch preference {
+        case .automatic: return Text("Tự động")
+        case .amll: return Text("AMLL TTML")
+        case .netease: return Text("NetEase")
+        case .qqMusic: return Text("QQ Music")
+        case .lrclib: return Text("LRCLIB")
+        }
     }
 }
 

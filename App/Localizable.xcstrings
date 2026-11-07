@@ -3221,6 +3221,41 @@
         }
       }
     },
+    "Chọn một nguồn thì chỉ dùng nguồn đó. Tự động hỏi tất cả nguồn rồi chọn theo thứ tự: AMLL TTML, NetEase YRC, QQ QRC, NetEase LRC, LRCLIB, QQ LRC. NetEase luôn được hỏi vì AMLL tra theo ID bài hát của NetEase.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اختيار مصدر يعني استخدام ذلك المصدر فقط. يستعلم الوضع التلقائي جميع المصادر ثم يختار بالترتيب: AMLL TTML، NetEase YRC، QQ QRC، NetEase LRC، LRCLIB، QQ LRC. يُستعلم NetEase دائمًا لأن AMLL يبحث بمعرّف أغنية NetEase."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al elegir una fuente, solo se usa esa. El modo automático consulta todas las fuentes y elige en este orden: AMLL TTML, NetEase YRC, QQ QRC, NetEase LRC, LRCLIB, QQ LRC. NetEase siempre se consulta porque AMLL busca por el ID de canción de NetEase."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir une source n'utilise que celle-ci. Le mode automatique interroge toutes les sources puis choisit dans cet ordre : AMLL TTML, NetEase YRC, QQ QRC, NetEase LRC, LRCLIB, QQ LRC. NetEase est toujours interrogé car AMLL cherche par l'ID de chanson NetEase."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "При выборе источника используется только он. Автоматический режим опрашивает все источники и выбирает в порядке: AMLL TTML, NetEase YRC, QQ QRC, NetEase LRC, LRCLIB, QQ LRC. NetEase опрашивается всегда, потому что AMLL ищет по ID песни NetEase."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择某个来源后仅使用该来源。自动模式会询问所有来源，并按以下顺序优选：AMLL TTML、NetEase YRC、QQ QRC、NetEase LRC、LRCLIB、QQ LRC。NetEase 始终会被询问，因为 AMLL 按 NetEase 歌曲 ID 查找。"
+          }
+        }
+      }
+    },
     "Chọn từ danh sách trò chuyện Telegram, hoặc dán link kênh, nhóm, bot, chat riêng.": {
       "extractionState": "manual",
       "localizations": {
@@ -7771,6 +7806,76 @@
         }
       }
     },
+    "Nguồn lời": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مصدر الكلمات"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuente de letras"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source des paroles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Источник текстов"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌词来源"
+          }
+        }
+      }
+    },
+    "Nguồn lời mặc định": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مصدر الكلمات الافتراضي"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuente de letras predeterminada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source de paroles par défaut"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Источник текстов по умолчанию"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认歌词来源"
+          }
+        }
+      }
+    },
     "Nguồn nhạc": {
       "extractionState": "manual",
       "localizations": {
@@ -11757,6 +11862,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自：%@"
+          }
+        }
+      }
+    },
+    "Tự động": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تلقائي"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatique"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动"
           }
         }
       }

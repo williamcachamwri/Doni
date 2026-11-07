@@ -2,7 +2,8 @@ import Foundation
 
 public enum LyricsSources {
     public static func fetch(metadata: LyricSongMetadata,
-                             session: URLSession = .shared) async -> LyricsFetchOutcome {
+                             session: URLSession = .shared,
+                             preference: LyricSourcePreference = .automatic) async -> LyricsFetchOutcome {
         let query = LyricQuery(artist: metadata.artist, title: metadata.title,
                                duration: metadata.durationSeconds)
         var amllTTML: String?
@@ -12,16 +13,20 @@ public enum LyricsSources {
         var failed = false
 
         await withTaskGroup(of: ProviderResult.self) { group in
-            group.addTask {
-                guard let value = await LRClib.fetch(query, session: session) else {
-                    return .lrclibFailed
+            if preference.usesLRCLIB {
+                group.addTask {
+                    guard let value = await LRClib.fetch(query, session: session) else {
+                        return .lrclibFailed
+                    }
+                    return .lrclib(value)
                 }
-                return .lrclib(value)
             }
+            // NetEase is always asked: it is the backbone AMLL keys off, and it carries the
+            // pure-music flag every preference falls back to.
             group.addTask {
                 do {
                     let result = try await NetEaseLyricsClient(session: session)
-                        .lyrics(for: metadata)
+                        .lyrics(for: metadata, includesAMLL: preference.usesAMLL)
                     return .netEase(result.payload, result.amllTTML)
                 } catch let error as LyricSourceError {
                     if case .noLyrics = error { return .netEaseMissing }
@@ -30,15 +35,17 @@ public enum LyricsSources {
                     return .netEaseFailed
                 }
             }
-            group.addTask {
-                do {
-                    return .qq(try await QQMusicLyricsClient(session: session)
-                        .lyrics(for: metadata))
-                } catch let error as LyricSourceError {
-                    if case .noLyrics = error { return .qqMissing }
-                    return .qqFailed
-                } catch {
-                    return .qqFailed
+            if preference.usesQQ {
+                group.addTask {
+                    do {
+                        return .qq(try await QQMusicLyricsClient(session: session)
+                            .lyrics(for: metadata))
+                    } catch let error as LyricSourceError {
+                        if case .noLyrics = error { return .qqMissing }
+                        return .qqFailed
+                    } catch {
+                        return .qqFailed
+                    }
                 }
             }
 

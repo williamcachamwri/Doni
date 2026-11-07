@@ -7,6 +7,24 @@ public enum LyricSource: String, Hashable, Sendable, Codable {
     case lrclib
 }
 
+/// Which source the words should come from, after MeloX's `LyricSourcePreference`: `automatic` asks
+/// every source and ranks by quality, while a named source uses only that one. Doni adds `lrclib` to
+/// the reference's three because it keeps LRCLIB in the chain. NetEase is always queried, since AMLL
+/// is keyed by its song ID.
+public enum LyricSourcePreference: String, CaseIterable, Identifiable, Hashable, Sendable, Codable {
+    case automatic
+    case amll
+    case netease
+    case qqMusic
+    case lrclib
+
+    public var id: String { rawValue }
+
+    public var usesAMLL: Bool { self == .automatic || self == .amll }
+    public var usesQQ: Bool { self == .automatic || self == .qqMusic }
+    public var usesLRCLIB: Bool { self == .automatic || self == .lrclib }
+}
+
 public struct LyricSongMetadata: Hashable, Sendable {
     public let title: String
     public let artist: String

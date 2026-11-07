@@ -132,8 +132,19 @@ struct DesktopStoragePage: View {
 struct DesktopLyricsPage: View {
     var body: some View {
         ScrollView {
-            SettingsCard(title: nil) {
-                DesktopLyricsRows()
+            VStack(alignment: .leading, spacing: 22) {
+                SettingsCard(title: "Nguồn lời") {
+                    DesktopLyricsSourceRows()
+                }
+
+                Text("Chọn một nguồn thì chỉ dùng nguồn đó. Tự động hỏi tất cả nguồn rồi chọn theo thứ tự: AMLL TTML, NetEase YRC, QQ QRC, NetEase LRC, LRCLIB, QQ LRC. NetEase luôn được hỏi vì AMLL tra theo ID bài hát của NetEase.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                SettingsCard(title: nil) {
+                    DesktopLyricsRows()
+                }
             }
             .padding(24)
             .frame(maxWidth: 560, alignment: .leading)

@@ -54,9 +54,28 @@ final class Lyrics: ObservableObject {
 
     private var task: Task<Void, Never>?
     private let prefs = LyricsPreferences.shared
+    /// The song last asked about, kept so a change to the source choices can ask it again under the
+    /// new configuration rather than waiting for the next track.
+    private var currentTrack: (any Playable)?
 
     private init() {
         Self.settleCacheRevision()
+        observeSourceSettings()
+    }
+
+    /// The source preference decides which question is asked, so a change to it re-asks the current
+    /// song. The cache key carries the preference (see `cacheKey`), so the reload reads past the old
+    /// answer instead of handing back words the new choice disallows.
+    private func observeSourceSettings() {
+        withObservationTracking {
+            _ = Self.settings.lyricsSourcePreference
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.observeSourceSettings()
+                if let track = self.currentTrack { self.load(track) }
+            }
+        }
     }
 
     /// A miss is only worth remembering while the pipeline that missed it is the one that would be asked
@@ -84,7 +103,9 @@ final class Lyrics: ObservableObject {
 
     /// The words for one song, from wherever they can come cheapest.
     func load(_ track: any Playable) {
-        let song = Self.cacheKey(track)
+        currentTrack = track
+        let preference = Self.settings.lyricsSourcePreference
+        let song = Self.cacheKey(track, preference: preference)
         // Asked and answered already, or being asked: a redraw must not start a second lookup for the song
         // it is already showing.
         guard song != key else { return }
@@ -108,7 +129,8 @@ final class Lyrics: ObservableObject {
             let duration = Double(track.duration ?? 0)
             let outcome = await LyricsSources.fetch(
                 metadata: Self.metadata(track),
-                session: .shared
+                session: .shared,
+                preference: preference
             )
             guard !Task.isCancelled, self.key == song else { return }
             switch outcome {
@@ -125,7 +147,8 @@ final class Lyrics: ObservableObject {
                 isLoading = false
                 apply(.lrclib(.none), track: track)
             case .sources(let sources):
-                guard let payload = LyricsResolver.resolve(sources, duration: duration) else {
+                guard let payload = LyricsResolver.resolve(sources, duration: duration,
+                                                           preference: preference) else {
                     // A miss is only worth keeping when the question was complete. A document post
                     // carries no length (`td_api.tl:594`) and every source filters its candidates by
                     // plus-or-minus seconds, so a query built with 0 asks about a different song than
@@ -168,8 +191,11 @@ final class Lyrics: ObservableObject {
 
     /// The words kept under the song's own `file_unique_id` — the only id that means the same file in two
     /// databases. The row number does not survive a rebuild, and a cache keyed by it hands one song another
-    /// song's words.
-    private static func cacheKey(_ track: any Playable) -> String { track.uniqueId }
+    /// song's words. The source preference rides along so a different choice asks its own question;
+    /// automatic keeps the bare id, so words found before the setting existed are still read.
+    private static func cacheKey(_ track: any Playable, preference: LyricSourcePreference) -> String {
+        preference == .automatic ? track.uniqueId : track.uniqueId + "|" + preference.rawValue
+    }
 
     private static func metadata(_ track: any Playable) -> LyricSongMetadata {
         LyricSongMetadata(title: track.displayTitle, artist: track.displayPerformer,

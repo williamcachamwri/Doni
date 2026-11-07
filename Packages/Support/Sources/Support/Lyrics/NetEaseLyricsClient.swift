@@ -9,7 +9,7 @@ struct NetEaseLyricsClient: Sendable {
         self.session = session
     }
 
-    func lyrics(for metadata: LyricSongMetadata) async throws
+    func lyrics(for metadata: LyricSongMetadata, includesAMLL: Bool = true) async throws
     -> (payload: NetEaseLyricPayload, amllTTML: String?) {
         guard let candidate = try await candidate(for: metadata) else {
             throw LyricSourceError.noLyrics
@@ -19,10 +19,14 @@ struct NetEaseLyricsClient: Sendable {
             album: candidate.album, durationSeconds: candidate.durationSeconds
         )
         async let payload = lyric(id: candidate.id)
-        async let ttml = AMLLLyricsClient(session: session).lyrics(
-            songID: candidate.id,
-            metadata: candidateMetadata
-        )
+        // AMLL is keyed by the NetEase song ID, so it rides along with this lookup — but only when the
+        // source is allowed, otherwise the request is never sent.
+        async let ttml: String? = includesAMLL
+            ? AMLLLyricsClient(session: session).lyrics(
+                songID: candidate.id,
+                metadata: candidateMetadata
+            )
+            : nil
         return try await (payload, ttml)
     }
 

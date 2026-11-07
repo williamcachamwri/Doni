@@ -90,6 +90,7 @@ NOT_TRANSLATED = {
     "cloud chưa tải chờ download telegram", "dung lượng bộ nhớ cache storage disk",
     "kênh channel nhạc", "ngôn ngữ", "thư viện nhạc bài hát index", "tài khoản",
     "tải offline file", "hồ sơ", "đăng xuất", "Tình yêu", "n bài",
+    "nguồn lời", "lời bài hát",
     # A language's own name is written in its own script — that is the whole idea behind the
     # picker, and transliterating it would make the list unreadable to the one reader who needs it.
     "Tiếng Việt", "Español", "Français", "Русский", "简体中文", "العربية",
